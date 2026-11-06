@@ -10,12 +10,295 @@
   <link rel="stylesheet" href="css/style.css?v=35">
   <link rel="stylesheet" href="css/admin-crud.css?v=4">
   <style>
-    /* ── BADGES — admin.html-specific states, not shared by Team/Attribute Lists ── */
-    .badge-role-admin  { background: #ede9fe; color: #5b21b6; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
-    .badge-role-sysadmin { background: #fee2e2; color: #991b1b; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
-    .badge-role-user   { background: #e0f2fe; color: #0369a1; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
-    .badge-st-pending  { background: #fef9c3; color: #854d0e; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
-    .badge-st-disabled { background: #f3f4f6; color: #9ca3af; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
+    /* ── Page head ── */
+    .ph-actions .ph-btn-primary { gap: var(--space-2); }
+
+    /* ── Banner ── */
+    .ua-banner {
+      display: flex; align-items: flex-start; gap: var(--space-3);
+      padding: var(--space-3) var(--space-4); margin-bottom: var(--space-3);
+      border-radius: 10px; font-size: var(--text-sm);
+    }
+    .ua-banner--success { background: var(--status-started-soft-bg); color: var(--color-success-text); }
+    .ua-banner--error { background: var(--status-at-risk-soft-bg); color: var(--color-danger-text); }
+    .ua-banner > .pd-icon, .ua-banner > ua-icon { flex: none; margin-top: 2px; }
+    .ua-banner-body { flex: 1 1 auto; min-width: 0; }
+    .ua-banner-body strong { font-weight: var(--weight-bold); margin-right: var(--space-1); }
+    .ua-banner-close {
+      flex: none; border: 0; background: transparent; color: inherit; padding: 2px; border-radius: var(--radius-sm);
+      display: inline-flex; cursor: pointer; opacity: .8;
+    }
+    .ua-banner-close:hover { opacity: 1; }
+    .ua-banner-close:focus-visible { outline: 2px solid currentColor; outline-offset: 1px; }
+
+    /* ── Card and toolbar ── */
+    .ua-card {
+      background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-lg);
+    }
+    .ua-toolbar {
+      display: flex; align-items: center; flex-wrap: wrap; gap: var(--space-3);
+      padding: var(--space-3) var(--space-4);
+    }
+    .ua-count { font-size: var(--text-2xs); font-weight: var(--weight-semibold); color: var(--text-muted); }
+    .md-seg-btn.active .ua-count { color: var(--brand-magenta); }
+    .ua-role {
+      position: relative; display: inline-flex; align-items: center; height: 36px;
+      border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--surface-white);
+      color: var(--text-muted); font-size: var(--text-sm);
+    }
+    .ua-role > span { padding-left: var(--space-3); pointer-events: none; }
+    .ua-role select {
+      appearance: none; -webkit-appearance: none; border: 0; background: transparent; height: 100%;
+      padding: 0 var(--space-6) 0 var(--space-1); font-size: var(--text-sm); font-weight: var(--weight-semibold);
+      color: var(--brand-navy); cursor: pointer; border-radius: var(--radius-md);
+    }
+    .ua-role select:focus-visible { outline: 2px solid var(--brand-navy); outline-offset: 1px; }
+    .ua-role > .pd-icon { position: absolute; right: var(--space-2); pointer-events: none; color: var(--text-muted); }
+    .ua-search { position: relative; margin-left: auto; width: 240px; max-width: 100%; }
+    .ua-search > .pd-icon { position: absolute; left: var(--space-3); top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
+    .ua-search input {
+      width: 100%; height: 36px; padding: 0 var(--space-3) 0 34px;
+      border: 1px solid var(--border-light); border-radius: var(--radius-md);
+      font-size: var(--text-sm); color: var(--text-primary); background: var(--surface-white);
+    }
+    .ua-search input:focus { outline: none; border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
+
+    /* ── Table ── */
+    .ua-table { width: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+    .ua-table th {
+      background: var(--surface-light); border-top: 1px solid var(--border-light); border-bottom: 1px solid var(--border-light);
+      padding: 0 var(--space-4); height: 34px; text-align: left; white-space: nowrap;
+      font-size: var(--text-2xs); font-weight: var(--weight-bold); letter-spacing: .06em; text-transform: uppercase;
+      color: var(--text-muted);
+    }
+    .ua-th {
+      display: inline-flex; align-items: center; gap: var(--space-1); border: 0; background: transparent; padding: 0;
+      font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; cursor: pointer;
+    }
+    .ua-th:hover { color: var(--brand-navy); }
+    .ua-th:focus-visible { outline: 2px solid var(--brand-navy); outline-offset: 2px; border-radius: var(--radius-sm); }
+    .ua-sort { opacity: .5; }
+    .ua-th--on { color: var(--brand-navy); }
+    .ua-th--on .ua-sort { opacity: 1; }
+    .ua-table td { padding: var(--space-2) var(--space-4); height: 58px; vertical-align: middle; border-bottom: 1px solid var(--border-light); }
+    .ua-table tbody tr:hover td { background: var(--surface-light); }
+    .ua-row--self td { background: var(--surface-light); }
+    .ua-row--self td:first-child { box-shadow: inset 3px 0 0 var(--brand-magenta); }
+    .ua-row--busy td { opacity: .7; }
+    .ua-muted { color: var(--text-muted); }
+    .ua-name { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+    .ua-avatar {
+      flex: none; width: 30px; height: 30px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+      background: var(--surface-subtle); color: var(--text-secondary);
+      font-size: var(--text-2xs); font-weight: var(--weight-bold); border: 1px solid var(--border-light);
+    }
+    .ua-avatar--self { background: var(--brand-navy); color: var(--text-inverse); border-color: var(--brand-navy); }
+    .ua-avatar--anon { background: transparent; border: 1px dashed var(--border-dark); color: var(--text-muted); }
+    .ua-name-text { min-width: 0; }
+    .ua-name-line { font-weight: var(--weight-semibold); color: var(--brand-navy); display: flex; align-items: center; gap: var(--space-2); }
+    .ua-name-line--anon { font-style: italic; font-weight: var(--weight-medium); color: var(--text-muted); }
+    .ua-email { font-size: 11.5px; color: var(--text-muted); overflow-wrap: anywhere; }
+    .ua-you {
+      font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .05em; padding: 1px 6px;
+      border-radius: var(--radius-sm); background: var(--brand-magenta-tint); color: var(--brand-navy);
+    }
+
+    /* ── Badges ── */
+    .ua-badge {
+      display: inline-flex; align-items: center; gap: 6px; height: 22px; padding: 0 var(--space-2);
+      border-radius: 999px; font-size: 11.5px; font-weight: var(--weight-semibold); white-space: nowrap;
+    }
+    .ua-badge--user { background: var(--surface-subtle); color: var(--status-not-started-soft-text); }
+    .ua-badge--admin { background: var(--status-completed-soft-bg); color: var(--status-completed-soft-text); }
+    .ua-badge--sysadmin { background: var(--brand-navy); color: var(--text-inverse); }
+    .ua-badge--active { background: var(--status-started-soft-bg); color: var(--status-started-soft-text); }
+    .ua-badge--pending { background: var(--status-on-hold-soft-bg); color: var(--status-on-hold-soft-text); }
+    .ua-badge--disabled { background: var(--status-not-started-soft-bg); color: var(--status-not-started-soft-text); }
+    .ua-badge--anon { background: transparent; border: 1px dashed var(--border-dark); color: var(--text-secondary); }
+    .ua-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+    .ua-dot--active { background: var(--color-success); }
+    .ua-dot--pending { background: var(--brand-gold); }
+    .ua-dot--disabled { background: var(--border-dark); }
+    .ua-status-cell { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+
+    /* ── Row actions ── */
+    .ua-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-2); }
+    .ua-btn {
+      height: 30px; padding: 0 var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-md);
+      background: var(--surface-white); color: var(--brand-navy);
+      font-size: 12.5px; font-weight: var(--weight-semibold); white-space: nowrap; cursor: pointer;
+    }
+    .ua-btn:hover:not(:disabled) { border-color: var(--brand-navy); }
+    .ua-btn:disabled { color: var(--text-disabled); cursor: not-allowed; }
+    .ua-btn:focus-visible { outline: 2px solid var(--brand-navy); outline-offset: 1px; }
+    .ua-note { display: inline-flex; align-items: center; gap: var(--space-1); font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
+
+    .ua-busy { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
+    .ua-busy .spinner-border { --bs-spinner-width: 14px; --bs-spinner-height: 14px; --bs-spinner-border-width: 2px; }
+    .ua-busy:empty { display: none; }
+    .ua-table th:last-child, .ua-table td:last-child { width: 200px; }
+    .ua-btn-more { width: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+
+    /* ── Row menu (popover inside the actions cell; no ancestor up to the card clips it) ── */
+    .ua-menu-wrap { position: relative; display: inline-block; }
+    .ua-menu {
+      position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: 268px; text-align: left;
+      background: var(--surface-white); border: 1px solid var(--border-light); border-radius: 10px;
+      box-shadow: var(--shadow-xl); padding: var(--space-1) 0;
+    }
+    .ua-menu--up { top: auto; bottom: calc(100% + 6px); }
+    .ua-menu-group + .ua-menu-group { border-top: 1px solid var(--border-light); margin-top: var(--space-1); padding-top: var(--space-1); }
+    .ua-menu-label {
+      padding: var(--space-2) var(--space-3) var(--space-1); font-size: 10px; font-weight: var(--weight-bold);
+      letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted);
+    }
+    .ua-mi {
+      display: flex; align-items: flex-start; gap: var(--space-3); width: calc(100% - 2 * var(--space-1)); margin: 0 var(--space-1);
+      padding: var(--space-2); border: 0; border-radius: var(--radius-md); background: transparent; text-align: left; cursor: pointer;
+      color: var(--brand-navy);
+    }
+    .ua-mi:hover, .ua-mi:focus-visible { background: var(--surface-light); outline: none; }
+    .ua-mi:focus-visible { box-shadow: inset 0 0 0 2px var(--brand-navy); }
+    .ua-mi-icon { flex: none; margin-top: 1px; display: inline-flex; }
+    .ua-mi-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .ua-mi-head { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+    .ua-mi-desc { font-size: 11px; line-height: 1.35; color: var(--text-muted); font-weight: var(--weight-regular); }
+    .ua-mi--off { color: var(--text-muted); cursor: not-allowed; }
+    .ua-mi--off:hover { background: transparent; }
+    .ua-mi--danger:not(.ua-mi--off) { color: var(--color-danger-text); }
+    .ua-tag {
+      font-size: 9px; font-weight: var(--weight-bold); letter-spacing: .05em; padding: 1px 6px; border-radius: var(--radius-sm);
+    }
+    .ua-tag--navy { background: var(--brand-navy); color: var(--text-inverse); }
+    .ua-tag--danger { background: var(--status-at-risk-soft-bg); color: var(--color-danger-text); }
+
+    /* ── Confirmation modals ── */
+    .modal-backdrop, .offcanvas-backdrop { --bs-backdrop-bg: var(--overlay-scrim); --bs-backdrop-opacity: 1; }
+    #disableModal, #anonymizeModal { --bs-modal-width: 460px; --bs-modal-border-radius: 12px; }
+    .ua-confirm { padding: var(--space-5); }
+    .ua-confirm-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
+    .ua-confirm-icon {
+      flex: none; width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+      background: var(--surface-subtle); color: var(--text-secondary);
+    }
+    .ua-confirm-icon--danger { background: var(--status-at-risk-soft-bg); color: var(--color-danger-text); }
+    .ua-confirm-title { flex: 1 1 auto; margin: 0; font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--brand-navy); overflow-wrap: anywhere; }
+    .ua-confirm-text { margin: 0 0 var(--space-3); font-size: var(--text-sm); color: var(--text-secondary); }
+    .ua-confirm-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-bottom: var(--space-3); }
+    .ua-confirm-box { background: var(--surface-light); border-radius: var(--radius-md); padding: var(--space-3); font-size: 12.5px; color: var(--text-secondary); overflow-wrap: anywhere; }
+    .ua-confirm-box > div + div { margin-top: var(--space-1); }
+    .ua-confirm-box-title { font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+    .ua-confirm-box-title--danger { color: var(--color-danger-text); }
+    .ua-confirm-box-title--ok { color: var(--color-success-text); }
+    .ua-confirm-ack { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-4); font-size: var(--text-sm); color: var(--text-primary); cursor: pointer; }
+    .ua-confirm-foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); }
+    .ua-btn-text { border: 0; background: transparent; padding: 0 var(--space-3); height: 36px; color: var(--text-secondary); font-size: var(--text-sm); font-weight: var(--weight-semibold); cursor: pointer; }
+    .ua-btn-text:hover { color: var(--brand-navy); }
+
+    /* ── Invite drawer ── */
+    .ua-drawer { --bs-offcanvas-width: 480px; --bs-offcanvas-bg: var(--surface-white); }
+    .ua-drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); padding: var(--space-5) var(--space-5) var(--space-4); border-bottom: 1px solid var(--border-light); }
+    .ua-eyebrow { font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .08em; color: var(--text-muted); }
+    .ua-drawer-title { margin: var(--space-1) 0 var(--space-1); font-size: 19px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+    .ua-drawer-sub { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
+    .ua-drawer-form { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+    .ua-drawer-body { flex: 1 1 auto; overflow-y: auto; padding: var(--space-5); display: flex; flex-direction: column; gap: var(--space-4); }
+    .ua-drawer-foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); padding: var(--space-3) var(--space-5); border-top: 1px solid var(--border-light); background: var(--surface-white); }
+    .ua-drawer-hint { margin: 0; font-size: 12.5px; color: var(--text-muted); }
+    .ua-fields { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+    .ua-fields-wide { grid-column: 1 / -1; }
+    .ua-roles { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+    .ua-roles legend { grid-column: 1 / -1; float: none; width: auto; }
+    .ua-radio { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-md); cursor: pointer; }
+    .ua-radio input { margin-top: 3px; accent-color: var(--brand-navy); }
+    .ua-radio > span { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--text-muted); }
+    .ua-radio strong { font-size: var(--text-sm); color: var(--brand-navy); }
+    .ua-radio--on { border-color: var(--brand-navy); background: var(--surface-light); }
+    .ua-radio:focus-within { box-shadow: 0 0 0 3px var(--focus-ring); }
+    .ua-sent { display: flex; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--status-started-soft-bg); color: var(--color-success-text); font-size: var(--text-sm); }
+    .ua-sent p { margin: var(--space-1) 0 0; }
+    .ua-sent-icon { flex: none; width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--surface-white); }
+
+    /* ── Footer ── */
+    .ua-foot {
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2);
+      padding: var(--space-3) var(--space-4); font-size: 12.5px; color: var(--text-muted);
+    }
+    .ua-foot-rule { display: inline-flex; align-items: center; gap: var(--space-1); }
+
+    /* ── Page states ── */
+    .ua-state { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-2); padding: 64px var(--space-4); color: var(--text-muted); }
+    .ua-state-icon {
+      width: 48px; height: 48px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+      background: var(--surface-subtle); color: var(--text-muted);
+    }
+    .ua-state-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--brand-navy); margin: 0; }
+    .ua-state p { margin: 0; font-size: var(--text-sm); }
+    .ua-spinner-lg { --bs-spinner-width: 28px; --bs-spinner-height: 28px; --bs-spinner-border-width: 3px; }
+    .ua-btn-outline {
+      height: 36px; padding: 0 var(--space-4); border: 1px solid var(--border-dark); border-radius: var(--radius-md);
+      background: var(--surface-white); color: var(--brand-navy); font-size: var(--text-sm); font-weight: var(--weight-semibold); cursor: pointer;
+    }
+    .ua-btn-outline:hover { border-color: var(--brand-navy); }
+    .ua-btn-navy {
+      display: inline-flex; align-items: center; height: 36px; padding: 0 var(--space-4); border: 0; border-radius: var(--radius-md);
+      background: var(--brand-navy); color: var(--text-inverse); font-size: var(--text-sm); font-weight: var(--weight-semibold);
+      text-decoration: none; cursor: pointer;
+    }
+    .ua-btn-navy:hover { color: var(--text-inverse); opacity: .9; }
+    .ua-denied { max-width: 440px; margin: 80px auto; }
+
+    /* ── Compact rows, card list, bottom sheet ── */
+    .ua-compact-line { display: none; font-size: 10.5px; }
+    .ua-cards { display: flex; flex-direction: column; }
+    .ua-cardrow { display: flex; flex-direction: column; gap: var(--space-2); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--border-light); }
+    .ua-cardrow-top { display: flex; align-items: flex-start; gap: var(--space-3); }
+    .ua-cardrow-top .ua-name-text { flex: 1 1 auto; }
+    .ua-cardrow-badges { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+    .ua-cardrow-foot .ua-btn { width: 100%; }
+    .ua-cardrow.ua-row--self { background: var(--surface-light); box-shadow: inset 3px 0 0 var(--brand-magenta); }
+    .ua-cardrow.ua-row--busy { opacity: .7; }
+    .ua-sheet-scrim { position: fixed; inset: 0; z-index: 1060; background: var(--overlay-scrim); display: flex; align-items: flex-end; }
+    .ua-sheet { width: 100%; max-height: 85vh; overflow-y: auto; background: var(--surface-white); border-radius: 16px 16px 0 0; padding: var(--space-3) var(--space-2) var(--space-4); }
+    .ua-sheet-head { display: flex; flex-direction: column; gap: 2px; padding: var(--space-2) var(--space-3) var(--space-3); color: var(--brand-navy); }
+    .ua-sheet-head span { font-size: 12.5px; color: var(--text-muted); }
+    .ua-sheet .ua-mi { min-height: 48px; align-items: center; }
+    .ua-sheet-cancel { display: block; width: calc(100% - 2 * var(--space-3)); margin: var(--space-2) var(--space-3) 0; height: 44px; border: 1px solid var(--border-dark); border-radius: var(--radius-md); background: var(--surface-white); color: var(--brand-navy); font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+
+    /* ── Tablet: compact columns, 40px controls ── */
+    @media (max-width: 1279.98px) {
+      .ph-side { width: auto; }
+      .ua-col-wide { display: none; }
+      .ua-compact-line { display: block; color: var(--text-muted); }
+      .ua-btn, .ua-search input, .ua-role, .md-seg-btn { height: 40px; }
+      .ua-btn-more { width: 40px; }
+      .ua-search { flex: 1 1 200px; width: auto; }
+    }
+
+    /* ── Phone: card list, 44px controls, full-screen drawer ── */
+    @media (max-width: 767.98px) {
+      .ph { flex-direction: row; align-items: center; flex-wrap: nowrap; }
+      .ph-sub { display: block; }
+      .ph-main { flex: 1 1 0; }
+      .ph-side { width: auto; }
+      .ua-drawer-foot > button { flex: 1 1 0; }
+      .ua-drawer-foot .ua-btn-text { border: 1px solid var(--border-dark); border-radius: var(--radius-md); }
+      .ph-actions .ph-btn-primary { height: 44px; }
+      .ua-toolbar { padding: var(--space-3); }
+      .ua-search { order: -1; flex: 1 1 100%; margin-left: 0; }
+      .ua-search input, .ua-role, .ua-btn, .md-seg-btn, .ua-btn-text, .ua-btn-navy, .ua-sheet-cancel { height: 44px; }
+      .ua-btn-more { width: 44px; }
+      .md-seg { display: flex; width: 100%; overflow-x: auto; }
+      .ua-role { width: 100%; }
+      .ua-role select { flex: 1 1 auto; }
+      .ua-drawer { --bs-offcanvas-width: 100vw; }
+      .ua-fields, .ua-roles { grid-template-columns: 1fr; }
+      .ua-drawer .form-control, .ua-drawer .ph-btn-primary { height: 44px; }
+      .ua-confirm { padding: var(--space-4); }
+      #disableModal, #anonymizeModal { --bs-modal-margin: 16px; }
+      #disableModal .modal-dialog, #anonymizeModal .modal-dialog { max-width: none; }
+      .ua-confirm-foot .btn, .ua-confirm-foot .ua-btn-navy, .ua-confirm-foot .ua-btn-text { height: 44px; }
+    }
   </style>
 </head>
 <body>
@@ -27,177 +310,361 @@
 
   <div id="app" v-cloak>
 
+    <!-- ── ACCESS DENIED ───────────────────────────────────── -->
+    <div v-if="accessDenied" class="ua-card ua-denied">
+      <div class="ua-state">
+        <span class="ua-state-icon"><ph-icon name="lock" :size="24"></ph-icon></span>
+        <h2 class="ua-state-title">Admin access required</h2>
+        <p>User management is available to admins and sysadmins. Ask an admin if you need access.</p>
+        <a href="/" class="ua-btn-navy mt-2">Go to app</a>
+      </div>
+    </div>
+
     <!-- ── PAGE ──────────────────────────────────────────── -->
-    <template v-if="ready">
+    <template v-else-if="authed">
     <div class="ph">
       <div class="ph-main">
         <div class="ph-title-row"><h1 class="ph-title">Users</h1></div>
-        <div class="ph-sub">{{ users.length }} {{ users.length === 1 ? 'user' : 'users' }}</div>
+        <div class="ph-sub">{{ subtitle }}</div>
       </div>
       <div class="ph-side"><div class="ph-actions">
-        <button class="ph-btn-primary" @click="openInvite">+ Invite user</button>
+        <button class="ph-btn-primary" @click="openInvite"><ph-icon name="plus" :size="14"></ph-icon>{{ isPhone ? 'Invite' : 'Invite user' }}</button>
       </div></div>
     </div>
 
     <div class="page app-container">
 
-      <!-- Global error -->
-      <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
-      <div v-if="globalSuccess" class="alert alert-success alert-sm mb-3">{{ globalSuccess }}</div>
-
-      <!-- ── USERS ──────────────────────────────────────────── -->
-
-      <!-- Filters -->
-      <div class="d-flex gap-2 mb-3 mt-2">
-        <button v-for="f in filters" :key="f.val"
-                class="btn btn-sm"
-                :class="filter === f.val ? 'btn-dark' : 'btn-outline-secondary'"
-                @click="filter = f.val">
-          {{ f.label }}
-        </button>
+      <!-- Banner -->
+      <div v-if="banner && banner.kind === 'success'" class="ua-banner ua-banner--success" role="status">
+        <ph-icon name="check" :size="16"></ph-icon>
+        <div class="ua-banner-body"><strong>{{ banner.title }}</strong>{{ banner.text }}</div>
+        <button class="ua-banner-close" aria-label="Dismiss" @click="clearBanner"><ph-icon name="close" :size="14"></ph-icon></button>
+      </div>
+      <div v-else-if="banner && banner.kind === 'error'" class="ua-banner ua-banner--error" role="alert">
+        <ph-icon name="warning" :size="16"></ph-icon>
+        <div class="ua-banner-body"><strong>{{ banner.title }}</strong>{{ banner.text }}</div>
+        <button class="ua-banner-close" aria-label="Dismiss" @click="clearBanner"><ph-icon name="close" :size="14"></ph-icon></button>
       </div>
 
-      <!-- Table -->
-      <div class="card">
-        <div class="card-body">
-          <table class="table table-hover" v-if="filteredUsers.length">
+      <div class="ua-card">
+        <!-- Toolbar -->
+        <div class="ua-toolbar">
+          <div class="md-seg" role="group" aria-label="Filter by status">
+            <button v-for="f in filters" :key="f.val" type="button" class="md-seg-btn"
+                    :class="{ active: filter.status === f.val }" @click="filter.status = f.val">
+              {{ f.label }}<span v-if="!loading" class="ua-count">{{ counts[f.val] }}</span>
+            </button>
+          </div>
+          <label class="ua-role">
+            <span>Role</span>
+            <select v-model="filter.role" aria-label="Filter by role">
+              <option value="all">All</option>
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+              <option value="sysadmin">Sysadmin</option>
+            </select>
+            <ph-icon name="chevron-down" :size="14"></ph-icon>
+          </label>
+          <div class="ua-search">
+            <ph-icon name="search" :size="14"></ph-icon>
+            <input v-model="filter.search" type="search" placeholder="Search name or email…" aria-label="Search name or email">
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div v-if="loading" class="ua-state">
+          <div class="spinner-border ua-spinner-lg" role="presentation"></div>
+          <p>Loading users…</p>
+        </div>
+
+        <!-- Table -->
+        <template v-else-if="visibleUsers.length">
+          <table v-if="!isPhone" class="ua-table">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Role</th>
-                <th>Status</th>
-                <th>Invited by</th>
-                <th>Joined</th>
+                <th v-for="c in headCols" :key="c.key" :aria-sort="c.plain ? null : ariaSort(c.key)" :class="{ 'ua-col-wide': c.wide }">
+                  <template v-if="c.plain">{{ c.label }}</template>
+                  <button v-else type="button" class="ua-th" :class="{ 'ua-th--on': sort.key === c.key }" @click="toggleSort(c.key)">
+                    {{ c.label }}<span class="ua-sort" aria-hidden="true">{{ sortGlyph(c.key) }}</span>
+                  </button>
+                </th>
                 <th></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="u in filteredUsers" :key="u.id">
-                <td class="fw-semibold">{{ u.first_name }} {{ u.last_name }}</td>
-                <td class="text-muted">{{ u.email }}</td>
-                <td><span :class="'badge-role-' + u.role">{{ u.role }}</span></td>
-                <td><span :class="'badge-st-' + u.status">{{ u.status }}</span></td>
-                <td class="text-muted">{{ u.invited_by_name || '—' }}</td>
-                <td class="text-muted">{{ fmtDate(u.created_at) }}</td>
-                <td class="text-end" style="white-space:nowrap">
-                  <template v-if="u.id !== me.id">
-                    <!-- Toggle role (user <-> admin only — sysadmin rows are managed by the dedicated toggle below) -->
-                    <button v-if="u.role !== 'sysadmin'"
-                            class="btn btn-outline-secondary btn-action me-1"
-                            :disabled="!!u._loading"
-                            @click="toggleRole(u)">
-                      Make {{ u.role === 'admin' ? 'user' : 'admin' }}
-                    </button>
-                    <!-- Grant/Revoke sysadmin — only a sysadmin viewer can touch this, and only on an admin/sysadmin row -->
-                    <button v-if="me.role === 'sysadmin' && u.role !== 'user'"
-                            class="btn btn-outline-danger btn-action me-1"
-                            :disabled="!!u._loading"
-                            @click="toggleSysAdmin(u)">
-                      {{ u.role === 'sysadmin' ? '⬇ Revoke sysadmin' : '⬆ Grant sysadmin' }}
-                    </button>
-                    <!-- Resend invite — pending users only -->
-                    <button v-if="u.status === 'pending'"
-                            class="btn btn-outline-secondary btn-action me-1"
-                            :disabled="!!u._loading"
-                            @click="resendInvite(u)"
-                            title="Send a fresh activation link, valid for another 48 hours">
-                      ✉️ Resend invite
-                    </button>
-                    <!-- Disable / Enable + Anonymize — a sysadmin row is only actionable by a sysadmin viewer -->
-                    <template v-if="canModifyUser(u)">
-                      <button v-if="u.status !== 'disabled'"
-                              class="btn btn-outline-danger btn-action"
-                              :disabled="!!u._loading"
-                              @click="setStatus(u, 'disabled')">
-                        Disable
-                      </button>
-                      <button v-else
-                              class="btn btn-outline-secondary btn-action"
-                              :disabled="!!u._loading"
-                              @click="setStatus(u, 'active')">
-                        Enable
-                      </button>
-                      <!-- Anonymize — only for disabled, non-anonymized users -->
-                      <button v-if="u.status === 'disabled' && !u.email.startsWith('anon_')"
-                              class="btn btn-outline-danger btn-action ms-1"
-                              :disabled="!!u._loading"
-                              @click="confirmAnonymize(u)"
-                              title="Permanently replace personal data with anonymous values">
-                        🗑 Anonymize
-                      </button>
+              <tr v-for="u in visibleUsers" :key="u.id" :class="rowClass(u)">
+                <td>
+                  <div class="ua-name">
+                    <span class="ua-avatar" :class="avatarClass(u)">{{ initials(u) }}</span>
+                    <div class="ua-name-text">
+                      <div class="ua-name-line" :class="{ 'ua-name-line--anon': isAnon(u) }">
+                        {{ displayName(u) }}<span v-if="kind(u) === 'self'" class="ua-you">YOU</span>
+                      </div>
+                      <div class="ua-email">{{ u.email }}</div>
+                      <div class="ua-compact-line">Joined {{ fmtDate(u.created_at) }}<template v-if="u.invited_by_name"> · by {{ u.invited_by_name }}</template></div>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="ua-badge" :class="'ua-badge--' + u.role">
+                    <ua-icon v-if="u.role === 'sysadmin'" name="shield" :size="10"></ua-icon>{{ u.role }}
+                  </span>
+                </td>
+                <td>
+                  <div class="ua-status-cell">
+                    <span class="ua-badge" :class="'ua-badge--' + u.status"><span class="ua-dot" :class="'ua-dot--' + u.status"></span>{{ u.status }}</span>
+                    <span v-if="isAnon(u)" class="ua-badge ua-badge--anon">anonymized</span>
+                  </div>
+                </td>
+                <td class="ua-muted ua-col-wide">{{ u.invited_by_name || '—' }}</td>
+                <td class="ua-muted ua-col-wide">{{ fmtDate(u.created_at) }}</td>
+                <td>
+                  <div class="ua-actions">
+                    <span v-if="kind(u) === 'self'" class="ua-note" :title="notes.self">
+                      <ph-icon name="info" :size="14"></ph-icon>Your account<span class="visually-hidden">. {{ notes.self }}</span>
+                    </span>
+                    <span v-else-if="kind(u) === 'locked'" class="ua-note" :title="notes.locked">
+                      <ph-icon name="lock" :size="14"></ph-icon>Sysadmin only<span class="visually-hidden">. {{ notes.locked }}</span>
+                    </span>
+                    <span v-else-if="kind(u) === 'anonymized'" class="ua-note" :title="notes.anonymized">
+                      <ph-icon name="info" :size="14"></ph-icon>No actions<span class="visually-hidden">. {{ notes.anonymized }}</span>
+                    </span>
+                    <template v-else>
+                      <div class="ua-busy" aria-live="polite"><template v-if="u._loading || u._sending"><span class="spinner-border spinner-border-sm" role="presentation"></span>{{ u._sending ? 'Sending…' : 'Updating…' }}</template></div>
+                      <template v-if="!u._loading && !u._sending">
+                        <button v-if="primary(u) === 'resend'" type="button" class="ua-btn" @click="resendInvite(u)">Resend invite</button>
+                        <button v-else-if="primary(u) === 'enable'" type="button" class="ua-btn" @click="setStatus(u, 'active')">Enable</button>
+                        <div class="ua-menu-wrap">
+                          <button type="button" class="ua-btn ua-btn-more ua-menu-trigger" aria-haspopup="menu"
+                                  :aria-expanded="menu && menu.userId === u.id ? 'true' : 'false'"
+                                  :aria-label="'Actions for ' + displayName(u)" @click="openMenu(u, $event)">
+                            <ph-icon name="more" :size="16"></ph-icon>
+                          </button>
+                          <div v-if="menu && menu.userId === u.id" class="ua-menu" :class="{ 'ua-menu--up': menu.up }" role="menu"
+                               :aria-label="'Actions for ' + displayName(u)" @keydown="onMenuKey">
+                            <div v-for="g in menuFor(u)" :key="g.group" class="ua-menu-group" role="group" :aria-label="g.label">
+                              <div class="ua-menu-label" aria-hidden="true">{{ g.label }}</div>
+                              <button v-for="it in g.items" :key="it.id" type="button" role="menuitem" tabindex="-1" class="ua-mi"
+                                      :class="{ 'ua-mi--off': !it.enabled, 'ua-mi--danger': it.danger }"
+                                      :aria-disabled="it.enabled ? null : 'true'" @click="runItem(u, it.id)">
+                                <span class="ua-mi-icon"><component :is="menuIcon(it.icon)" :name="it.icon" :size="16"></component></span>
+                                <span class="ua-mi-text">
+                                  <span class="ua-mi-head">{{ it.label }}<span v-if="it.tag" class="ua-tag" :class="it.danger ? 'ua-tag--danger' : 'ua-tag--navy'">{{ it.tag }}</span></span>
+                                  <span class="ua-mi-desc">{{ it.enabled ? it.desc : it.reason }}</span>
+                                </span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </template>
                     </template>
-                    <span v-if="u.email.startsWith('anon_')"
-                          class="badge ms-1"
-                          style="background:#f3f4f6;color:#6b7280;font-size:.7rem">anonymized</span>
-                  </template>
-                  <span v-else class="text-muted small">you</span>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
-          <div class="empty" v-else>No users match the selected filter.</div>
+          <div v-else class="ua-cards">
+            <div v-for="u in visibleUsers" :key="u.id" class="ua-cardrow" :class="rowClass(u)">
+              <div class="ua-cardrow-top">
+                <span class="ua-avatar" :class="avatarClass(u)">{{ initials(u) }}</span>
+                <div class="ua-name-text">
+                  <div class="ua-name-line" :class="{ 'ua-name-line--anon': isAnon(u) }">
+                    {{ displayName(u) }}<span v-if="kind(u) === 'self'" class="ua-you">YOU</span>
+                  </div>
+                  <div class="ua-email">{{ u.email }}</div>
+                </div>
+                <button v-if="kind(u) === 'normal' && !u._loading && !u._sending" type="button" class="ua-btn ua-btn-more ua-menu-trigger" aria-haspopup="menu"
+                        :aria-expanded="menu && menu.userId === u.id ? 'true' : 'false'"
+                        :aria-label="'Actions for ' + displayName(u)" @click="openMenu(u, $event)">
+                  <ph-icon name="more" :size="16"></ph-icon>
+                </button>
+              </div>
+              <div class="ua-cardrow-badges">
+                <span class="ua-badge" :class="'ua-badge--' + u.role"><ua-icon v-if="u.role === 'sysadmin'" name="shield" :size="10"></ua-icon>{{ u.role }}</span>
+                <span class="ua-badge" :class="'ua-badge--' + u.status"><span class="ua-dot" :class="'ua-dot--' + u.status"></span>{{ u.status }}</span>
+                <span v-if="isAnon(u)" class="ua-badge ua-badge--anon">anonymized</span>
+              </div>
+              <div class="ua-cardrow-foot">
+                <span v-if="kind(u) === 'self'" class="ua-note" :title="notes.self"><ph-icon name="info" :size="14"></ph-icon>Your account<span class="visually-hidden">. {{ notes.self }}</span></span>
+                <span v-else-if="kind(u) === 'locked'" class="ua-note" :title="notes.locked"><ph-icon name="lock" :size="14"></ph-icon>Sysadmin only<span class="visually-hidden">. {{ notes.locked }}</span></span>
+                <span v-else-if="kind(u) === 'anonymized'" class="ua-note" :title="notes.anonymized"><ph-icon name="info" :size="14"></ph-icon>No actions<span class="visually-hidden">. {{ notes.anonymized }}</span></span>
+                <template v-else>
+                  <div class="ua-busy" aria-live="polite"><template v-if="u._loading || u._sending"><span class="spinner-border spinner-border-sm" role="presentation"></span>{{ u._sending ? 'Sending…' : 'Updating…' }}</template></div>
+                  <template v-if="!u._loading && !u._sending">
+                    <button v-if="primary(u) === 'resend'" type="button" class="ua-btn" @click="resendInvite(u)">Resend invite</button>
+                    <button v-else-if="primary(u) === 'enable'" type="button" class="ua-btn" @click="setStatus(u, 'active')">Enable</button>
+                  </template>
+                </template>
+              </div>
+            </div>
+          </div>
+          <div class="ua-foot">
+            <span>Showing {{ visibleUsers.length }} of {{ users.length }}</span>
+            <span class="ua-foot-rule">
+              <ua-icon name="shield" :size="14"></ua-icon>{{ footerRule }}
+            </span>
+          </div>
+        </template>
+
+        <!-- No results -->
+        <div v-else class="ua-state">
+          <span class="ua-state-icon"><ph-icon name="search" :size="20"></ph-icon></span>
+          <p class="ua-state-title">No users match the selected filter.</p>
+          <p>{{ summary }}</p>
+          <button type="button" class="ua-btn-outline mt-2" @click="clearFilters">Clear filters</button>
         </div>
       </div>
     </div>
     </template>
 
-    <!-- Loading state -->
-    <div v-else-if="!accessDenied" class="d-flex align-items-center justify-content-center" style="height:60vh">
-      <div class="spinner-border text-secondary"></div>
-    </div>
-    <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
-      <div class="text-center text-muted">
-        <div style="font-size:2rem">🔒</div>
-        <p class="mt-2">Admin access required.</p>
-        <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
+    <!-- ── CHECKING THE SESSION ─────────────────────────────── -->
+    <div v-else class="ua-state" role="status"><span class="spinner-border" aria-hidden="true"></span><span class="visually-hidden">Loading…</span></div>
+
+    <!-- ── PHONE ACTION SHEET ──────────────────────────────── -->
+    <div v-if="menu && isPhone && menuUser" class="ua-sheet-scrim" @click.self="closeMenu(true)">
+      <div class="ua-sheet" role="menu" :aria-label="'Actions for ' + displayName(menuUser)" @keydown="onMenuKey">
+        <div class="ua-sheet-head"><strong>{{ displayName(menuUser) }}</strong><span>{{ menuUser.role }} · {{ menuUser.status }}</span></div>
+        <div v-for="g in menuFor(menuUser)" :key="g.group" class="ua-menu-group" role="group" :aria-label="g.label">
+          <div class="ua-menu-label" aria-hidden="true">{{ g.label }}</div>
+          <button v-for="it in g.items" :key="it.id" type="button" role="menuitem" tabindex="-1" class="ua-mi"
+                  :class="{ 'ua-mi--off': !it.enabled, 'ua-mi--danger': it.danger }"
+                  :aria-disabled="it.enabled ? null : 'true'" @click="runItem(menuUser, it.id)">
+            <span class="ua-mi-icon"><component :is="menuIcon(it.icon)" :name="it.icon" :size="16"></component></span>
+            <span class="ua-mi-text">
+              <span class="ua-mi-head">{{ it.label }}<span v-if="it.tag" class="ua-tag" :class="it.danger ? 'ua-tag--danger' : 'ua-tag--navy'">{{ it.tag }}</span></span>
+              <span class="ua-mi-desc">{{ it.enabled ? it.desc : it.reason }}</span>
+            </span>
+          </button>
+        </div>
+        <button type="button" class="ua-sheet-cancel" @click="closeMenu(true)">Cancel</button>
       </div>
     </div>
 
-    <!-- ── INVITE MODAL ────────────────────────────────────── -->
-    <div class="modal fade" id="inviteModal" tabindex="-1">
+    <!-- ── DISABLE CONFIRMATION ────────────────────────────── -->
+    <div class="modal fade" id="disableModal" tabindex="-1" aria-labelledby="disableTitle" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-          <div class="modal-header border-0 pb-0">
-            <h5 class="modal-title fw-bold">Invite user</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <form @submit.prevent="submitInvite" novalidate>
-            <div class="modal-body">
-              <div v-if="invite.error" class="alert alert-danger alert-sm mb-3">{{ invite.error }}</div>
-              <div v-if="invite.success" class="alert alert-success alert-sm mb-3">{{ invite.success }}</div>
-              <div class="row g-3">
-                <div class="col-6">
-                  <label class="form-label">First name</label>
-                  <input v-model="invite.firstName" type="text" class="form-control" required :disabled="!!invite.success">
-                </div>
-                <div class="col-6">
-                  <label class="form-label">Last name</label>
-                  <input v-model="invite.lastName" type="text" class="form-control" required :disabled="!!invite.success">
-                </div>
-                <div class="col-12">
-                  <label class="form-label">Email</label>
-                  <input v-model="invite.email" type="email" class="form-control" required :disabled="!!invite.success">
-                </div>
-                <div class="col-12">
-                  <label class="form-label">Role</label>
-                  <select v-model="invite.role" class="form-select" :disabled="!!invite.success">
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </div>
+          <div class="ua-confirm">
+            <div class="ua-confirm-head">
+              <span class="ua-confirm-icon"><ua-icon name="power" :size="16"></ua-icon></span>
+              <h2 class="ua-confirm-title" id="disableTitle">Disable {{ confirmName }}?</h2>
+            </div>
+            <p class="ua-confirm-text">They can't sign in until an admin enables the account again. A session that's already open stays valid until it expires (up to 8 hours).</p>
+            <div class="ua-confirm-boxes">
+              <div class="ua-confirm-box">
+                <div class="ua-confirm-box-title">Stops</div>
+                <div>Sign-in</div>
+                <div>Being picked for shares and notifications</div>
+              </div>
+              <div class="ua-confirm-box">
+                <div class="ua-confirm-box-title">Stays as it is</div>
+                <div>Role ({{ confirmTarget ? confirmTarget.role : '' }})</div>
+                <div>All data they created</div>
               </div>
             </div>
-            <div class="modal-footer border-0 pt-0">
-              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-              <button type="submit" class="btn btn-primary" :disabled="invite.loading || !!invite.success">
-                <span v-if="invite.loading" class="spinner-border spinner-border-sm me-2"></span>
-                Send invite
-              </button>
+            <div class="ua-confirm-foot">
+              <button type="button" class="ua-btn-text" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="ua-btn-navy" @click="confirmDisable">Disable user</button>
             </div>
-          </form>
+          </div>
         </div>
       </div>
+    </div>
+
+    <!-- ── ANONYMIZE CONFIRMATION ──────────────────────────── -->
+    <div class="modal fade" id="anonymizeModal" tabindex="-1" aria-labelledby="anonymizeTitle" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="ua-confirm">
+            <div class="ua-confirm-head">
+              <span class="ua-confirm-icon ua-confirm-icon--danger"><ph-icon name="trash" :size="16"></ph-icon></span>
+              <h2 class="ua-confirm-title" id="anonymizeTitle">Anonymize {{ confirmName }}?</h2>
+              <span class="ua-tag ua-tag--danger">IRREVERSIBLE</span>
+            </div>
+            <p class="ua-confirm-text">Their name and email are replaced with anonymous values. The account stays disabled and can't be restored.</p>
+            <div class="ua-confirm-boxes">
+              <div class="ua-confirm-box">
+                <div class="ua-confirm-box-title ua-confirm-box-title--danger">Removed for good</div>
+                <div>{{ confirmName }}</div>
+                <div>{{ confirmTarget ? confirmTarget.email : '' }}</div>
+              </div>
+              <div class="ua-confirm-box">
+                <div class="ua-confirm-box-title ua-confirm-box-title--ok">Kept</div>
+                <div>Proposals and projects</div>
+                <div>Cost grids they created</div>
+              </div>
+            </div>
+            <label class="ua-confirm-ack"><input type="checkbox" v-model="anonAck">I understand this can't be undone.</label>
+            <div class="ua-confirm-foot">
+              <button type="button" class="ua-btn-text" id="anonymizeCancel" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-danger" :disabled="!anonAck" @click="confirmAnonymize">Anonymize user</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── INVITE DRAWER ───────────────────────────────────── -->
+    <div class="offcanvas offcanvas-end ua-drawer" tabindex="-1" id="inviteDrawer" aria-labelledby="inviteTitle">
+      <div class="ua-drawer-head">
+        <div>
+          <div class="ua-eyebrow">USER ADMIN</div>
+          <h2 class="ua-drawer-title" id="inviteTitle">Invite user</h2>
+          <p class="ua-drawer-sub">They'll get an email with an activation link, valid for 48 hours.</p>
+        </div>
+        <button type="button" class="ua-banner-close" data-bs-dismiss="offcanvas" aria-label="Close"><ph-icon name="close" :size="16"></ph-icon></button>
+      </div>
+      <form class="ua-drawer-form" @submit.prevent="submitInvite" novalidate>
+        <div class="ua-drawer-body">
+          <div v-if="invite.sentTo" class="ua-sent" role="status">
+            <span class="ua-sent-icon"><ph-icon name="check" :size="20"></ph-icon></span>
+            <div>
+              <strong>Invite sent to {{ invite.sentTo }}</strong>
+              <p>{{ invite.sentName }} appears in the list as pending until they activate the account. You can resend the invite from their row.</p>
+            </div>
+          </div>
+          <template v-else>
+            <div v-if="invite.error" class="ua-banner ua-banner--error" role="alert">
+              <ph-icon name="warning" :size="16"></ph-icon>
+              <div class="ua-banner-body">{{ invite.error }}</div>
+            </div>
+            <div class="ua-fields">
+              <div>
+                <label class="form-label" for="inviteFirst">First name</label>
+                <input id="inviteFirst" v-model="invite.firstName" type="text" class="form-control" required autocomplete="off">
+              </div>
+              <div>
+                <label class="form-label" for="inviteLast">Last name</label>
+                <input id="inviteLast" v-model="invite.lastName" type="text" class="form-control" required autocomplete="off">
+              </div>
+              <div class="ua-fields-wide">
+                <label class="form-label" for="inviteEmail">Email</label>
+                <input id="inviteEmail" v-model="invite.email" type="email" class="form-control" :class="{ 'is-invalid': invite.errorField === 'email' }" required autocomplete="off">
+              </div>
+            </div>
+            <fieldset class="ua-roles">
+              <legend class="form-label">Role</legend>
+              <label v-for="r in inviteRoles" :key="r.val" class="ua-radio" :class="{ 'ua-radio--on': invite.role === r.val }">
+                <input type="radio" name="inviteRole" :value="r.val" v-model="invite.role">
+                <span><strong>{{ r.label }}</strong><span>{{ r.desc }}</span></span>
+              </label>
+            </fieldset>
+            <p class="ua-drawer-hint">Sysadmin can't be assigned with an invite. Promote an admin once they're active.</p>
+          </template>
+        </div>
+        <div class="ua-drawer-foot">
+          <template v-if="invite.sentTo">
+            <button type="button" class="ua-btn-text" @click="inviteAnother">Invite another</button>
+            <button type="button" class="ua-btn-navy" data-bs-dismiss="offcanvas">Close</button>
+          </template>
+          <template v-else>
+            <button type="button" class="ua-btn-text" data-bs-dismiss="offcanvas">Cancel</button>
+            <button type="submit" class="ph-btn-primary" :disabled="invite.loading || !inviteValid">
+              <span v-if="invite.loading" class="spinner-border spinner-border-sm me-2" role="presentation"></span>{{ invite.loading ? 'Sending…' : 'Send invite' }}
+            </button>
+          </template>
+        </div>
+      </form>
     </div>
 
   </div><!-- #app -->
@@ -218,32 +685,105 @@
   <script type="module" src="js/lib/notif-browser.js?v=2"></script>
   <script defer src="js/notifications.js?v=4"></script>
   <script type="module" src="js/lib/icons.js?v=7"></script>
+  <script type="module" src="js/lib/user-admin-rules.js?v=1"></script>
   <script defer src="js/nav.js?v=22"></script>
   <script type="module">
-    Vue.createApp({
+    const R = window.UserAdminRules;
+    // Kept outside Vue: DOM nodes and Bootstrap instances do not belong in reactive state.
+    let menuTrigger = null; // the ⋯ button of the open menu
+    let disableModal = null;
+    let anonymizeModal = null;
+    let inviteDrawer = null;
+    let inviteOpener = null; // what had focus when the drawer opened
+    const blankInvite = () => ({ firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, errorField: null, sentTo: null, sentName: null });
+    const NETWORK_ERROR = "The server didn't respond. Check your connection and try again.";
+
+    // Icons the shared library does not have (drawn like it: 16×16, stroke = currentColor).
+    const UA_ICONS = {
+      shield: '<path d="M8 2l5 2v4c0 3-2.2 5-5 6-2.8-1-5-3-5-6V4l5-2Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>',
+      power: '<path d="M8 2v5.5M4.7 4.6a5 5 0 1 0 6.6 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+      mail: '<rect x="2" y="3.5" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 4.5L8 9l5.5-4.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+      'user-plus': '<circle cx="6.5" cy="5.5" r="2.3" stroke="currentColor" stroke-width="1.4"/><path d="M2 14c0-2.6 2-4.2 4.5-4.2S11 11.4 11 14M13 5v4M11 7h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+      'user-minus': '<circle cx="6.5" cy="5.5" r="2.3" stroke="currentColor" stroke-width="1.4"/><path d="M2 14c0-2.6 2-4.2 4.5-4.2S11 11.4 11 14M11 7h4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+    };
+    const UaIcon = {
+      props: { name: { type: String, required: true }, size: { type: Number, default: 16 } },
+      template: `<svg class="pd-icon" :width="size" :height="size" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false" v-html="paths"></svg>`,
+      computed: { paths() { return UA_ICONS[this.name] || ''; } },
+    };
+
+    const app = Vue.createApp({
       data() {
         return {
-          ready: false,
+          authed: false,
+          loading: true,
           accessDenied: false,
           me: {},
           users: [],
-          filter: 'all',
+          filter: { status: 'all', role: 'all', search: '' },
+          sort: { key: null, dir: null },
           filters: [
             { val: 'all',      label: 'All' },
             { val: 'active',   label: 'Active' },
             { val: 'pending',  label: 'Pending' },
             { val: 'disabled', label: 'Disabled' },
           ],
-          globalError: null,
-          globalSuccess: null,
-          invite: { firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, success: null },
-          _modal: null,
+          headCols: [
+            { key: 'name',    label: 'Name' },
+            { key: 'role',    label: 'Role' },
+            { key: 'status',  label: 'Status' },
+            { key: 'invited', label: 'Invited by', plain: true, wide: true },
+            { key: 'joined',  label: 'Joined', wide: true },
+          ],
+          notes: {
+            self: "You can't change your own role or access. Ask another admin.",
+            locked: 'Only a sysadmin can change a sysadmin account.',
+            anonymized: "Personal data was removed. The account can't be restored.",
+          },
+          banner: null,
+          menu: null,
+          isPhone: window.matchMedia('(max-width: 767.98px)').matches,
+          confirmTarget: null,
+          anonAck: false,
+          invite: blankInvite(),
+          inviteRoles: [
+            { val: 'user',  label: 'User',  desc: 'Works on pipeline, portfolio and planning' },
+            { val: 'admin', label: 'Admin', desc: 'Also manages users and master data' },
+          ],
         };
       },
       computed: {
-        filteredUsers() {
-          if (this.filter === 'all') return this.users;
-          return this.users.filter(u => u.status === this.filter);
+        visibleUsers() {
+          return R.sortUsers(R.filterUsers(this.users, this.filter), this.sort);
+        },
+        counts() {
+          return R.statusCounts(this.users, this.filter);
+        },
+        summary() {
+          return R.filterSummary(this.filter);
+        },
+        subtitle() {
+          if (this.loading) return 'Loading…';
+          const n = this.users.length;
+          const p = this.users.filter(u => u.status === 'pending').length;
+          let s = `${n} ${n === 1 ? 'user' : 'users'}`;
+          if (p) s += this.isPhone ? ` · ${p} pending` : ` · ${p} pending ${p === 1 ? 'invite' : 'invites'}`;
+          return s;
+        },
+        inviteValid() {
+          const i = this.invite;
+          return !!(i.firstName.trim() && i.lastName.trim() && R.isValidEmail(i.email));
+        },
+        menuUser() {
+          return this.menu ? this.users.find(u => u.id === this.menu.userId) : null;
+        },
+        confirmName() {
+          return this.confirmTarget ? R.displayName(this.confirmTarget) : '';
+        },
+        footerRule() {
+          return this.me.role === 'sysadmin'
+            ? 'Roles change one step at a time: user → admin → sysadmin.'
+            : 'Sysadmin accounts can only be changed by a sysadmin.';
         },
       },
       async created() {
@@ -254,175 +794,236 @@
         if (!user) return;
         this.me = user;
         if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
+        this.authed = true;
         await this.loadUsers();
-        this.ready = true;
+        this.loading = false;
       },
       mounted() {
-        const el = document.getElementById('inviteModal');
-        this._modal = new bootstrap.Modal(el);
-        el.addEventListener('hidden.bs.modal', () => this.resetInvite());
+        const el = document.getElementById('inviteDrawer');
+        inviteDrawer = new bootstrap.Offcanvas(el);
+        el.addEventListener('shown.bs.offcanvas', () => document.getElementById('inviteFirst')?.focus());
+        el.addEventListener('hidden.bs.offcanvas', () => {
+          this.resetInvite();
+          if (inviteOpener) inviteOpener.focus();
+        });
+        disableModal = new bootstrap.Modal(document.getElementById('disableModal'));
+        const anonEl = document.getElementById('anonymizeModal');
+        anonymizeModal = new bootstrap.Modal(anonEl);
+        anonEl.addEventListener('shown.bs.modal', () => document.getElementById('anonymizeCancel').focus());
+        const phoneQuery = window.matchMedia('(max-width: 767.98px)');
+        phoneQuery.addEventListener('change', e => { this.isPhone = e.matches; this.menu = null; });
+        document.addEventListener('mousedown', ev => {
+          if (this.menu && !ev.target.closest('.ua-menu, .ua-sheet-scrim, .ua-menu-trigger')) this.closeMenu(false);
+        });
+        document.addEventListener('keydown', ev => {
+          if (ev.key === 'Escape' && this.menu) this.closeMenu(true);
+        });
       },
       methods: {
+        initials: R.initials,
+        displayName: R.displayName,
+        isAnon: R.isAnonymized,
+        kind(u) { return R.rowKind(u, this.me); },
+        primary(u) { return R.primaryAction(u, this.me); },
+
+        rowClass(u) {
+          const k = this.kind(u);
+          return { 'ua-row--self': k === 'self', 'ua-row--busy': !!u._loading };
+        },
+        avatarClass(u) {
+          const k = this.kind(u);
+          return { 'ua-avatar--self': k === 'self', 'ua-avatar--anon': k === 'anonymized' };
+        },
+
+        menuFor(u) { return R.menuGroups(u, this.me); },
+        menuIcon(name) { return name in UA_ICONS ? 'ua-icon' : 'ph-icon'; },
+
+        // The popover opens upwards when the tallest menu would not fit between the button and the viewport bottom.
+        openMenu(user, ev) {
+          if (this.menu && this.menu.userId === user.id) { this.closeMenu(true); return; }
+          menuTrigger = ev.currentTarget;
+          const up = menuTrigger.getBoundingClientRect().bottom + 360 > window.innerHeight;
+          this.menu = { userId: user.id, up };
+          this.$nextTick(() => {
+            const first = document.querySelector('.ua-menu [role="menuitem"], .ua-sheet [role="menuitem"]');
+            if (first) first.focus();
+          });
+        },
+        closeMenu(returnFocus) {
+          this.menu = null;
+          if (returnFocus && menuTrigger) menuTrigger.focus();
+        },
+        onMenuKey(ev) {
+          if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') return;
+          ev.preventDefault();
+          const items = [...ev.currentTarget.querySelectorAll('[role="menuitem"]')];
+          const at = items.indexOf(document.activeElement);
+          const step = ev.key === 'ArrowDown' ? 1 : -1;
+          items[(at + step + items.length) % items.length].focus();
+        },
+        runItem(user, id) {
+          const it = R.menuGroups(user, this.me).flatMap(g => g.items).find(i => i.id === id);
+          if (!it || !it.enabled) return;
+          this.closeMenu(false);
+          if (id === 'make-admin' || id === 'make-user') this.toggleRole(user);
+          else if (id === 'grant-sysadmin' || id === 'revoke-sysadmin') this.toggleSysAdmin(user);
+          else if (id === 'resend') this.resendInvite(user);
+          else if (id === 'enable') this.setStatus(user, 'active');
+          else if (id === 'disable') this.askDisable(user);
+          else if (id === 'anonymize') this.askAnonymize(user);
+        },
+        askDisable(user) {
+          this.confirmTarget = user;
+          disableModal.show();
+        },
+        confirmDisable() {
+          disableModal.hide();
+          this.setStatus(this.confirmTarget, 'disabled');
+        },
+        askAnonymize(user) {
+          this.confirmTarget = user;
+          this.anonAck = false;
+          anonymizeModal.show();
+        },
+        confirmAnonymize() {
+          anonymizeModal.hide();
+          this.anonymizeUser(this.confirmTarget);
+        },
+
+        setBanner(kind, title, text) { this.banner = { kind, title, text }; },
+        clearBanner() { this.banner = null; },
+        clearFilters() { this.filter = { status: 'all', role: 'all', search: '' }; },
+        toggleSort(key) { this.sort = R.nextSort(this.sort, key); },
+        ariaSort(key) {
+          if (this.sort.key !== key) return 'none';
+          return this.sort.dir === 'asc' ? 'ascending' : 'descending';
+        },
+        sortGlyph(key) {
+          if (this.sort.key !== key) return '↕';
+          return this.sort.dir === 'asc' ? '↑' : '↓';
+        },
+
         async loadUsers() {
-          this.globalError = null;
           try {
             const res = await fetch('/api/users', { credentials: 'same-origin' });
             const data = await res.json();
-            if (!res.ok) { this.globalError = data.error || 'Failed to load users.'; return; }
+            if (!res.ok) { this.setBanner('error', "Couldn't load users.", data.error || NETWORK_ERROR); return; }
             this.users = data;
           } catch {
-            this.globalError = 'Network error.';
+            this.setBanner('error', "Couldn't load users.", NETWORK_ERROR);
           }
         },
 
         openInvite() {
           this.resetInvite();
-          this._modal.show();
+          inviteOpener = document.activeElement;
+          inviteDrawer.show();
         },
         resetInvite() {
-          this.invite = { firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, success: null };
+          this.invite = blankInvite();
+        },
+        inviteAnother() {
+          this.resetInvite();
+          this.$nextTick(() => document.getElementById('inviteFirst')?.focus());
         },
 
         async submitInvite() {
-          this.invite.loading = true;
-          this.invite.error = null;
+          // The drawer may reset this.invite while the request runs; the result belongs to the form that sent it.
+          const inv = this.invite;
+          if (!this.inviteValid || inv.loading) return;
+          inv.loading = true;
+          inv.error = null;
+          inv.errorField = null;
           try {
             const res = await fetch('/api/auth/invite', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'same-origin',
               body: JSON.stringify({
-                email: this.invite.email,
-                firstName: this.invite.firstName,
-                lastName: this.invite.lastName,
-                role: this.invite.role,
+                email: inv.email,
+                firstName: inv.firstName,
+                lastName: inv.lastName,
+                role: inv.role,
               }),
             });
             const data = await res.json();
-            if (!res.ok) { this.invite.error = data.error || 'Invite failed'; return; }
-            this.invite.success = `Invite sent to ${this.invite.email}`;
+            if (!res.ok) {
+              inv.error = data.error || 'Invite failed';
+              if (res.status === 409) inv.errorField = 'email';
+              return;
+            }
+            inv.sentTo = inv.email;
+            inv.sentName = `${inv.firstName} ${inv.lastName}`;
             await this.loadUsers();
           } catch {
-            this.invite.error = 'Network error. Please try again.';
+            inv.error = 'Network error. Please try again.';
           } finally {
-            this.invite.loading = false;
+            inv.loading = false;
           }
         },
 
-        async toggleRole(user) {
-          const newRole = user.role === 'admin' ? 'user' : 'admin';
+        // PATCH one user (role or status); the three callers differ only in the body and the field read back.
+        async patchUser(user, body, field) {
           user._loading = true;
-          this.globalError = null;
-          this.globalSuccess = null;
+          this.clearBanner();
           try {
             const res = await fetch(`/api/users/${user.id}`, {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'same-origin',
-              body: JSON.stringify({ role: newRole }),
+              body: JSON.stringify(body),
             });
             const data = await res.json();
-            if (!res.ok) { this.globalError = data.error; return; }
-            user.role = data.role;
+            if (!res.ok) { this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, data.error); return; }
+            user[field] = data[field];
           } catch {
-            this.globalError = 'Network error.';
+            this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, NETWORK_ERROR);
           } finally {
             user._loading = false;
           }
         },
 
-        // A sysadmin row may only be acted on by a sysadmin viewer (mirrors the
-        // backend's own check in api/src/routes/users.js).
-        canModifyUser(user) {
-          return this.me?.role === 'sysadmin' || user.role !== 'sysadmin';
+        toggleRole(user) {
+          return this.patchUser(user, { role: user.role === 'admin' ? 'user' : 'admin' }, 'role');
         },
-
-        async toggleSysAdmin(user) {
-          const newRole = user.role === 'sysadmin' ? 'admin' : 'sysadmin';
-          user._loading = true;
-          this.globalError = null;
-          this.globalSuccess = null;
-          try {
-            const res = await fetch(`/api/users/${user.id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'same-origin',
-              body: JSON.stringify({ role: newRole }),
-            });
-            const data = await res.json();
-            if (!res.ok) { this.globalError = data.error; return; }
-            user.role = data.role;
-          } catch {
-            this.globalError = 'Network error.';
-          } finally {
-            user._loading = false;
-          }
+        toggleSysAdmin(user) {
+          return this.patchUser(user, { role: user.role === 'sysadmin' ? 'admin' : 'sysadmin' }, 'role');
         },
-
-        async setStatus(user, status) {
-          user._loading = true;
-          this.globalError = null;
-          this.globalSuccess = null;
-          try {
-            const res = await fetch(`/api/users/${user.id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'same-origin',
-              body: JSON.stringify({ status }),
-            });
-            const data = await res.json();
-            if (!res.ok) { this.globalError = data.error; return; }
-            user.status = data.status;
-          } catch {
-            this.globalError = 'Network error.';
-          } finally {
-            user._loading = false;
-          }
+        setStatus(user, status) {
+          return this.patchUser(user, { status }, 'status');
         },
 
         async resendInvite(user) {
-          user._loading = true;
-          this.globalError = null;
-          this.globalSuccess = null;
+          user._sending = true;
+          this.clearBanner();
           try {
             const res = await fetch(`/api/auth/${user.id}/resend-invite`, {
               method: 'POST', credentials: 'same-origin',
               headers: { 'Content-Type': 'application/json' },
             });
             const d = await res.json();
-            if (!res.ok) { this.globalError = d.error || 'Resend failed'; return; }
-            this.globalSuccess = `Invite resent to ${user.email}`;
+            if (!res.ok) { this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, d.error || 'Resend failed'); return; }
+            this.setBanner('success', 'Invite resent.', `A new activation link was sent to ${user.email}. It's valid for 48 hours.`);
           } catch {
-            this.globalError = 'Network error.';
+            this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, NETWORK_ERROR);
           } finally {
-            user._loading = false;
+            user._sending = false;
           }
-        },
-
-        confirmAnonymize(user) {
-          if (!confirm(
-            `Anonymize "${user.first_name} ${user.last_name}"?\n\n` +
-            `This will permanently replace their name and email with anonymous values.\n` +
-            `All proposals, projects, and cost grids they created will be preserved.\n\n` +
-            `This action cannot be undone.`
-          )) return;
-          this.anonymizeUser(user);
         },
 
         async anonymizeUser(user) {
           user._loading = true;
-          this.globalError = null;
-          this.globalSuccess = null;
+          this.clearBanner();
           try {
             const res = await fetch(`/api/users/${user.id}/anonymize`, {
               method: 'POST', credentials: 'same-origin',
               headers: { 'Content-Type': 'application/json' },
             });
             const d = await res.json();
-            if (!res.ok) { this.globalError = d.error || 'Anonymization failed'; return; }
+            if (!res.ok) { this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, d.error || 'Anonymization failed'); return; }
             await this.loadUsers();
           } catch {
-            this.globalError = 'Network error.';
+            this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, NETWORK_ERROR);
           } finally {
             user._loading = false;
           }
@@ -433,7 +1034,10 @@
           return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
         },
       },
-    }).mount('#app');
+    });
+    app.component('ph-icon', window.PhIcon);
+    app.component('ua-icon', UaIcon);
+    app.mount('#app');
   </script>
 </body>
 </html>
