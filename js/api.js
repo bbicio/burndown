@@ -10,6 +10,13 @@ const API_BASE = '/api';
 const SAVE_OVERLAY_DELAY_MS = 400;
 let _pdWritesPending = 0;
 let _pdOverlayTimer = null;
+// A multi-step save chains its writes: the next one starts in the same tick the previous one ends.
+// If the overlay was up when the counter hit zero, a write starting within this grace re-shows it at
+// once instead of waiting another delay, so the page is never clickable between the steps.
+const SAVE_OVERLAY_GRACE_MS = 50;
+let _pdOverlayShown = false;
+let _pdOverlayGrace = false;
+let _pdGraceTimer = null;
 
 // A write is a POST/PUT/PATCH/DELETE not declared `background: true`.
 function _isOverlayWrite(options) {
@@ -22,9 +29,14 @@ async function apiFetch(path, options = {}) {
   const counted = _isOverlayWrite(options);
   if (counted && ++_pdWritesPending === 1) {
     clearTimeout(_pdOverlayTimer);
-    _pdOverlayTimer = setTimeout(() => {
-      if (_pdWritesPending > 0 && window.PdOverlay) window.PdOverlay.show();
-    }, SAVE_OVERLAY_DELAY_MS);
+    if (_pdOverlayGrace && window.PdOverlay) {
+      _pdOverlayShown = true;
+      window.PdOverlay.show();
+    } else {
+      _pdOverlayTimer = setTimeout(() => {
+        if (_pdWritesPending > 0 && window.PdOverlay) { _pdOverlayShown = true; window.PdOverlay.show(); }
+      }, SAVE_OVERLAY_DELAY_MS);
+    }
   }
   try {
     const isFormData = fetchOptions.body instanceof FormData;
@@ -64,6 +76,12 @@ async function apiFetch(path, options = {}) {
     if (counted && --_pdWritesPending === 0) {
       clearTimeout(_pdOverlayTimer);
       if (window.PdOverlay) window.PdOverlay.hide();
+      if (_pdOverlayShown) {
+        _pdOverlayShown = false;
+        _pdOverlayGrace = true;
+        clearTimeout(_pdGraceTimer);
+        _pdGraceTimer = setTimeout(() => { _pdOverlayGrace = false; }, SAVE_OVERLAY_GRACE_MS);
+      }
     }
   }
 }

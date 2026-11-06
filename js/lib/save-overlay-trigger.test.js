@@ -90,6 +90,30 @@ describe('save overlay trigger', () => {
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
     pending[1].resolve(okRes()); await p2;
   });
+  it('a write chained right after a visible one re-shows at once, with no 400 ms gap', async () => {
+    const p1 = post();
+    await vi.advanceTimersByTimeAsync(400);
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
+    pending[0].resolve(okRes()); await p1;
+    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
+    const p2 = post();
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(2);
+    pending[1].resolve(okRes()); await p2;
+    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(2);
+  });
+  it('a write started well after a visible one waits the full 400 ms again', async () => {
+    const p1 = post();
+    await vi.advanceTimersByTimeAsync(400);
+    pending[0].resolve(okRes()); await p1;
+    await vi.advanceTimersByTimeAsync(200);
+    const p2 = post();
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(399);
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(2);
+    pending[1].resolve(okRes()); await p2;
+  });
   it('counts a FormData POST', async () => {
     const p = api.apiFetch('/up', { method: 'POST', body: new FormData() });
     await vi.advanceTimersByTimeAsync(400);
