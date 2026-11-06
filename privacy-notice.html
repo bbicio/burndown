@@ -102,7 +102,7 @@
       if (!user) return;
       this.ready = true;
       try {
-        const d = await apiFetch('/api/app-settings/terms');
+        const d = await apiFetch('/app-settings/terms');
         this.content = d.content || '';
         this.version = d.version;
         this.updatedAt = d.updatedAt;

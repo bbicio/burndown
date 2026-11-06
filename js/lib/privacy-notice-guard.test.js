@@ -24,7 +24,9 @@ describe('privacy-notice.html', () => {
 
   it('loads the dates module and the terms endpoint, and names the page', () => {
     expect(html).toContain('js/lib/dates.js?v=4');
-    expect(html).toContain('/api/app-settings/terms');
+    // apiFetch prepends API_BASE ('/api') itself: a path that repeats it would call /api/api/…
+    expect(html).toContain("apiFetch('/app-settings/terms')");
+    expect(html).not.toContain("apiFetch('/api/");
     expect(html).toContain("initNav('privacy'");
     expect(html).toContain('<title>PDash — Privacy Notice</title>');
   });
