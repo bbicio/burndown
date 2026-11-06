@@ -56,6 +56,21 @@ describe('PdOverlay', () => {
     expect(() => PdOverlay.hide()).not.toThrow();
     expect(document.getElementById('app-shell').hasAttribute('inert')).toBe(false);
   });
+  it('swallows key events while visible and lets them through after hide()', () => {
+    const seen = [];
+    const onKey = e => seen.push(e.type + ':' + e.key);
+    document.addEventListener('keydown', onKey);
+    document.addEventListener('keyup', onKey);
+    PdOverlay.show();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    document.dispatchEvent(new KeyboardEvent('keyup', { key: 'Escape', bubbles: true }));
+    expect(seen).toEqual([]);
+    PdOverlay.hide();
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    expect(seen).toEqual(['keydown:Escape']);
+    document.removeEventListener('keydown', onKey);
+    document.removeEventListener('keyup', onKey);
+  });
   it('navEnsureSaveOverlay() creates the element once', () => {
     navEnsureSaveOverlay(); navEnsureSaveOverlay();
     expect(document.querySelectorAll('#pd-save-overlay').length).toBe(1);

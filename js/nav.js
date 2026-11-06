@@ -284,7 +284,8 @@ function navRefreshAccount(u) {
 
 // ── SAVE OVERLAY ─────────────────────────────────────────────────────────────
 // Blocking "Saving changes…" layer. Shown by apiFetch (js/api.js) when a write outlasts its delay.
-// Created once at the end of <body>; every other direct child of <body> is made inert while it shows.
+// Appended once to <body>; while it shows, every other direct child of <body> is made inert and key
+// events are swallowed, since inert does not stop keydown listeners on document.
 function navEnsureSaveOverlay() {
   let el = document.getElementById('pd-save-overlay');
   if (el) return el;
@@ -308,9 +309,8 @@ const PdOverlay = (() => {
   const DEFAULT_MESSAGE = "Please don't close this page.";
   let visible = false;
   let marked = [];
-  let lockedByUs = false;
   let prevFocus = null;
-  let hideTimer = null;
+  const swallowKey = e => { e.preventDefault(); e.stopImmediatePropagation(); };
 
   function setCopy(el, { title, message } = {}) {
     el.querySelector('.pd-save-overlay__title').textContent = title || DEFAULT_TITLE;
@@ -322,7 +322,6 @@ const PdOverlay = (() => {
     setCopy(el, copy);
     if (visible) return;
     visible = true;
-    clearTimeout(hideTimer);
     prevFocus = document.activeElement;
     marked = [];
     Array.from(document.body.children).forEach(c => {
@@ -330,8 +329,9 @@ const PdOverlay = (() => {
       c.setAttribute('inert', '');
       marked.push(c);
     });
-    lockedByUs = !document.body.classList.contains('pd-save-locked');
     document.body.classList.add('pd-save-locked');
+    window.addEventListener('keydown', swallowKey, true);
+    window.addEventListener('keyup', swallowKey, true);
     el.hidden = false;
     void el.offsetWidth; // flush so the fade-in transition runs
     el.classList.add('is-visible');
@@ -342,7 +342,9 @@ const PdOverlay = (() => {
     visible = false;
     marked.forEach(c => { c.removeAttribute('inert'); });
     marked = [];
-    if (lockedByUs) document.body.classList.remove('pd-save-locked');
+    document.body.classList.remove('pd-save-locked');
+    window.removeEventListener('keydown', swallowKey, true);
+    window.removeEventListener('keyup', swallowKey, true);
     const el = document.getElementById('pd-save-overlay');
     if (el) {
       el.classList.remove('is-visible');

@@ -42,8 +42,10 @@ describe('save overlay trigger', () => {
     await vi.advanceTimersByTimeAsync(400);
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
     pending[0].resolve(okRes()); await p1;
+    await vi.advanceTimersByTimeAsync(100);
     expect(win.PdOverlay.hide).toHaveBeenCalledTimes(0);
     pending[1].resolve(okRes()); await p2;
+    await vi.advanceTimersByTimeAsync(50);
     expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
   });
   it('hides when the write rejects', async () => {
@@ -90,16 +92,25 @@ describe('save overlay trigger', () => {
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
     pending[1].resolve(okRes()); await p2;
   });
-  it('a write chained right after a visible one re-shows at once, with no 400 ms gap', async () => {
+  it('a write chained right after a visible one keeps the overlay up: no hide, no second show', async () => {
     const p1 = post();
     await vi.advanceTimersByTimeAsync(400);
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
     pending[0].resolve(okRes()); await p1;
-    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
     const p2 = post();
-    expect(win.PdOverlay.show).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(0);
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
     pending[1].resolve(okRes()); await p2;
-    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(2);
+    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(0);
+    await vi.advanceTimersByTimeAsync(50);
+    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
+  });
+  it('a failed write hides at once even when the overlay was visible', async () => {
+    const p = post().catch(e => e);
+    await vi.advanceTimersByTimeAsync(400);
+    pending[0].resolve(okRes('{"error":"no"}', 400)); await p;
+    expect(win.PdOverlay.hide).toHaveBeenCalledTimes(1);
   });
   it('a write started well after a visible one waits the full 400 ms again', async () => {
     const p1 = post();
@@ -156,6 +167,14 @@ describe('save overlay trigger', () => {
     const n = readFileSync(join(process.cwd(), 'js/notifications.js'), 'utf8');
     expect(n).toContain("/notifications/${id}/read`, { method: 'PATCH', background: true }");
     expect(n).toContain("'/notifications/read-all', { method: 'PATCH', background: true }");
+  });
+  it('versions.tags.replace forwards background, and the costgrid tag toggle passes it', async () => {
+    const p = api.Api.costGrids.versions.tags.replace('c', 'v', [], { background: true });
+    await vi.advanceTimersByTimeAsync(1000);
+    expect(win.PdOverlay.show).toHaveBeenCalledTimes(0);
+    pending[0].resolve(okRes()); await p;
+    const html = readFileSync(join(process.cwd(), 'costgrid.html'), 'utf8');
+    expect(html).toContain('Api.costGrids.versions.tags.replace(this.cgId, this.verId, this.versionTagItemIds, { background: true })');
   });
   it('does nothing when window.PdOverlay is missing', async () => {
     delete win.PdOverlay;
