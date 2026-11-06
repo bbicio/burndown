@@ -98,3 +98,23 @@ describe('admin.html — table', () => {
     expect(cells.indexOf('u.invited_by_name ||')).toBeLessThan(cells.indexOf('fmtDate(u.created_at) }}</td>'));
   });
 });
+
+describe('admin.html — review fixes', () => {
+  it('writes the invite result to the form it was sent from, not to a form reset meanwhile', () => {
+    const body = methodBody('submitInvite');
+    expect(body, 'submitInvite exists').not.toBeNull();
+    const awaitAt = body.indexOf('await fetch(');
+    expect(body.slice(awaitAt)).not.toMatch(/this\.invite\./);
+  });
+
+  it('lets a tap on the phone sheet scrim reach its own click handler', () => {
+    const handler = /document\.addEventListener\('mousedown',[\s\S]*?\}\);/.exec(html);
+    expect(handler, 'mousedown handler').not.toBeNull();
+    expect(handler[0]).toContain('.ua-sheet-scrim');
+  });
+
+  it('uses only weight tokens that tokens.css defines', () => {
+    const tokens = readFileSync(join(process.cwd(), 'css/tokens.css'), 'utf8');
+    for (const [, name] of styles.matchAll(/var\((--weight-[\w-]+)\)/g)) expect(tokens, name).toContain(name + ':');
+  });
+});

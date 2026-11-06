@@ -162,7 +162,7 @@
     .ua-mi-icon { flex: none; margin-top: 1px; display: inline-flex; }
     .ua-mi-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .ua-mi-head { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); font-weight: var(--weight-semibold); }
-    .ua-mi-desc { font-size: 11px; line-height: 1.35; color: var(--text-muted); font-weight: var(--weight-normal); }
+    .ua-mi-desc { font-size: 11px; line-height: 1.35; color: var(--text-muted); font-weight: var(--weight-regular); }
     .ua-mi--off { color: var(--text-muted); cursor: not-allowed; }
     .ua-mi--off:hover { background: transparent; }
     .ua-mi--danger:not(.ua-mi--off) { color: var(--color-danger-text); }
@@ -810,7 +810,7 @@
         const phoneQuery = window.matchMedia('(max-width: 767.98px)');
         phoneQuery.addEventListener('change', e => { this.isPhone = e.matches; this.menu = null; });
         document.addEventListener('mousedown', ev => {
-          if (this.menu && !ev.target.closest('.ua-menu, .ua-sheet, .ua-menu-trigger')) this.closeMenu(false);
+          if (this.menu && !ev.target.closest('.ua-menu, .ua-sheet-scrim, .ua-menu-trigger')) this.closeMenu(false);
         });
         document.addEventListener('keydown', ev => {
           if (ev.key === 'Escape' && this.menu) this.closeMenu(true);
@@ -925,35 +925,37 @@
         },
 
         async submitInvite() {
-          if (!this.inviteValid || this.invite.loading) return;
-          this.invite.loading = true;
-          this.invite.error = null;
-          this.invite.errorField = null;
+          // The drawer may reset this.invite while the request runs; the result belongs to the form that sent it.
+          const inv = this.invite;
+          if (!this.inviteValid || inv.loading) return;
+          inv.loading = true;
+          inv.error = null;
+          inv.errorField = null;
           try {
             const res = await fetch('/api/auth/invite', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'same-origin',
               body: JSON.stringify({
-                email: this.invite.email,
-                firstName: this.invite.firstName,
-                lastName: this.invite.lastName,
-                role: this.invite.role,
+                email: inv.email,
+                firstName: inv.firstName,
+                lastName: inv.lastName,
+                role: inv.role,
               }),
             });
             const data = await res.json();
             if (!res.ok) {
-              this.invite.error = data.error || 'Invite failed';
-              if (res.status === 409) this.invite.errorField = 'email';
+              inv.error = data.error || 'Invite failed';
+              if (res.status === 409) inv.errorField = 'email';
               return;
             }
-            this.invite.sentTo = this.invite.email;
-            this.invite.sentName = `${this.invite.firstName} ${this.invite.lastName}`;
+            inv.sentTo = inv.email;
+            inv.sentName = `${inv.firstName} ${inv.lastName}`;
             await this.loadUsers();
           } catch {
-            this.invite.error = 'Network error. Please try again.';
+            inv.error = 'Network error. Please try again.';
           } finally {
-            this.invite.loading = false;
+            inv.loading = false;
           }
         },
 
