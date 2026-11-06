@@ -45,3 +45,29 @@ describe('admin.html — page rules', () => {
     expect(html).not.toMatch(/badge-role-|badge-st-/);
   });
 });
+
+describe('admin.html — row menu, busy rows and confirmations', () => {
+  it('has the menu, modal and live-region hooks and the exact copy', () => {
+    for (const s of ['aria-haspopup="menu"', 'role="menu"', 'role="menuitem"', 'aria-disabled', 'id="disableModal"',
+      'id="anonymizeModal"', "I understand this can't be undone.", 'Disable user', 'Anonymize user',
+      'aria-live="polite"', 'Updating…', 'Sending…']) expect(html).toContain(s);
+  });
+
+  it('closes the menu before the action sends any request (a row can leave the filter)', () => {
+    const body = methodBody('runItem');
+    expect(body, 'runItem exists').not.toBeNull();
+    const close = body.indexOf('closeMenu(');
+    expect(close).toBeGreaterThan(-1);
+    expect(body.indexOf('fetch(')).toBe(-1); // it delegates to the action methods…
+    for (const m of ['toggleRole', 'toggleSysAdmin', 'resendInvite', 'setStatus', 'askDisable', 'askAnonymize']) {
+      const at = body.indexOf(m + '(');
+      expect(at, m).toBeGreaterThan(close); // …every one of them after closeMenu
+    }
+  });
+
+  it('keeps the busy state per row', () => {
+    expect(html).toContain('u._loading');
+    expect(html).toContain('u._sending');
+    expect(html).not.toMatch(/this\.loadingRow|this\.busy\b/);
+  });
+});

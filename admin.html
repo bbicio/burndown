@@ -133,6 +133,66 @@
     .ua-btn:focus-visible { outline: 2px solid var(--brand-navy); outline-offset: 1px; }
     .ua-note { display: inline-flex; align-items: center; gap: var(--space-1); font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
 
+    .ua-busy { display: inline-flex; align-items: center; gap: var(--space-2); font-size: 12.5px; color: var(--text-muted); white-space: nowrap; }
+    .ua-busy .spinner-border { --bs-spinner-width: 14px; --bs-spinner-height: 14px; --bs-spinner-border-width: 2px; }
+    .ua-btn-more { width: 30px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+
+    /* ── Row menu (popover inside the actions cell; no ancestor up to the card clips it) ── */
+    .ua-menu-wrap { position: relative; display: inline-block; }
+    .ua-menu {
+      position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; width: 268px; text-align: left;
+      background: var(--surface-white); border: 1px solid var(--border-light); border-radius: 10px;
+      box-shadow: var(--shadow-xl); padding: var(--space-1) 0;
+    }
+    .ua-menu--up { top: auto; bottom: calc(100% + 6px); }
+    .ua-menu-group + .ua-menu-group { border-top: 1px solid var(--border-light); margin-top: var(--space-1); padding-top: var(--space-1); }
+    .ua-menu-label {
+      padding: var(--space-2) var(--space-3) var(--space-1); font-size: 10px; font-weight: var(--weight-bold);
+      letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted);
+    }
+    .ua-mi {
+      display: flex; align-items: flex-start; gap: var(--space-3); width: calc(100% - 2 * var(--space-1)); margin: 0 var(--space-1);
+      padding: var(--space-2); border: 0; border-radius: var(--radius-md); background: transparent; text-align: left; cursor: pointer;
+      color: var(--brand-navy);
+    }
+    .ua-mi:hover, .ua-mi:focus-visible { background: var(--surface-light); outline: none; }
+    .ua-mi:focus-visible { box-shadow: inset 0 0 0 2px var(--brand-navy); }
+    .ua-mi-icon { flex: none; margin-top: 1px; display: inline-flex; }
+    .ua-mi-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+    .ua-mi-head { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-sm); font-weight: var(--weight-semibold); }
+    .ua-mi-desc { font-size: 11px; line-height: 1.35; color: var(--text-muted); font-weight: var(--weight-normal); }
+    .ua-mi--off { color: var(--text-muted); cursor: not-allowed; }
+    .ua-mi--off:hover { background: transparent; }
+    .ua-mi--danger:not(.ua-mi--off) { color: var(--color-danger-text); }
+    .ua-tag {
+      font-size: 9px; font-weight: var(--weight-bold); letter-spacing: .05em; padding: 1px 6px; border-radius: var(--radius-sm);
+    }
+    .ua-tag--navy { background: var(--brand-navy); color: var(--text-inverse); }
+    .ua-tag--danger { background: var(--status-at-risk-soft-bg); color: var(--color-danger-text); }
+
+    /* ── Confirmation modals ── */
+    .modal-backdrop { --bs-backdrop-bg: var(--overlay-scrim); --bs-backdrop-opacity: 1; }
+    #disableModal, #anonymizeModal { --bs-modal-width: 460px; --bs-modal-border-radius: 12px; }
+    .ua-confirm { padding: var(--space-5); }
+    .ua-confirm-head { display: flex; align-items: center; gap: var(--space-3); margin-bottom: var(--space-3); }
+    .ua-confirm-icon {
+      flex: none; width: 32px; height: 32px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+      background: var(--surface-subtle); color: var(--text-secondary);
+    }
+    .ua-confirm-icon--danger { background: var(--status-at-risk-soft-bg); color: var(--color-danger-text); }
+    .ua-confirm-title { flex: 1 1 auto; margin: 0; font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--brand-navy); overflow-wrap: anywhere; }
+    .ua-confirm-text { margin: 0 0 var(--space-3); font-size: var(--text-sm); color: var(--text-secondary); }
+    .ua-confirm-boxes { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-bottom: var(--space-3); }
+    .ua-confirm-box { background: var(--surface-light); border-radius: var(--radius-md); padding: var(--space-3); font-size: 12.5px; color: var(--text-secondary); overflow-wrap: anywhere; }
+    .ua-confirm-box > div + div { margin-top: var(--space-1); }
+    .ua-confirm-box-title { font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); }
+    .ua-confirm-box-title--danger { color: var(--color-danger-text); }
+    .ua-confirm-box-title--ok { color: var(--color-success-text); }
+    .ua-confirm-ack { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-4); font-size: var(--text-sm); color: var(--text-primary); cursor: pointer; }
+    .ua-confirm-foot { display: flex; align-items: center; justify-content: flex-end; gap: var(--space-3); }
+    .ua-btn-text { border: 0; background: transparent; padding: 0 var(--space-3); height: 36px; color: var(--text-secondary); font-size: var(--text-sm); font-weight: var(--weight-semibold); cursor: pointer; }
+    .ua-btn-text:hover { color: var(--brand-navy); }
+
     /* ── Footer ── */
     .ua-foot {
       display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: var(--space-2);
@@ -291,8 +351,33 @@
                       <ph-icon name="info" :size="14"></ph-icon>No actions<span class="visually-hidden">. {{ notes.anonymized }}</span>
                     </span>
                     <template v-else>
-                      <button v-if="primary(u) === 'resend'" type="button" class="ua-btn" :disabled="!!u._loading" @click="resendInvite(u)">Resend invite</button>
-                      <button v-else-if="primary(u) === 'enable'" type="button" class="ua-btn" :disabled="!!u._loading" @click="setStatus(u, 'active')">Enable</button>
+                      <div class="ua-busy" aria-live="polite"><template v-if="u._loading || u._sending"><span class="spinner-border spinner-border-sm" role="presentation"></span>{{ u._sending ? 'Sending…' : 'Updating…' }}</template></div>
+                      <template v-if="!u._loading && !u._sending">
+                        <button v-if="primary(u) === 'resend'" type="button" class="ua-btn" @click="resendInvite(u)">Resend invite</button>
+                        <button v-else-if="primary(u) === 'enable'" type="button" class="ua-btn" @click="setStatus(u, 'active')">Enable</button>
+                        <div class="ua-menu-wrap">
+                          <button type="button" class="ua-btn ua-btn-more ua-menu-trigger" aria-haspopup="menu"
+                                  :aria-expanded="menu && menu.userId === u.id ? 'true' : 'false'"
+                                  :aria-label="'Actions for ' + displayName(u)" @click="openMenu(u, $event)">
+                            <ph-icon name="more" :size="16"></ph-icon>
+                          </button>
+                          <div v-if="menu && menu.userId === u.id" class="ua-menu" :class="{ 'ua-menu--up': menu.up }" role="menu"
+                               :aria-label="'Actions for ' + displayName(u)" @keydown="onMenuKey">
+                            <div v-for="g in menuFor(u)" :key="g.group" class="ua-menu-group" role="group" :aria-label="g.label">
+                              <div class="ua-menu-label" aria-hidden="true">{{ g.label }}</div>
+                              <button v-for="it in g.items" :key="it.id" type="button" role="menuitem" tabindex="-1" class="ua-mi"
+                                      :class="{ 'ua-mi--off': !it.enabled, 'ua-mi--danger': it.danger }"
+                                      :aria-disabled="it.enabled ? null : 'true'" @click="runItem(u, it.id)">
+                                <span class="ua-mi-icon"><component :is="menuIcon(it.icon)" :name="it.icon" :size="16"></component></span>
+                                <span class="ua-mi-text">
+                                  <span class="ua-mi-head">{{ it.label }}<span v-if="it.tag" class="ua-tag" :class="it.danger ? 'ua-tag--danger' : 'ua-tag--navy'">{{ it.tag }}</span></span>
+                                  <span class="ua-mi-desc">{{ it.enabled ? it.desc : it.reason }}</span>
+                                </span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </template>
                     </template>
                   </div>
                 </td>
@@ -317,6 +402,70 @@
       </div>
     </div>
     </template>
+
+    <!-- ── DISABLE CONFIRMATION ────────────────────────────── -->
+    <div class="modal fade" id="disableModal" tabindex="-1" aria-labelledby="disableTitle" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="ua-confirm">
+            <div class="ua-confirm-head">
+              <span class="ua-confirm-icon"><ua-icon name="power" :size="16"></ua-icon></span>
+              <h2 class="ua-confirm-title" id="disableTitle">Disable {{ confirmName }}?</h2>
+            </div>
+            <p class="ua-confirm-text">They can't sign in until an admin enables the account again. A session that's already open stays valid until it expires (up to 8 hours).</p>
+            <div class="ua-confirm-boxes">
+              <div class="ua-confirm-box">
+                <div class="ua-confirm-box-title">Stops</div>
+                <div>Sign-in</div>
+                <div>Being picked for shares and notifications</div>
+              </div>
+              <div class="ua-confirm-box">
+                <div class="ua-confirm-box-title">Stays as it is</div>
+                <div>Role ({{ confirmTarget ? confirmTarget.role : '' }})</div>
+                <div>All data they created</div>
+              </div>
+            </div>
+            <div class="ua-confirm-foot">
+              <button type="button" class="ua-btn-text" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="ua-btn-navy" @click="confirmDisable">Disable user</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── ANONYMIZE CONFIRMATION ──────────────────────────── -->
+    <div class="modal fade" id="anonymizeModal" tabindex="-1" aria-labelledby="anonymizeTitle" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="ua-confirm">
+            <div class="ua-confirm-head">
+              <span class="ua-confirm-icon ua-confirm-icon--danger"><ph-icon name="trash" :size="16"></ph-icon></span>
+              <h2 class="ua-confirm-title" id="anonymizeTitle">Anonymize {{ confirmName }}?</h2>
+              <span class="ua-tag ua-tag--danger">IRREVERSIBLE</span>
+            </div>
+            <p class="ua-confirm-text">Their name and email are replaced with anonymous values. The account stays disabled and can't be restored.</p>
+            <div class="ua-confirm-boxes">
+              <div class="ua-confirm-box">
+                <div class="ua-confirm-box-title ua-confirm-box-title--danger">Removed for good</div>
+                <div>{{ confirmName }}</div>
+                <div>{{ confirmTarget ? confirmTarget.email : '' }}</div>
+              </div>
+              <div class="ua-confirm-box">
+                <div class="ua-confirm-box-title ua-confirm-box-title--ok">Kept</div>
+                <div>Proposals and projects</div>
+                <div>Cost grids they created</div>
+              </div>
+            </div>
+            <label class="ua-confirm-ack"><input type="checkbox" v-model="anonAck">I understand this can't be undone.</label>
+            <div class="ua-confirm-foot">
+              <button type="button" class="ua-btn-text" id="anonymizeCancel" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-danger" :disabled="!anonAck" @click="confirmAnonymize">Anonymize user</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- ── INVITE MODAL ────────────────────────────────────── -->
     <div class="modal fade" id="inviteModal" tabindex="-1">
@@ -386,6 +535,10 @@
   <script defer src="js/nav.js?v=22"></script>
   <script type="module">
     const R = window.UserAdminRules;
+    // Kept outside Vue: DOM nodes and Bootstrap instances do not belong in reactive state.
+    let menuTrigger = null; // the ⋯ button of the open menu
+    let disableModal = null;
+    let anonymizeModal = null;
     const NETWORK_ERROR = "The server didn't respond. Check your connection and try again.";
 
     // Icons the shared library does not have (drawn like it: 16×16, stroke = currentColor).
@@ -430,6 +583,9 @@
             anonymized: "Personal data was removed. The account can't be restored.",
           },
           banner: null,
+          menu: null,
+          confirmTarget: null,
+          anonAck: false,
           invite: { firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, success: null },
           _modal: null,
         };
@@ -451,6 +607,9 @@
           let s = `${n} ${n === 1 ? 'user' : 'users'}`;
           if (p) s += ` · ${p} pending ${p === 1 ? 'invite' : 'invites'}`;
           return s;
+        },
+        confirmName() {
+          return this.confirmTarget ? R.displayName(this.confirmTarget) : '';
         },
         footerRule() {
           return this.me.role === 'sysadmin'
@@ -474,6 +633,16 @@
         const el = document.getElementById('inviteModal');
         this._modal = new bootstrap.Modal(el);
         el.addEventListener('hidden.bs.modal', () => this.resetInvite());
+        disableModal = new bootstrap.Modal(document.getElementById('disableModal'));
+        const anonEl = document.getElementById('anonymizeModal');
+        anonymizeModal = new bootstrap.Modal(anonEl);
+        anonEl.addEventListener('shown.bs.modal', () => document.getElementById('anonymizeCancel').focus());
+        document.addEventListener('mousedown', ev => {
+          if (this.menu && !ev.target.closest('.ua-menu, .ua-menu-trigger')) this.closeMenu(false);
+        });
+        document.addEventListener('keydown', ev => {
+          if (ev.key === 'Escape' && this.menu) this.closeMenu(true);
+        });
       },
       methods: {
         initials: R.initials,
@@ -489,6 +658,61 @@
         avatarClass(u) {
           const k = this.kind(u);
           return { 'ua-avatar--self': k === 'self', 'ua-avatar--anon': k === 'anonymized' };
+        },
+
+        menuFor(u) { return R.menuGroups(u, this.me); },
+        menuIcon(name) { return name in UA_ICONS ? 'ua-icon' : 'ph-icon'; },
+
+        // The popover opens upwards when the tallest menu would not fit between the button and the viewport bottom.
+        openMenu(user, ev) {
+          if (this.menu && this.menu.userId === user.id) { this.closeMenu(true); return; }
+          menuTrigger = ev.currentTarget;
+          const up = menuTrigger.getBoundingClientRect().bottom + 360 > window.innerHeight;
+          this.menu = { userId: user.id, up };
+          this.$nextTick(() => {
+            const first = document.querySelector('.ua-menu [role="menuitem"]');
+            if (first) first.focus();
+          });
+        },
+        closeMenu(returnFocus) {
+          this.menu = null;
+          if (returnFocus && menuTrigger) menuTrigger.focus();
+        },
+        onMenuKey(ev) {
+          if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') return;
+          ev.preventDefault();
+          const items = [...ev.currentTarget.querySelectorAll('[role="menuitem"]')];
+          const at = items.indexOf(document.activeElement);
+          const step = ev.key === 'ArrowDown' ? 1 : -1;
+          items[(at + step + items.length) % items.length].focus();
+        },
+        runItem(user, id) {
+          const it = R.menuGroups(user, this.me).flatMap(g => g.items).find(i => i.id === id);
+          if (!it || !it.enabled) return;
+          this.closeMenu(false);
+          if (id === 'make-admin' || id === 'make-user') this.toggleRole(user);
+          else if (id === 'grant-sysadmin' || id === 'revoke-sysadmin') this.toggleSysAdmin(user);
+          else if (id === 'resend') this.resendInvite(user);
+          else if (id === 'enable') this.setStatus(user, 'active');
+          else if (id === 'disable') this.askDisable(user);
+          else if (id === 'anonymize') this.askAnonymize(user);
+        },
+        askDisable(user) {
+          this.confirmTarget = user;
+          disableModal.show();
+        },
+        confirmDisable() {
+          disableModal.hide();
+          this.setStatus(this.confirmTarget, 'disabled');
+        },
+        askAnonymize(user) {
+          this.confirmTarget = user;
+          this.anonAck = false;
+          anonymizeModal.show();
+        },
+        confirmAnonymize() {
+          anonymizeModal.hide();
+          this.anonymizeUser(this.confirmTarget);
         },
 
         setBanner(kind, title, text) { this.banner = { kind, title, text }; },
@@ -581,7 +805,7 @@
         },
 
         async resendInvite(user) {
-          user._loading = true;
+          user._sending = true;
           this.clearBanner();
           try {
             const res = await fetch(`/api/auth/${user.id}/resend-invite`, {
@@ -594,7 +818,7 @@
           } catch {
             this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, NETWORK_ERROR);
           } finally {
-            user._loading = false;
+            user._sending = false;
           }
         },
 
