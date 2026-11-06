@@ -1,6 +1,6 @@
 # Pre-login pages restyling — design
 
-Date: 2026-10-06. Type: evolution (Scenario 2), UI redesign page cycle. Source: Brief `docs/superpowers/design/2026-10-06-prelogin-brief.md` (with the reference boards `docs/superpowers/design/PreLogin/2.1-signin.png`, `2.2-forgot.png`, `2.3-reset.png`), verified against the code in `/brainstorming`.
+Date: 2026-10-06. Type: evolution (Scenario 2), UI redesign page cycle. Source: Brief `docs/superpowers/design/foundation/2026-10-06-prelogin-brief.md` (with the reference boards `docs/superpowers/design/PreLogin/2.1-signin.png`, `2.2-forgot.png`, `2.3-reset.png`), verified against the code in `/brainstorming`.
 
 ## Goal
 

@@ -69,7 +69,7 @@ Card/detail/footer amounts call `formatMoney(amount, code, currencies)` directly
 
 ## Board redesign, cycle 1 of 2 (2026-10-06)
 
-Board only; the detail panel is unchanged (cycle 2: panel container, tabs, POT API). Spec `docs/superpowers/specs/2026-10-06-pipeline-board-redesign-design.md`, input `docs/superpowers/design/2026-10-06-pipeline-brief.md` (boards 4.4-4.9).
+Board only; the detail panel is unchanged (cycle 2: panel container, tabs, POT API). Spec `docs/superpowers/specs/2026-10-06-pipeline-board-redesign-design.md`, input `docs/superpowers/design/foundation/2026-10-06-pipeline-brief.md` (boards 4.4-4.9).
 
 What changed:
 - **CSS:** page styles moved to `css/pipeline.css` (tokens only, `?v=1`, only `pipeline.html`), guarded by `js/lib/pipeline-guard.test.js` (no hex, emoji or `v-html` in the board region).

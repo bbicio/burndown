@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-15
 **Brief started:** unknown
-**Brief:** `docs/superpowers/design/2026-10-15-briefing-project-reporting.md`
+**Brief:** `docs/superpowers/design/foundation/2026-10-15-briefing-project-reporting.md`
 **Scenario:** 2 (evoluzione)
 
 Restyling della vista `dashboard` di `portfolio.html` (`showDashboard(pid)`, `?projectId=`). Tavole in

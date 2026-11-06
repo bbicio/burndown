@@ -8,7 +8,7 @@
 
 **Tech Stack:** static HTML + Vue 3 CDN pages (no build), classic scripts, Bootstrap 5.3.2 (CDN), vitest + jsdom (`npm test`).
 
-**Spec:** `docs/superpowers/specs/2026-10-02-navigation-b2-sidebar-design.md` (Brief: `docs/superpowers/briefs/2026-10-02-navigation-b2-sidebar-brief.md`; images and handoff in `docs/superpowers/design/`).
+**Spec:** `docs/superpowers/specs/2026-10-02-navigation-b2-sidebar-design.md` (Brief: `docs/superpowers/briefs/2026-10-02-navigation-b2-sidebar-brief.md`; images and handoff in `docs/superpowers/design/foundation/`).
 
 ## Global Constraints
 
@@ -47,7 +47,7 @@
 git cherry-pick 5ec7b23
 ```
 
-Expected: the spec file and `docs/superpowers/design/2026-10-02-schermi-piccoli-sottomenu.png` appear in the worktree. (A later merge conflicts on these two files only if they are edited on the branch; resolve with the branch version.) If `origin/main` already contains `5ec7b23`, skip the cherry-pick.
+Expected: the spec file and `docs/superpowers/design/foundation/2026-10-02-schermi-piccoli-sottomenu.png` appear in the worktree. (A later merge conflicts on these two files only if they are edited on the branch; resolve with the branch version.) If `origin/main` already contains `5ec7b23`, skip the cherry-pick.
 
 - [ ] **Step 2: Install dev dependencies** (the worktree has no `node_modules`):
 
@@ -1417,7 +1417,7 @@ scripts/test-branch.sh status
 
 Expected: `status` exits 0 ("up"). Note the URL/ports the script prints. Leave the stack running: it is torn down only at `/finish-cycle` Gate 2 after the user's own "yes", never after my own use.
 
-- [ ] **Step 2: Sidebar, as admin.** Log in, open `pipeline.html` at ≥ 1024px wide. Compare with `docs/superpowers/design/navbar_aperta.png`: sidebar open on first visit, magenta border on the active item, ADMIN group always expanded, avatar + email + bell at the bottom, "© 2026 PDash" visible. Fix visual drift (spacing, widths, brand row height) in `css/style.css` and re-run `npm test`; commit CSS adjustments as `fix(nav): ...` and note the final widths.
+- [ ] **Step 2: Sidebar, as admin.** Log in, open `pipeline.html` at ≥ 1024px wide. Compare with `docs/superpowers/design/foundation/navbar_aperta.png`: sidebar open on first visit, magenta border on the active item, ADMIN group always expanded, avatar + email + bell at the bottom, "© 2026 PDash" visible. Fix visual drift (spacing, widths, brand row height) in `css/style.css` and re-run `npm test`; commit CSS adjustments as `fix(nav): ...` and note the final widths.
 
 - [ ] **Step 3: Rail.** Click the collapse button; compare with `navbar_collassata.png`. Reload and navigate to another page: the state persists. Expand again: persists.
 

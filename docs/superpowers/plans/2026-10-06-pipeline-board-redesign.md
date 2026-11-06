@@ -8,7 +8,7 @@
 
 **Tech Stack:** Vue 3 (CDN, runtime-compiled, no build), Bootstrap 5.3.2 (dropdowns, offcanvas), vitest + jsdom, Express + PostgreSQL, `test-api.js` integration suite.
 
-**Spec:** `docs/superpowers/specs/2026-10-06-pipeline-board-redesign-design.md` (read it — section numbers below refer to it). Brief and boards: `docs/superpowers/design/2026-10-06-pipeline-brief.md`, `docs/superpowers/design/Pipeline/4.4`…`4.9`.
+**Spec:** `docs/superpowers/specs/2026-10-06-pipeline-board-redesign-design.md` (read it — section numbers below refer to it). Brief and boards: `docs/superpowers/design/foundation/2026-10-06-pipeline-brief.md`, `docs/superpowers/design/Pipeline/4.4`…`4.9`.
 
 ## Global Constraints
 

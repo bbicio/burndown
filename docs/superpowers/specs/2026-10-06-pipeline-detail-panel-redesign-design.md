@@ -1,6 +1,6 @@
 # Pipeline detail panel redesign (cycle 2 of 2) — design
 
-Date: 2026-10-06. Type: evolution (Scenario 2), UI redesign page cycle. Source: Brief `docs/superpowers/design/2026-10-06-pipeline-brief.md` §6, §7 (panel part), §10 — its "Decisioni prese prima del ciclo" section prevails, and the decisions below (taken in this cycle's `/brainstorming`) prevail over both — with boards `docs/superpowers/design/Pipeline/4.10.1-barra-laterale-overview.png`, `4.11-barra-lateralle-tasks.png`, `4.12-barra-laterale-linkedprojects.png`, `4.13-barra-laterale-pot.png`. Base: cycle 1 merged (`d966474`, spec `docs/superpowers/specs/2026-10-06-pipeline-board-redesign-design.md`).
+Date: 2026-10-06. Type: evolution (Scenario 2), UI redesign page cycle. Source: Brief `docs/superpowers/design/foundation/2026-10-06-pipeline-brief.md` §6, §7 (panel part), §10 — its "Decisioni prese prima del ciclo" section prevails, and the decisions below (taken in this cycle's `/brainstorming`) prevail over both — with boards `docs/superpowers/design/Pipeline/4.10.1-barra-laterale-overview.png`, `4.11-barra-lateralle-tasks.png`, `4.12-barra-laterale-linkedprojects.png`, `4.13-barra-laterale-pot.png`. Base: cycle 1 merged (`d966474`, spec `docs/superpowers/specs/2026-10-06-pipeline-board-redesign-design.md`).
 
 ## Goal
 

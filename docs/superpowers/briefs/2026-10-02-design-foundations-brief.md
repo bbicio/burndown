@@ -1,7 +1,7 @@
 # Brief — Design foundations (Cycle A)
 
 **Scenario:** 1 (new feature), as classified by the user.
-**Source:** `docs/superpowers/design/2026-10-02-foundations-handoff.md` (Claude Design). The handoff's claims about the current code were NOT re-verified when writing this Brief; `/brainstorming` must verify them (see Open questions).
+**Source:** `docs/superpowers/design/foundation/2026-10-02-foundations-handoff.md` (Claude Design). The handoff's claims about the current code were NOT re-verified when writing this Brief; `/brainstorming` must verify them (see Open questions).
 **Position in the redesign:** first of a sequence — Cycle A (foundations) → Cycle B (navigation) → page-by-page cycles. Cycle B and later cycles consume the tokens defined here.
 
 ## Expected behavior

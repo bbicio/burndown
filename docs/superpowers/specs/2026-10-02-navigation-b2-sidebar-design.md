@@ -1,7 +1,7 @@
 # Navigation Cycle B2 — sidebar, small-screen navbar, account and notifications (design)
 
 **Date:** 2026-10-02 · **Scenario:** 2 (evolution) · **Path:** architectural
-**Inputs:** `docs/superpowers/briefs/2026-10-02-navigation-b2-sidebar-brief.md`; the five layout images and `2026-10-02-schermi-piccoli-sottomenu.png` in `docs/superpowers/design/`; `2026-10-02-navigation-handoff-integration.md` (§15 icons); `2026-10-02-navigation-handoff-addendum-footer-removal.md`.
+**Inputs:** `docs/superpowers/briefs/2026-10-02-navigation-b2-sidebar-brief.md`; the five layout images and `2026-10-02-schermi-piccoli-sottomenu.png` in `docs/superpowers/design/foundation/`; `2026-10-02-navigation-handoff-integration.md` (§15 icons); `2026-10-02-navigation-handoff-addendum-footer-removal.md`.
 **Prerequisite:** B1 merged (`aa6d762`): `#app-shell > #nav-container + #app-main` on the 14 pages, `--sidebar-w: 0px`, the `<head>` snippet reading `PDash_sidebarCollapsed`, breadcrumb as first child of `#app-main`.
 
 ## 1. Agreed understanding

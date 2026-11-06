@@ -1,7 +1,7 @@
 # Brief — Navigation, Cycle B1: page shell and sidebar-state groundwork
 
 **Scenario:** 2 (evolution), as classified by the user.
-**Sources:** `docs/superpowers/design/2026-10-02-navigation-handoff.md` + `...-handoff-integration.md` (Claude Design), the layout images in `docs/superpowers/design/` (`navbar_aperta.png`, `navbar_collassata.png`, `2026-10-02-schermi-piccoli-menu.png`, `2026-10-02-schermo-grande-avatar-notifiche.png`, `2026-10-02-schermi-piccoli-avatar-notifiche.png`), and `docs/superpowers/audits/2026-09-24-navigation-ux-audit.md`.
+**Sources:** `docs/superpowers/design/foundation/2026-10-02-navigation-handoff.md` + `...-handoff-integration.md` (Claude Design), the layout images in `docs/superpowers/design/foundation/` (`navbar_aperta.png`, `navbar_collassata.png`, `2026-10-02-schermi-piccoli-menu.png`, `2026-10-02-schermo-grande-avatar-notifiche.png`, `2026-10-02-schermi-piccoli-avatar-notifiche.png`), and `docs/superpowers/audits/2026-09-24-navigation-ux-audit.md`.
 **Position in the redesign:** Cycle A (foundations, merged `38f8b6e`) → **Cycle B1 (this one, no visible change)** → Cycle B2 (sidebar, see `2026-10-02-navigation-b2-sidebar-brief.md`) → page-by-page cycles. B2 starts only after B1 is merged.
 **Decision history:** the handoff recommended keeping the top navbar; the images show a left sidebar instead, so the images win. The user chose two cycles: B1 prepares the pages (shell + head script), B2 builds the sidebar on top, so the ~18 pages are opened once.
 

@@ -5,7 +5,7 @@
 
 ## What was done
 
-8 commits (Pipeline board redesign, cycle 1 of 2 — brief `docs/superpowers/design/2026-10-06-pipeline-brief.md`, spec `docs/superpowers/specs/2026-10-06-pipeline-board-redesign-design.md`, plan `docs/superpowers/plans/2026-10-06-pipeline-board-redesign.md`):
+8 commits (Pipeline board redesign, cycle 1 of 2 — brief `docs/superpowers/design/foundation/2026-10-06-pipeline-brief.md`, spec `docs/superpowers/specs/2026-10-06-pipeline-board-redesign-design.md`, plan `docs/superpowers/plans/2026-10-06-pipeline-board-redesign.md`):
 
 - `b54e296` feat(api): offers count per pipeline year with board visibility
 - `46dfa06` feat(pipeline): view-model functions for card amount, column header, open pipeline, search suggestions

@@ -3,7 +3,7 @@
 **Date:** 2026-10-06
 **Branch:** worktree-prelogin-restyling → main (merge `0ddddf8`, `--no-ff`; main had not diverged)
 
-Brief `docs/superpowers/design/2026-10-06-prelogin-brief.md` (boards in `docs/superpowers/design/PreLogin/`), spec `docs/superpowers/specs/2026-10-06-prelogin-restyling-design.md`, plan `docs/superpowers/plans/2026-10-06-prelogin-restyling.md` — all committed on `main` before the branch (`b718192`, `ab6ee29`). Frontend only: no `api/` change, no migration, `pdash-api` not restarted. DB backup before merge: `backups/pdash-backup-2026-10-06-130042.dump` (116K).
+Brief `docs/superpowers/design/foundation/2026-10-06-prelogin-brief.md` (boards in `docs/superpowers/design/PreLogin/`), spec `docs/superpowers/specs/2026-10-06-prelogin-restyling-design.md`, plan `docs/superpowers/plans/2026-10-06-prelogin-restyling.md` — all committed on `main` before the branch (`b718192`, `ab6ee29`). Frontend only: no `api/` change, no migration, `pdash-api` not restarted. DB backup before merge: `backups/pdash-backup-2026-10-06-130042.dump` (116K).
 
 ## What was done
 

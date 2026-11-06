@@ -1,9 +1,9 @@
 # Brief — Navigation, Cycle B2: sidebar, small-screen navbar, account and notifications
 
 **Scenario:** 2 (evolution), as classified by the user.
-**Sources:** same as B1 (`2026-10-02-navigation-b1-page-shell-brief.md`): the Claude Design handoff + integration, the five layout images in `docs/superpowers/design/`, and the 2026-09-24 navigation audit.
+**Sources:** same as B1 (`2026-10-02-navigation-b1-page-shell-brief.md`): the Claude Design handoff + integration, the five layout images in `docs/superpowers/design/foundation/`, and the 2026-09-24 navigation audit.
 **Prerequisite:** B1 merged (page shell, inert head script, `keep` Set key, `--sidebar-w` rule).
-**Also an input:** `docs/superpowers/design/2026-10-02-navigation-handoff-addendum-footer-removal.md` (footer removed entirely; the `.pb-board-root` calc becomes navbar-only, and the footer term drops out of every dependent calc).
+**Also an input:** `docs/superpowers/design/foundation/2026-10-02-navigation-handoff-addendum-footer-removal.md` (footer removed entirely; the `.pb-board-root` calc becomes navbar-only, and the footer term drops out of every dependent calc).
 **Handoff claims checked against the code (2026-10-02):** the integration file adds §15 (SVG icons) that the first file referenced but lacked. Corrections found: the account button is not an avatar with initials today (`nav.js:98-101` shows the name as text); §15 does not map the `⚙ Admin` / `🔒 Sysadmin` trigger emoji, the banner emoji (`nav.js:88`, `notifications.js:46,50`, set via `textContent`) or the modal-title emoji (`nav.js:208,247`); audit finding 3 (`…` last crumb) is already fixed (`costgrid.html:1541-1545`, `project-config.html:622-630`); the real navbar height is 110px (not 106), and `.pb-board-root`'s 206px also omits the breadcrumb bar. The handoff's top-navbar recommendation and its §3 trims are superseded by the sidebar images.
 
 ## Current behavior (verified in code)

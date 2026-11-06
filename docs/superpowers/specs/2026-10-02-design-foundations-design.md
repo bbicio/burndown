@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-02
 **Brief:** `docs/superpowers/briefs/2026-10-02-design-foundations-brief.md`
-**Source handoff:** `docs/superpowers/design/2026-10-02-foundations-handoff.md` (Claude Design). Its claims were checked against the code on 2026-10-02; corrections are listed in §10.
+**Source handoff:** `docs/superpowers/design/foundation/2026-10-02-foundations-handoff.md` (Claude Design). Its claims were checked against the code on 2026-10-02; corrections are listed in §10.
 **Path:** architectural (tokens are an interface every page depends on). First of: A (foundations) → B (navigation) → page-by-page cycles.
 
 ## 1. Purpose and success

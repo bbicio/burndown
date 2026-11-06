@@ -1,6 +1,6 @@
 # Pipeline board redesign (cycle 1 of 2) — design
 
-Date: 2026-10-06. Type: evolution (Scenario 2), UI redesign page cycle. Source: Brief `docs/superpowers/design/2026-10-06-pipeline-brief.md` (its "Decisioni prese prima del ciclo" section prevails over the rest) with boards `docs/superpowers/design/Pipeline/4.4` → `4.9`, verified against the code in `/brainstorming`. Cycle 2 (detail panel, brief §6/§10) is out of scope here.
+Date: 2026-10-06. Type: evolution (Scenario 2), UI redesign page cycle. Source: Brief `docs/superpowers/design/foundation/2026-10-06-pipeline-brief.md` (its "Decisioni prese prima del ciclo" section prevails over the rest) with boards `docs/superpowers/design/Pipeline/4.4` → `4.9`, verified against the code in `/brainstorming`. Cycle 2 (detail panel, brief §6/§10) is out of scope here.
 
 ## Goal
 

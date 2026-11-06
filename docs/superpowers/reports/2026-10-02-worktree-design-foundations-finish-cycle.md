@@ -5,7 +5,7 @@
 
 ## What was done
 
-Cycle A of the UI redesign (foundations), from the Claude Design handoff `docs/superpowers/design/2026-10-02-foundations-handoff.md`. Frontend only: no `api/` change, no migration, `pdash-api` not restarted.
+Cycle A of the UI redesign (foundations), from the Claude Design handoff `docs/superpowers/design/foundation/2026-10-02-foundations-handoff.md`. Frontend only: no `api/` change, no migration, `pdash-api` not restarted.
 
 - `5487e7c` docs: design foundations (Cycle A) handoff, brief and spec
 - `8d88e01` feat: design foundations tokens (status, chart, focus, typography, AA stage text) — `css/tokens.css`, `js/lib/tokens.test.js`

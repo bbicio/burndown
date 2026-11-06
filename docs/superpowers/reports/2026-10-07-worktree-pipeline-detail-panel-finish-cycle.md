@@ -5,7 +5,7 @@
 
 ## What was done
 
-7 commits (Pipeline redesign, cycle 2 of 2 — detail panel; brief `docs/superpowers/design/2026-10-06-pipeline-brief.md` §6/§7/§10, spec `docs/superpowers/specs/2026-10-06-pipeline-detail-panel-redesign-design.md`, plan `docs/superpowers/plans/2026-10-06-pipeline-detail-panel-redesign.md`):
+7 commits (Pipeline redesign, cycle 2 of 2 — detail panel; brief `docs/superpowers/design/foundation/2026-10-06-pipeline-brief.md` §6/§7/§10, spec `docs/superpowers/specs/2026-10-06-pipeline-detail-panel-redesign-design.md`, plan `docs/superpowers/plans/2026-10-06-pipeline-detail-panel-redesign.md`):
 
 - `7f3fb5e` feat(api): POT summary with expected/SIP totals and per-proposal value
 - `b938a06` feat(pipeline): pbFmtMonth and pbPotView view-model functions

@@ -8,7 +8,7 @@
 
 **Tech Stack:** Static HTML + Vue 3 (CDN, runtime-compiled), Bootstrap 5.3.2 CSS (CDN), vitest 4 + jsdom (dev only).
 
-**Spec:** `docs/superpowers/specs/2026-10-06-prelogin-restyling-design.md` (Brief: `docs/superpowers/design/2026-10-06-prelogin-brief.md`, boards: `docs/superpowers/design/PreLogin/*.png`). Read the spec's §2 for every CSS value — this plan does not repeat them.
+**Spec:** `docs/superpowers/specs/2026-10-06-prelogin-restyling-design.md` (Brief: `docs/superpowers/design/foundation/2026-10-06-prelogin-brief.md`, boards: `docs/superpowers/design/PreLogin/*.png`). Read the spec's §2 for every CSS value — this plan does not repeat them.
 
 ## Global Constraints
 
