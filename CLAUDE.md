@@ -108,7 +108,7 @@ Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page i
 | `reset-password.html` | `/reset-password.html?token=` | Public — password reset |
 | `_db-reset.html` | `/_db-reset.html` | **Sysadmin-exclusive** hidden page for bulk DB data deletion by scope, linked from the sysadmin-only navbar menu (`initNav('dbreset', ...)`); also has "Delete single proposal" widget (UUID input, cascade delete) and "Change proposal owner" widget (UUID + active-user dropdown). Full narrative: [docs/pages/db-reset.md](docs/pages/db-reset.md) |
 | `_terms-editor.html` | `/_terms-editor.html` | **Sysadmin-exclusive** hidden page — Terms & Conditions editor, linked from the sysadmin-only navbar menu (`initNav('termseditor', ...)`). Full narrative: [docs/pages/terms-editor.md](docs/pages/terms-editor.md) |
-| `settings.html` | `/settings.html` | Settings page: opened from the account dropdown's "⚙ Settings"; currently blank apart from the navigation, breadcrumb and the title, open to any authenticated user. Full narrative: [docs/pages/settings.md](docs/pages/settings.md) |
+| `privacy-notice.html` | `/privacy-notice.html` | Privacy Notice: opened from the account dropdown's "Privacy Notice"; read-only view of the latest published Terms & Conditions with their version and publication date in the footer, open to any authenticated user (replaced the blank `settings.html`). Full narrative: [docs/pages/privacy-notice.md](docs/pages/privacy-notice.md) |
 | `team.html` | `/team.html` | Resource registry CRUD (name/email/role by id/job description, optional link to a PDash user) plus an "Unmatched names" queue (its own page tab) that links the free-text owner names found in uploaded actuals to resources (aliases), and a sortable table, a resource detail side panel and a searchable assign control, and an "Experience profile" tab showing the per-person hours tree; admin **or sysadmin**, linked from the ⚙ Admin dropdown. Full narrative: [docs/pages/team.md](docs/pages/team.md) |
 | `attribute-lists.html` | `/attribute-lists.html` | Generic, agnostic tag/taxonomy admin console — create lists and their items (Market/Brand/Therapeutic Area/Service Type seeded, more addable without code changes), admin **or sysadmin**, linked from the ⚙ Admin dropdown. Its lists/items are consumed by `costgrid.html`/`project-config.html`'s "🏷 Tags" sections via the shared `js/tags.js` helper. Full narrative: [docs/pages/attribute-lists.md](docs/pages/attribute-lists.md) |
 | `profile-jobs.html` | `/profile-jobs.html` | **Hidden page, no menu entry** — profile-engine job console (queue/status list, force recalculation, worker schedule, run history), reached only from the Timesheets sub-nav ("Profile processing", next to "Actuals") of `timesheets.html`; admin **or** sysadmin. Full narrative: [docs/pages/profile-jobs.md](docs/pages/profile-jobs.md) |
@@ -230,7 +230,7 @@ Each page calls `initNav(activeTab)` from `nav.js` which:
 2. Injects the change-password modal, send-notification modal, and "My Profile" modal HTML (centralised — do NOT duplicate in page HTML)
 3. Calls `GET /api/auth/me` — redirects to `/login.html` on 401; redirects to `/terms.html` if `user.terms_version < user.current_terms_version`
 4. Stores the user object in `window.__navUser`
-5. Wires all navbar events (account dropdown, settings link to `/settings.html`, change password, notifications)
+5. Wires all navbar events (account dropdown, Privacy Notice link to `/privacy-notice.html`, change password, notifications)
 6. Calls `initNotifications(user)` from `notifications.js`
 7. Returns the user object
 
@@ -333,7 +333,7 @@ A rule is restated here only when **no guard test pins it**; where a test does, 
 
 ### Send Notification modal
 
-`#sendNotifModal` is injected by `nav.js`, separate from the Settings page. Opened via "Send Notification" in the account dropdown — visible to **all** authenticated users.
+`#sendNotifModal` is injected by `nav.js`, separate from the Privacy Notice page. Opened via "Send Notification" in the account dropdown — visible to **all** authenticated users.
 
 - Recipient `<select id="sendNotifTarget">` is populated from `GET /api/users/active-list` (any authenticated user; excludes self). An "All users (broadcast)" option is prepended only when `window.__navUser.role === 'admin'`.
 - Channel checkboxes: Push notification (default checked) and/or Email — at least one required.

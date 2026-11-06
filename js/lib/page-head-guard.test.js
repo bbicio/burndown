@@ -23,7 +23,7 @@ const FORBIDDEN = {
   '.pg-title': ['program.html'], '.pg-label': ['program.html'],
   '.cg-header': ['costgrid.html'], '.cg-header-name': ['costgrid.html'],
   '.cg-back-link': ['costgrid.html'],
-  '.page-header': ['admin.html', 'team.html', 'attribute-lists.html', 'profile-jobs.html', 'settings.html', 'timesheets.html',
+  '.page-header': ['admin.html', 'team.html', 'attribute-lists.html', 'profile-jobs.html', 'privacy-notice.html', 'timesheets.html',
     'master-clients.html', 'master-pipelines.html', 'master-roles.html', 'master-currencies.html'],
   '.page-title-bar': ['planning.html', 'project-config.html'],
   '.page-toolbar': ['planning.html', 'project-config.html'],

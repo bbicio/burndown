@@ -41,7 +41,7 @@ describe('sidebar-state head snippet', () => {
 
 const PAGES = ['pipeline','portfolio','planning','costgrid','project-config','team',
   'master-clients','master-pipelines','master-roles','master-currencies',
-  'timesheets','admin','attribute-lists','profile-jobs','settings','_db-reset','_terms-editor','program'];
+  'timesheets','admin','attribute-lists','profile-jobs','privacy-notice','_db-reset','_terms-editor','program'];
 const readPage = n => readFileSync(join(process.cwd(), n + '.html'), 'utf8');
 const OPEN = '<div id="app-shell">';
 const CLOSE = '<!-- /#app-shell -->';
@@ -93,7 +93,7 @@ describe('?v= references of the files edited in B1 and B2', () => {
     const p = readFileSync(join(process.cwd(), 'pipeline.html'), 'utf8');
     expect(p).toContain('css/style.css?v=35');
     expect(p).toContain('js/core.js?v=16');
-    expect(p).toContain('js/nav.js?v=21');
+    expect(p).toContain('js/nav.js?v=22');
     expect(p).toContain('js/notifications.js?v=4');
     expect(p).toContain('css/tokens.css?v=14');
   });

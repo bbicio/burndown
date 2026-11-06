@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>try{if(localStorage.getItem('PDash_sidebarCollapsed')==='1')document.documentElement.setAttribute('data-sidebar','collapsed')}catch(e){}</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Privacy Notice</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css?v=14">
+  <link rel="stylesheet" href="css/style.css?v=35">
+  <link rel="stylesheet" href="css/admin-crud.css?v=4">
+  <style>
+    .pn-doc {
+      background: var(--surface-white);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius-lg);
+      padding: 2rem 2.5rem;
+      max-width: 780px;
+      margin: 0 auto 3rem;
+    }
+    .pn-body { overflow-wrap: anywhere; overflow-x: auto; }
+    .pn-body iframe, .pn-body video, .pn-body svg, .pn-body embed, .pn-body object { max-width: 100%; }
+    .pn-body h1, .pn-body h2, .pn-body h3 { color: var(--brand-navy); font-weight: 700; }
+    .pn-body h2 { font-size: 1.05rem; margin-top: 1.6rem; margin-bottom: .5rem; }
+    .pn-body p, .pn-body li { font-size: .92rem; color: var(--text-body); line-height: 1.7; }
+    .pn-body img { max-width: 100%; height: auto; }
+    .pn-body table { display: block; max-width: 100%; overflow-x: auto; }
+    .pn-message { color: var(--text-muted); font-size: .92rem; margin: 0; }
+    .pn-footer {
+      margin: 2rem 0 0;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-light);
+      color: var(--text-muted);
+      font-size: .82rem;
+    }
+    @media (max-width: 575.98px) { .pn-doc { padding: 1.25rem 1rem; } }
+  </style>
+</head>
+<body>
+
+<!-- Navbar (injected by nav.js) -->
+<div id="app-shell">
+<div id="nav-container"></div>
+<div id="app-main">
+
+<div id="app" v-cloak>
+
+  <div v-if="ready" class="page app-container">
+    <div class="ph">
+      <div class="ph-main">
+        <div class="ph-title-row"><h1 class="ph-title">Privacy Notice</h1></div>
+      </div>
+    </div>
+
+    <div class="pn-doc">
+      <div v-if="loading" class="d-flex justify-content-center py-4">
+        <div class="spinner-border text-secondary"></div>
+      </div>
+      <p v-else-if="loadError" class="pn-message">{{ loadError }}</p>
+      <p v-else-if="!content" class="pn-message">No privacy notice has been published yet.</p>
+      <template v-else>
+        <div class="pn-body" v-html="content"></div>
+        <p class="pn-footer">{{ footerLine }}</p>
+      </template>
+    </div>
+  </div>
+
+  <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
+    <div class="spinner-border text-secondary"></div>
+  </div>
+
+</div>
+
+</div><!-- /#app-main -->
+</div><!-- /#app-shell -->
+
+<script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script defer src="js/api.js?v=13"></script>
+<script defer src="js/core.js?v=16"></script>
+<script type="module" src="js/lib/notif-browser.js?v=2"></script>
+<script defer src="js/notifications.js?v=4"></script>
+<script type="module" src="js/lib/icons.js?v=7"></script>
+<script type="module" src="js/lib/dates.js?v=4"></script>
+<script defer src="js/nav.js?v=22"></script>
+<script type="module">
+  Vue.createApp({
+    data() {
+      return { ready: false, loading: true, loadError: '', content: '', version: null, updatedAt: null };
+    },
+    computed: {
+      // Publication day in UTC: the API timestamp is ISO/UTC and formatDayText takes 'YYYY-MM-DD'.
+      footerLine() {
+        const day = this.updatedAt ? formatDayText(String(this.updatedAt).slice(0, 10)) : '';
+        return `Version ${this.version}` + (day ? ` · Published ${day}` : '');
+      },
+    },
+    async created() {
+      const user = await initNav('privacy', { breadcrumbs: [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Privacy Notice' },
+      ]});
+      if (!user) return;
+      this.ready = true;
+      try {
+        const d = await apiFetch('/app-settings/terms');
+        this.content = d.content || '';
+        this.version = d.version;
+        this.updatedAt = d.updatedAt;
+      } catch (e) {
+        this.loadError = 'Unable to load the privacy notice. Please refresh or contact your administrator.';
+      } finally {
+        this.loading = false;
+      }
+    },
+  }).mount('#app');
+</script>
+</body>
+</html>

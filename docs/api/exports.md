@@ -2,7 +2,7 @@
 
 CSV/XLS export routes. `CLAUDE.md`'s File structure entry keeps only a short summary plus a pointer here. See `/sync-docs`'s routing rule for where future changes belong.
 
-Note the split in how these are reachable: the **three CSV routes** have had **no UI** since the Settings cycle (2026-09-30) removed the Settings modal that called them — the routes themselves were deliberately kept (see [docs/pages/settings.md](../pages/settings.md)). The **phasing XLS** is a different story and is still live: `master-pipelines.html` links it directly (`<a :href="/api/exports/phasing?year=...">`). `PRD.md` records the same distinction.
+Note the split in how these are reachable: the **three CSV routes** have had **no UI** since the Settings cycle (2026-09-30) removed the Settings modal that called them — the routes themselves were deliberately kept (see [docs/pages/privacy-notice.md](../pages/privacy-notice.md)). The **phasing XLS** is a different story and is still live: `master-pipelines.html` links it directly (`<a :href="/api/exports/phasing?year=...">`). `PRD.md` records the same distinction.
 
 ## Emailed exports
 
