@@ -163,7 +163,11 @@ export function filterSummary({ status, role, search } = {}) {
   return s;
 }
 
+export function isValidEmail(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email || '').trim());
+}
+
 Object.assign(window, { UserAdminRules: {
   isAnonymized, displayName, initials, rowKind, primaryAction, menuGroups,
-  statusCounts, filterUsers, sortUsers, nextSort, filterSummary,
+  statusCounts, filterUsers, sortUsers, nextSort, filterSummary, isValidEmail,
 } });

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   isAnonymized, displayName, initials, rowKind, primaryAction, menuGroups,
-  statusCounts, filterUsers, sortUsers, nextSort, filterSummary,
+  statusCounts, filterUsers, sortUsers, nextSort, filterSummary, isValidEmail,
 } from './user-admin-rules.js';
 
 // What admin.html offered before this cycle, transcribed from its template.
@@ -188,5 +188,15 @@ describe('lists', () => {
     expect(filterSummary({ status: 'all', role: 'all', search: '' })).toBe('Showing all users');
     expect(filterSummary({ status: 'active', role: 'admin', search: '' })).toBe('Showing active admins');
     expect(filterSummary({ status: 'all', role: 'sysadmin', search: ' x ' })).toBe('Showing sysadmins · "x"');
+  });
+});
+
+describe('isValidEmail', () => {
+  it('accepts addresses containing the letter s', () => {
+    expect(isValidEmail('marco.rossi@eversana.com')).toBe(true);
+    expect(isValidEmail('  sara@sales.it ')).toBe(true);
+  });
+  it('refuses whitespace, a missing @ or a missing dot', () => {
+    for (const e of ['', '   ', 'a b@c.com', 'ab.com', 'a@bcom', 'a@b@c.com']) expect(isValidEmail(e)).toBe(false);
   });
 });

@@ -769,7 +769,7 @@
         },
         inviteValid() {
           const i = this.invite;
-          return !!(i.firstName.trim() && i.lastName.trim() && /^[^s@]+@[^s@]+.[^s@]+$/.test(i.email.trim()));
+          return !!(i.firstName.trim() && i.lastName.trim() && R.isValidEmail(i.email));
         },
         menuUser() {
           return this.menu ? this.users.find(u => u.id === this.menu.userId) : null;
