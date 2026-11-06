@@ -126,7 +126,7 @@ function wireNotifPanel() {
 
   // Mark all read
   document.getElementById('nav-notif-read-all')?.addEventListener('click', async () => {
-    await apiFetch('/notifications/read-all', { method: 'PATCH' }).catch(() => {});
+    await apiFetch('/notifications/read-all', { method: 'PATCH', background: true }).catch(() => {});
     updateBadge(0);
     document.querySelectorAll('.notif-item.unread').forEach(el => el.classList.remove('unread'));
   });
@@ -147,7 +147,7 @@ async function renderNotifications() {
         const id = el.dataset.id;
         if (el.classList.contains('unread')) {
           el.classList.remove('unread');
-          await apiFetch(`/notifications/${id}/read`, { method: 'PATCH' }).catch(() => {});
+          await apiFetch(`/notifications/${id}/read`, { method: 'PATCH', background: true }).catch(() => {});
           const badge = document.getElementById('nav-notif-badge');
           const curr = parseInt(badge?.textContent || '0') - 1;
           updateBadge(Math.max(0, curr));

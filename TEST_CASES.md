@@ -66,6 +66,7 @@
 | N-24 | Rail tooltips (2026-10-02, follow-up to B2) | Collapse the sidebar (≥ 1024px); hover each icon (Pipeline, Portfolio, Planning, the Admin/Sysadmin entries), the initials and the bell; also Tab to one | A small navy tooltip appears 10px to the right of the rail, vertically centred on the icon: the entry name, the user's email for the initials, "Notifications" for the bell; no browser tooltip appears at the same time (the items have no `title` in the rail) | |
 | N-25 | Rail tooltips hide correctly (follow-up to B2) | With a tooltip visible: move the pointer away; press Esc; click the initials or the bell; scroll the items list; resize the window; expand the sidebar | The tooltip disappears each time and never overlaps the avatar/bell menu; it never stays stuck on screen | |
 | N-26 | Native title stays elsewhere (follow-up to B2) | Hover the icons with the sidebar open (240px) and below 1024px | No custom tooltip; the items carry the standard browser `title` (and every item has an `aria-label` in all layouts) | |
+| N-27 | Save overlay on a slow write (2026-11-06) | DevTools → Network → Slow 3G; on `master-clients.html` save a client | After ~0.4 s a navy scrim with a progress bar and a panel "Saving changes… / Please don't close this page." covers the page; clicks on the sidebar and Tab do nothing behind it; it disappears when the save ends; a rejected save shows the page's error with no overlay left. Writing in `costgrid.html` (autosave) and clicking a notification never show it; Save version does | |
 
 ---
 

@@ -31,10 +31,17 @@ describe('_cgUpsertVersionToApi — no POST fallback', () => {
     } };
   });
 
+  it('forwards opts.background to costGrids.update, versions.update and versions.saveStructure', async () => {
+    await build()('cg1', 'v1', { background: true });
+    expect(api.costGrids.update.mock.calls[0][2]).toEqual({ background: true });
+    expect(api.costGrids.versions.update.mock.calls[0][3]).toEqual({ background: true });
+    expect(api.costGrids.versions.saveStructure.mock.calls[0][3]).toEqual({ background: true });
+  });
+
   it('saves grid name, version meta and structure when both PATCHes succeed', async () => {
     await build()('cg1', 'v1');
-    expect(api.costGrids.update).toHaveBeenCalledWith('cg1', { name: 'Grid' });
-    expect(api.costGrids.versions.update).toHaveBeenCalledWith('cg1', 'v1', expect.objectContaining({ label: 'v1', currency: 'EUR' }));
+    expect(api.costGrids.update).toHaveBeenCalledWith('cg1', { name: 'Grid' }, { background: false });
+    expect(api.costGrids.versions.update).toHaveBeenCalledWith('cg1', 'v1', expect.objectContaining({ label: 'v1', currency: 'EUR' }), { background: false });
     expect(api.costGrids.versions.saveStructure).toHaveBeenCalledTimes(1);
   });
 

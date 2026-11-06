@@ -756,3 +756,47 @@ html[data-sidebar="collapsed"] .pd-nav-collapse .nav-icon:last-child { display: 
   padding: 2px 10px;
   color: var(--text-secondary);
 }
+
+/* ── Save overlay (PdOverlay, js/nav.js) ── */
+.pd-save-overlay {
+  position: fixed; inset: 0; z-index: var(--z-blocking);
+  display: flex; align-items: center; justify-content: center;
+  background: var(--overlay-scrim);
+  opacity: 0; transition: opacity 150ms;
+}
+.pd-save-overlay[hidden] { display: none; }
+.pd-save-overlay.is-visible { opacity: 1; }
+.pd-save-overlay__bar {
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+  background: var(--overlay-progress-track); overflow: hidden;
+}
+.pd-save-overlay__bar::after {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 35%;
+  background: var(--brand-magenta);
+  animation: pd-save-slide 1.2s ease-in-out infinite;
+}
+@keyframes pd-save-slide { from { transform: translateX(-100%); } to { transform: translateX(286%); } }
+.pd-save-overlay__panel {
+  width: 340px; max-width: calc(100vw - 32px);
+  background: var(--surface-white); border-radius: var(--radius-lg); box-shadow: var(--shadow-overlay);
+  padding: 24px 24px 22px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+}
+.pd-save-overlay__panel .spinner-border {
+  width: 28px; height: 28px; border-width: 3px;
+  border-color: var(--overlay-spinner-track); border-right-color: var(--brand-magenta);
+  animation-duration: .8s;
+}
+.pd-save-overlay__title { font-size: 15px; font-weight: 700; color: var(--brand-navy); }
+.pd-save-overlay__msg { font-size: 12.5px; line-height: 1.5; color: var(--text-muted); text-wrap: pretty; }
+body.pd-save-locked { overflow: hidden; }
+@media (max-width: 767.98px) {
+  .pd-save-overlay { align-items: flex-end; padding-bottom: 16px; }
+  .pd-save-overlay__panel { width: calc(100% - 32px); max-width: none; padding: 24px 18px 16px; }
+  .pd-save-overlay__msg { font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pd-save-overlay { transition: none; }
+  .pd-save-overlay__bar { display: none; }
+  .pd-save-overlay__panel .spinner-border { animation: none; }
+}

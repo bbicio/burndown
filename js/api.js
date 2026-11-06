@@ -6,40 +6,99 @@
 
 const API_BASE = '/api';
 
+// Save overlay (PdOverlay, js/nav.js). A save is a chain of requests: it opens with a write
+// (POST/PUT/PATCH/DELETE not declared `background: true`), and while it is open reads count too.
+// It stays open for SAVE_OVERLAY_GRACE_MS after the last pending request settles, success or failure,
+// so the next step of a multi-step save continues it. The overlay shows once the save has lasted
+// SAVE_OVERLAY_DELAY_MS with a request pending, and hides when the save closes.
+const SAVE_OVERLAY_DELAY_MS = 400;
+const SAVE_OVERLAY_GRACE_MS = 250;
+let _pdPending = 0;
+let _pdSaveStart = null;   // Date.now() when the open save began, null when no save is open
+let _pdShown = false;
+let _pdShowTimer = null;
+let _pdCloseTimer = null;
+
+// A write is a POST/PUT/PATCH/DELETE not declared `background: true`.
+function _isOverlayWrite(options) {
+  const m = String((options && options.method) || 'GET').toUpperCase();
+  return ['POST', 'PUT', 'PATCH', 'DELETE'].includes(m) && !(options && options.background === true);
+}
+
+function _pdShow() {
+  if (_pdShown || !window.PdOverlay) return;
+  _pdShown = true;
+  window.PdOverlay.show();
+}
+
+// Called when a request joins the save; returns whether it counts.
+function _pdBegin(options) {
+  const isRead = String((options && options.method) || 'GET').toUpperCase() === 'GET';
+  const counts = _isOverlayWrite(options) || (isRead && _pdSaveStart !== null);
+  if (!counts) return false;
+  clearTimeout(_pdCloseTimer);
+  if (_pdSaveStart === null) {
+    _pdSaveStart = Date.now();
+    _pdShowTimer = setTimeout(() => { if (_pdPending > 0) _pdShow(); }, SAVE_OVERLAY_DELAY_MS);
+  } else if (Date.now() - _pdSaveStart >= SAVE_OVERLAY_DELAY_MS) {
+    _pdShow(); // the delay ran out in a gap between two steps
+  }
+  _pdPending++;
+  return true;
+}
+
+function _pdEnd() {
+  if (--_pdPending > 0) return;
+  _pdCloseTimer = setTimeout(() => {
+    _pdSaveStart = null;
+    clearTimeout(_pdShowTimer);
+    if (_pdShown) {
+      _pdShown = false;
+      if (window.PdOverlay) window.PdOverlay.hide();
+    }
+  }, SAVE_OVERLAY_GRACE_MS);
+}
+
 async function apiFetch(path, options = {}) {
-  const isFormData = options.body instanceof FormData;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 30000);
-  let res;
+  const { background, ...fetchOptions } = options;
+  const counted = _pdBegin(options);
   try {
-    res = await fetch(API_BASE + path, {
-      ...options,
-      signal: controller.signal,
-      credentials: 'same-origin',
-      headers: isFormData ? undefined : { 'Content-Type': 'application/json', ...options.headers },
-    });
-  } catch (err) {
+    const isFormData = fetchOptions.body instanceof FormData;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 30000);
+    let res;
+    try {
+      res = await fetch(API_BASE + path, {
+        ...fetchOptions,
+        signal: controller.signal,
+        credentials: 'same-origin',
+        headers: isFormData ? undefined : { 'Content-Type': 'application/json', ...fetchOptions.headers },
+      });
+    } catch (err) {
+      clearTimeout(timer);
+      if (err.name === 'AbortError') throw new Error('Request timed out');
+      throw err;
+    }
     clearTimeout(timer);
-    if (err.name === 'AbortError') throw new Error('Request timed out');
-    throw err;
+    if (res.status === 401) {
+      window.__pdashAuthRedirecting = true;
+      window.location.href = '/login.html';
+      throw new Error('Unauthorized');
+    }
+    const text = await res.text();
+    const data = text ? JSON.parse(text) : null;
+    if (!res.ok) {
+      const err = new Error((data && data.error) || `HTTP ${res.status}`);
+      // Full parsed error body, for the rare caller that needs more than the message
+      // string (e.g. a structured list) — additive only, existing callers reading
+      // just err.message are unaffected.
+      err.data = data;
+      throw err;
+    }
+    return data;
+  } finally {
+    if (counted) _pdEnd();
   }
-  clearTimeout(timer);
-  if (res.status === 401) {
-    window.__pdashAuthRedirecting = true;
-    window.location.href = '/login.html';
-    throw new Error('Unauthorized');
-  }
-  const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
-  if (!res.ok) {
-    const err = new Error((data && data.error) || `HTTP ${res.status}`);
-    // Full parsed error body, for the rare caller that needs more than the message
-    // string (e.g. a structured list) — additive only, existing callers reading
-    // just err.message are unaffected.
-    err.data = data;
-    throw err;
-  }
-  return data;
 }
 
 // ── API NAMESPACES ────────────────────────────────────────────────────────────
@@ -108,7 +167,7 @@ const Api = {
     },
     tags: {
       list:    (id)          => apiFetch(`/projects/${id}/tags`),
-      replace: (id, itemIds) => apiFetch(`/projects/${id}/tags`, { method: 'PUT', body: JSON.stringify({ itemIds }) }),
+      replace: (id, itemIds, opts) => apiFetch(`/projects/${id}/tags`, { method: 'PUT', body: JSON.stringify({ itemIds }), background: opts?.background }),
     },
   },
 
@@ -117,18 +176,18 @@ const Api = {
     budgets: ()             => apiFetch('/cost-grids/budgets'),
     get:     (id)           => apiFetch(`/cost-grids/${id}`),
     create:  (d)            => apiFetch('/cost-grids',    { method: 'POST',   body: JSON.stringify(d) }),
-    update:  (id, d)        => apiFetch(`/cost-grids/${id}`, { method: 'PATCH', body: JSON.stringify(d) }),
+    update:  (id, d, opts)  => apiFetch(`/cost-grids/${id}`, { method: 'PATCH', body: JSON.stringify(d), background: opts?.background }),
     delete:  (id)           => apiFetch(`/cost-grids/${id}`, { method: 'DELETE' }),
     reassignOwner: (id, ownerId) => apiFetch(`/cost-grids/${id}/reassign-owner`, { method: 'PATCH', body: JSON.stringify({ ownerId }) }),
     versions: {
       list:       (cgId)              => apiFetch(`/cost-grids/${cgId}/versions`),
       create:     (cgId, d)           => apiFetch(`/cost-grids/${cgId}/versions`, { method: 'POST', body: JSON.stringify(d) }),
-      update:     (cgId, vId, d)      => apiFetch(`/cost-grids/${cgId}/versions/${vId}`, { method: 'PATCH', body: JSON.stringify(d) }),
+      update:     (cgId, vId, d, opts) => apiFetch(`/cost-grids/${cgId}/versions/${vId}`, { method: 'PATCH', body: JSON.stringify(d), background: opts?.background }),
       delete:     (cgId, vId)         => apiFetch(`/cost-grids/${cgId}/versions/${vId}`, { method: 'DELETE' }),
       duplicate:  (cgId, vId, d)      => apiFetch(`/cost-grids/${cgId}/versions/${vId}/duplicate`, { method: 'POST', body: JSON.stringify(d || {}) }),
       publish:    (cgId, vId)         => apiFetch(`/cost-grids/${cgId}/versions/${vId}/publish`,   { method: 'POST' }),
       structure:  (cgId, vId)         => apiFetch(`/cost-grids/${cgId}/versions/${vId}/structure`),
-      saveStructure: (cgId, vId, d)   => apiFetch(`/cost-grids/${cgId}/versions/${vId}/structure`, { method: 'PUT', body: JSON.stringify(d) }),
+      saveStructure: (cgId, vId, d, opts) => apiFetch(`/cost-grids/${cgId}/versions/${vId}/structure`, { method: 'PUT', body: JSON.stringify(d), background: opts?.background }),
       refreshRate:   (cgId, vId)      => apiFetch(`/cost-grids/${cgId}/versions/${vId}/refresh-rate`, { method: 'POST' }),
       linkedProjects: {
         list:   (cgId, vId)           => apiFetch(`/cost-grids/${cgId}/versions/${vId}/linked-projects`),
@@ -137,7 +196,7 @@ const Api = {
       },
       tags: {
         list:    (cgId, vId)           => apiFetch(`/cost-grids/${cgId}/versions/${vId}/tags`),
-        replace: (cgId, vId, itemIds)  => apiFetch(`/cost-grids/${cgId}/versions/${vId}/tags`, { method: 'PUT', body: JSON.stringify({ itemIds }) }),
+        replace: (cgId, vId, itemIds, opts) => apiFetch(`/cost-grids/${cgId}/versions/${vId}/tags`, { method: 'PUT', body: JSON.stringify({ itemIds }), background: opts?.background }),
       },
     },
     shares: {

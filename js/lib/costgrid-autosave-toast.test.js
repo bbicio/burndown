@@ -24,6 +24,23 @@ function buildAutoSave({ upsert, active = true, cgExists = true } = {}) {
   return new Function(...names, `${extractBlock(js, 'function cgAutoSave(')}; return cgAutoSave;`)(...names.map(n => stubs[n]));
 }
 
+describe('cgAutoSave — background flag', () => {
+  const bgOf = async (call) => { const upsert = vi.fn(async () => true); await call(buildAutoSave({ upsert })); return upsert.mock.calls[0][2].background; };
+  it('a default cgAutoSave() upserts with background: true', async () => {
+    expect(await bgOf(f => f())).toBe(true);
+  });
+  it('cgAutoSave(true) upserts without background', async () => {
+    expect(await bgOf(f => f(true))).toBe(false);
+  });
+  it('cgAutoSave(false, { background: false }) upserts without background', async () => {
+    expect(await bgOf(f => f(false, { background: false }))).toBe(false);
+  });
+  it('cgSaveVersion and cgPublishDraft call cgAutoSave with background: false', () => {
+    expect(extractBlock(js, 'async function cgSaveVersion(')).toContain('cgAutoSave(false, { background: false })');
+    expect(extractBlock(js, 'async function cgPublishDraft(')).toContain('cgAutoSave(false, { background: false })');
+  });
+});
+
 describe('cgAutoSave — outcome', () => {
   it('resolves true when the upsert reports success', async () => {
     expect(await buildAutoSave({ upsert: vi.fn(async () => true) })()).toBe(true);
