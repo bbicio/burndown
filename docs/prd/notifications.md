@@ -4,11 +4,11 @@ Part of [PRD.md](../../PRD.md) — carries PRD §9 Settings, §10 Notifications,
 
 ## 9. Settings
 
-Accessed via **account dropdown → ⚙ Settings** (available on all pages). Since 2026-09-30 this opens its own page, `/settings.html`, instead of a modal. The page currently has the standard navigation and breadcrumb (Home › Settings) and a blank white content area whose only content is the title "Settings"; any authenticated user can open it, and a logged-out visit redirects to login.
+Accessed via **account dropdown → Privacy Notice** (available on all pages), which opens `/privacy-notice.html` (renamed from Settings, 2026-11-06; the former `/settings.html` no longer exists). The page shows, read-only, the latest published Terms & Conditions (the same text users accept at first login, §17.1) with the standard navigation and breadcrumb (Home › Privacy Notice), and below the text a line with the version number and the publication date (e.g. `Version 3 · Published Dec 1, 2025`; the day is the UTC day of publication). It has no buttons or checkboxes. Any authenticated user can open it, and a logged-out visit redirects to login.
 
 ### 9.1 Removed from Settings (2026-09-30)
 
-The former Settings modal and everything in it were removed: the personal AI provider keys (removed earlier the same day; the remaining AI features run on the server with the server's own key, §11), the three CSV exports (Cost Grids, Project Portfolio, Roles in Rate Cards), **Full Backup (.json)** and **Restore from Backup** (which never worked). The server routes `POST /api/exports/{portfolio|cost-grids|ratecards}` and `GET /api/exports/phasing` are unchanged; the three CSV ones now have no UI entry point, while the phasing XLS is still reachable from Configuration. Future settings will be added to `settings.html`.
+The former Settings modal and everything in it were removed: the personal AI provider keys (removed earlier the same day; the remaining AI features run on the server with the server's own key, §11), the three CSV exports (Cost Grids, Project Portfolio, Roles in Rate Cards), **Full Backup (.json)** and **Restore from Backup** (which never worked). The server routes `POST /api/exports/{portfolio|cost-grids|ratecards}` and `GET /api/exports/phasing` are unchanged; the three CSV ones now have no UI entry point, while the phasing XLS is still reachable from Configuration. 
 
 #### Send Notification
 

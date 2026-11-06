@@ -995,7 +995,7 @@ burndown/
                           ← public auth pages; Bootstrap + tokens.css + css/auth.css, no style.css. Guards: js/lib/auth-pages-guard.test.js
   _db-reset.html          ← sysadmin-exclusive hidden page, bulk DB data deletion by scope. Detail: docs/pages/db-reset.md
   _terms-editor.html      ← sysadmin-exclusive hidden page, T&C editor (see §5's App Settings). Detail: docs/pages/terms-editor.md
-  settings.html           ← Settings page, blank apart from the navigation, breadcrumb and title. Detail: docs/pages/settings.md
+  privacy-notice.html     ← Privacy Notice page: read-only latest Terms & Conditions with version and publication date. Detail: docs/pages/privacy-notice.md
   team.html               ← resource registry CRUD, admin or sysadmin. Detail: docs/pages/team.md
   attribute-lists.html    ← generic tag/taxonomy admin console (lists + items, no physical delete); its items feed the Tags sections via js/tags.js. Detail: docs/pages/attribute-lists.md
   profile-jobs.html       ← profile-engine job console, hidden (reached from the Timesheets sub-menu of timesheets.html); adds js/lib/profile-jobs-ui.js. Detail: docs/pages/profile-jobs.md
