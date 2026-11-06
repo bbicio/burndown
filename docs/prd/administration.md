@@ -8,7 +8,7 @@ Accessed via `admin.html`, admin or sysadmin.
 
 ### 16.1 User List
 
-All users, filterable by status (Active / Pending / Disabled); each row shows role and who invited the user.
+All users, filterable by status (All / Active / Pending / Disabled, each with its count) and by role, with a search on name and email; Name, Role, Status and Joined sort ascending, descending, then back to the default order. Each row shows role, status, who invited the user and when they joined. Below tablet width the list becomes cards. Inviting opens a side drawer with the form; its error and its "sent" state stay inside the drawer, and "Invite another" clears the form without closing it.
 
 ### 16.2 Roles & Permissions
 
@@ -46,11 +46,11 @@ No account starts as sysadmin; the first one is set up outside the product (dire
 
 ### 16.3 Role & Status Actions
 
-Make a user admin or user (any admin/sysadmin can do this). Grant or revoke sysadmin (sysadmin viewers only, and only on an admin/sysadmin row — never directly on a `user` row: promotion is two-step, `user → admin` then `admin → sysadmin`; demotion mirrors it, `sysadmin → admin` then `admin → user`, never a direct jump in either direction). Disable or re-enable an account. No one can change their own role or status — their own row shows "(you)" instead of action buttons. A sysadmin account can only be modified — role, status, or anonymized — by another sysadmin; a plain admin sees no action buttons at all on a sysadmin's row.
+Make a user admin or user (any admin/sysadmin can do this). Grant or revoke sysadmin (sysadmin viewers only, and only on an admin/sysadmin row — never directly on a `user` row: promotion is two-step, `user → admin` then `admin → sysadmin`; demotion mirrors it, `sysadmin → admin` then `admin → user`, never a direct jump in either direction). Disable or re-enable an account; Disable asks for confirmation in a dialog. Each row has at most one visible button (Resend invite on a pending user, Enable on a disabled one); every other action is in the row's ⋯ menu, grouped Role / Access / Data, and an action not available on that row is shown greyed with the reason. While an action runs, only its own row shows a spinner. No one can change their own role or status — their own row shows "Your account" instead of actions. A sysadmin account can only be modified — role, status, or anonymized — by another sysadmin; a plain admin sees "Sysadmin only" and no actions on a sysadmin's row.
 
 ### 16.4 Anonymize
 
-Available only on disabled, not-yet-anonymized users. Requires an explicit confirmation describing what will change. Replaces the user's email and name with anonymized placeholders; their operational data (cost grids, projects) is preserved, only the identity is scrubbed. No one can anonymize their own account, and (per §16.3) a plain admin cannot anonymize a sysadmin.
+Available only on disabled, not-yet-anonymized users. Requires an explicit confirmation in a dialog describing what will change, with a checkbox to tick before it can be confirmed. An anonymized row reads "Anonymized user" and offers no actions. Replaces the user's email and name with anonymized placeholders; their operational data (cost grids, projects) is preserved, only the identity is scrubbed. No one can anonymize their own account, and (per §16.3) a plain admin cannot anonymize a sysadmin.
 
 ### 16.5 Terms & Conditions Editor
 

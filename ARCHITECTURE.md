@@ -989,7 +989,7 @@ burndown/
                           ← Master Data: four admin pages, one per functionality (Clients & groups, Pipelines & POTs, Roles & rates, Currencies), sharing a lateral sub-menu (.md-subnav). Detail: docs/pages/config.md
   master-client-groups.html ← redirect stub (no shell, no Vue) to /master-clients.html?view=group
   project-config.html     ← full-page project config form, one reactive project object; own stylesheet css/project-config.css. Detail: docs/pages/project-config.md
-  admin.html              ← user management: role toggles, disable, anonymize. Detail: docs/pages/admin.md
+  admin.html              ← user management: role toggles, disable, anonymize; adds js/lib/user-admin-rules.js. Detail: docs/pages/admin.md
   terms.html              ← standalone T&C acceptance page (no initNav), shown by initNav()'s gate. Detail: docs/pages/terms.md
   login.html / activate.html / reset-password.html
                           ← public auth pages; Bootstrap + tokens.css + css/auth.css, no style.css. Guards: js/lib/auth-pages-guard.test.js

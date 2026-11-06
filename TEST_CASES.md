@@ -629,19 +629,19 @@
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
 | AD-01 | User list loads | Open `/admin.html` as admin | All users listed with role, status, invited-by | ✓ |
-| AD-02 | Filter by status | Click Active / Pending / Disabled | Only matching users shown; tab counts update | |
-| AD-03 | Invite user | Click + Invite → fill form → Send | User created (pending); invite email sent | |
-| AD-04 | Make admin | Click "Make admin" on a user | Role → admin; button changes to "Make user" | |
-| AD-05 | Make user | Click "Make user" on an admin | Role → user; loses admin page access | |
-| AD-06 | Disable user | Click Disable on an active user | Status → disabled; user cannot log in | |
+| AD-02 | Filter by status | Click All / Active / Pending / Disabled | Only matching users shown; each segment shows its count, and the counts follow the role filter and the search | |
+| AD-03 | Invite user | Click Invite user → fill the drawer → Send invite | User created (pending); invite email sent; the drawer shows the sent state, and "Invite another" clears the form without closing | |
+| AD-04 | Make admin | Row ⋯ → Make admin on a user | Role → admin; the menu now offers "Make user" | |
+| AD-05 | Make user | Row ⋯ → Make user on an admin | Role → user; loses admin page access | |
+| AD-06 | Disable user | Row ⋯ → Disable… on an active user → Disable in the dialog | Status → disabled; user cannot log in | |
 | AD-07 | Enable user | Click Enable on a disabled user | Status → active; user can log in again | |
-| AD-08 | Cannot modify self | View own row in user list | No role/status buttons — "(you)" label shown instead | |
+| AD-08 | Cannot modify self | View own row in user list | No button and no ⋯ menu — "Your account" note shown instead | |
 | AD-09 | Pipeline years absent | Open admin.html | No pipeline years section — managed in Master Data → Pipelines & POTs (`master-pipelines.html`) | |
 | AD-11 | Rate Cards button absent | Open admin.html | No "💲 Rate Cards" button — rate card management moved to Master Data → Clients | |
-| AD-12 | Anonymize button — only on disabled non-anonymized | View a disabled user row that has a real email | "🗑 Anonymize" button visible; "anonymized" badge absent | |
-| AD-13 | Anonymize button — hidden on active user | View an active user row | "🗑 Anonymize" button not shown | |
-| AD-14 | Anonymize — confirm dialog | Click "🗑 Anonymize" on a disabled user | Browser confirm dialog appears explaining what data will be replaced and that operational records are preserved | |
-| AD-15 | Anonymize — result | Confirm anonymization | User row shows email `anon_<uuid>@deleted.local`; name "[Deleted] User"; "anonymized" badge shown; no Anonymize button | |
+| AD-12 | Anonymize — only on disabled non-anonymized | Open ⋯ on a disabled user row that has a real email | "Anonymize…" enabled in the Data group | |
+| AD-13 | Anonymize — unavailable on active user | Open ⋯ on an active user row | "Anonymize…" greyed with "Disable the account first." | |
+| AD-14 | Anonymize — confirm dialog | ⋯ → Anonymize… on a disabled user | In-app dialog explains what data will be replaced and that operational records are preserved; Anonymize stays disabled until "I understand this can't be undone." is ticked | |
+| AD-15 | Anonymize — result | Confirm anonymization | Row reads "Anonymized user" with email `anon_<uuid>@deleted.local` and a "No actions" note; no button, no menu | |
 | AD-16 | Anonymize — operational data intact | Anonymize a user who owned cost grids | Cost grids still appear on pipeline board; proposals not deleted | |
 | AD-17 | Anonymize — cannot anonymize self | API call `POST /api/users/<own-id>/anonymize` | 400 "You cannot anonymize your own account" | |
 | AD-18 | T&C editor removed from admin.html (2026-09) | Open admin.html | No Terms & Conditions section — moved to `_terms-editor.html` (sysadmin-exclusive, see §17a) | |
@@ -652,28 +652,33 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 
 | ID | Scenario | Steps | Expected | Auto |
 |---|---|---|---|---|
-| AD-21 | Base role toggle hidden on sysadmin row | View a row with role=sysadmin, as any viewer (admin or sysadmin) | No "Make admin"/"Make user" button on that row | |
-| AD-22 | Grant sysadmin toggle — visible only to sysadmin viewer | View an admin row as a plain-admin viewer, then as a sysadmin viewer | Plain admin: no "⬆ Grant sysadmin" button. Sysadmin: button visible | |
-| AD-23 | Grant sysadmin toggle — hidden on user rows | View a role=user row as a sysadmin viewer | No grant/revoke sysadmin button (two-step: user→admin first, then admin→sysadmin) | |
-| AD-24 | Grant sysadmin | As sysadmin, click "⬆ Grant sysadmin" on an admin row | Role → sysadmin; badge turns red "sysadmin"; row's base toggle disappears; row now shows "⬇ Revoke sysadmin" | |
-| AD-25 | Revoke sysadmin | As sysadmin, click "⬇ Revoke sysadmin" on a sysadmin row | Role → admin; base toggle reappears | |
+| AD-21 | Base role toggle unavailable on sysadmin row | View a row with role=sysadmin, as a sysadmin viewer | ⋯ shows "Make user" greyed with "Revoke sysadmin first: roles change one step at a time." | |
+| AD-22 | Grant sysadmin — only for a sysadmin viewer | Open ⋯ on an admin row as a plain-admin viewer, then as a sysadmin viewer | Plain admin: "Grant sysadmin" greyed with "Only a sysadmin can grant this role." Sysadmin: enabled | |
+| AD-23 | Grant sysadmin — unavailable on user rows | Open ⋯ on a role=user row as a sysadmin viewer | "Grant sysadmin" greyed with "Make admin first: roles change one step at a time." | |
+| AD-24 | Grant sysadmin | As sysadmin, ⋯ → Grant sysadmin on an admin row | Role → sysadmin; role badge shows "sysadmin"; the menu now offers "Revoke sysadmin" | |
+| AD-25 | Revoke sysadmin | As sysadmin, ⋯ → Revoke sysadmin on a sysadmin row | Role → admin; "Make user" is enabled again | |
 | AD-26 | Direct promotion to sysadmin rejected | API call `PATCH /api/users/:id { role: 'sysadmin' }` where target is currently role=user | 400/403 "Only an admin can be promoted to sysadmin" — two-step rule enforced server-side even if the UI path is bypassed | ✓ |
 | AD-27 | Direct demotion to user rejected | API call `PATCH /api/users/:id { role: 'user' }` where target is currently role=sysadmin | 403 "A sysadmin must first be demoted to admin before becoming a plain user" | ✓ |
 | AD-28 | Plain admin cannot grant/revoke sysadmin | API call `PATCH /api/users/:id { role: 'sysadmin' }` (or reverse) as role=admin | 403 "Only a sysadmin can grant or revoke sysadmin" | ✓ |
-| AD-29 | Plain admin cannot disable a sysadmin | Click Disable on a sysadmin row as a plain-admin viewer | Disable/Enable/Anonymize buttons not rendered on that row for a plain-admin viewer | |
+| AD-29 | Plain admin cannot disable a sysadmin | View a sysadmin row as a plain-admin viewer | No button and no ⋯ menu — "Sysadmin only" note shown | |
 | AD-30 | Plain admin cannot disable a sysadmin (API) | API call `PATCH /api/users/:id { status: 'disabled' }` where target is sysadmin, actor is admin | 403 "Only a sysadmin can modify another sysadmin" — enforced even for a status-only request with no `role` field | |
 | AD-31 | Plain admin cannot anonymize a sysadmin (API) | API call `POST /api/users/:id/anonymize` where target is sysadmin, actor is admin | 403 "Only a sysadmin can modify another sysadmin" | |
-| AD-32 | Sysadmin cannot self-modify | View own row as sysadmin | No toggle/action buttons — "(you)" label shown, same as any other role (pre-existing self-exclusion, unaffected) | |
+| AD-32 | Sysadmin cannot self-modify | View own row as sysadmin | No button and no ⋯ menu — "Your account" note shown, same as any other role | |
 | AD-33 | Revoking sysadmin takes effect immediately on DB Reset/Terms routes | As sysadmin B, revoke sysadmin A's role while A has an active session; A (still on old session) requests `GET /api/admin/reset/scopes` | 403 — `requireSysAdmin` re-reads the role from the DB rather than trusting A's JWT, so the revocation is effective immediately on these two sysadmin-exclusive route groups (not delayed up to the JWT's 8h lifetime, unlike ordinary `requireAdmin`-gated routes) | |
 | AD-34 | Sysadmin sees every admin-gated page and action | Log in as sysadmin; visit Config, Actuals Repository, User Admin; open Send Notification | All three admin pages reachable via the ADMIN section of the navigation (names since Nav B2: Master Data, Timesheets, User Admin) and functional; broadcast option present in Send Notification — sysadmin is a strict superset of admin everywhere except the two exclusives | |
 | AD-35 | OBSOLETE since Nav B2 (2026-10-02) — superseded by N-11 (sidebar sections by role); was: Admin/Sysadmin navbar dropdowns — role visibility (2026-09) | Log in as role=user, then role=admin, then role=sysadmin; inspect the top navbar | user: neither "⚙ Admin" nor "🔒 Sysadmin" trigger shown. admin: only "⚙ Admin" shown (Config/Actuals Repository/User Admin inside). sysadmin: both triggers shown, "🔒 Sysadmin" holds DB Reset/Terms & Conditions | |
 | AD-36 | OBSOLETE since Nav B2 (2026-10-02) — superseded by N-12; was: Admin/Sysadmin navbar dropdowns — active state | As sysadmin, open `/admin.html`, then `/_db-reset.html` | "⚙ Admin" trigger shows active state on `/admin.html`; "🔒 Sysadmin" trigger shows active state on `/_db-reset.html` — each trigger highlights only for pages inside its own submenu | |
 | AD-37 | OBSOLETE since Nav B2 (2026-10-02) — superseded by N-17 (the navbar and footer it measured no longer exist); was: Admin/Sysadmin navbar dropdowns — pipeline board height unaffected | As sysadmin, open `/pipeline.html` | Both new dropdown triggers measure the same height as the other navbar tabs (44px); the pipeline board's sticky column-totals footer remains fully visible, not clipped | |
-| AD-38 | Resend invite button — pending users only | View a pending user row, then an active/disabled user row | "✉️ Resend invite" shown only on the pending row | |
-| AD-39 | Resend invite — success | Click "✉️ Resend invite" on a pending user | A new invite email is sent; success message "Invite resent to {email}" shown; the old activation link no longer works | |
+| AD-38 | Resend invite button — pending users only | View a pending user row, then an active/disabled user row | "Resend invite" shown only on the pending row | |
+| AD-39 | Resend invite — success | Click "Resend invite" on a pending user | A new invite email is sent; banner "Invite resent." with the address and the 48-hour validity; the old activation link no longer works | |
 | AD-40 | Resend invite — fresh token, new expiry | Resend an invite whose original link had already expired (>48h old) | The new link works and is valid for a full new 48-hour window from the resend, not from the original invite | |
 | AD-41 | Resend invite — rejected for a non-pending user | API call `POST /api/auth/:id/resend-invite` where target status is active or disabled | 400 "This user is not a pending invite" | |
-| AD-42 | Resend invite — any admin or sysadmin can trigger it | As an admin who did not send the original invite, click "✉️ Resend invite" on a pending user invited by someone else | Succeeds — resend is not restricted to the original inviter | |
+| AD-42 | Resend invite — any admin or sysadmin can trigger it | As an admin who did not send the original invite, click "Resend invite" on a pending user invited by someone else | Succeeds — resend is not restricted to the original inviter | |
+| AD-43 | Search and sort (User Admin redesign, 2026-11-06) | Type "  MARCO " in the search; click Name three times | Search ignores case and surrounding spaces; Name sorts ascending, descending, then back to the default order | ✓ (vitest) |
+| AD-44 | Row menu reasons | Open ⋯ on any row with an unavailable action | Unavailable items are greyed and show their reason in place of the description; groups Role / Access / Data, Anonymize the only red item | ✓ (vitest) |
+| AD-45 | One busy row at a time | Click Resend invite on one row and immediately act on another | The first row shows a spinner and "Sending…"; the other row stays usable | |
+| AD-46 | Invite email check | In the invite drawer type an address containing "s" (e.g. `sara.test@eversana.com`) | Send invite becomes enabled once first name, last name and a well-formed email are filled | ✓ (vitest) |
+| AD-47 | Phone layout | Open `/admin.html` at a phone width | Users as cards; ⋯ opens a bottom sheet; the invite drawer is full-screen | |
 
 ---
 
