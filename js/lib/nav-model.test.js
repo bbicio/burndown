@@ -80,8 +80,8 @@ describe('buildNavHtml', () => {
     expect(el.querySelector('[data-group="admin"] .pd-nav-group-toggle').classList.contains('active')).toBe(true);
     expect(el.querySelector('[data-group="sysadmin"] .pd-nav-group-toggle').classList.contains('active')).toBe(false);
   });
-  it('an unknown or out-of-menu activeTab (settings) highlights nothing and does not throw', () => {
-    const el = build('sysadmin', 'settings');
+  it('an unknown or out-of-menu activeTab (privacy) highlights nothing and does not throw', () => {
+    const el = build('sysadmin', 'privacy');
     expect(el.querySelector('.pd-nav-item.active')).toBeNull();
     expect(el.querySelector('.pd-nav-group-toggle.active')).toBeNull();
   });
@@ -89,11 +89,18 @@ describe('buildNavHtml', () => {
     const el = build('admin', 'timesheets');
     expect(el.querySelector('.pd-nav-item.active').getAttribute('href')).toBe('/timesheets.html');
   });
+  it('the account menu has a Privacy Notice entry and no Settings entry', () => {
+    const el = build('user');
+    expect(el.querySelector('#nav-privacy-btn').textContent.trim()).toBe('Privacy Notice');
+    expect(el.querySelector('#nav-privacy-btn svg')).not.toBeNull();
+    expect(el.querySelector('#nav-settings-btn')).toBeNull();
+    expect(el.querySelector('.pd-account-menu').textContent).not.toContain('Settings');
+  });
   it('keeps every existing element id', () => {
     const el = build('user');
     for (const id of ['nav-notif-btn', 'nav-notif-badge', 'navNotifWrapper', 'nav-notif-list', 'nav-notif-read-all',
       'nav-notif-browser-banner', 'nav-notif-browser-label', 'nav-notif-browser-enable', 'nav-account-btn',
-      'nav-profile-btn', 'nav-settings-btn', 'nav-send-notif-btn', 'nav-change-pwd-btn', 'nav-logout-btn']) {
+      'nav-profile-btn', 'nav-privacy-btn', 'nav-send-notif-btn', 'nav-change-pwd-btn', 'nav-logout-btn']) {
       expect(el.querySelector('#' + id), id).not.toBeNull();
     }
   });

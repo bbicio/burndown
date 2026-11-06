@@ -1,7 +1,7 @@
 // ── SHARED NAVIGATION ────────────────────────────────────────────────────────
 // Call initNav(activeTab) from each page's DOMContentLoaded handler.
 // Fetches /api/auth/me, renders the sidebar / small-screen navbar into #nav-container,
-// injects the change-password modal and settings modal, and returns the user object.
+// injects the shared modals (change password, send notification, My Profile), and returns the user object.
 // 401 → apiFetch already redirects to /login.html.
 
 // ── NAVIGATION MODEL ─────────────────────────────────────────────────────────
@@ -99,7 +99,7 @@ function buildNavHtml(user, activeTab) {
         </button>
         <ul class="dropdown-menu pd-account-menu">
           <li><button class="dropdown-item" id="nav-profile-btn">${navIcon('user')}My Profile</button></li>
-          <li><button class="dropdown-item" id="nav-settings-btn">${navIcon('config')}Settings</button></li>
+          <li><button class="dropdown-item" id="nav-privacy-btn">${navIcon('terms')}Privacy Notice</button></li>
           <li><hr class="dropdown-divider"></li>
           <li><button class="dropdown-item" id="nav-send-notif-btn">${navIcon('notify')}Send Notification</button></li>
           <li><hr class="dropdown-divider"></li>
@@ -687,8 +687,8 @@ async function initNav(activeTab, opts = {}) {
 
   // ── SETTINGS BUTTON (wired once) ────────────────────────────────────────────
   if (!document.getElementById('stgAlreadyWired')) {
-    document.getElementById('nav-settings-btn').addEventListener('click', () => {
-      window.location.href = '/settings.html';
+    document.getElementById('nav-privacy-btn').addEventListener('click', () => {
+      window.location.href = '/privacy-notice.html';
     });
 
     // Mark wired
