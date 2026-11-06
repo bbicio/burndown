@@ -101,7 +101,7 @@ I task sono **sequenziali**, non indipendenti: Task 2 dipende dall'id e dalla de
   - PN-02 Privacy Notice requires login — logout, apri `/privacy-notice.html` → login.
   N-12: `/settings.html` → `/privacy-notice.html`, "settings highlights nothing" → "privacy notice highlights nothing".
 - [ ] **Step 2:** aggiorna gli altri file della lista: la prosa al presente descrive la Privacy Notice; le menzioni al passato di `settings.html` (es. la sezione 2026-09-30 di `docs/js/nav.md`) restano, coperte dalla voce `GONE`.
-- [ ] **Step 3:** `grep -rn "settings.html|pages/settings.md" --include=*.md . | grep -v node_modules | grep -v docs/superpowers` → solo menzioni al passato.
+- [ ] **Step 3:** `grep -rnE "settings.html|pages/settings.md" --include=*.md . | grep -v node_modules | grep -v docs/superpowers` → solo menzioni al passato.
 - [ ] **Step 4:** `npm test` → PASS (compresi `doc-paths-guard` e `claude-md-guard`).
 - [ ] **Step 5: Commit** — `git commit -m "docs: Privacy Notice replaces the Settings page in the live docs"`.
 
