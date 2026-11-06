@@ -966,10 +966,10 @@ burndown/
     admin-crud.css        ← shared layout for the simple admin CRUD pages. Detail: docs/css/stylesheets.md
     auth.css              ← shared stylesheet of the public auth pages (login/activate/reset-password). Detail: docs/css/stylesheets.md
   js/
-    api.js                ← Api.* namespace, apiFetch wrapper. Detail: docs/js/shared-libs.md
+    api.js                ← Api.* namespace, apiFetch wrapper (also triggers the save overlay on slow writes). Detail: docs/js/shared-libs.md
     api-sync.js           ← in-memory ↔ API sync helpers (config.projects, timesheetData). Detail: docs/js/api-sync.md
     core.js               ← state, in-memory helpers, shared badges (incl. the page head's headerBadge()), showConfirm()/showInfo() idioms, findRate(). Detail: docs/js/core.md
-    nav.js                ← navigation injection, initNav(): the one `<aside class="pd-nav">`, SVG icons (drawings from js/lib/icons.js, loaded first), rail tooltips, shared modals, T&C gate. Detail: docs/js/nav.md
+    nav.js                ← navigation injection, initNav(): the one `<aside class="pd-nav">`, SVG icons (drawings from js/lib/icons.js, loaded first), rail tooltips, shared modals, the save overlay (`window.PdOverlay`), T&C gate. Detail: docs/js/nav.md
     notifications.js      ← SSE client, bell badge, notification panel, browser notifications. Detail: docs/js/notifications.md
     costgrid.js           ← shared cost-grid business-logic library, a permanent Vanilla service layer loaded by pipeline.html and costgrid.html. Detail: docs/js/costgrid.md
     cg-controls.js        ← three custom Vue controls, loaded by costgrid.html, project-config.html, portfolio.html and planning.html; pure helpers in js/lib/cg-controls-calc.js. Detail: docs/js/cg-controls.md

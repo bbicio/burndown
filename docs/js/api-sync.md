@@ -67,3 +67,7 @@ Spec `docs/superpowers/specs/2026-11-02-currency-f3-custom-rate-and-version-rate
 - **`_cgUpsertVersionToApi(cgId, versionId, { strict, onPatched, onServerRate })`**: after a successful version `PATCH` it calls `onPatched()`; when the response's `currency_rate` also differs from the version's `currencyRate`, it calls `onServerRate(rate, currency, roles)`, and an array that returns replaces the roles of this save's structure. A failed `PATCH`, an empty response or an equal rate call no `onServerRate`. `js/costgrid.js`'s `cgAutoSave` supplies both callbacks.
 
 Covered by `js/lib/api-sync-upsert.test.js`. `?v=31`.
+
+## Background flag (2026-11-06, save-overlay cycle)
+
+Spec `docs/superpowers/specs/2026-11-05-save-overlay-design.md`, report `docs/superpowers/reports/2026-11-06-save-overlay-finish-cycle.md`. `_cgUpsertVersionToApi(cgId, versionId, opts)` passes `{ background: !!opts.background }` to its three writes (`Api.costGrids.update`, `versions.update`, `versions.saveStructure`); `cgAutoSave` sets it for autosaves, so they never raise the save overlay. Covered by `js/lib/api-sync-upsert.test.js`. `?v=32`.

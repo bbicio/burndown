@@ -72,6 +72,7 @@ Some pages have no menu entry at all and are reached only in context from the pa
 | Dependencies (backend) | Express, pg, bcryptjs, jsonwebtoken, nodemailer, multer, xlsx |
 | Language | All UI text, alerts, and labels must be in English |
 | Design tokens | All colours and type sizes must reference CSS custom properties in `css/tokens.css` — no hardcoded hex values in JS or CSS |
+| Slow saves | When a save on an authenticated page is still running after 0.4 s, a full-page "Saving changes… / Please don't close this page." layer blocks clicks and keys until it ends; background autosaves (cost grid editor, tags) and marking notifications read never show it. Pages that still send their writes outside the shared API wrapper do not show it yet (`docs/BACKLOG.md` B-345) |
 
 ---
 
