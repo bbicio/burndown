@@ -928,6 +928,7 @@ body.pd-save-locked { overflow: hidden; }
   width: 48px; height: 48px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
   background: var(--surface-subtle); color: var(--text-muted);
 }
+.pd-state-icon--ok { background: var(--status-started-soft-bg); color: var(--color-success-text); }
 .pd-state-title { font-size: var(--text-base); font-weight: var(--weight-bold); color: var(--brand-navy); margin: 0; }
 .pd-state-text { margin: 0; font-size: var(--text-sm); max-width: 440px; }
 .pd-state .spinner-border { --bs-spinner-width: 28px; --bs-spinner-height: 28px; --bs-spinner-border-width: 3px; }

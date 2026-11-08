@@ -78,3 +78,13 @@ describe('team.html resource drawer (Task 5)', () => {
     'First name is required.', 'Last name is required.', 'Email is required.', 'Role is required.'])('contains %s', s => expect(html).toContain(s));
   it('the panel Esc listener skips an open offcanvas', () => expect(html).toContain(".modal.show, .offcanvas.show"));
 });
+
+describe('team.html unmatched drawer (Task 6)', () => {
+  const start = html.indexOf('id="unmatchedDrawer"');
+  const drawer = html.slice(start, html.indexOf('RESOURCE DETAIL PANEL', start));
+  it('is a wide pd-drawer', () => expect(html).toMatch(/class="[^"]*pd-drawer--wide[^"]*" id="unmatchedDrawer"/));
+  it.each(['resolved this session', 'AMBIGUOUS', 'Resolves to', 'Removing an alias sends the name back to the queue',
+    "Not a person (e.g. TBD). Stored as an ignored alias.", 'Assigning…', 'Ignoring…', 'Rescanning…', 'No unmatched names.'])('drawer contains %s', s => expect(drawer).toContain(s));
+  it.each(['Same name · candidates', 'Active resources'])('combo groups contain %s', s => expect(html).toContain(s));
+  it('drawer has no <details>', () => expect(drawer).not.toContain('<details'));
+});
