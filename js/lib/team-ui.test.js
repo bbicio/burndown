@@ -297,3 +297,120 @@ describe('sortUnmatched', () => {
     expect(sorted.map(r => r.hours)).toEqual([3, 9, 10]);
   });
 });
+
+// ── Redesign helpers (2026-11-08) ──
+import {
+  resourceCounts, filterResources, sessionProgress, hoursBarPct, isRecentMonth, profileMonthText,
+  aliasRows, candidateChips, topTopicIds, deleteSummary,
+} from './team-ui.js';
+
+const RES = [
+  { id: 'a', first_name: 'Anna', last_name: 'Bianchi', email: 'anna@x.it', role_id: 'r1', role_label: 'Developer', role_code: 'DEV', user_id: 'u1', status: 'active' },
+  { id: 'b', first_name: 'Luca', last_name: 'Espòsito', email: 'luca@x.it', role_id: 'r2', role_label: 'Project Manager', role_code: 'PM', user_id: null, status: 'active' },
+  { id: 'c', first_name: 'Marco', last_name: 'Amato', email: 'marco@x.it', role_id: 'r2', role_label: 'Project Manager', role_code: 'PM', user_id: null, status: 'inactive' },
+];
+
+describe('resourceCounts', () => {
+  it('counts total, active and inactive', () => {
+    expect(resourceCounts([{ status: 'active' }, { status: 'inactive' }, { status: 'active' }])).toEqual({ total: 3, active: 2, inactive: 1 });
+  });
+});
+
+describe('filterResources', () => {
+  const ids = (l) => l.map(r => r.id);
+  it('defaults to active only', () => expect(ids(filterResources(RES, {}))).toEqual(['a', 'b']));
+  it('status all keeps the inactive', () => expect(ids(filterResources(RES, { status: 'all' }))).toEqual(['a', 'b', 'c']));
+  it('status inactive', () => expect(ids(filterResources(RES, { status: 'inactive' }))).toEqual(['c']));
+  it('filters by role id', () => expect(ids(filterResources(RES, { status: 'all', roleId: 'r2' }))).toEqual(['b', 'c']));
+  it('filters linked / unlinked on user_id', () => {
+    expect(ids(filterResources(RES, { status: 'all', linked: 'linked' }))).toEqual(['a']);
+    expect(ids(filterResources(RES, { status: 'all', linked: 'unlinked' }))).toEqual(['b', 'c']);
+  });
+  it('text is trimmed and case-insensitive', () => expect(ids(filterResources(RES, { text: '  ANNA ' }))).toEqual(['a']));
+  it('text matches the role code', () => expect(ids(filterResources(RES, { text: 'pm' }))).toEqual(['b']));
+  it('characterization: no accent folding', () => expect(ids(filterResources(RES, { text: 'esposito' }))).toEqual([]));
+});
+
+describe('sessionProgress', () => {
+  it('total = resolved + queue', () => expect(sessionProgress(3, 14)).toEqual({ resolved: 3, total: 17, pct: 18 }));
+  it('empty is 0%', () => expect(sessionProgress(0, 0)).toEqual({ resolved: 0, total: 0, pct: 0 }));
+});
+
+describe('hoursBarPct', () => {
+  it('rounds the share', () => expect(hoursBarPct(64, 193)).toBe(33));
+  it('0 when max is 0', () => expect(hoursBarPct(5, 0)).toBe(0));
+});
+
+describe('isRecentMonth', () => {
+  const today = new Date('2026-11-08');
+  it('current and two previous months are recent', () => {
+    expect(isRecentMonth('2026-11', today)).toBe(true);
+    expect(isRecentMonth('2026-09', today)).toBe(true);
+  });
+  it('older, future and invalid are not', () => {
+    expect(isRecentMonth('2026-08', today)).toBe(false);
+    expect(isRecentMonth('2026-12', today)).toBe(false);
+    expect(isRecentMonth(null, today)).toBe(false);
+    expect(isRecentMonth('2026-13', today)).toBe(false);
+  });
+  it('crosses the year boundary', () => expect(isRecentMonth('2025-11', new Date('2026-01-15'))).toBe(true));
+});
+
+describe('profileMonthText', () => {
+  it('formats YYYY-MM', () => expect(profileMonthText('2025-12')).toBe('Dec 2025'));
+  it('dash when missing or invalid', () => {
+    expect(profileMonthText(null)).toBe('—');
+    expect(profileMonthText('2025-13')).toBe('—');
+  });
+});
+
+describe('aliasRows', () => {
+  const aliases = [
+    { id: 1, display_name: 'A. Rossi', resource_id: 'c' },
+    { id: 2, display_name: 'TBD', resource_id: null },
+    { id: 3, display_name: 'Anna B.', resource_id: 'a' },
+  ];
+  it('attaches the resource with role code and status', () => {
+    const rows = aliasRows(aliases, RES);
+    expect(rows[0].resource).toEqual({ id: 'c', name: 'Marco Amato', role_code: 'PM', status: 'inactive' });
+    expect(rows[1].resource).toBeNull();
+  });
+  it('resolves ignored keeps only null resource_id', () => {
+    expect(aliasRows(aliases, RES, { resolves: 'ignored' }).map(r => r.id)).toEqual([2]);
+    expect(aliasRows(aliases, RES, { resolves: 'resource' }).map(r => r.id)).toEqual([1, 3]);
+  });
+  it('text matches the resource name', () => expect(aliasRows(aliases, RES, { text: 'amato' }).map(r => r.id)).toEqual([1]));
+});
+
+describe('candidateChips', () => {
+  it('keeps the candidate order and skips missing ids', () => {
+    const x = { id: 'x', first_name: 'X', last_name: 'One', role_code: 'DEV' };
+    const y = { id: 'y', first_name: 'Y', last_name: 'Two', role_code: 'PM' };
+    expect(candidateChips({ candidate_resource_ids: ['x', 'gone', 'y'] }, [y, x])).toEqual([
+      { id: 'x', name: 'X One', role_code: 'DEV' }, { id: 'y', name: 'Y Two', role_code: 'PM' },
+    ]);
+  });
+  it('no candidates → no chips', () => expect(candidateChips({}, RES)).toEqual([]));
+});
+
+describe('topTopicIds', () => {
+  it('top two by hours', () => {
+    expect(topTopicIds([{ id: 1, name: 'B', hours: 12 }, { id: 2, name: 'A', hours: 92 }, { id: 3, name: 'C', hours: 45 }])).toEqual([2, 3]);
+  });
+  it('ties broken by name', () => {
+    expect(topTopicIds([{ id: 1, name: 'B', hours: 5 }, { id: 2, name: 'A', hours: 5 }], 1)).toEqual([2]);
+  });
+});
+
+describe('deleteSummary', () => {
+  const r = { id: 'a' };
+  it('no aliases', () => expect(deleteSummary(r, [])).toEqual({ count: 0, names: [] }));
+  it('counts only this resource aliases, names sorted', () => {
+    const al = [
+      { display_name: 'Zed', resource_id: 'a' }, { display_name: 'Anna', resource_id: 'a' },
+      { display_name: 'Other', resource_id: 'b' }, { display_name: 'Bianchi A.', resource_id: 'a' },
+    ];
+    expect(deleteSummary(r, al)).toEqual({ count: 3, names: ['Anna', 'Bianchi A.', 'Zed'] });
+  });
+  it('tolerates missing aliases', () => expect(deleteSummary(r, null)).toEqual({ count: 0, names: [] }));
+});

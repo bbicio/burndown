@@ -1,6 +1,8 @@
 // Pure helpers for team.html (Team UX cycle, 2026-09). No DOM, no Vue: unit-tested with vitest and
 // bridged to window.* for the page's inline module script.
 
+import { formatMonthText } from './dates.js?v=4';
+
 // Case/accent-insensitive, numeric-aware string comparison; null/undefined count as ''.
 function cmp(a, b) {
   return String(a ?? '').localeCompare(String(b ?? ''), undefined, { sensitivity: 'base', numeric: true });
@@ -123,9 +125,103 @@ export function buildProfileTree(profile, roles = []) {
   return { totals: profile.totals, computedAt: profile.computedAt, dimensions, roles: roleNodes, topics: topicNodes, topicGroups };
 }
 
+// ── Redesign helpers (2026-11-08) ──
+
+export function resourceCounts(resources) {
+  const list = resources || [];
+  const active = list.filter(r => r.status === 'active').length;
+  return { total: list.length, active, inactive: list.length - active };
+}
+
+// Same text rule as the page's former filteredResources: case-insensitive, no accent folding.
+export function filterResources(resources, { status = 'active', roleId = '', linked = 'any', text = '' } = {}) {
+  const q = String(text ?? '').trim().toLowerCase();
+  return (resources || []).filter(r => {
+    if (status !== 'all' && r.status !== status) return false;
+    if (roleId && r.role_id !== roleId) return false;
+    if (linked === 'linked' && !r.user_id) return false;
+    if (linked === 'unlinked' && r.user_id) return false;
+    if (!q) return true;
+    return `${r.first_name} ${r.last_name} ${r.email} ${r.role_label} ${r.role_code}`.toLowerCase().includes(q);
+  });
+}
+
+export function sessionProgress(resolved, queueLength) {
+  const total = resolved + queueLength;
+  return { resolved, total, pct: total > 0 ? Math.round((resolved / total) * 100) : 0 };
+}
+
+export function hoursBarPct(hours, maxHours) {
+  if (!(maxHours > 0)) return 0;
+  return Math.min(100, Math.max(0, Math.round(((Number(hours) || 0) / maxHours) * 100)));
+}
+
+const YM_RE = /^(\d{4})-(0[1-9]|1[0-2])$/;
+
+// True when ym ('YYYY-MM') is today's month or one of the (months - 1) before it.
+export function isRecentMonth(ym, today = new Date(), months = 3) {
+  const m = YM_RE.exec(String(ym ?? ''));
+  if (!m) return false;
+  const idx = Number(m[1]) * 12 + Number(m[2]) - 1;
+  const now = today.getFullYear() * 12 + today.getMonth();
+  return idx <= now && idx > now - months;
+}
+
+export function profileMonthText(ym) {
+  if (!YM_RE.test(String(ym ?? ''))) return '—';
+  return formatMonthText(ym.replace('-', '')) || '—';
+}
+
+// aliases: /api/resources/aliases rows. Adds the resolved resource (role code and status come from
+// the loaded resources, the API does not send them); resolves 'any' | 'resource' | 'ignored'.
+export function aliasRows(aliases, resources, { text = '', resolves = 'any' } = {}) {
+  const byId = new Map((resources || []).map(r => [r.id, r]));
+  const q = fold(text);
+  return (aliases || [])
+    .map(a => {
+      const r = a.resource_id ? byId.get(a.resource_id) : null;
+      const name = r ? `${r.first_name} ${r.last_name}`
+        : (a.resource_id ? `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim() : '');
+      return { ...a, resource: a.resource_id ? { id: a.resource_id, name, role_code: r ? r.role_code : '', status: r ? r.status : '' } : null };
+    })
+    .filter(a => resolves === 'any' || (resolves === 'ignored' ? !a.resource : !!a.resource))
+    .filter(a => !q || fold(a.display_name).includes(q) || (a.resource && fold(a.resource.name).includes(q)));
+}
+
+export function candidateChips(unmatchedRow, resources) {
+  const byId = new Map((resources || []).map(r => [r.id, r]));
+  return ((unmatchedRow && unmatchedRow.candidate_resource_ids) || [])
+    .map(id => byId.get(id))
+    .filter(Boolean)
+    .map(r => ({ id: r.id, name: `${r.first_name} ${r.last_name}`, role_code: r.role_code }));
+}
+
+export function topTopicIds(directTopics, n = 2) {
+  return (directTopics || []).slice()
+    .sort((a, b) => (Number(b.hours) || 0) - (Number(a.hours) || 0) || cmp(a.name, b.name))
+    .slice(0, n)
+    .map(t => t.id);
+}
+
+export function deleteSummary(resource, aliases) {
+  const names = (aliases || []).filter(a => resource && a.resource_id === resource.id)
+    .map(a => a.display_name).sort(cmp);
+  return { count: names.length, names };
+}
+
 window.sortResources = sortResources;
 window.buildProfileTree = buildProfileTree;
 window.filterComboOptions = filterComboOptions;
 window.paginate = paginate;
 window.sortUnmatched = sortUnmatched;
 window.foldText = fold;
+window.resourceCounts = resourceCounts;
+window.filterResources = filterResources;
+window.sessionProgress = sessionProgress;
+window.hoursBarPct = hoursBarPct;
+window.isRecentMonth = isRecentMonth;
+window.profileMonthText = profileMonthText;
+window.aliasRows = aliasRows;
+window.candidateChips = candidateChips;
+window.topTopicIds = topTopicIds;
+window.deleteSummary = deleteSummary;
