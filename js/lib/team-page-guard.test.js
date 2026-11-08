@@ -41,9 +41,26 @@ describe('team.html', () => {
     expect(html).not.toMatch(/\b(confirm|alert)\(/);
   });
   it.todo('does not use showConfirm(');
-  it.todo('has no page tabs (nav-tabs)');
+  it('has no page tabs (nav-tabs)', () => {
+    expect(html).not.toContain('nav-tabs');
+  });
   it('has no Undo and no minute count', () => {
     expect(html).not.toContain('Undo');
     expect(html).not.toContain('minutes');
   });
+});
+
+describe('team.html list (Task 3)', () => {
+  it('drops the Show inactive checkbox', () => expect(html).not.toContain('showInactive'));
+  it('subtitle counts resources, active and inactive', () => expect(html).toMatch(/class="ph-sub">.*'resources' \}\} · \{\{ counts\.active \}\} active · \{\{ counts\.inactive \}\} inactive/));
+  it('has a three-button status segmented control', () => {
+    expect(html).toContain('class="md-seg"');
+    expect(html).toMatch(/v-for="f in statusFilters"[^>]*class="md-seg-btn"/);
+    expect(html).toContain("statusFilters: [");
+  });
+  it('has the Role and PDash user selects', () => {
+    expect(html).toContain('aria-label="Role"');
+    expect(html).toContain('aria-label="PDash user"');
+  });
+  it('sortable headers expose aria-sort', () => expect(html).toContain(':aria-sort='));
 });

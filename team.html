@@ -23,67 +23,137 @@
 
   <div id="app" v-cloak>
 
-    <template v-if="ready">
+    <!-- ── ACCESS DENIED ───────────────────────────────────── -->
+    <div v-if="accessDenied" class="tm-card tm-denied">
+      <div class="pd-state">
+        <span class="pd-state-icon"><ph-icon name="lock" :size="24"></ph-icon></span>
+        <h2 class="pd-state-title">Admin access required</h2>
+        <p class="pd-state-text">The team register is available to admins and sysadmins. Ask an admin if you need access.</p>
+        <a href="/" class="tm-btn-navy mt-2">Go to app</a>
+      </div>
+    </div>
+
+    <!-- ── PAGE ──────────────────────────────────────────── -->
+    <template v-else-if="authed">
     <div class="ph">
       <div class="ph-main">
         <div class="ph-title-row"><h1 class="ph-title">Team</h1></div>
-        <div class="ph-sub">{{ resources.length }} {{ resources.length === 1 ? 'resource' : 'resources' }}</div>
+        <div class="ph-sub"><template v-if="ready">{{ counts.total }} {{ counts.total === 1 ? 'resource' : 'resources' }} · {{ counts.active }} active · {{ counts.inactive }} inactive</template><template v-else>Loading…</template></div>
       </div>
       <div class="ph-side"><div class="ph-actions">
-        <button class="ph-btn-primary" @click="openCreate">+ New resource</button>
+        <button class="ph-btn-primary" @click="openCreate"><ph-icon name="plus" :size="14"></ph-icon>New resource</button>
       </div></div>
     </div>
 
     <div class="page app-container">
 
-      <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
+      <!-- Global banner -->
+      <div v-if="banner && banner.kind === 'success'" class="pd-banner pd-banner--success" role="status">
+        <ph-icon name="check" :size="16"></ph-icon>
+        <div class="pd-banner-body">{{ banner.text }}</div>
+        <button type="button" class="pd-banner-close" aria-label="Dismiss" @click="clearBanner"><ph-icon name="close" :size="14"></ph-icon></button>
+      </div>
+      <div v-else-if="banner && banner.kind === 'error'" class="pd-banner pd-banner--error" role="alert">
+        <ph-icon name="warning" :size="16"></ph-icon>
+        <div class="pd-banner-body">{{ banner.text }}</div>
+        <button type="button" class="pd-banner-close" aria-label="Dismiss" @click="clearBanner"><ph-icon name="close" :size="14"></ph-icon></button>
+      </div>
 
-      <ul class="nav nav-tabs mb-3">
-        <li class="nav-item">
-          <button type="button" class="nav-link" :class="{ active: pageTab === 'team' }" @click="setPageTab('team')">Team</button>
-        </li>
-        <li class="nav-item">
-          <button type="button" class="nav-link" :class="{ active: pageTab === 'unmatched' }" @click="setPageTab('unmatched')">
-            Unmatched names <span class="badge bg-secondary ms-1">{{ unmatched.length }}</span>
-          </button>
-        </li>
-      </ul>
-
-      <template v-if="pageTab === 'team'">
-      <div class="d-flex gap-2 mb-3 align-items-center">
-        <input v-model="filterText" type="text" class="form-control form-control-sm" style="max-width:280px"
-               placeholder="Search name or email…">
-        <div class="form-check ms-2">
-          <input class="form-check-input" type="checkbox" id="showInactive" v-model="showInactive">
-          <label class="form-check-label" for="showInactive" style="font-size:.85rem">Show inactive</label>
+      <!-- Unmatched callout -->
+      <div v-if="ready && unmatched.length" class="tm-callout">
+        <span class="tm-callout-icon"><tm-icon name="unlink" :size="16"></tm-icon></span>
+        <div class="tm-callout-body">
+          <div class="tm-callout-title">{{ unmatched.length }} {{ unmatched.length === 1 ? "name in uploaded actuals isn't" : "names in uploaded actuals aren't" }} matched to a resource</div>
+          <div class="tm-callout-text">{{ fmtHours(unmatchedHours) }} h not attributed<template v-if="unmatchedAmbiguous"> · {{ unmatchedAmbiguous }} ambiguous</template>. Their hours don't count in any experience profile until you match them.</div>
+        </div>
+        <div class="tm-callout-actions">
+          <button type="button" class="tm-link-btn" @click="openUnmatched('aliases')">Existing aliases</button>
+          <button type="button" class="tm-btn-navy" @click="openUnmatched('queue')">Review names<ph-icon name="arrow-right" :size="14"></ph-icon></button>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-body">
-          <table class="table table-hover" v-if="filteredResources.length">
+      <div class="tm-card">
+        <!-- Toolbar -->
+        <div class="tm-toolbar">
+          <div class="md-seg" role="group" aria-label="Filter by status">
+            <button v-for="f in statusFilters" :key="f.val" type="button" class="md-seg-btn"
+                    :class="{ active: statusFilter === f.val }" :aria-pressed="statusFilter === f.val" @click="statusFilter = f.val">
+              {{ f.label }}<span v-if="ready" class="tm-count">{{ counts[f.count] }}</span>
+            </button>
+          </div>
+          <label class="tm-select tm-filter-wide">
+            <span>Role</span>
+            <select v-model="roleFilter" aria-label="Role">
+              <option value="">All roles</option>
+              <option v-for="role in sortedRoles" :key="role.id" :value="role.id">{{ role.label }}</option>
+            </select>
+            <ph-icon name="chevron-down" :size="14"></ph-icon>
+          </label>
+          <label class="tm-select tm-filter-wide">
+            <span>PDash user</span>
+            <select v-model="linkedFilter" aria-label="PDash user">
+              <option value="any">Any</option>
+              <option value="linked">Linked</option>
+              <option value="unlinked">Not linked</option>
+            </select>
+            <ph-icon name="chevron-down" :size="14"></ph-icon>
+          </label>
+          <div class="tm-search">
+            <ph-icon name="search" :size="14"></ph-icon>
+            <input v-model="filterText" type="search" placeholder="Search name, email or role…" aria-label="Search name, email or role">
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div v-if="!ready" class="pd-state">
+          <div class="spinner-border" role="presentation"></div>
+          <p class="pd-state-text">Loading team…</p>
+        </div>
+
+        <!-- Table -->
+        <template v-else-if="pagedResources.pageItems.length">
+          <table class="tm-table">
             <thead>
               <tr>
-                <th class="sortable-th" @click="sortBy('name')">Name {{ sortIndicator('name') }}</th>
-                <th class="sortable-th" @click="sortBy('email')">Email {{ sortIndicator('email') }}</th>
-                <th class="sortable-th" @click="sortBy('role')">Role {{ sortIndicator('role') }}</th>
-                <th>Linked user</th>
-                <th class="sortable-th" @click="sortBy('status')">Status {{ sortIndicator('status') }}</th>
-                <th></th>
+                <th :aria-sort="ariaSort('name')">
+                  <button type="button" class="tm-th" :class="{ 'tm-th--on': sortKey === 'name' }" @click="sortBy('name')">Name<span class="tm-sort" aria-hidden="true">{{ sortGlyph('name') }}</span></button>
+                </th>
+                <th :aria-sort="ariaSort('role')">
+                  <button type="button" class="tm-th" :class="{ 'tm-th--on': sortKey === 'role' }" @click="sortBy('role')">Role<span class="tm-sort" aria-hidden="true">{{ sortGlyph('role') }}</span></button>
+                </th>
+                <th class="tm-col-wide">Linked PDash user</th>
+                <th :aria-sort="ariaSort('status')">
+                  <button type="button" class="tm-th" :class="{ 'tm-th--on': sortKey === 'status' }" @click="sortBy('status')">Status<span class="tm-sort" aria-hidden="true">{{ sortGlyph('status') }}</span></button>
+                </th>
+                <th class="tm-col-actions"><span class="visually-hidden">Actions</span></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="r in pagedResources.pageItems" :key="r.id" style="cursor:pointer"
-                  :class="{ 'table-active': r.id === selectedId }" @click="openDetail(r)">
-                <td class="fw-semibold">{{ r.first_name }} {{ r.last_name }}</td>
-                <td class="text-muted">{{ r.email }}</td>
-                <td>{{ r.role_label }} <span class="text-muted small">({{ r.role_code }})</span></td>
-                <td class="text-muted">
-                  <span v-if="r.user_id">{{ r.linked_user_first_name }} {{ r.linked_user_last_name }}</span>
-                  <span v-else>—</span>
+              <tr v-for="r in pagedResources.pageItems" :key="r.id" tabindex="0" class="tm-row"
+                  :class="{ 'is-open': r.id === selectedId, 'tm-row--inactive': r.status !== 'active', 'tm-row--busy': r._loading }"
+                  @click="openDetail(r)" @keydown.enter.self="openDetail(r)">
+                <td>
+                  <div class="tm-name">
+                    <span class="tm-avatar" aria-hidden="true">{{ initials(r) }}</span>
+                    <div class="tm-name-text">
+                      <div class="tm-name-line">{{ r.first_name }} {{ r.last_name }}</div>
+                      <div class="tm-email">{{ r.email }}</div>
+                      <div v-if="r.user_id" class="tm-compact-line"><tm-icon name="link" :size="12"></tm-icon>Linked to a PDash user</div>
+                    </div>
+                  </div>
                 </td>
-                <td><span :class="'badge-st-' + r.status">{{ r.status }}</span></td>
-                <td class="text-end" style="white-space:nowrap" @click.stop>
+                <td>
+                  <div class="tm-role">{{ r.role_label }}</div>
+                  <div class="tm-code">{{ r.role_code }}</div>
+                </td>
+                <td class="tm-col-wide">
+                  <span v-if="r.user_id" class="tm-linked"><tm-icon name="link" :size="14"></tm-icon>{{ r.linked_user_first_name }} {{ r.linked_user_last_name }}</span>
+                  <span v-else class="tm-muted">—</span>
+                </td>
+                <td>
+                  <span class="pd-status-pill" :class="'pd-status-pill--' + r.status">{{ r.status }}</span>
+                </td>
+                <td class="tm-col-actions" @click.stop>
                   <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!r._loading" @click="openEdit(r)">Edit</button>
                   <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!r._loading" @click="toggleStatus(r)">
                     {{ r.status === 'active' ? 'Deactivate' : 'Activate' }}
@@ -93,28 +163,46 @@
               </tr>
             </tbody>
           </table>
-          <div class="empty" v-else>No resources match the current filter.</div>
-          <div class="d-flex justify-content-between align-items-center mt-2" v-if="pagedResources.totalPages > 1">
-            <button class="btn btn-outline-secondary btn-sm" :disabled="teamPage <= 1" @click="teamPage--">‹ Previous</button>
-            <span class="text-muted small">Page {{ pagedResources.page }} of {{ pagedResources.totalPages }}</span>
-            <button class="btn btn-outline-secondary btn-sm" :disabled="teamPage >= pagedResources.totalPages" @click="teamPage++">Next ›</button>
+          <div class="tm-foot">
+            <span>{{ pageRange }}</span>
+            <div v-if="pagedResources.totalPages > 1" class="tm-pager">
+              <button type="button" class="tm-btn-outline" :disabled="pagedResources.page <= 1" @click="teamPage = pagedResources.page - 1">‹ Previous</button>
+              <span>Page {{ pagedResources.page }} of {{ pagedResources.totalPages }}</span>
+              <button type="button" class="tm-btn-outline" :disabled="pagedResources.page >= pagedResources.totalPages" @click="teamPage = pagedResources.page + 1">Next ›</button>
+            </div>
           </div>
+        </template>
+
+        <!-- Empty -->
+        <div v-else class="pd-state">
+          <span class="pd-state-icon"><ph-icon name="search" :size="24"></ph-icon></span>
+          <h2 class="pd-state-title">No resources match the current filter.</h2>
+          <p class="pd-state-text">{{ filterSummary }}</p>
+          <button type="button" class="tm-btn-outline mt-2" @click="clearFilters">Clear filters</button>
         </div>
       </div>
-      </template>
+    </div>
+    </template>
 
-      <!-- ── UNMATCHED NAMES ─────────────────────────────────── -->
-      <div class="card" v-if="pageTab === 'unmatched'">
-        <div class="card-body">
+    <!-- ── UNMATCHED NAMES DRAWER ──────────────────────────── -->
+    <div class="offcanvas offcanvas-end pd-drawer pd-drawer--wide" id="unmatchedDrawer" tabindex="-1" aria-labelledby="unmatchedDrawerTitle">
+      <div class="pd-drawer-head">
+        <div>
+          <div class="pd-drawer-eyebrow">TEAM</div>
+          <h2 class="pd-drawer-title" id="unmatchedDrawerTitle">Unmatched names</h2>
+          <p class="pd-drawer-sub">Match names from uploaded actuals to resources, so their hours count in experience profiles.</p>
+        </div>
+        <button type="button" class="pd-drawer-close" data-bs-dismiss="offcanvas" aria-label="Close"><ph-icon name="close" :size="16"></ph-icon></button>
+      </div>
+      <div class="pd-drawer-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 class="mb-0">Unmatched names <span class="text-muted fw-normal" style="font-size:.9rem">({{ unmatched.length }})</span></h5>
+            <h5 class="mb-0">Unmatched names <span class="text-muted fw-normal">({{ unmatched.length }})</span></h5>
             <button class="btn btn-outline-secondary btn-sm" :disabled="rescanning" @click="rescan">
               <span v-if="rescanning" class="spinner-border spinner-border-sm me-1"></span>Rescan
             </button>
           </div>
-          <input v-model="unmatchedFilterText" type="text" class="form-control form-control-sm mb-2" style="max-width:280px"
+          <input v-model="unmatchedFilterText" type="text" class="form-control form-control-sm mb-2"
                  placeholder="Search name…">
-          <p class="text-muted small mb-3">Names found in uploaded actuals that could not be matched to a resource. Assign each to a resource, or ignore names that are not people.</p>
           <div v-if="unmatchedError" class="alert alert-danger alert-sm mb-3">{{ unmatchedError }}</div>
           <table class="table table-hover" v-if="filteredUnmatched.length">
             <thead>
@@ -141,7 +229,7 @@
                   <combo-select v-model="assignChoice[u.name_normalized]" :options="comboOptions(u)"
                                 placeholder="Select a resource…" :disabled="!!u._loading"></combo-select>
                 </td>
-                <td class="text-end" style="white-space:nowrap">
+                <td class="text-end">
                   <button class="btn btn-primary btn-action me-1" :disabled="!!u._loading || !assignChoice[u.name_normalized]" @click="assign(u)">Assign</button>
                   <button class="btn btn-outline-secondary btn-action" :disabled="!!u._loading" @click="ignoreName(u)">Ignore</button>
                 </td>
@@ -156,7 +244,7 @@
           </div>
 
           <details class="mt-3" v-if="aliases.length">
-            <summary class="small text-muted" style="cursor:pointer">Existing aliases ({{ aliases.length }})</summary>
+            <summary class="small text-muted">Existing aliases ({{ aliases.length }})</summary>
             <table class="table table-sm mt-2">
               <thead><tr><th>Name</th><th>Resolves to</th><th></th></tr></thead>
               <tbody>
@@ -170,26 +258,13 @@
               </tbody>
             </table>
           </details>
-        </div>
-      </div>
-    </div>
-    </template>
-
-    <div v-else-if="!accessDenied" class="d-flex align-items-center justify-content-center" style="height:60vh">
-      <div class="spinner-border text-secondary"></div>
-    </div>
-    <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
-      <div class="text-center text-muted">
-        <div style="font-size:2rem">🔒</div>
-        <p class="mt-2">Admin access required.</p>
-        <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
       </div>
     </div>
 
     <!-- ── RESOURCE DETAIL PANEL ───────────────────────────── -->
     <div id="resourceDetailPanel" v-if="selectedResource"
          style="position:fixed;top:0;right:0;bottom:0;width:860px;max-width:100%;background:#fff;
-                border-left:2px solid #dee2e6;box-shadow:-4px 0 16px rgba(0,0,0,.12);z-index:1045;
+                border-left:2px solid #dee2e6;box-shadow:-4px 0 16px rgba(0,0,0,.12);z-index:1040;
                 display:flex;flex-direction:column">
       <div class="d-flex align-items-center justify-content-between px-3 py-2 flex-shrink-0"
            style="border-bottom:1px solid #dee2e6;background:#0B1840;color:#fff">
@@ -199,10 +274,10 @@
         </span>
         <button class="btn btn-sm btn-link text-white p-0" style="font-size:1.1rem;line-height:1" title="Close" @click="closeDetail">×</button>
       </div>
-      <ul class="nav nav-tabs px-3 pt-2 flex-shrink-0">
-        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: detailTab === 'details' }" @click="detailTab = 'details'">Details</button></li>
-        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: detailTab === 'profile' }" @click="detailTab = 'profile'">Experience profile</button></li>
-      </ul>
+      <div class="tm-tabs" role="tablist">
+        <button type="button" role="tab" class="tm-tab" :class="{ active: detailTab === 'details' }" :aria-selected="detailTab === 'details'" @click="detailTab = 'details'">Details</button>
+        <button type="button" role="tab" class="tm-tab" :class="{ active: detailTab === 'profile' }" :aria-selected="detailTab === 'profile'" @click="detailTab = 'profile'">Experience profile</button>
+      </div>
       <div class="flex-grow-1 p-3" style="overflow-y:auto">
         <div v-if="detailTab === 'details'">
           <div class="d-flex justify-content-end mb-3">
@@ -254,7 +329,7 @@
           </div>
           <div v-else-if="profileData && !profileTree" class="text-muted">
             No actuals matched to this person yet. Names that could not be matched are listed in the
-            <a href="#" @click.prevent="setPageTab('unmatched')">Unmatched names</a> tab.
+            <a href="#" @click.prevent="openUnmatched('queue')">Unmatched names</a> drawer.
           </div>
           <div v-else-if="profileTree">
             <div class="d-flex flex-wrap gap-4 mb-3">
@@ -421,6 +496,18 @@
     let detailOutsideHandler = null;
     let detailKeyHandler = null;
 
+    // Icons js/lib/icons.js does not have (16×16, stroke = currentColor).
+    const TM_ICONS = {
+      link: '<path d="M6.8 9.2a2.6 2.6 0 0 0 3.7 0l2.2-2.2a2.6 2.6 0 0 0-3.7-3.7l-.9.9M9.2 6.8a2.6 2.6 0 0 0-3.7 0L3.3 9a2.6 2.6 0 0 0 3.7 3.7l.9-.9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+      unlink: '<path d="M9.5 4.2l.6-.6a2.6 2.6 0 0 1 3.7 3.7l-.6.6M6.5 11.8l-.6.6a2.6 2.6 0 0 1-3.7-3.7l.6-.6M5 2.5v1.5M2.5 5H4M11 13.5V12M13.5 11H12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+      power: '<path d="M8 2v5.5M4.7 4.6a5 5 0 1 0 6.6 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+    };
+    const TmIcon = {
+      props: { name: { type: String, required: true }, size: { type: Number, default: 16 } },
+      template: `<svg class="pd-icon" :width="size" :height="size" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false" v-html="paths"></svg>`,
+      computed: { paths() { return TM_ICONS[this.name] || ''; } },
+    };
+
     const app = Vue.createApp({
       data() {
         return {
@@ -441,11 +528,19 @@
           expandedProjects: new Set(),
           rescanning: false,
           filterText: '',
-          showInactive: false,
-          globalError: null,
+          statusFilter: 'active',
+          roleFilter: '',
+          linkedFilter: 'any',
+          statusFilters: [
+            { val: 'active', label: 'Active', count: 'active' },
+            { val: 'inactive', label: 'Inactive', count: 'inactive' },
+            { val: 'all', label: 'All', count: 'total' },
+          ],
+          banner: null,               // { kind: 'success' | 'error', text }
+          authed: false,
+          unmatchedView: 'queue',
           form: this.blankForm(),
           _resourceModal: null,
-          pageTab: 'team',
           teamPage: 1,
           sortKey: 'name',
           sortDir: 'asc',
@@ -457,15 +552,30 @@
         };
       },
       computed: {
+        counts() { return window.resourceCounts(this.resources); },
         filteredResources() {
-          const q = this.filterText.trim().toLowerCase();
-          return this.resources.filter(r => {
-            if (!this.showInactive && r.status !== 'active') return false;
-            if (!q) return true;
-            const hay = `${r.first_name} ${r.last_name} ${r.email} ${r.role_label} ${r.role_code}`.toLowerCase();
-            return hay.includes(q);
+          return window.filterResources(this.resources, {
+            status: this.statusFilter, roleId: this.roleFilter, linked: this.linkedFilter, text: this.filterText,
           });
         },
+        sortedRoles() { return this.roles.slice().sort((a, b) => String(a.label).localeCompare(String(b.label))); },
+        pageRange() {
+          const { page, pageItems } = this.pagedResources;
+          const start = (page - 1) * 25 + 1;
+          return `${start}–${start + pageItems.length - 1} of ${this.filteredResources.length}`;
+        },
+        filterSummary() {
+          const parts = [`Status: ${this.statusFilters.find(f => f.val === this.statusFilter).label}`];
+          if (this.roleFilter) {
+            const role = this.roles.find(r => r.id === this.roleFilter);
+            parts.push(`Role: ${role ? role.label : '—'}`);
+          }
+          if (this.linkedFilter !== 'any') parts.push(`PDash user: ${this.linkedFilter === 'linked' ? 'Linked' : 'Not linked'}`);
+          if (this.filterText.trim()) parts.push(`Search: "${this.filterText.trim()}"`);
+          return parts.join(' · ');
+        },
+        unmatchedHours() { return this.unmatched.reduce((sum, u) => sum + (Number(u.hours) || 0), 0); },
+        unmatchedAmbiguous() { return this.unmatched.filter(u => u.candidate_resource_ids && u.candidate_resource_ids.length > 0).length; },
         sortedResources() {
           return window.sortResources(this.filteredResources, this.sortKey, this.sortDir);
         },
@@ -505,7 +615,9 @@
         // The open resource vanished (deleted, or reloaded away): don't leave a stale, empty panel.
         selectedResource(now) { if (this.selectedId && !now) this.closeDetail(); },
         filterText() { this.teamPage = 1; },
-        showInactive() { this.teamPage = 1; },
+        statusFilter() { this.teamPage = 1; },
+        roleFilter() { this.teamPage = 1; },
+        linkedFilter() { this.teamPage = 1; },
         sortKey() { this.teamPage = 1; },
         sortDir() { this.teamPage = 1; },
         sortedUnmatched() { this.unmatchedPage = 1; },
@@ -518,19 +630,16 @@
         if (!user) return;
         this.me = user;
         if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
-        // Sequential, not Promise.all: each loader writes to the shared globalError on
-        // failure, and running them concurrently would let a later success/failure
-        // silently overwrite an earlier one's error message.
-        const loadErrors = [];
-        await this.loadResources(); if (this.globalError) { loadErrors.push(this.globalError); this.globalError = null; }
-        await this.loadRoles(); if (this.globalError) { loadErrors.push(this.globalError); this.globalError = null; }
-        await this.loadUsers(); if (this.globalError) { loadErrors.push(this.globalError); this.globalError = null; }
+        this.authed = true;
+        // Each loader returns its error message (or null); they are joined into one banner.
+        const loadErrors = (await Promise.all([this.loadResources(), this.loadRoles(), this.loadUsers()])).filter(Boolean);
         await this.loadUnmatched();
-        if (loadErrors.length) this.globalError = loadErrors.join(' ');
+        if (loadErrors.length) this.setBanner('error', loadErrors.join(' '));
         this.ready = true;
       },
       mounted() {
         this._resourceModal = new bootstrap.Modal(document.getElementById('resourceModal'));
+        this._unmatchedDrawer = new bootstrap.Offcanvas(document.getElementById('unmatchedDrawer'));
       },
       methods: {
         async loadProfile() {
@@ -553,19 +662,41 @@
         fmtHours(h) { return (Math.round((Number(h) || 0) * 100) / 100).toLocaleString('en-US'); },
         fmtPct(share) { return `${Math.round((Number(share) || 0) * 100)}%`; },
         fmtWhen(iso) { return iso ? new Date(iso).toLocaleString() : '—'; },
-        setPageTab(tab) {
-          this.closeDetail();
-          this.pageTab = tab;
+        // Opens the Unmatched names drawer on the queue or on the Existing aliases view.
+        openUnmatched(view) {
+          this.unmatchedView = view === 'aliases' ? 'aliases' : 'queue';
+          this._unmatchedDrawer.show();
+        },
+        setBanner(kind, text) { this.banner = { kind, text }; },
+        clearBanner() { this.banner = null; },
+        clearFilters() {
+          this.statusFilter = 'active';
+          this.roleFilter = '';
+          this.linkedFilter = 'any';
+          this.filterText = '';
+        },
+        initials(r) { return `${(r.first_name || '').charAt(0)}${(r.last_name || '').charAt(0)}`.toUpperCase(); },
+        ariaSort(key) {
+          if (this.sortKey !== key) return 'none';
+          return this.sortDir === 'asc' ? 'ascending' : 'descending';
+        },
+        sortGlyph(key) {
+          if (this.sortKey !== key) return '↕';
+          return this.sortDir === 'asc' ? '↑' : '↓';
         },
         openDetail(r) {
+          if (r.id === this.selectedId) return;          // already open: no reset, no flicker
           this.selectedId = r.id;
           this.detailTab = 'details';
           this.removeDetailHandlers();
           const outside = (e) => {
             const panel = document.getElementById('resourceDetailPanel');
             if (!panel || panel.contains(e.target)) return;
-            // Modals opened from the panel (Edit, Confirm) live outside it in the DOM.
-            if (e.target.closest('.modal') || e.target.classList.contains('modal-backdrop')) return;
+            // Drawers and modals opened from the panel live outside it in the DOM.
+            if (e.target.closest('.modal, .offcanvas') || e.target.classList.contains('modal-backdrop')
+                || e.target.classList.contains('offcanvas-backdrop')) return;
+            // A row click switches the panel to that row (or keeps it): closing first would flicker.
+            if (e.target.closest('.tm-row')) return;
             this.closeDetail();
           };
           const onKey = (e) => {
@@ -624,37 +755,38 @@
           return { id: null, firstName: '', lastName: '', email: '', roleId: '',
                     jobDescription: '', userId: null, status: 'active', loading: false, error: null };
         },
+        // Loaders return an error message, or null on success.
         async loadResources() {
-          this.globalError = null;
           try {
             const res = await fetch('/api/resources', { credentials: 'same-origin' });
             const data = await res.json();
-            if (!res.ok) { this.globalError = data.error || 'Failed to load resources.'; return; }
+            if (!res.ok) return data.error || 'Failed to load resources.';
             this.resources = data;
+            return null;
           } catch {
-            this.globalError = 'Network error.';
+            return 'Network error.';
           }
         },
         async loadRoles() {
-          this.globalError = null;
           try {
             const res = await fetch('/api/roles', { credentials: 'same-origin' });
             const data = await res.json();
-            if (!res.ok) { this.globalError = data.error || 'Failed to load roles.'; return; }
+            if (!res.ok) return data.error || 'Failed to load roles.';
             this.roles = data;
+            return null;
           } catch {
-            this.globalError = 'Network error.';
+            return 'Network error.';
           }
         },
         async loadUsers() {
-          this.globalError = null;
           try {
             const res = await fetch('/api/users/active-list', { credentials: 'same-origin' });
             const data = await res.json();
-            if (!res.ok) { this.globalError = data.error || 'Failed to load users.'; return; }
+            if (!res.ok) return data.error || 'Failed to load users.';
             this.users = data;
+            return null;
           } catch {
-            this.globalError = 'Network error.';
+            return 'Network error.';
           }
         },
 
@@ -773,7 +905,7 @@
             const data = await res.json();
             if (!res.ok) { this.form.error = data.error || 'Save failed'; return; }
             this._resourceModal.hide();
-            await this.loadResources();
+            const err = await this.loadResources(); if (err) this.setBanner('error', err);
             await this.loadUnmatched();
           } catch {
             this.form.error = 'Network error. Please try again.';
@@ -784,7 +916,7 @@
 
         async toggleStatus(r) {
           r._loading = true;
-          this.globalError = null;
+          this.clearBanner();
           try {
             const newStatus = r.status === 'active' ? 'inactive' : 'active';
             const res = await fetch(`/api/resources/${r.id}`, {
@@ -792,11 +924,11 @@
               body: JSON.stringify({ status: newStatus }),
             });
             const data = await res.json();
-            if (!res.ok) { this.globalError = data.error; return; }
+            if (!res.ok) { this.setBanner('error', data.error || 'Save failed.'); return; }
             r.status = data.status;
             await this.loadUnmatched();
           } catch {
-            this.globalError = 'Network error.';
+            this.setBanner('error', 'Network error.');
           } finally {
             r._loading = false;
           }
@@ -807,15 +939,15 @@
         },
         async deleteResource(r) {
           r._loading = true;
-          this.globalError = null;
+          this.clearBanner();
           try {
             const res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE', credentials: 'same-origin' });
             const data = await res.json();
-            if (!res.ok) { this.globalError = data.error; return; }
-            await this.loadResources();
+            if (!res.ok) { this.setBanner('error', data.error || 'Save failed.'); return; }
+            const err = await this.loadResources(); if (err) this.setBanner('error', err);
             await this.loadUnmatched();
           } catch {
-            this.globalError = 'Network error.';
+            this.setBanner('error', 'Network error.');
           } finally {
             r._loading = false;
           }
@@ -910,6 +1042,8 @@
         </div>`,
     });
 
+    app.component('ph-icon', window.PhIcon);
+    app.component('tm-icon', TmIcon);
     app.mount('#app');
   </script>
 </body>
