@@ -40,7 +40,7 @@ describe('team.html', () => {
   it('has no native dialogs', () => {
     expect(html).not.toMatch(/\b(confirm|alert)\(/);
   });
-  it.todo('does not use showConfirm(');
+  it('does not use showConfirm(', () => expect(html).not.toContain('showConfirm('));
   it('has no page tabs (nav-tabs)', () => {
     expect(html).not.toContain('nav-tabs');
   });
@@ -63,4 +63,10 @@ describe('team.html list (Task 3)', () => {
     expect(html).toContain('aria-label="PDash user"');
   });
   it('sortable headers expose aria-sort', () => expect(html).toContain(':aria-sort='));
+});
+
+describe('team.html row menu and delete (Task 4)', () => {
+  it.each(['aria-haspopup="menu"', 'role="menu"', 'LEFT THE COMPANY', 'IRREVERSIBLE',
+    "I understand this can't be undone.", 'Updating…', 'id="deleteModal"'])('contains %s', s => expect(html).toContain(s));
+  it('has no local confirm modal', () => expect(html).not.toContain('id="confirmModal"'));
 });

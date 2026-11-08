@@ -150,15 +150,49 @@
                   <span v-if="r.user_id" class="tm-linked"><tm-icon name="link" :size="14"></tm-icon>{{ r.linked_user_first_name }} {{ r.linked_user_last_name }}</span>
                   <span v-else class="tm-muted">—</span>
                 </td>
-                <td>
-                  <span class="pd-status-pill" :class="'pd-status-pill--' + r.status">{{ r.status }}</span>
+                <td aria-live="polite">
+                  <span v-if="r._loading" class="pd-status-pill pd-status-pill--busy"><span class="spinner-border" role="presentation"></span>Updating…</span>
+                  <span v-else class="pd-status-pill" :class="'pd-status-pill--' + r.status">{{ r.status }}</span>
                 </td>
-                <td class="tm-col-actions" @click.stop>
-                  <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!r._loading" @click="openEdit(r)">Edit</button>
-                  <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!r._loading" @click="toggleStatus(r)">
-                    {{ r.status === 'active' ? 'Deactivate' : 'Activate' }}
-                  </button>
-                  <button class="btn btn-outline-danger btn-action" :disabled="!!r._loading" @click="confirmDelete(r)">Delete</button>
+                <td class="tm-col-actions" @click.stop @keydown.enter.stop>
+                  <div class="pd-row-menu-wrap">
+                    <button type="button" class="pd-row-menu-trigger" aria-haspopup="menu" :aria-expanded="menuOpenId === r.id"
+                            :aria-label="'Actions for ' + r.first_name + ' ' + r.last_name" :disabled="!!r._loading" @click="openMenu(r, $event)">
+                      <ph-icon name="more" :size="16"></ph-icon>
+                    </button>
+                    <div v-if="menuOpenId === r.id" class="pd-row-menu" :class="{ 'pd-row-menu--up': menuUp }" role="menu"
+                         :aria-label="'Actions for ' + r.first_name + ' ' + r.last_name" @keydown="onMenuKey">
+                      <button type="button" class="pd-row-menu-item" role="menuitem" @click="runMenu(r, 'edit')">
+                        <ph-icon name="pencil" :size="16"></ph-icon>
+                        <span class="pd-row-menu-item-text">
+                          <span class="pd-row-menu-item-title">Edit</span>
+                          <span class="pd-row-menu-item-hint">Name, role, job description, linked user</span>
+                        </span>
+                      </button>
+                      <button v-if="r.status === 'active'" type="button" class="pd-row-menu-item" role="menuitem" @click="runMenu(r, 'status')">
+                        <tm-icon name="power" :size="16"></tm-icon>
+                        <span class="pd-row-menu-item-text">
+                          <span class="pd-row-menu-item-title">Deactivate<span class="pd-tag pd-tag--navy">LEFT THE COMPANY</span></span>
+                          <span class="pd-row-menu-item-hint">Hides them from lists. Hours and aliases stay. Reversible.</span>
+                        </span>
+                      </button>
+                      <button v-else type="button" class="pd-row-menu-item" role="menuitem" @click="runMenu(r, 'status')">
+                        <tm-icon name="power" :size="16"></tm-icon>
+                        <span class="pd-row-menu-item-text">
+                          <span class="pd-row-menu-item-title">Activate</span>
+                          <span class="pd-row-menu-item-hint">Back in the active list</span>
+                        </span>
+                      </button>
+                      <div class="pd-row-menu-divider" role="separator"></div>
+                      <button type="button" class="pd-row-menu-item pd-row-menu-item--danger" role="menuitem" @click="runMenu(r, 'delete')">
+                        <ph-icon name="trash" :size="16"></ph-icon>
+                        <span class="pd-row-menu-item-text">
+                          <span class="pd-row-menu-item-title">Delete…<span class="pd-tag pd-tag--danger">IRREVERSIBLE</span></span>
+                          <span class="pd-row-menu-item-hint pd-row-menu-item-hint--danger">Removes the resource and {{ aliasCountText(r) }}.</span>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
                 </td>
               </tr>
             </tbody>
@@ -458,19 +492,42 @@
       </div>
     </div>
 
-    <!-- Confirm -->
-    <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
-      <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
-        <div class="modal-content shadow-lg">
-          <div class="modal-header border-0 pb-1">
-            <h6 class="modal-title fw-bold" id="confirmModalTitle">⚠️ Confirm</h6>
-          </div>
-          <div class="modal-body pt-1">
-            <p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p>
-          </div>
-          <div class="modal-footer border-0 pt-2">
-            <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
-            <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
+    <!-- ── DELETE CONFIRMATION ─────────────────────────────── -->
+    <div class="modal fade pd-confirm-modal" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalTitle">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="pd-confirm" v-if="deleteTarget">
+            <div class="pd-confirm-head">
+              <span class="pd-confirm-icon pd-confirm-icon--danger"><ph-icon name="trash" :size="16"></ph-icon></span>
+              <h2 class="pd-confirm-title" id="deleteModalTitle">Delete {{ deleteTarget.first_name }} {{ deleteTarget.last_name }}?</h2>
+              <span class="pd-tag pd-tag--danger">IRREVERSIBLE</span>
+            </div>
+            <p class="pd-confirm-text">This can't be undone. The resource and its aliases are removed, and their names go back to Unmatched names.</p>
+            <div class="pd-confirm-boxes">
+              <div class="pd-confirm-box">
+                <div class="pd-confirm-box-title pd-confirm-box-title--danger">Deleted</div>
+                <div>Resource record</div>
+                <div>{{ deleteSummaryFor.count }} {{ deleteSummaryFor.count === 1 ? 'alias' : 'aliases' }}</div>
+              </div>
+              <div class="pd-confirm-box">
+                <div class="pd-confirm-box-title pd-confirm-box-title--warn">Back to Unmatched names</div>
+                <div v-for="n in deleteSummaryFor.names" :key="n">“{{ n }}”</div>
+                <div v-if="!deleteSummaryFor.count">No aliases</div>
+              </div>
+            </div>
+            <div v-if="deleteTarget.status === 'active'" class="pd-confirm-note">
+              <ph-icon name="info" :size="16"></ph-icon>
+              <div class="pd-confirm-note-body"><strong>Has this person left?</strong> Deactivate instead: their hours stay attributed and you can reactivate later.</div>
+              <button type="button" class="pd-confirm-note-action" @click="deactivateInstead">Deactivate</button>
+            </div>
+            <label class="pd-confirm-ack">
+              <input type="checkbox" class="form-check-input mt-0" v-model="deleteAck">
+              I understand this can't be undone.
+            </label>
+            <div class="pd-confirm-foot">
+              <button type="button" class="tm-link-btn" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-danger" :disabled="!deleteAck" @click="confirmDelete">Delete resource</button>
+            </div>
           </div>
         </div>
       </div>
@@ -495,6 +552,8 @@
     // approach as pipeline.html's _pbDetailOutsideClickHandler.
     let detailOutsideHandler = null;
     let detailKeyHandler = null;
+    let menuTrigger = null;     // the ⋯ button of the open row menu (focus returns to it)
+    let deleteModal = null;
 
     // Icons js/lib/icons.js does not have (16×16, stroke = currentColor).
     const TM_ICONS = {
@@ -537,6 +596,10 @@
             { val: 'all', label: 'All', count: 'total' },
           ],
           banner: null,               // { kind: 'success' | 'error', text }
+          menuOpenId: null,
+          menuUp: false,
+          deleteTarget: null,
+          deleteAck: false,
           authed: false,
           unmatchedView: 'queue',
           form: this.blankForm(),
@@ -553,6 +616,7 @@
       },
       computed: {
         counts() { return window.resourceCounts(this.resources); },
+        deleteSummaryFor() { return window.deleteSummary(this.deleteTarget, this.aliases); },
         filteredResources() {
           return window.filterResources(this.resources, {
             status: this.statusFilter, roleId: this.roleFilter, linked: this.linkedFilter, text: this.filterText,
@@ -640,6 +704,15 @@
       mounted() {
         this._resourceModal = new bootstrap.Modal(document.getElementById('resourceModal'));
         this._unmatchedDrawer = new bootstrap.Offcanvas(document.getElementById('unmatchedDrawer'));
+        deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        document.getElementById('deleteModal').addEventListener('hidden.bs.modal', () => { this.deleteTarget = null; });
+        // Row menu: Esc closes it (focus back to ⋯), a press outside closes it.
+        document.addEventListener('keydown', ev => {
+          if (ev.key === 'Escape' && this.menuOpenId) { ev.stopImmediatePropagation(); this.closeMenu(true); }
+        }, true);
+        document.addEventListener('mousedown', ev => {
+          if (this.menuOpenId && !ev.target.closest('.pd-row-menu-wrap')) this.closeMenu(false);
+        });
       },
       methods: {
         async loadProfile() {
@@ -914,9 +987,46 @@
           }
         },
 
+        // ── Row menu ──
+        // The popover opens upwards when it would not fit between the button and the viewport bottom.
+        openMenu(r, ev) {
+          if (this.menuOpenId === r.id) { this.closeMenu(true); return; }
+          menuTrigger = ev.currentTarget;
+          this.menuUp = menuTrigger.getBoundingClientRect().bottom + 240 > window.innerHeight;
+          this.menuOpenId = r.id;
+          this.$nextTick(() => {
+            const first = document.querySelector('.pd-row-menu [role="menuitem"]');
+            if (first) first.focus();
+          });
+        },
+        closeMenu(returnFocus) {
+          this.menuOpenId = null;
+          if (returnFocus && menuTrigger) menuTrigger.focus();
+        },
+        onMenuKey(ev) {
+          if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') return;
+          ev.preventDefault();
+          const items = [...ev.currentTarget.querySelectorAll('[role="menuitem"]')];
+          const at = items.indexOf(document.activeElement);
+          const step = ev.key === 'ArrowDown' ? 1 : -1;
+          items[(at + step + items.length) % items.length].focus();
+        },
+        // The menu closes before the action starts.
+        runMenu(r, action) {
+          this.closeMenu(false);
+          if (action === 'edit') this.openEdit(r);
+          else if (action === 'status') this.toggleStatus(r);
+          else if (action === 'delete') this.askDelete(r);
+        },
+        aliasCountText(r) {
+          const n = window.deleteSummary(r, this.aliases).count;
+          return `${n} ${n === 1 ? 'alias' : 'aliases'}`;
+        },
+
         async toggleStatus(r) {
           r._loading = true;
           this.clearBanner();
+          const name = `${r.first_name} ${r.last_name}`;
           try {
             const newStatus = r.status === 'active' ? 'inactive' : 'active';
             const res = await fetch(`/api/resources/${r.id}`, {
@@ -926,6 +1036,9 @@
             const data = await res.json();
             if (!res.ok) { this.setBanner('error', data.error || 'Save failed.'); return; }
             r.status = data.status;
+            this.setBanner('success', data.status === 'active'
+              ? `${name} was activated.`
+              : `${name} was deactivated. Their hours and aliases stay attributed. Find them under Inactive.`);
             await this.loadUnmatched();
           } catch {
             this.setBanner('error', 'Network error.');
@@ -934,16 +1047,32 @@
           }
         },
 
-        confirmDelete(r) {
-          showConfirm(`Delete resource "${r.first_name} ${r.last_name}"?\n\nThis cannot be undone.`, () => this.deleteResource(r));
+        // ── Delete ──
+        askDelete(r) {
+          this.deleteTarget = r;
+          this.deleteAck = false;
+          deleteModal.show();
+        },
+        confirmDelete() {
+          if (!this.deleteAck || !this.deleteTarget) return;
+          const r = this.deleteTarget;
+          deleteModal.hide();
+          this.deleteResource(r);
+        },
+        deactivateInstead() {
+          const r = this.deleteTarget;
+          deleteModal.hide();
+          if (r && r.status === 'active') this.toggleStatus(r);
         },
         async deleteResource(r) {
           r._loading = true;
           this.clearBanner();
+          const name = `${r.first_name} ${r.last_name}`;
           try {
             const res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE', credentials: 'same-origin' });
             const data = await res.json();
-            if (!res.ok) { this.setBanner('error', data.error || 'Save failed.'); return; }
+            if (!res.ok) { this.setBanner('error', data.error || 'Delete failed.'); return; }
+            this.setBanner('success', `${name} was deleted.`);
             const err = await this.loadResources(); if (err) this.setBanner('error', err);
             await this.loadUnmatched();
           } catch {
