@@ -368,7 +368,7 @@
                       <template v-else>
                         <button type="button" class="tm-btn-navy tm-btn-sm" :disabled="!assignChoice[u.name_normalized]" @click="assign(u)">Assign</button>
                         <button type="button" class="tm-btn-outline tm-btn-sm tm-um-ignore" title="Not a person (e.g. TBD). Stored as an ignored alias." @click="ignoreName(u)">
-                          <span class="tm-um-ignore-text">Ignore</span><ph-icon class="tm-um-ignore-icon" name="close" :size="14"></ph-icon>
+                          <span class="tm-um-ignore-text">Ignore</span><tm-icon class="tm-um-ignore-icon" name="ban" :size="14"></tm-icon>
                         </button>
                       </template>
                     </td>
@@ -487,7 +487,6 @@
           </div>
 
           <div class="tm-panel-card tm-mgmt">
-            <div class="tm-mgmt-head">Management</div>
             <div class="tm-mgmt-row">
               <div>
                 <div class="tm-mgmt-title">{{ selectedResource.status === 'active' ? 'Deactivate' : 'Activate' }}</div>
@@ -538,7 +537,7 @@
             </div>
             <div class="tm-calc">
               <ph-icon name="refresh" :size="12"></ph-icon>
-              <p>Last calculated <strong>{{ fmtWhen(profileData.profile_computed_at) }}</strong>. Rebuilt in the background from uploaded actuals. Recent assignments appear after the next run.</p>
+              <p>Last calculated <strong>{{ profileCalcText(profileData.profile_computed_at) }}</strong>. Rebuilt in the background from uploaded actuals. Recent assignments appear after the next run.</p>
               <a href="profile-jobs.html" class="tm-calc-link">Profile processing →</a>
             </div>
 
@@ -807,6 +806,7 @@
     const TM_ICONS = {
       link: '<path d="M6.8 9.2a2.6 2.6 0 0 0 3.7 0l2.2-2.2a2.6 2.6 0 0 0-3.7-3.7l-.9.9M9.2 6.8a2.6 2.6 0 0 0-3.7 0L3.3 9a2.6 2.6 0 0 0 3.7 3.7l.9-.9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
       unlink: '<path d="M9.5 4.2l.6-.6a2.6 2.6 0 0 1 3.7 3.7l-.6.6M6.5 11.8l-.6.6a2.6 2.6 0 0 1-3.7-3.7l.6-.6M5 2.5v1.5M2.5 5H4M11 13.5V12M13.5 11H12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+      ban: '<circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.4"/><path d="M4.1 11.9L11.9 4.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
       power: '<path d="M8 2v5.5M4.7 4.6a5 5 0 1 0 6.6 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
     };
     const TmIcon = {
@@ -1016,8 +1016,8 @@
         },
         fmtHours(h) { return (Math.round((Number(h) || 0) * 100) / 100).toLocaleString('en-US'); },
         fmtPct(share) { return `${Math.round((Number(share) || 0) * 100)}%`; },
-        fmtWhen(iso) { return iso ? new Date(iso).toLocaleString() : '—'; },
         monthText(ym) { return window.profileMonthText(ym); },
+        profileCalcText(iso) { return window.profileCalcText(iso); },
         isRecent(ym) { return window.isRecentMonth(ym); },
         isExpanded(key) { return this.expanded.has(key); },
         toggleExpanded(key) {
@@ -1281,7 +1281,10 @@
           if (!f.roleId) errors.roleId = 'Role is required.';
           f.errors = errors;
           const first = Object.values(errors)[0];
-          f.error = first || null;
+          // The box repeats the first field message; the Role one also says where roles come from (13ag).
+          f.error = first === errors.roleId && first
+            ? 'Role is required. Pick one from the list, or add it in Master Data first.'
+            : (first || null);
           return !first;
         },
         async submitForm() {

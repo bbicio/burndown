@@ -93,8 +93,15 @@ describe('team.html resource panel (Task 7)', () => {
   const start = html.indexOf('id="resourceDetailPanel"');
   const panel = html.slice(start, html.indexOf('NEW / EDIT RESOURCE DRAWER', start));
   it.each(['Profile processing', 'profile-jobs.html', 'Direct experience', 'Project context', 'Try again',
-    'Open Unmatched names', 'aria-expanded', 'Management', 'Not linked', 'Loading profile…', 'Not calculated yet',
+    'Open Unmatched names', 'aria-expanded', 'tm-panel-card tm-mgmt', 'Not linked', 'Loading profile…', 'Not calculated yet',
     'No actuals matched to this person yet', "Couldn't load the profile."])('panel contains %s', t => expect(panel).toContain(t));
   it('panel has no inline style attribute with a colour', () => expect(panel).not.toMatch(/style="[^"]*(#|rgba?\(|background|color)/));
   it('page has no <details>', () => expect(html).not.toContain('<details'));
+});
+
+describe('team.html board decisions (Task 9)', () => {
+  it('role error box uses the 13ag sentence', () => expect(html).toContain('Role is required. Pick one from the list, or add it in Master Data first.'));
+  it('the Management card has no heading', () => expect(html).not.toContain('tm-mgmt-head'));
+  it('Last calculated is formatted by profileCalcText', () => expect(html).toContain('profileCalcText(profileData.profile_computed_at)'));
+  it('Ignore uses the ban icon below 1280px', () => expect(html).toMatch(/tm-icon class="tm-um-ignore-icon" name="ban"/));
 });

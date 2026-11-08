@@ -1,7 +1,7 @@
 // Pure helpers for team.html (Team UX cycle, 2026-09). No DOM, no Vue: unit-tested with vitest and
 // bridged to window.* for the page's inline module script.
 
-import { formatMonthText } from './dates.js?v=4';
+import { formatMonthText, formatDayText } from './dates.js?v=4';
 
 // Case/accent-insensitive, numeric-aware string comparison; null/undefined count as ''.
 function cmp(a, b) {
@@ -172,6 +172,15 @@ export function profileMonthText(ym) {
   return formatMonthText(ym.replace('-', '')) || '—';
 }
 
+// A profile's computed_at timestamp in local time: 'Nov 4, 2026, 22:30' (day text from dates.js).
+export function profileCalcText(iso) {
+  const d = iso ? new Date(iso) : null;
+  if (!d || Number.isNaN(d.getTime())) return '—';
+  const pad = n => String(n).padStart(2, '0');
+  const day = formatDayText(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+  return `${day}, ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
 // aliases: /api/resources/aliases rows. Adds the resolved resource (role code and status come from
 // the loaded resources, the API does not send them); resolves 'any' | 'resource' | 'ignored'.
 export function aliasRows(aliases, resources, { text = '', resolves = 'any' } = {}) {
@@ -225,3 +234,4 @@ window.aliasRows = aliasRows;
 window.candidateChips = candidateChips;
 window.topTopicIds = topTopicIds;
 window.deleteSummary = deleteSummary;
+window.profileCalcText = profileCalcText;

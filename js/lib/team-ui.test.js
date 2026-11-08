@@ -301,7 +301,7 @@ describe('sortUnmatched', () => {
 // ── Redesign helpers (2026-11-08) ──
 import {
   resourceCounts, filterResources, sessionProgress, hoursBarPct, isRecentMonth, profileMonthText,
-  aliasRows, candidateChips, topTopicIds, deleteSummary,
+  aliasRows, candidateChips, topTopicIds, deleteSummary, profileCalcText,
 } from './team-ui.js';
 
 const RES = [
@@ -413,4 +413,15 @@ describe('deleteSummary', () => {
     expect(deleteSummary(r, al)).toEqual({ count: 3, names: ['Anna', 'Bianchi A.', 'Zed'] });
   });
   it('tolerates missing aliases', () => expect(deleteSummary(r, null)).toEqual({ count: 0, names: [] }));
+});
+
+describe('profileCalcText', () => {
+  it('local day in the app format plus hours:minutes', () => {
+    expect(profileCalcText(new Date(2026, 10, 4, 22, 30, 43).toISOString())).toBe('Nov 4, 2026, 22:30');
+    expect(profileCalcText(new Date(2026, 0, 9, 7, 5).toISOString())).toBe('Jan 9, 2026, 07:05');
+  });
+  it('dash when missing or invalid', () => {
+    expect(profileCalcText(null)).toBe('—');
+    expect(profileCalcText('nope')).toBe('—');
+  });
 });
