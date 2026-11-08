@@ -101,7 +101,9 @@ Funzioni nuove, ES module con bridge `window.*`, test vitest in `js/lib/team-ui.
 - `resourceCounts(resources)` → `{ total, active, inactive }` (sottotitolo e segmented).
 - `filterResources(resources, { status, roleId, linked, text })`: `status` `active|inactive|all`, `linked`
   `any|linked|unlinked` su `user_id`, `text` con la regola di ricerca attuale (nome, email, ruolo label/codice,
-  case/accent-insensitive).
+  case-insensitive, senza folding degli accenti: come oggi).
+- `profileMonthText(ym)`: `'YYYY-MM'` del profilo → `Dec 2025` via `formatMonthText` di `js/lib/dates.js` (che vuole
+  `YYYYMM`); `'—'` se assente o non valido.
 - `sessionProgress(resolved, queueLength)` → `{ resolved, total, pct }`, `total = resolved + queueLength`.
 - `hoursBarPct(hours, maxHours)` (0–100, 0 se `maxHours` è 0).
 - `isRecentMonth(ym, today, months = 3)`: vero se il mese `YYYY-MM` cade nei 3 mesi che terminano con il mese corrente
@@ -232,7 +234,7 @@ per alias con Remove, **senza ore**; vuoto `No aliases for this resource.` Card 
 (navy outline, testo del brief §8) e **Delete resource** (titolo rosso, bottone outline rosso **Delete…** → modal §5.5).
 
 ### 8.2 Experience profile (13o)
-- Totali in card a 4 celle: HOURS, PROJECTS, FIRST MONTH, LAST MONTH (mesi `Dec 2025`, via `formatMonthText` di `js/lib/dates.js`).
+- Totali in card a 4 celle: HOURS, PROJECTS, FIRST MONTH, LAST MONTH (mesi `Dec 2025`, via `profileMonthText`).
 - `Last calculated {data, ora}. Rebuilt in the background from uploaded actuals. Recent assignments appear after the
   next run.` + a destra **Profile processing →** (`profile-jobs.html`).
 - Topics: **Direct experience** (`tasks with logged hours`) chip pieni `Label · {n} project(s) · {h} h`, per ore, i due
