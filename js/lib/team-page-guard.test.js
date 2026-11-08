@@ -36,7 +36,7 @@ describe('admin-crud.css', () => {
 });
 
 describe('team.html', () => {
-  it.todo('has no hex colour');
+  it('has no hex colour', () => expect(html).not.toMatch(HEX_COLOUR));
   it('has no native dialogs', () => {
     expect(html).not.toMatch(/\b(confirm|alert)\(/);
   });
@@ -87,4 +87,14 @@ describe('team.html unmatched drawer (Task 6)', () => {
     "Not a person (e.g. TBD). Stored as an ignored alias.", 'Assigning…', 'Ignoring…', 'Rescanning…', 'No unmatched names.'])('drawer contains %s', s => expect(drawer).toContain(s));
   it.each(['Same name · candidates', 'Active resources'])('combo groups contain %s', s => expect(html).toContain(s));
   it('drawer has no <details>', () => expect(drawer).not.toContain('<details'));
+});
+
+describe('team.html resource panel (Task 7)', () => {
+  const start = html.indexOf('id="resourceDetailPanel"');
+  const panel = html.slice(start, html.indexOf('NEW / EDIT RESOURCE DRAWER', start));
+  it.each(['Profile processing', 'profile-jobs.html', 'Direct experience', 'Project context', 'Try again',
+    'Open Unmatched names', 'aria-expanded', 'Management', 'Not linked', 'Loading profile…', 'Not calculated yet',
+    'No actuals matched to this person yet', "Couldn't load the profile."])('panel contains %s', t => expect(panel).toContain(t));
+  it('panel has no inline style attribute with a colour', () => expect(panel).not.toMatch(/style="[^"]*(#|rgba?\(|background|color)/));
+  it('page has no <details>', () => expect(html).not.toContain('<details'));
 });

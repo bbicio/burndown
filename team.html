@@ -416,143 +416,226 @@
     </div>
 
     <!-- ── RESOURCE DETAIL PANEL ───────────────────────────── -->
-    <div id="resourceDetailPanel" v-if="selectedResource"
-         style="position:fixed;top:0;right:0;bottom:0;width:860px;max-width:100%;background:#fff;
-                border-left:2px solid #dee2e6;box-shadow:-4px 0 16px rgba(0,0,0,.12);z-index:1040;
-                display:flex;flex-direction:column">
-      <div class="d-flex align-items-center justify-content-between px-3 py-2 flex-shrink-0"
-           style="border-bottom:1px solid #dee2e6;background:#0B1840;color:#fff">
-        <span class="fw-semibold" style="font-size:var(--text-md)">
-          {{ selectedResource.first_name }} {{ selectedResource.last_name }}
-          <span :class="'badge-st-' + selectedResource.status" class="ms-2">{{ selectedResource.status }}</span>
-        </span>
-        <button class="btn btn-sm btn-link text-white p-0" style="font-size:1.1rem;line-height:1" title="Close" @click="closeDetail">×</button>
+    <div id="resourceDetailPanel" v-if="selectedResource" class="tm-panel" role="dialog" aria-labelledby="resourcePanelTitle">
+      <div class="tm-panel-head">
+        <span class="tm-avatar tm-avatar--head" aria-hidden="true">{{ initials(selectedResource) }}</span>
+        <div class="tm-panel-head-text">
+          <div class="tm-panel-title-row">
+            <h2 class="tm-panel-title" id="resourcePanelTitle" tabindex="-1">{{ selectedResource.first_name }} {{ selectedResource.last_name }}</h2>
+            <span class="pd-status-pill" :class="'pd-status-pill--' + selectedResource.status">{{ selectedResource.status }}</span>
+          </div>
+          <div class="tm-panel-sub">{{ selectedResource.role_label }} · {{ selectedResource.role_code }}</div>
+        </div>
+        <button type="button" class="tm-panel-close" aria-label="Close" @click="closeDetail"><ph-icon name="close" :size="16"></ph-icon></button>
       </div>
       <div class="tm-tabs" role="tablist">
         <button type="button" role="tab" class="tm-tab" :class="{ active: detailTab === 'details' }" :aria-selected="detailTab === 'details'" @click="detailTab = 'details'">Details</button>
         <button type="button" role="tab" class="tm-tab" :class="{ active: detailTab === 'profile' }" :aria-selected="detailTab === 'profile'" @click="detailTab = 'profile'">Experience profile</button>
+        <button v-if="detailTab === 'details'" type="button" class="tm-btn-outline tm-btn-sm tm-tabs-action" @click="openEdit(selectedResource)">
+          <ph-icon name="pencil" :size="14"></ph-icon>Edit
+        </button>
       </div>
-      <div class="flex-grow-1 p-3" style="overflow-y:auto">
-        <div v-if="detailTab === 'details'">
-          <div class="d-flex justify-content-end mb-3">
-            <button class="btn btn-outline-secondary btn-sm" @click="openEdit(selectedResource)">Edit</button>
-          </div>
-          <dl class="row mb-0" style="font-size:.9rem">
-            <dt class="col-sm-3 text-muted fw-normal">Name</dt>
-            <dd class="col-sm-9 fw-semibold">{{ selectedResource.first_name }} {{ selectedResource.last_name }}</dd>
-            <dt class="col-sm-3 text-muted fw-normal">Email</dt>
-            <dd class="col-sm-9">{{ selectedResource.email }}</dd>
-            <dt class="col-sm-3 text-muted fw-normal">Role</dt>
-            <dd class="col-sm-9">{{ selectedResource.role_label }} <span class="text-muted small">({{ selectedResource.role_code }})</span></dd>
-            <dt class="col-sm-3 text-muted fw-normal">Linked user</dt>
-            <dd class="col-sm-9">
-              <span v-if="selectedResource.user_id">{{ selectedResource.linked_user_first_name }} {{ selectedResource.linked_user_last_name }} <span class="text-muted small">({{ selectedResource.linked_user_email }})</span></span>
-              <span v-else class="text-muted">—</span>
-            </dd>
-            <dt class="col-sm-3 text-muted fw-normal">Status</dt>
-            <dd class="col-sm-9"><span :class="'badge-st-' + selectedResource.status">{{ selectedResource.status }}</span></dd>
-            <dt class="col-sm-3 text-muted fw-normal">Job description</dt>
-            <dd class="col-sm-9" style="white-space:pre-line">
-              <span v-if="selectedResource.job_description">{{ selectedResource.job_description }}</span>
-              <span v-else class="text-muted">—</span>
-            </dd>
-          </dl>
-          <details class="mt-4 pt-3" style="border-top:1px solid #dee2e6">
-            <summary class="fw-semibold" style="cursor:pointer;font-size:.9rem">Aliases <span class="badge bg-secondary ms-1">{{ detailAliases.length }}</span></summary>
-            <div class="mt-2">
-              <p class="text-muted small">Names from uploaded actuals that resolve to this resource.</p>
-              <div v-if="unmatchedBanner && unmatchedBanner.kind === 'error'" class="pd-banner pd-banner--error" role="alert"><ph-icon name="warning" :size="16"></ph-icon><div class="pd-banner-body">{{ unmatchedBanner.text }}</div></div>
-              <table class="table table-sm" v-if="detailAliases.length">
-                <thead><tr><th>Name</th><th></th></tr></thead>
-                <tbody>
-                  <tr v-for="a in detailAliases" :key="a.id">
-                    <td>{{ a.display_name || a.alias_normalized }}</td>
-                    <td class="text-end"><button class="btn btn-outline-danger btn-action" :disabled="busyAliasIds.has(a.id)" @click="removeAlias(a)">Remove</button></td>
-                  </tr>
-                </tbody>
-              </table>
-              <div class="empty" v-else>No aliases for this resource.</div>
-            </div>
-          </details>
-        </div>
-        <div v-else style="font-size:.9rem">
-          <div v-if="profileLoading" class="text-muted">Loading…</div>
-          <div v-else-if="profileError" class="alert alert-danger alert-sm">{{ profileError }}</div>
-          <div v-else-if="profileData && !profileData.profile_computed_at" class="text-muted">
-            Not calculated yet. The profile is built in the background from uploaded actuals.
-          </div>
-          <div v-else-if="profileData && !profileTree" class="text-muted">
-            No actuals matched to this person yet. Names that could not be matched are listed in the
-            <a href="#" @click.prevent="openUnmatched('queue')">Unmatched names</a> drawer.
-          </div>
-          <div v-else-if="profileTree">
-            <div class="d-flex flex-wrap gap-4 mb-3">
-              <div><div class="text-muted small">Hours</div><div class="fw-semibold">{{ fmtHours(profileTree.totals.hours) }}</div></div>
-              <div><div class="text-muted small">Projects</div><div class="fw-semibold">{{ profileTree.totals.projects }}</div></div>
-              <div><div class="text-muted small">First month</div><div class="fw-semibold">{{ profileTree.totals.firstWorked || '—' }}</div></div>
-              <div><div class="text-muted small">Last month</div><div class="fw-semibold">{{ profileTree.totals.lastWorked || '—' }}</div></div>
-            </div>
-            <div class="text-muted small mb-3">Last calculated: {{ fmtWhen(profileData.profile_computed_at) }}</div>
+      <div class="tm-panel-body">
 
-            <div class="mb-3">
-              <div class="text-muted small mb-1">Topics</div>
+        <!-- ── Details ── -->
+        <template v-if="detailTab === 'details'">
+          <dl class="tm-panel-card tm-dl">
+            <div class="tm-dl-row"><dt>Name</dt><dd>{{ selectedResource.first_name }} {{ selectedResource.last_name }}</dd></div>
+            <div class="tm-dl-row"><dt>Email</dt><dd>{{ selectedResource.email }}</dd></div>
+            <div class="tm-dl-row"><dt>Role</dt><dd>{{ selectedResource.role_label }}<div class="tm-dl-sub">Code {{ selectedResource.role_code }}</div></dd></div>
+            <div class="tm-dl-row"><dt>Linked user</dt>
+              <dd v-if="selectedResource.user_id">{{ selectedResource.linked_user_first_name }} {{ selectedResource.linked_user_last_name }}<div class="tm-dl-sub">{{ selectedResource.linked_user_email }}</div></dd>
+              <dd v-else>Not linked<div class="tm-dl-sub">This person doesn't sign in to PDash.</div></dd>
+            </div>
+            <div class="tm-dl-row"><dt>Status</dt><dd>{{ selectedResource.status === 'active' ? 'Active' : 'Inactive' }}</dd></div>
+            <div class="tm-dl-row"><dt>Job description</dt><dd class="tm-dl-multiline">{{ selectedResource.job_description || '—' }}</dd></div>
+          </dl>
+
+          <div class="tm-panel-card">
+            <button type="button" class="tm-aliases-toggle" :aria-expanded="aliasesOpen" aria-controls="tmPanelAliases" @click="aliasesOpen = !aliasesOpen">
+              <ph-icon :name="aliasesOpen ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon>
+              <strong>Aliases</strong><span class="tm-count">{{ detailAliases.length }}</span>
+              <span class="tm-aliases-hint">Names from uploaded actuals that resolve to this resource.</span>
+            </button>
+            <div v-if="aliasesOpen" id="tmPanelAliases">
+              <div v-if="unmatchedBanner && unmatchedBanner.kind === 'error'" class="pd-banner pd-banner--error tm-alias-error" role="alert"><ph-icon name="warning" :size="16"></ph-icon><div class="pd-banner-body">{{ unmatchedBanner.text }}</div></div>
+              <div v-for="a in detailAliases" :key="a.id" class="tm-alias-row">
+                <span>{{ a.display_name || a.alias_normalized }}</span>
+                <button type="button" class="tm-btn-outline tm-btn-sm" :disabled="busyAliasIds.has(a.id)" @click="removeAlias(a)">Remove</button>
+              </div>
+              <div v-if="!detailAliases.length" class="tm-alias-row tm-muted">No aliases for this resource.</div>
+            </div>
+          </div>
+
+          <div class="tm-panel-card tm-mgmt">
+            <div class="tm-mgmt-head">Management</div>
+            <div class="tm-mgmt-row">
+              <div>
+                <div class="tm-mgmt-title">{{ selectedResource.status === 'active' ? 'Deactivate' : 'Activate' }}</div>
+                <p v-if="selectedResource.status === 'active'">The right choice when someone leaves. Hidden from lists; hours and aliases stay attributed. You can reactivate any time.</p>
+                <p v-else>Back in the active list.</p>
+              </div>
+              <button type="button" class="tm-btn-outline tm-btn-outline--navy" :disabled="!!selectedResource._loading" @click="toggleStatus(selectedResource)">
+                <span v-if="selectedResource._loading" class="spinner-border spinner-border-sm" role="presentation"></span>{{ selectedResource._loading ? 'Updating…' : (selectedResource.status === 'active' ? 'Deactivate' : 'Activate') }}
+              </button>
+            </div>
+            <div class="tm-mgmt-row">
+              <div>
+                <div class="tm-mgmt-title tm-mgmt-title--danger">Delete resource</div>
+                <p>Removes the resource and its {{ aliasCountText(selectedResource) }}. Their names go back to Unmatched names. Can't be undone.</p>
+              </div>
+              <button type="button" class="tm-btn-outline tm-btn-outline--danger" :disabled="!!selectedResource._loading" @click="askDelete(selectedResource)">Delete…</button>
+            </div>
+          </div>
+        </template>
+
+        <!-- ── Experience profile ── -->
+        <template v-else>
+          <div v-if="profileLoading" class="pd-state pd-state--dashed">
+            <div class="spinner-border" role="presentation"></div>
+            <p class="pd-state-text">Loading profile…</p>
+          </div>
+          <div v-else-if="profileError" class="pd-state pd-state--dashed">
+            <div class="pd-banner pd-banner--error mb-0" role="alert"><ph-icon name="warning" :size="16"></ph-icon><div class="pd-banner-body"><strong>Couldn't load the profile.</strong> {{ profileError }}</div></div>
+            <button type="button" class="tm-btn-outline mt-2" @click="loadProfile">Try again</button>
+          </div>
+          <div v-else-if="profileData && !profileData.profile_computed_at" class="pd-state pd-state--dashed">
+            <span class="pd-state-icon"><ph-icon name="refresh" :size="24"></ph-icon></span>
+            <h3 class="pd-state-title">Not calculated yet</h3>
+            <p class="pd-state-text">The profile is built in the background from uploaded actuals. New resources get one after the next run.</p>
+          </div>
+          <div v-else-if="profileData && !profileTree" class="pd-state pd-state--dashed">
+            <span class="pd-state-icon"><tm-icon name="unlink" :size="24"></tm-icon></span>
+            <h3 class="pd-state-title">No actuals matched to this person yet</h3>
+            <p class="pd-state-text">Their name may appear in actuals in a different form. Match it to this resource from the unmatched names.</p>
+            <button type="button" class="tm-btn-navy mt-2" @click="openUnmatched('queue')">Open Unmatched names ({{ unmatched.length }})</button>
+          </div>
+          <template v-else-if="profileTree">
+            <div class="tm-panel-card tm-totals">
+              <div><span>HOURS</span><strong>{{ fmtHours(profileTree.totals.hours) }}</strong></div>
+              <div><span>PROJECTS</span><strong>{{ profileTree.totals.projects }}</strong></div>
+              <div><span>FIRST MONTH</span><strong>{{ monthText(profileTree.totals.firstWorked) }}</strong></div>
+              <div><span>LAST MONTH</span><strong>{{ monthText(profileTree.totals.lastWorked) }}</strong></div>
+            </div>
+            <div class="tm-calc">
+              <ph-icon name="refresh" :size="12"></ph-icon>
+              <p>Last calculated <strong>{{ fmtWhen(profileData.profile_computed_at) }}</strong>. Rebuilt in the background from uploaded actuals. Recent assignments appear after the next run.</p>
+              <a href="profile-jobs.html" class="tm-calc-link">Profile processing →</a>
+            </div>
+
+            <section class="tm-topics">
+              <h3 class="tm-section-title">Topics</h3>
               <template v-if="profileTree.topics.length">
-                <div v-if="profileTree.topicGroups.direct.length" class="mb-1">
-                  <div class="small fw-semibold">Direct experience</div>
-                  <div class="d-flex flex-wrap gap-1">
-                    <span v-for="t in profileTree.topicGroups.direct" :key="'d'+t.id" class="badge text-bg-light border"
-                          :title="t.direct.map(p => p.name).join(', ')">{{ t.name }}
-                      <span class="text-muted">· {{ t.direct.length }} · {{ fmtHours(t.directHours) }} h</span></span>
+                <div v-if="directTopics.length" class="tm-topic-group">
+                  <div class="tm-topic-label"><strong>Direct experience</strong> tasks with logged hours</div>
+                  <div class="tm-topic-chips">
+                    <span v-for="t in directTopics" :key="'d' + t.id" class="tm-topic" :class="{ 'tm-topic--top': topTopics.includes(t.id) }"
+                          :title="t.direct.map(p => p.name).join(', ')">
+                      <strong>{{ t.name }}</strong> {{ t.direct.length }} {{ t.direct.length === 1 ? 'project' : 'projects' }} · {{ fmtHours(t.directHours) }} h
+                    </span>
                   </div>
                 </div>
-                <div v-if="profileTree.topicGroups.context.length" class="mb-1">
-                  <div class="small fw-semibold">Project context</div>
-                  <div class="d-flex flex-wrap gap-1">
-                    <span v-for="t in profileTree.topicGroups.context" :key="'c'+t.id" class="badge text-bg-light border"
-                          :title="t.context.map(p => p.name).join(', ')">{{ t.name }}
-                      <span class="text-muted">· {{ t.context.length }}</span></span>
+                <div v-if="profileTree.topicGroups.context.length" class="tm-topic-group">
+                  <div class="tm-topic-label"><strong>Project context</strong> from descriptions of projects they worked on</div>
+                  <div class="tm-topic-chips">
+                    <span v-for="t in profileTree.topicGroups.context" :key="'c' + t.id" class="tm-topic tm-topic--dashed"
+                          :title="t.context.map(p => p.name).join(', ')">
+                      <strong>{{ t.name }}</strong> {{ t.context.length }} {{ t.context.length === 1 ? 'project' : 'projects' }}
+                    </span>
                   </div>
                 </div>
-                <div v-if="profileTree.topicGroups.legacy.length" class="mb-1">
-                  <div class="small fw-semibold">Topics <span class="text-muted fw-normal">(provenance not available — recalculate profiles)</span></div>
-                  <div class="d-flex flex-wrap gap-1">
-                    <span v-for="t in profileTree.topicGroups.legacy" :key="'l'+t.id" class="badge text-bg-light border"
-                          :title="t.projects.map(p => p.name).join(', ')">{{ t.name }}
-                      <span class="text-muted">· {{ t.projectCount }}</span></span>
+                <div v-if="profileTree.topicGroups.legacy.length" class="tm-topic-group">
+                  <div class="tm-topic-label"><strong>Topics</strong> (provenance not available — recalculate profiles)</div>
+                  <div class="tm-topic-chips">
+                    <span v-for="t in profileTree.topicGroups.legacy" :key="'l' + t.id" class="tm-topic tm-topic--dashed"
+                          :title="t.projects.map(p => p.name).join(', ')">
+                      <strong>{{ t.name }}</strong> {{ t.projectCount }} {{ t.projectCount === 1 ? 'project' : 'projects' }}
+                    </span>
                   </div>
                 </div>
               </template>
-              <div v-else class="text-muted small">No topics yet.</div>
-            </div>
+              <p v-else class="tm-muted mb-0">No topics yet.</p>
+            </section>
 
-            <details v-for="d in profileTree.dimensions" :key="d.slug" open class="mb-2">
-              <summary class="fw-semibold">{{ d.name }}
-                <span v-if="d.untaggedHours" class="text-muted fw-normal small ms-2">{{ fmtHours(d.untaggedHours) }} h on projects without a value</span>
-              </summary>
-              <div v-if="!d.values.length" class="text-muted small ms-3">No values yet.</div>
-              <details v-for="v in d.values" :key="v.key" class="ms-3 mt-1">
-                <summary>
-                  {{ v.label }}
-                  <span class="text-muted small ms-2">{{ fmtHours(v.hours) }} h · {{ fmtPct(v.share) }} · {{ v.projectCount }} project{{ v.projectCount === 1 ? '' : 's' }}<span v-if="v.last"> · last {{ v.last }}</span></span>
-                  <div style="height:4px;background:#e9ecef;border-radius:2px;max-width:240px"><div :style="{ height:'4px', borderRadius:'2px', background:'var(--brand-navy, #0B1840)', width: fmtPct(v.share) }"></div></div>
-                </summary>
-                <details v-for="p in v.projects" :key="p.code" class="ms-3 mt-1">
-                  <summary>{{ p.name }} <span class="text-muted small">({{ p.code }}) · {{ fmtHours(p.hours) }} h<span v-if="p.last"> · last {{ p.last }}</span></span></summary>
-                  <ul class="ms-3 mb-1 small"><li v-for="t in p.tasks" :key="t.name">{{ t.name }} — {{ fmtHours(t.hours) }} h</li></ul>
-                </details>
-              </details>
-            </details>
+            <section v-for="d in profileTree.dimensions" :key="d.slug" class="tm-panel-card tm-dim">
+              <header class="tm-dim-head">
+                <h3 class="tm-section-title">{{ d.name }}</h3>
+                <span class="tm-muted">{{ d.values.length }} {{ d.values.length === 1 ? 'value' : 'values' }}</span>
+                <span v-if="d.untaggedHours" class="tm-dim-untagged">{{ fmtHours(d.untaggedHours) }} h on projects without a value</span>
+              </header>
+              <p v-if="!d.values.length" class="tm-dim-empty">No values yet.</p>
+              <template v-else>
+                <div class="tm-dim-grid tm-dim-colhead" aria-hidden="true">
+                  <span></span><span>VALUE</span><span>SHARE</span><span class="tm-num">HOURS</span><span class="tm-num">%</span><span class="tm-num">PROJECTS</span><span class="tm-num">LAST</span>
+                </div>
+                <template v-for="v in d.values" :key="v.key">
+                  <button type="button" class="tm-dim-grid tm-dim-row" :aria-expanded="isExpanded('dim:' + d.slug + ':' + v.key)" @click="toggleExpanded('dim:' + d.slug + ':' + v.key)">
+                    <ph-icon :name="isExpanded('dim:' + d.slug + ':' + v.key) ? 'chevron-down' : 'chevron-right'" :size="12"></ph-icon>
+                    <span class="tm-dim-label">{{ v.label }}</span>
+                    <span class="tm-share" aria-hidden="true"><span :style="{ width: fmtPct(v.share) }"></span></span>
+                    <strong class="tm-num">{{ fmtHours(v.hours) }} h</strong>
+                    <span class="tm-num">{{ fmtPct(v.share) }}</span>
+                    <span class="tm-num">{{ v.projectCount }} {{ v.projectCount === 1 ? 'project' : 'projects' }}</span>
+                    <span class="tm-num" :class="{ 'tm-recent': isRecent(v.last) }">{{ monthText(v.last) }}</span>
+                  </button>
+                  <template v-if="isExpanded('dim:' + d.slug + ':' + v.key)">
+                    <template v-for="p in v.projects" :key="p.code">
+                      <button type="button" class="tm-dim-grid tm-dim-row tm-dim-row--project" :aria-expanded="isExpanded('dim:' + d.slug + ':' + v.key + ':' + p.code)"
+                              @click="toggleExpanded('dim:' + d.slug + ':' + v.key + ':' + p.code)">
+                        <span></span>
+                        <span class="tm-dim-label tm-dim-project"><ph-icon :name="isExpanded('dim:' + d.slug + ':' + v.key + ':' + p.code) ? 'chevron-down' : 'chevron-right'" :size="12"></ph-icon>{{ p.name }} <span class="tm-code">{{ p.code }}</span></span>
+                        <span></span>
+                        <strong class="tm-num">{{ fmtHours(p.hours) }} h</strong>
+                        <span></span><span></span>
+                        <span class="tm-num tm-muted">{{ monthText(p.last) }}</span>
+                      </button>
+                      <template v-if="isExpanded('dim:' + d.slug + ':' + v.key + ':' + p.code)">
+                        <div v-for="t in p.tasks" :key="t.name" class="tm-dim-grid tm-dim-row--task">
+                          <span></span><span class="tm-dim-task">{{ t.name }}</span><span></span>
+                          <span class="tm-num">{{ fmtHours(t.hours) }} h</span><span></span><span></span><span></span>
+                        </div>
+                      </template>
+                    </template>
+                  </template>
+                </template>
+              </template>
+            </section>
 
-            <details open class="mb-2">
-              <summary class="fw-semibold">Roles</summary>
-              <div v-if="!profileTree.roles.length" class="text-muted small ms-3">No roles recorded.</div>
-              <details v-for="r in profileTree.roles" :key="r.code" class="ms-3 mt-1">
-                <summary>{{ r.label }} <span class="text-muted small">({{ r.code }}) · {{ fmtHours(r.hours) }} h · {{ fmtPct(r.share) }} · {{ r.projectCount }} project{{ r.projectCount === 1 ? '' : 's' }}</span></summary>
-                <ul class="ms-3 mb-1 small"><li v-for="p in r.projects" :key="p.code">{{ p.name }} ({{ p.code }}) — {{ fmtHours(p.hours) }} h</li></ul>
-              </details>
-            </details>
-          </div>
-        </div>
+            <section class="tm-panel-card tm-dim">
+              <header class="tm-dim-head">
+                <h3 class="tm-section-title">Roles</h3>
+                <span class="tm-muted">{{ profileTree.roles.length }} {{ profileTree.roles.length === 1 ? 'value' : 'values' }}</span>
+              </header>
+              <p v-if="!profileTree.roles.length" class="tm-dim-empty">No roles recorded.</p>
+              <template v-else>
+                <div class="tm-dim-grid tm-dim-colhead" aria-hidden="true">
+                  <span></span><span>ROLE</span><span>SHARE</span><span class="tm-num">HOURS</span><span class="tm-num">%</span><span class="tm-num">PROJECTS</span><span class="tm-num">LAST</span>
+                </div>
+                <template v-for="r in profileTree.roles" :key="r.code">
+                  <button type="button" class="tm-dim-grid tm-dim-row" :aria-expanded="isExpanded('role:' + r.code)" @click="toggleExpanded('role:' + r.code)">
+                    <ph-icon :name="isExpanded('role:' + r.code) ? 'chevron-down' : 'chevron-right'" :size="12"></ph-icon>
+                    <span class="tm-dim-label">{{ r.label }} <span class="tm-code">{{ r.code }}</span></span>
+                    <span class="tm-share" aria-hidden="true"><span :style="{ width: fmtPct(r.share) }"></span></span>
+                    <strong class="tm-num">{{ fmtHours(r.hours) }} h</strong>
+                    <span class="tm-num">{{ fmtPct(r.share) }}</span>
+                    <span class="tm-num">{{ r.projectCount }} {{ r.projectCount === 1 ? 'project' : 'projects' }}</span>
+                    <span class="tm-num" :class="{ 'tm-recent': isRecent(r.last) }">{{ monthText(r.last) }}</span>
+                  </button>
+                  <template v-if="isExpanded('role:' + r.code)">
+                    <div v-for="p in r.projects" :key="p.code" class="tm-dim-grid tm-dim-row--project tm-dim-row--static">
+                      <span></span>
+                      <span class="tm-dim-label tm-dim-project">{{ p.name }} <span class="tm-code">{{ p.code }}</span></span>
+                      <span></span>
+                      <strong class="tm-num">{{ fmtHours(p.hours) }} h</strong>
+                      <span></span><span></span>
+                      <span class="tm-num tm-muted">{{ monthText(p.last) }}</span>
+                    </div>
+                  </template>
+                </template>
+              </template>
+            </section>
+          </template>
+        </template>
       </div>
     </div>
 
@@ -761,6 +844,8 @@
           sortDir: 'asc',
           selectedId: null,
           detailTab: 'details',
+          aliasesOpen: false,         // the panel's Aliases section, closed on every open
+          expanded: new Set(),        // open profile rows: dim:slug:value, dim:slug:value:code, role:code
           profileLoading: false,
           profileError: null,
           profileData: null,          // { profile, profile_computed_at } for the open resource
@@ -828,12 +913,22 @@
         profileTree() {
           return this.profileData ? window.buildProfileTree(this.profileData.profile, this.roles) : null;
         },
+        // Direct-experience topics by hours, and the two strongest (highlighted).
+        directTopics() {
+          if (!this.profileTree) return [];
+          return this.profileTree.topicGroups.direct.slice().sort((a, b) => b.directHours - a.directHours || a.name.localeCompare(b.name));
+        },
+        topTopics() {
+          return window.topTopicIds(this.directTopics.map(t => ({ id: t.id, name: t.name, hours: t.directHours })));
+        },
       },
       watch: {
         detailTab(tab) { if (tab === 'profile') this.loadProfile(); },
         selectedId() {
           this.profileData = null;
           this.profileError = null;
+          this.aliasesOpen = false;
+          this.expanded = new Set();
           if (this.selectedId && this.detailTab === 'profile') this.loadProfile();
         },
         // The open resource vanished (deleted, or reloaded away): don't leave a stale, empty panel.
@@ -893,7 +988,7 @@
             const res = await fetch(`/api/resources/${id}/profile`, { credentials: 'same-origin' });
             const data = await res.json();
             if (id !== this.selectedId) return;            // the panel moved on while we waited
-            if (!res.ok) { this.profileError = data.error || 'Failed to load the profile.'; return; }
+            if (!res.ok) { this.profileError = data.error || 'The server returned an error.'; return; }
             this.profileData = data;
           } catch {
             if (id === this.selectedId) this.profileError = 'Network error.';
@@ -904,6 +999,13 @@
         fmtHours(h) { return (Math.round((Number(h) || 0) * 100) / 100).toLocaleString('en-US'); },
         fmtPct(share) { return `${Math.round((Number(share) || 0) * 100)}%`; },
         fmtWhen(iso) { return iso ? new Date(iso).toLocaleString() : '—'; },
+        monthText(ym) { return window.profileMonthText(ym); },
+        isRecent(ym) { return window.isRecentMonth(ym); },
+        isExpanded(key) { return this.expanded.has(key); },
+        toggleExpanded(key) {
+          if (this.expanded.has(key)) this.expanded.delete(key);
+          else this.expanded.add(key);
+        },
         // Opens the Unmatched names drawer on the queue or on the Existing aliases view.
         openUnmatched(view) {
           this.unmatchedView = view === 'aliases' ? 'aliases' : 'queue';
@@ -930,6 +1032,7 @@
           if (r.id === this.selectedId) return;          // already open: no reset, no flicker
           this.selectedId = r.id;
           this.detailTab = 'details';
+          this.$nextTick(() => document.getElementById('resourcePanelTitle')?.focus());
           this.removeDetailHandlers();
           const outside = (e) => {
             const panel = document.getElementById('resourceDetailPanel');
