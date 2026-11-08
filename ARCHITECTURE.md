@@ -964,6 +964,7 @@ burndown/
     project-config.css    ← page stylesheet of project-config.html only (section index, cards, task table, phasing card, phone bottom sheet). Detail: docs/css/stylesheets.md
     planning.css          ← page stylesheet of planning.html only (toolbar, period selector, grid, Filters panel, Team assistant drawer, smartphone layout below 768px). Detail: docs/css/stylesheets.md
     admin-crud.css        ← shared layout for the simple admin CRUD pages. Detail: docs/css/stylesheets.md
+    team.css              ← page stylesheet of team.html only, loaded after admin-crud.css. Detail: docs/css/stylesheets.md
     auth.css              ← shared stylesheet of the public auth pages (login/activate/reset-password). Detail: docs/css/stylesheets.md
   js/
     api.js                ← Api.* namespace, apiFetch wrapper (also triggers the save overlay on slow writes). Detail: docs/js/shared-libs.md
@@ -996,7 +997,7 @@ burndown/
   _db-reset.html          ← sysadmin-exclusive hidden page, bulk DB data deletion by scope. Detail: docs/pages/db-reset.md
   _terms-editor.html      ← sysadmin-exclusive hidden page, T&C editor (see §5's App Settings). Detail: docs/pages/terms-editor.md
   privacy-notice.html     ← Privacy Notice page: read-only latest Terms & Conditions with version and publication date. Detail: docs/pages/privacy-notice.md
-  team.html               ← resource registry CRUD, admin or sysadmin. Detail: docs/pages/team.md
+  team.html               ← resource registry CRUD, admin or sysadmin; own stylesheet css/team.css. Detail: docs/pages/team.md
   attribute-lists.html    ← generic tag/taxonomy admin console (lists + items, no physical delete); its items feed the Tags sections via js/tags.js. Detail: docs/pages/attribute-lists.md
   profile-jobs.html       ← profile-engine job console, hidden (reached from the Timesheets sub-menu of timesheets.html); adds js/lib/profile-jobs-ui.js. Detail: docs/pages/profile-jobs.md
   test-cases.html         ← dev-only manual test checklist; fetches TEST_CASES.md and renders it via js/lib/test-cases-parse.js, which is why that file counts as code. Detail: docs/js/lib.md
