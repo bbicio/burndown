@@ -1,0 +1,4 @@
+/* team.html only (Team redesign, 2026-11-08). Shared components live in style.css (pd-). Tokens only. */
+
+.offcanvas-backdrop { --bs-backdrop-bg: var(--overlay-scrim); --bs-backdrop-opacity: 1; }
+.modal-backdrop { --bs-backdrop-bg: var(--overlay-scrim); --bs-backdrop-opacity: 1; }

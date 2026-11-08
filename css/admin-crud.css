@@ -5,19 +5,19 @@
 .card { border: var(--card-border); border-radius: var(--card-radius); box-shadow: var(--card-shadow); }
 .card-body { padding: 0; }
 .table { margin: 0; font-size: 0.875rem; }
-.table thead th { background: #f9fafb; border-bottom: 1px solid var(--border-light);
+.table thead th { background: var(--surface-light); border-bottom: 1px solid var(--border-light);
                   font-size: 0.78rem; font-weight: 600; text-transform: uppercase;
                   letter-spacing: 0.04em; color: var(--text-muted); padding: 0.75rem 1rem; }
-.table tbody td { padding: 0.85rem 1rem; vertical-align: middle; border-bottom: 1px solid #f3f4f6; }
+.table tbody td { padding: 0.85rem 1rem; vertical-align: middle; border-bottom: 1px solid var(--border-light); }
 .table tbody tr:last-child td { border-bottom: none; }
-.table tbody tr:hover td { background: #fafafa; }
-.badge-st-active   { background: #dcfce7; color: #166534; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
-.badge-st-inactive { background: #f3f4f6; color: #9ca3af; font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
+.table tbody tr:hover td { background: var(--surface-light); }
+.badge-st-active   { background: var(--status-started-soft-bg); color: var(--status-started-soft-text); font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
+.badge-st-inactive { background: var(--status-not-started-soft-bg); color: var(--status-not-started-soft-text); font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
 .btn-primary { background: var(--brand-magenta); border: none; color: var(--text-inverse); font-weight: 600; font-size: 0.875rem; }
 .btn-primary:hover:not(:disabled) { background: var(--brand-magenta-hover); color: var(--text-inverse); }
 .btn-primary:disabled { opacity: 0.65; color: var(--text-inverse); }
 .btn-action { font-size: 0.78rem; padding: 0.25rem 0.6rem; }
-.form-label { font-size: 0.82rem; font-weight: 600; color: #374151; margin-bottom: 0.3rem; }
+.form-label { font-size: 0.82rem; font-weight: 600; color: var(--text-secondary); margin-bottom: 0.3rem; }
 .form-control, .form-select { font-size: 0.875rem; border-color: var(--border-light); }
 .form-control:focus, .form-select:focus { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
-.empty { text-align: center; padding: 3rem 1rem; color: #9ca3af; font-size: 0.875rem; }
+.empty { text-align: center; padding: 3rem 1rem; color: var(--text-muted); font-size: 0.875rem; }
