@@ -330,13 +330,13 @@
               </thead>
               <tbody>
                 <template v-for="u in pagedUnmatched.pageItems" :key="u.name_normalized">
-                  <tr :class="{ 'tm-um-row--ambiguous': isAmbiguous(u), 'tm-row--busy': u._loading }">
+                  <tr :class="{ 'tm-um-row--ambiguous': isAmbiguous(u), 'tm-row--busy': !!busyUnmatched[u.name_normalized] }">
                     <td>
                       <div class="tm-um-name" :class="{ 'tm-um-name--strong': Number(u.hours) >= 40 }">
                         {{ u.display_name }}
                         <span v-if="isAmbiguous(u)" class="tm-badge-amber"><ph-icon name="warning" :size="12"></ph-icon>AMBIGUOUS</span>
                       </div>
-                      <div v-if="isAmbiguous(u)" class="tm-um-ambiguous">{{ u.candidate_resource_ids.length }} active resources share this name. Pick the right one.</div>
+                      <div v-if="isAmbiguous(u)" class="tm-um-ambiguous">{{ ambiguousText(u) }}</div>
                       <button type="button" class="tm-um-projects-btn tm-um-projects-inline" :aria-expanded="expandedProjects.has(u.name_normalized)" @click="toggleProjects(u)">
                         {{ u.projects }} {{ Number(u.projects) === 1 ? 'project' : 'projects' }}<ph-icon name="chevron-down" :size="12"></ph-icon>
                       </button>
@@ -352,19 +352,19 @@
                     </td>
                     <td>
                       <combo-select v-model="assignChoice[u.name_normalized]" :options="comboOptions(u)"
-                                    placeholder="Select a resource…" :disabled="!!u._loading"
+                                    placeholder="Select a resource…" :disabled="!!busyUnmatched[u.name_normalized]"
                                     :aria-label="'Assign ' + u.display_name + ' to'"></combo-select>
                       <div v-if="candidateChipsFor(u).length" class="tm-um-chips">
                         <span class="tm-um-chips-label">Candidates</span>
                         <button v-for="c in candidateChipsFor(u)" :key="c.id" type="button" class="tm-um-chip"
                                 :class="{ 'is-on': assignChoice[u.name_normalized] === c.id }" :aria-pressed="assignChoice[u.name_normalized] === c.id"
-                                :disabled="!!u._loading" @click="assignChoice[u.name_normalized] = c.id">
+                                :disabled="!!busyUnmatched[u.name_normalized]" @click="assignChoice[u.name_normalized] = c.id">
                           {{ c.name }}<span>{{ c.role_code }}</span>
                         </button>
                       </div>
                     </td>
                     <td class="tm-um-actions" aria-live="polite">
-                      <span v-if="u._loading" class="pd-status-pill pd-status-pill--busy"><span class="spinner-border" role="presentation"></span>{{ u._action === 'ignore' ? 'Ignoring…' : 'Assigning…' }}</span>
+                      <span v-if="busyUnmatched[u.name_normalized]" class="pd-status-pill pd-status-pill--busy"><span class="spinner-border" role="presentation"></span>{{ busyUnmatched[u.name_normalized] === 'ignore' ? 'Ignoring…' : 'Assigning…' }}</span>
                       <template v-else>
                         <button type="button" class="tm-btn-navy tm-btn-sm" :disabled="!assignChoice[u.name_normalized]" @click="assign(u)">Assign</button>
                         <button type="button" class="tm-btn-outline tm-btn-sm tm-um-ignore" title="Not a person (e.g. TBD). Stored as an ignored alias." @click="ignoreName(u)">
@@ -801,6 +801,7 @@
     let deleteModal = null;
     let resourceDrawer = null;
     let drawerOpener = null;    // focus returns here when the New/Edit drawer closes
+    let deleteOpener = null;    // focus returns here when the Delete modal closes
 
     // Icons js/lib/icons.js does not have (16×16, stroke = currentColor).
     const TM_ICONS = {
@@ -832,6 +833,7 @@
           aliasFilterText: '',
           aliasResolves: 'any',
           busyAliasIds: new Set(),
+          busyUnmatched: {},          // name_normalized → 'assign' | 'ignore' while its POST runs
           unmatchedFilterText: '',
           unmatchedSortKey: 'hours',
           unmatchedSortDir: 'desc',
@@ -987,7 +989,11 @@
         });
         this._unmatchedDrawer = new bootstrap.Offcanvas(document.getElementById('unmatchedDrawer'));
         deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
-        document.getElementById('deleteModal').addEventListener('hidden.bs.modal', () => { this.deleteTarget = null; });
+        document.getElementById('deleteModal').addEventListener('hidden.bs.modal', () => {
+          this.deleteTarget = null;
+          if (deleteOpener && document.contains(deleteOpener)) deleteOpener.focus();
+          deleteOpener = null;
+        });
         // Row menu: Esc closes it (focus back to ⋯), a press outside closes it.
         document.addEventListener('keydown', ev => {
           if (ev.key === 'Escape' && this.menuOpenId) { ev.stopImmediatePropagation(); this.closeMenu(true); }
@@ -1114,6 +1120,13 @@
           return (u.project_list || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
         },
         isAmbiguous(u) { return !!(u.candidate_resource_ids && u.candidate_resource_ids.length); },
+        // The matcher falls back to inactive namesakes only when no active resource has the name.
+        ambiguousText(u) {
+          const ids = new Set(u.candidate_resource_ids || []);
+          const found = this.resources.filter(r => ids.has(r.id));
+          const kind = found.length && found.every(r => r.status !== 'active') ? 'inactive' : 'active';
+          return `${ids.size} ${kind} resources share this name. Pick the right one.`;
+        },
         hoursBarPct(h) { return window.hoursBarPct(h, this.maxUnmatchedHours); },
         candidateChipsFor(u) { return window.candidateChips(u, this.resources); },
         blankForm() {
@@ -1173,9 +1186,9 @@
           }
         },
         setUnmatchedError(text) { this.unmatchedBanner = { kind: 'error', text }; },
-        // Grouped for the Assign to combo: same-name candidates, the other active resources, then
-        // inactive ones (a leaver's historical actuals can only belong to an inactive resource, and
-        // the API accepts an alias to one — the automatic match ignores them, an explicit alias doesn't).
+        // Grouped for the Assign to combo: same-name candidates (inactive ones when the matcher fell
+        // back to them), the other active resources, then the other inactive ones (a leaver's
+        // historical actuals can only belong to an inactive resource, and the API accepts an alias to one).
         comboOptions(u) {
           const cand = new Set(u.candidate_resource_ids || []);
           const opt = r => ({
@@ -1183,17 +1196,19 @@
             label: `${r.first_name} ${r.last_name}${r.status === 'active' ? '' : ' (inactive)'}`,
             hint: r.role_code,
           });
-          const active = this.resources.filter(r => r.status === 'active');
+          const others = this.resources.filter(r => !cand.has(r.id));
           const groups = [
-            ['Same name · candidates', active.filter(r => cand.has(r.id))],
-            ['Active resources', active.filter(r => !cand.has(r.id))],
-            ['Inactive', this.resources.filter(r => r.status !== 'active')],
+            ['Same name · candidates', this.resources.filter(r => cand.has(r.id))],
+            ['Active resources', others.filter(r => r.status === 'active')],
+            ['Inactive', others.filter(r => r.status !== 'active')],
           ];
           return groups.filter(([, list]) => list.length).flatMap(([group, list]) => [{ group }, ...list.map(opt)]);
         },
+        // Busy state is keyed by name: the queue reload replaces the row objects mid-request.
         async postAlias(u, body, action) {
-          u._loading = true;
-          u._action = action;
+          const key = u.name_normalized;
+          if (this.busyUnmatched[key]) return;
+          this.busyUnmatched[key] = action;
           this.unmatchedBanner = null;
           const resource = body.resourceId ? this.resources.find(r => r.id === body.resourceId) : null;
           try {
@@ -1215,7 +1230,7 @@
           } catch {
             this.setUnmatchedError('Network error.');
           } finally {
-            u._loading = false;
+            delete this.busyUnmatched[key];
           }
         },
         assign(u) {
@@ -1362,9 +1377,10 @@
           const step = ev.key === 'ArrowDown' ? 1 : -1;
           items[(at + step + items.length) % items.length].focus();
         },
-        // The menu closes before the action starts.
+        // The menu closes before the action starts. The chosen item is removed with the menu, so
+        // focus goes back to ⋯ and the drawer or modal returns it there.
         runMenu(r, action) {
-          this.closeMenu(false);
+          this.closeMenu(true);
           if (action === 'edit') this.openEdit(r);
           else if (action === 'status') this.toggleStatus(r);
           else if (action === 'delete') this.askDelete(r);
@@ -1400,6 +1416,7 @@
 
         // ── Delete ──
         askDelete(r) {
+          deleteOpener = document.activeElement;
           this.deleteTarget = r;
           this.deleteAck = false;
           deleteModal.show();

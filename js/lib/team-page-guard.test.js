@@ -87,6 +87,11 @@ describe('team.html unmatched drawer (Task 6)', () => {
     "Not a person (e.g. TBD). Stored as an ignored alias.", 'Assigning…', 'Ignoring…', 'Rescanning…', 'No unmatched names.'])('drawer contains %s', s => expect(drawer).toContain(s));
   it.each(['Same name · candidates', 'Active resources'])('combo groups contain %s', s => expect(html).toContain(s));
   it('drawer has no <details>', () => expect(drawer).not.toContain('<details'));
+  it('busy state is keyed by name, not stored on the row', () => {
+    expect(drawer).toContain('busyUnmatched[u.name_normalized]');
+    expect(html).not.toContain('u._loading');
+  });
+  it('the ambiguous sentence does not assume active candidates', () => expect(html).not.toContain('active resources share this name'));
 });
 
 describe('team.html resource panel (Task 7)', () => {
