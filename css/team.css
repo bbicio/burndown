@@ -125,3 +125,25 @@
 .tm-tab:hover { color: var(--brand-navy); }
 .tm-tab.active { color: var(--brand-navy); border-bottom-color: var(--brand-magenta); }
 .tm-tab:focus-visible { outline: 2px solid var(--brand-magenta); outline-offset: 2px; border-radius: var(--radius-sm); }
+
+/* ── New / Edit drawer ── */
+.tm-fields { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+.tm-req { color: var(--color-danger-text); }
+.tm-optional { font-weight: var(--weight-regular); color: var(--text-muted); }
+.tm-field-error { margin-top: var(--space-1); font-size: 12.5px; font-weight: var(--weight-semibold); color: var(--color-danger-text); }
+.pd-drawer .form-control.is-invalid, .pd-drawer .form-select.is-invalid { border-color: var(--color-danger-text); background-image: none; }
+.pd-drawer .form-control.is-invalid:focus, .pd-drawer .form-select.is-invalid:focus { box-shadow: 0 0 0 3px var(--status-at-risk-soft-bg); }
+.pd-drawer-hint a { color: var(--brand-navy); }
+.tm-created {
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-2);
+  padding: var(--space-5) var(--space-4); border-radius: var(--radius-lg);
+  background: var(--status-started-soft-bg); border: 1px solid color-mix(in srgb, var(--color-success) 25%, transparent);
+  font-size: var(--text-sm); color: var(--text-secondary);
+}
+.tm-created strong { color: var(--brand-navy); font-size: var(--text-base); }
+.tm-created p { margin: 0; }
+.tm-created-icon {
+  width: 40px; height: 40px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  background: var(--color-success-text); color: var(--text-inverse);
+}
+.tm-link-btn--underline { text-decoration: underline; }

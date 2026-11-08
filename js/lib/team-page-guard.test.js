@@ -70,3 +70,11 @@ describe('team.html row menu and delete (Task 4)', () => {
     "I understand this can't be undone.", 'Updating…', 'id="deleteModal"'])('contains %s', s => expect(html).toContain(s));
   it('has no local confirm modal', () => expect(html).not.toContain('id="confirmModal"'));
 });
+
+describe('team.html resource drawer (Task 5)', () => {
+  it('drops the old modal', () => expect(html).not.toContain('id="resourceModal"'));
+  it('the drawer is a pd-drawer', () => expect(html).toMatch(/class="[^"]*pd-drawer[^"]*" [^>]*id="resourceDrawer"|id="resourceDrawer"[^>]*class="[^"]*pd-drawer/));
+  it.each(['Create another', 'Open resource', 'Missing a role? Add it first in', 'master-roles.html',
+    'First name is required.', 'Last name is required.', 'Email is required.', 'Role is required.'])('contains %s', s => expect(html).toContain(s));
+  it('the panel Esc listener skips an open offcanvas', () => expect(html).toContain(".modal.show, .offcanvas.show"));
+});

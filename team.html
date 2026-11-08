@@ -436,60 +436,86 @@
       </div>
     </div>
 
-    <!-- ── CREATE/EDIT MODAL ────────────────────────────────── -->
-    <div class="modal fade" id="resourceModal" tabindex="-1">
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header border-0 pb-0">
-            <h5 class="modal-title fw-bold">{{ form.id ? 'Edit resource' : 'New resource' }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <!-- ── NEW / EDIT RESOURCE DRAWER ──────────────────────── -->
+    <div class="offcanvas offcanvas-end pd-drawer" tabindex="-1" id="resourceDrawer" aria-labelledby="resourceDrawerTitle">
+      <div class="pd-drawer-head">
+        <div>
+          <div class="pd-drawer-eyebrow">{{ form.id ? 'RESOURCE' : 'TEAM' }}</div>
+          <h2 class="pd-drawer-title" id="resourceDrawerTitle">{{ form.id ? 'Edit resource' : 'New resource' }}</h2>
+          <p class="pd-drawer-sub">{{ form.id ? "Changes apply to this resource only. Hours already attributed don't move." : "A person who works on projects. They don't need a PDash account." }}</p>
+        </div>
+        <button type="button" class="pd-drawer-close" data-bs-dismiss="offcanvas" aria-label="Close"><ph-icon name="close" :size="16"></ph-icon></button>
+      </div>
+      <form class="pd-drawer-form" @submit.prevent="submitForm" novalidate>
+        <div class="pd-drawer-body">
+          <div v-if="created" class="tm-created" role="status">
+            <span class="tm-created-icon"><ph-icon name="check" :size="18"></ph-icon></span>
+            <strong>{{ created.name }} was created</strong>
+            <p>{{ created.roleText }}. Their experience profile appears after the next background run, once actuals match their name.</p>
+            <button type="button" class="tm-link-btn tm-link-btn--underline" @click="openCreated">Open resource</button>
           </div>
-          <form @submit.prevent="submitForm" novalidate>
-            <div class="modal-body">
-              <div v-if="form.error" class="alert alert-danger alert-sm mb-3">{{ form.error }}</div>
-              <div class="row g-3">
-                <div class="col-6">
-                  <label class="form-label">First name</label>
-                  <input v-model="form.firstName" type="text" class="form-control" required>
-                </div>
-                <div class="col-6">
-                  <label class="form-label">Last name</label>
-                  <input v-model="form.lastName" type="text" class="form-control" required>
-                </div>
-                <div class="col-12">
-                  <label class="form-label">Email</label>
-                  <input v-model="form.email" type="email" class="form-control" required>
-                </div>
-                <div class="col-12">
-                  <label class="form-label">Role</label>
-                  <select v-model="form.roleId" class="form-select" required>
-                    <option value="" disabled>Select a role…</option>
-                    <option v-for="role in roles" :key="role.id" :value="role.id">{{ role.label }} ({{ role.code }})</option>
-                  </select>
-                </div>
-                <div class="col-12">
-                  <label class="form-label">Job description</label>
-                  <textarea v-model="form.jobDescription" class="form-control" rows="3"></textarea>
-                </div>
-                <div class="col-12">
-                  <label class="form-label">Linked PDash user (optional)</label>
-                  <select v-model="form.userId" class="form-select">
-                    <option :value="null">— None —</option>
-                    <option v-for="u in users" :key="u.id" :value="u.id">{{ u.first_name }} {{ u.last_name }} ({{ u.email }})</option>
-                  </select>
-                </div>
+          <template v-else>
+            <div v-if="form.error" class="pd-banner pd-banner--error mb-0" role="alert">
+              <ph-icon name="warning" :size="16"></ph-icon>
+              <div class="pd-banner-body">{{ form.error }}</div>
+            </div>
+            <div class="tm-fields">
+              <div>
+                <label class="form-label" for="resFirst">First name <span class="tm-req" aria-hidden="true">*</span></label>
+                <input id="resFirst" v-model="form.firstName" type="text" class="form-control" :class="{ 'is-invalid': form.errors.firstName }"
+                       required autocomplete="off" :aria-describedby="form.errors.firstName ? 'resFirstErr' : null">
+                <div v-if="form.errors.firstName" id="resFirstErr" class="tm-field-error">{{ form.errors.firstName }}</div>
+              </div>
+              <div>
+                <label class="form-label" for="resLast">Last name <span class="tm-req" aria-hidden="true">*</span></label>
+                <input id="resLast" v-model="form.lastName" type="text" class="form-control" :class="{ 'is-invalid': form.errors.lastName }"
+                       required autocomplete="off" :aria-describedby="form.errors.lastName ? 'resLastErr' : null">
+                <div v-if="form.errors.lastName" id="resLastErr" class="tm-field-error">{{ form.errors.lastName }}</div>
               </div>
             </div>
-            <div class="modal-footer border-0 pt-0">
-              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-              <button type="submit" class="btn btn-primary" :disabled="form.loading">
-                <span v-if="form.loading" class="spinner-border spinner-border-sm me-2"></span>
-                {{ form.id ? 'Save' : 'Create' }}
-              </button>
+            <div>
+              <label class="form-label" for="resEmail">Email <span class="tm-req" aria-hidden="true">*</span></label>
+              <input id="resEmail" v-model="form.email" type="email" class="form-control" :class="{ 'is-invalid': form.errors.email }"
+                     required autocomplete="off" :aria-describedby="form.errors.email ? 'resEmailErr' : null">
+              <div v-if="form.errors.email" id="resEmailErr" class="tm-field-error">{{ form.errors.email }}</div>
             </div>
-          </form>
+            <div>
+              <label class="form-label" for="resRole">Role <span class="tm-req" aria-hidden="true">*</span></label>
+              <select id="resRole" v-model="form.roleId" class="form-select" :class="{ 'is-invalid': form.errors.roleId }" required
+                      aria-describedby="resRoleHelp">
+                <option value="" disabled>Select a role…</option>
+                <option v-for="role in sortedRoles" :key="role.id" :value="role.id">{{ role.label }} ({{ role.code }})</option>
+              </select>
+              <div v-if="form.errors.roleId" class="tm-field-error">{{ form.errors.roleId }}</div>
+              <p class="pd-drawer-hint mt-1" id="resRoleHelp">Missing a role? Add it first in <a href="master-roles.html">Master Data → Roles &amp; rates</a>.</p>
+            </div>
+            <div>
+              <label class="form-label" for="resJob">Job description</label>
+              <textarea id="resJob" v-model="form.jobDescription" class="form-control" rows="3" placeholder="What they do, clients or areas they cover…"></textarea>
+            </div>
+            <div>
+              <label class="form-label" for="resUser">Linked PDash user <span class="tm-optional">(optional)</span></label>
+              <select id="resUser" v-model="form.userId" class="form-select" aria-describedby="resUserHelp">
+                <option :value="null">— None —</option>
+                <option v-for="u in users" :key="u.id" :value="u.id">{{ u.first_name }} {{ u.last_name }} ({{ u.email }})</option>
+              </select>
+              <p class="pd-drawer-hint mt-1" id="resUserHelp">Only if this person signs in to PDash. Most resources don't need an account.</p>
+            </div>
+          </template>
         </div>
-      </div>
+        <div class="pd-drawer-foot">
+          <template v-if="created">
+            <button type="button" class="tm-link-btn" @click="createAnother">Create another</button>
+            <button type="button" class="tm-btn-navy" data-bs-dismiss="offcanvas">Close</button>
+          </template>
+          <template v-else>
+            <button type="button" class="tm-link-btn" data-bs-dismiss="offcanvas">Cancel</button>
+            <button type="submit" class="ph-btn-primary" :disabled="form.loading">
+              <span v-if="form.loading" class="spinner-border spinner-border-sm" role="presentation"></span>{{ form.loading ? (form.id ? 'Saving…' : 'Creating…') : (form.id ? 'Save changes' : 'Create resource') }}
+            </button>
+          </template>
+        </div>
+      </form>
     </div>
 
     <!-- ── DELETE CONFIRMATION ─────────────────────────────── -->
@@ -554,6 +580,8 @@
     let detailKeyHandler = null;
     let menuTrigger = null;     // the ⋯ button of the open row menu (focus returns to it)
     let deleteModal = null;
+    let resourceDrawer = null;
+    let drawerOpener = null;    // focus returns here when the New/Edit drawer closes
 
     // Icons js/lib/icons.js does not have (16×16, stroke = currentColor).
     const TM_ICONS = {
@@ -603,7 +631,7 @@
           authed: false,
           unmatchedView: 'queue',
           form: this.blankForm(),
-          _resourceModal: null,
+          created: null,              // { id, name, roleText } after a successful create
           teamPage: 1,
           sortKey: 'name',
           sortDir: 'asc',
@@ -702,7 +730,14 @@
         this.ready = true;
       },
       mounted() {
-        this._resourceModal = new bootstrap.Modal(document.getElementById('resourceModal'));
+        const drawerEl = document.getElementById('resourceDrawer');
+        resourceDrawer = new bootstrap.Offcanvas(drawerEl);
+        drawerEl.addEventListener('shown.bs.offcanvas', () => document.getElementById('resFirst')?.focus());
+        drawerEl.addEventListener('hidden.bs.offcanvas', () => {
+          this.created = null;
+          if (drawerOpener && document.contains(drawerOpener)) drawerOpener.focus();
+          drawerOpener = null;
+        });
         this._unmatchedDrawer = new bootstrap.Offcanvas(document.getElementById('unmatchedDrawer'));
         deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
         document.getElementById('deleteModal').addEventListener('hidden.bs.modal', () => { this.deleteTarget = null; });
@@ -773,7 +808,8 @@
             this.closeDetail();
           };
           const onKey = (e) => {
-            if (e.key === 'Escape' && !document.querySelector('.modal.show')) this.closeDetail();
+            // Esc closes only the topmost layer: a drawer or modal above the panel handles it itself.
+            if (e.key === 'Escape' && !document.querySelector('.modal.show, .offcanvas.show')) this.closeDetail();
           };
           detailOutsideHandler = outside;
           detailKeyHandler = onKey;
@@ -826,7 +862,7 @@
         },
         blankForm() {
           return { id: null, firstName: '', lastName: '', email: '', roleId: '',
-                    jobDescription: '', userId: null, status: 'active', loading: false, error: null };
+                    jobDescription: '', userId: null, status: 'active', loading: false, error: null, errors: {} };
         },
         // Loaders return an error message, or null on success.
         async loadResources() {
@@ -946,45 +982,85 @@
           }
         },
 
+        // ── New / Edit drawer ──
         openCreate() {
           this.form = this.blankForm();
-          this._resourceModal.show();
+          this.created = null;
+          drawerOpener = document.activeElement;
+          resourceDrawer.show();
         },
         openEdit(r) {
           this.form = {
+            ...this.blankForm(),
             id: r.id, firstName: r.first_name, lastName: r.last_name, email: r.email,
-            roleId: r.role_id,
-            jobDescription: r.job_description || '', userId: r.user_id, status: r.status,
-            loading: false, error: null,
+            roleId: r.role_id, jobDescription: r.job_description || '', userId: r.user_id, status: r.status,
           };
-          this._resourceModal.show();
+          this.created = null;
+          drawerOpener = document.activeElement;
+          resourceDrawer.show();
         },
-
+        // The four fields the API requires on create (PATCH refuses the first three empty).
+        validateForm() {
+          const f = this.form;
+          const errors = {};
+          if (!String(f.firstName || '').trim()) errors.firstName = 'First name is required.';
+          if (!String(f.lastName || '').trim()) errors.lastName = 'Last name is required.';
+          if (!String(f.email || '').trim()) errors.email = 'Email is required.';
+          if (!f.roleId) errors.roleId = 'Role is required.';
+          f.errors = errors;
+          const first = Object.values(errors)[0];
+          f.error = first || null;
+          return !first;
+        },
         async submitForm() {
+          if (!this.validateForm()) return;
           this.form.loading = true;
-          this.form.error = null;
-          if (!this.form.roleId) { this.form.error = 'Role is required'; this.form.loading = false; return; }
           const payload = {
             firstName: this.form.firstName, lastName: this.form.lastName, email: this.form.email,
             roleId: this.form.roleId, jobDescription: this.form.jobDescription, userId: this.form.userId,
           };
+          const editing = !!this.form.id;
           try {
-            const url = this.form.id ? `/api/resources/${this.form.id}` : '/api/resources';
-            const method = this.form.id ? 'PATCH' : 'POST';
+            const url = editing ? `/api/resources/${this.form.id}` : '/api/resources';
+            const method = editing ? 'PATCH' : 'POST';
             const res = await fetch(url, {
               method, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
               body: JSON.stringify(payload),
             });
             const data = await res.json();
-            if (!res.ok) { this.form.error = data.error || 'Save failed'; return; }
-            this._resourceModal.hide();
-            const err = await this.loadResources(); if (err) this.setBanner('error', err);
+            if (!res.ok) { this.form.error = data.error || 'Save failed.'; return; }
+            const err = await this.loadResources();
             await this.loadUnmatched();
+            if (editing) {
+              resourceDrawer.hide();
+              this.setBanner(err ? 'error' : 'success', err || 'Changes saved.');
+            } else {
+              const role = this.roles.find(x => x.id === payload.roleId);
+              this.created = {
+                id: data.id,
+                name: `${data.first_name} ${data.last_name}`,
+                roleText: role ? `${role.label} (${role.code})` : '',
+              };
+              if (err) this.setBanner('error', err);
+            }
           } catch {
             this.form.error = 'Network error. Please try again.';
           } finally {
             this.form.loading = false;
           }
+        },
+        // Empties the form for the next person, keeping the last role.
+        createAnother() {
+          const roleId = this.form.roleId;
+          this.form = { ...this.blankForm(), roleId };
+          this.created = null;
+          this.$nextTick(() => document.getElementById('resFirst')?.focus());
+        },
+        openCreated() {
+          const r = this.created && this.resources.find(x => x.id === this.created.id);
+          drawerOpener = null;
+          resourceDrawer.hide();
+          if (r) this.openDetail(r);
         },
 
         // ── Row menu ──
