@@ -7,12 +7,9 @@
   <title>PDash — Team</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="css/tokens.css?v=14">
-  <link rel="stylesheet" href="css/style.css?v=35">
-  <link rel="stylesheet" href="css/admin-crud.css?v=4">
-  <style>
-    .sortable-th { cursor: pointer; user-select: none; white-space: nowrap; }
-    .sortable-th:hover { text-decoration: underline; }
-  </style>
+  <link rel="stylesheet" href="css/style.css?v=36">
+  <link rel="stylesheet" href="css/admin-crud.css?v=5">
+  <link rel="stylesheet" href="css/team.css?v=1">
 </head>
 <body>
 
@@ -22,379 +19,760 @@
 
   <div id="app" v-cloak>
 
-    <template v-if="ready">
+    <!-- ── ACCESS DENIED ───────────────────────────────────── -->
+    <div v-if="accessDenied" class="tm-card tm-denied">
+      <div class="pd-state">
+        <span class="pd-state-icon"><ph-icon name="lock" :size="24"></ph-icon></span>
+        <h2 class="pd-state-title">Admin access required</h2>
+        <p class="pd-state-text">The team register is available to admins and sysadmins. Ask an admin if you need access.</p>
+        <a href="/" class="tm-btn-navy mt-2">Go to app</a>
+      </div>
+    </div>
+
+    <!-- ── PAGE ──────────────────────────────────────────── -->
+    <template v-else-if="authed">
     <div class="ph">
       <div class="ph-main">
         <div class="ph-title-row"><h1 class="ph-title">Team</h1></div>
-        <div class="ph-sub">{{ resources.length }} {{ resources.length === 1 ? 'resource' : 'resources' }}</div>
+        <div class="ph-sub"><template v-if="ready">{{ counts.total }} {{ counts.total === 1 ? 'resource' : 'resources' }} · {{ counts.active }} active · {{ counts.inactive }} inactive</template><template v-else>Loading…</template></div>
       </div>
       <div class="ph-side"><div class="ph-actions">
-        <button class="ph-btn-primary" @click="openCreate">+ New resource</button>
+        <button class="ph-btn-primary" @click="openCreate"><ph-icon name="plus" :size="14"></ph-icon>New resource</button>
       </div></div>
     </div>
 
     <div class="page app-container">
 
-      <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
+      <!-- Global banner -->
+      <div v-if="banner && banner.kind === 'success'" class="pd-banner pd-banner--success" role="status">
+        <ph-icon name="check" :size="16"></ph-icon>
+        <div class="pd-banner-body">{{ banner.text }}</div>
+        <button type="button" class="pd-banner-close" aria-label="Dismiss" @click="clearBanner"><ph-icon name="close" :size="14"></ph-icon></button>
+      </div>
+      <div v-else-if="banner && banner.kind === 'error'" class="pd-banner pd-banner--error" role="alert">
+        <ph-icon name="warning" :size="16"></ph-icon>
+        <div class="pd-banner-body">{{ banner.text }}</div>
+        <button type="button" class="pd-banner-close" aria-label="Dismiss" @click="clearBanner"><ph-icon name="close" :size="14"></ph-icon></button>
+      </div>
 
-      <ul class="nav nav-tabs mb-3">
-        <li class="nav-item">
-          <button type="button" class="nav-link" :class="{ active: pageTab === 'team' }" @click="setPageTab('team')">Team</button>
-        </li>
-        <li class="nav-item">
-          <button type="button" class="nav-link" :class="{ active: pageTab === 'unmatched' }" @click="setPageTab('unmatched')">
-            Unmatched names <span class="badge bg-secondary ms-1">{{ unmatched.length }}</span>
-          </button>
-        </li>
-      </ul>
-
-      <template v-if="pageTab === 'team'">
-      <div class="d-flex gap-2 mb-3 align-items-center">
-        <input v-model="filterText" type="text" class="form-control form-control-sm" style="max-width:280px"
-               placeholder="Search name or email…">
-        <div class="form-check ms-2">
-          <input class="form-check-input" type="checkbox" id="showInactive" v-model="showInactive">
-          <label class="form-check-label" for="showInactive" style="font-size:.85rem">Show inactive</label>
+      <!-- Unmatched callout -->
+      <div v-if="ready && unmatched.length" class="tm-callout">
+        <span class="tm-callout-icon"><tm-icon name="unlink" :size="16"></tm-icon></span>
+        <div class="tm-callout-body">
+          <div class="tm-callout-title">{{ unmatched.length }} {{ unmatched.length === 1 ? "name in uploaded actuals isn't" : "names in uploaded actuals aren't" }} matched to a resource</div>
+          <div class="tm-callout-text">{{ fmtHours(unmatchedHours) }} h not attributed<template v-if="unmatchedAmbiguous"> · {{ unmatchedAmbiguous }} ambiguous</template>. Their hours don't count in any experience profile until you match them.</div>
+        </div>
+        <div class="tm-callout-actions">
+          <button type="button" class="tm-link-btn" @click="openUnmatched('aliases')">Existing aliases</button>
+          <button type="button" class="tm-btn-navy" @click="openUnmatched('queue')">Review names<ph-icon name="arrow-right" :size="14"></ph-icon></button>
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-body">
-          <table class="table table-hover" v-if="filteredResources.length">
-            <thead>
-              <tr>
-                <th class="sortable-th" @click="sortBy('name')">Name {{ sortIndicator('name') }}</th>
-                <th class="sortable-th" @click="sortBy('email')">Email {{ sortIndicator('email') }}</th>
-                <th class="sortable-th" @click="sortBy('role')">Role {{ sortIndicator('role') }}</th>
-                <th>Linked user</th>
-                <th class="sortable-th" @click="sortBy('status')">Status {{ sortIndicator('status') }}</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="r in pagedResources.pageItems" :key="r.id" style="cursor:pointer"
-                  :class="{ 'table-active': r.id === selectedId }" @click="openDetail(r)">
-                <td class="fw-semibold">{{ r.first_name }} {{ r.last_name }}</td>
-                <td class="text-muted">{{ r.email }}</td>
-                <td>{{ r.role_label }} <span class="text-muted small">({{ r.role_code }})</span></td>
-                <td class="text-muted">
-                  <span v-if="r.user_id">{{ r.linked_user_first_name }} {{ r.linked_user_last_name }}</span>
-                  <span v-else>—</span>
-                </td>
-                <td><span :class="'badge-st-' + r.status">{{ r.status }}</span></td>
-                <td class="text-end" style="white-space:nowrap" @click.stop>
-                  <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!r._loading" @click="openEdit(r)">Edit</button>
-                  <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!r._loading" @click="toggleStatus(r)">
-                    {{ r.status === 'active' ? 'Deactivate' : 'Activate' }}
-                  </button>
-                  <button class="btn btn-outline-danger btn-action" :disabled="!!r._loading" @click="confirmDelete(r)">Delete</button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-          <div class="empty" v-else>No resources match the current filter.</div>
-          <div class="d-flex justify-content-between align-items-center mt-2" v-if="pagedResources.totalPages > 1">
-            <button class="btn btn-outline-secondary btn-sm" :disabled="teamPage <= 1" @click="teamPage--">‹ Previous</button>
-            <span class="text-muted small">Page {{ pagedResources.page }} of {{ pagedResources.totalPages }}</span>
-            <button class="btn btn-outline-secondary btn-sm" :disabled="teamPage >= pagedResources.totalPages" @click="teamPage++">Next ›</button>
-          </div>
-        </div>
-      </div>
-      </template>
-
-      <!-- ── UNMATCHED NAMES ─────────────────────────────────── -->
-      <div class="card" v-if="pageTab === 'unmatched'">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 class="mb-0">Unmatched names <span class="text-muted fw-normal" style="font-size:.9rem">({{ unmatched.length }})</span></h5>
-            <button class="btn btn-outline-secondary btn-sm" :disabled="rescanning" @click="rescan">
-              <span v-if="rescanning" class="spinner-border spinner-border-sm me-1"></span>Rescan
+      <div class="tm-card">
+        <!-- Toolbar -->
+        <div class="tm-toolbar">
+          <div class="md-seg" role="group" aria-label="Filter by status">
+            <button v-for="f in statusFilters" :key="f.val" type="button" class="md-seg-btn"
+                    :class="{ active: statusFilter === f.val }" :aria-pressed="statusFilter === f.val" @click="statusFilter = f.val">
+              {{ f.label }}<span v-if="ready" class="tm-count">{{ counts[f.count] }}</span>
             </button>
           </div>
-          <input v-model="unmatchedFilterText" type="text" class="form-control form-control-sm mb-2" style="max-width:280px"
-                 placeholder="Search name…">
-          <p class="text-muted small mb-3">Names found in uploaded actuals that could not be matched to a resource. Assign each to a resource, or ignore names that are not people.</p>
-          <div v-if="unmatchedError" class="alert alert-danger alert-sm mb-3">{{ unmatchedError }}</div>
-          <table class="table table-hover" v-if="filteredUnmatched.length">
+          <label class="tm-select tm-filter-wide">
+            <span>Role</span>
+            <select v-model="roleFilter" aria-label="Role">
+              <option value="">All roles</option>
+              <option v-for="role in sortedRoles" :key="role.id" :value="role.id">{{ role.label }}</option>
+            </select>
+            <ph-icon name="chevron-down" :size="14"></ph-icon>
+          </label>
+          <label class="tm-select tm-filter-wide">
+            <span>PDash user</span>
+            <select v-model="linkedFilter" aria-label="PDash user">
+              <option value="any">Any</option>
+              <option value="linked">Linked</option>
+              <option value="unlinked">Not linked</option>
+            </select>
+            <ph-icon name="chevron-down" :size="14"></ph-icon>
+          </label>
+          <!-- Below 1280px Role and PDash user move into this dropdown (no :class on the toggle: it would drop Bootstrap's .show) -->
+          <div class="dropdown tm-filter-compact">
+            <button type="button" class="tm-btn-outline" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+              <ph-icon name="filter" :size="14"></ph-icon>Filters<span v-if="extraFilterCount" class="tm-count">{{ extraFilterCount }}</span>
+            </button>
+            <div class="dropdown-menu tm-filter-menu">
+              <label class="form-label" for="tmRoleCompact">Role</label>
+              <select id="tmRoleCompact" v-model="roleFilter" class="form-select">
+                <option value="">All roles</option>
+                <option v-for="role in sortedRoles" :key="role.id" :value="role.id">{{ role.label }}</option>
+              </select>
+              <label class="form-label mt-3" for="tmLinkedCompact">PDash user</label>
+              <select id="tmLinkedCompact" v-model="linkedFilter" class="form-select">
+                <option value="any">Any</option>
+                <option value="linked">Linked</option>
+                <option value="unlinked">Not linked</option>
+              </select>
+            </div>
+          </div>
+          <div class="tm-search">
+            <ph-icon name="search" :size="14"></ph-icon>
+            <input v-model="filterText" type="search" placeholder="Search name, email or role…" aria-label="Search name, email or role">
+          </div>
+        </div>
+
+        <!-- Loading -->
+        <div v-if="!ready" class="pd-state">
+          <div class="spinner-border" role="presentation"></div>
+          <p class="pd-state-text">Loading team…</p>
+        </div>
+
+        <!-- Table -->
+        <template v-else-if="pagedResources.pageItems.length">
+          <table class="tm-table">
             <thead>
               <tr>
-                <th class="sortable-th" @click="unmatchedSortBy('name')">Name in actuals {{ unmatchedSortIndicator('name') }}</th>
-                <th class="sortable-th text-end" @click="unmatchedSortBy('hours')">Hours {{ unmatchedSortIndicator('hours') }}</th>
-                <th class="sortable-th text-end" @click="unmatchedSortBy('projects')">Projects {{ unmatchedSortIndicator('projects') }}</th>
-                <th>Assign to</th><th></th>
+                <th :aria-sort="ariaSort('name')">
+                  <button type="button" class="tm-th" :class="{ 'tm-th--on': sortKey === 'name' }" @click="sortBy('name')">Name<span class="tm-sort" aria-hidden="true">{{ sortGlyph('name') }}</span></button>
+                </th>
+                <th :aria-sort="ariaSort('role')">
+                  <button type="button" class="tm-th" :class="{ 'tm-th--on': sortKey === 'role' }" @click="sortBy('role')">Role<span class="tm-sort" aria-hidden="true">{{ sortGlyph('role') }}</span></button>
+                </th>
+                <th class="tm-col-wide">Linked PDash user</th>
+                <th :aria-sort="ariaSort('status')">
+                  <button type="button" class="tm-th" :class="{ 'tm-th--on': sortKey === 'status' }" @click="sortBy('status')">Status<span class="tm-sort" aria-hidden="true">{{ sortGlyph('status') }}</span></button>
+                </th>
+                <th class="tm-col-actions"><span class="visually-hidden">Actions</span></th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="u in pagedUnmatched.pageItems" :key="u.name_normalized">
-                <td class="fw-semibold">{{ u.display_name }}
-                  <span v-if="u.candidate_resource_ids.length" class="badge bg-warning text-dark ms-1">ambiguous</span>
-                </td>
-                <td class="text-end">{{ u.hours }}</td>
-                <td class="text-end">
-                  <a href="#" @click.prevent="toggleProjects(u)">{{ u.projects }}</a>
-                  <div v-if="expandedProjects.has(u.name_normalized)" class="text-muted small mt-1">
-                    {{ formatProjectList(u) }}
+              <tr v-for="r in pagedResources.pageItems" :key="r.id" tabindex="0" class="tm-row"
+                  :class="{ 'is-open': r.id === selectedId, 'tm-row--inactive': r.status !== 'active', 'tm-row--busy': r._loading }"
+                  @click="openDetail(r)" @keydown.enter.self="openDetail(r)">
+                <td class="tm-cell-name">
+                  <div class="tm-name">
+                    <span class="tm-avatar" aria-hidden="true">{{ initials(r) }}</span>
+                    <div class="tm-name-text">
+                      <div class="tm-name-line">{{ r.first_name }} {{ r.last_name }}</div>
+                      <div class="tm-email">{{ r.email }}</div>
+                      <div v-if="r.user_id" class="tm-compact-line"><tm-icon name="link" :size="12"></tm-icon>Linked to a PDash user</div>
+                    </div>
                   </div>
                 </td>
-                <td>
-                  <combo-select v-model="assignChoice[u.name_normalized]" :options="comboOptions(u)"
-                                placeholder="Select a resource…" :disabled="!!u._loading"></combo-select>
+                <td class="tm-cell-role">
+                  <div class="tm-role">{{ r.role_label }}</div>
+                  <div class="tm-code">{{ r.role_code }}</div>
                 </td>
-                <td class="text-end" style="white-space:nowrap">
-                  <button class="btn btn-primary btn-action me-1" :disabled="!!u._loading || !assignChoice[u.name_normalized]" @click="assign(u)">Assign</button>
-                  <button class="btn btn-outline-secondary btn-action" :disabled="!!u._loading" @click="ignoreName(u)">Ignore</button>
+                <td class="tm-col-wide">
+                  <span v-if="r.user_id" class="tm-linked"><tm-icon name="link" :size="14"></tm-icon>{{ r.linked_user_first_name }} {{ r.linked_user_last_name }}</span>
+                  <span v-else class="tm-muted">—</span>
+                </td>
+                <td class="tm-cell-status" aria-live="polite">
+                  <span v-if="r._loading" class="pd-status-pill pd-status-pill--busy"><span class="spinner-border" role="presentation"></span>Updating…</span>
+                  <span v-else class="pd-status-pill" :class="'pd-status-pill--' + r.status">{{ r.status }}</span>
+                </td>
+                <td class="tm-col-actions" @click.stop @keydown.enter.stop>
+                  <div class="pd-row-menu-wrap">
+                    <button type="button" class="pd-row-menu-trigger" aria-haspopup="menu" :aria-expanded="menuOpenId === r.id"
+                            :aria-label="'Actions for ' + r.first_name + ' ' + r.last_name" :disabled="!!r._loading" @click="openMenu(r, $event)">
+                      <ph-icon name="more" :size="16"></ph-icon>
+                    </button>
+                    <div v-if="menuOpenId === r.id" class="pd-row-menu" :class="{ 'pd-row-menu--up': menuUp }" role="menu"
+                         :aria-label="'Actions for ' + r.first_name + ' ' + r.last_name" @keydown="onMenuKey">
+                      <button type="button" class="pd-row-menu-item" role="menuitem" @click="runMenu(r, 'edit')">
+                        <ph-icon name="pencil" :size="16"></ph-icon>
+                        <span class="pd-row-menu-item-text">
+                          <span class="pd-row-menu-item-title">Edit</span>
+                          <span class="pd-row-menu-item-hint">Name, role, job description, linked user</span>
+                        </span>
+                      </button>
+                      <button v-if="r.status === 'active'" type="button" class="pd-row-menu-item" role="menuitem" @click="runMenu(r, 'status')">
+                        <tm-icon name="power" :size="16"></tm-icon>
+                        <span class="pd-row-menu-item-text">
+                          <span class="pd-row-menu-item-title">Deactivate<span class="pd-tag pd-tag--navy">LEFT THE COMPANY</span></span>
+                          <span class="pd-row-menu-item-hint">Hides them from lists. Hours and aliases stay. Reversible.</span>
+                        </span>
+                      </button>
+                      <button v-else type="button" class="pd-row-menu-item" role="menuitem" @click="runMenu(r, 'status')">
+                        <tm-icon name="power" :size="16"></tm-icon>
+                        <span class="pd-row-menu-item-text">
+                          <span class="pd-row-menu-item-title">Activate</span>
+                          <span class="pd-row-menu-item-hint">Back in the active list</span>
+                        </span>
+                      </button>
+                      <div class="pd-row-menu-divider" role="separator"></div>
+                      <button type="button" class="pd-row-menu-item pd-row-menu-item--danger" role="menuitem" @click="runMenu(r, 'delete')">
+                        <ph-icon name="trash" :size="16"></ph-icon>
+                        <span class="pd-row-menu-item-text">
+                          <span class="pd-row-menu-item-title">Delete…<span class="pd-tag pd-tag--danger">IRREVERSIBLE</span></span>
+                          <span class="pd-row-menu-item-hint pd-row-menu-item-hint--danger">Removes the resource and {{ aliasCountText(r) }}.</span>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
-          <div class="empty" v-else>{{ unmatched.length ? 'No unmatched names match the search.' : 'No unmatched names.' }}</div>
-          <div class="d-flex justify-content-between align-items-center mt-2" v-if="pagedUnmatched.totalPages > 1">
-            <button class="btn btn-outline-secondary btn-sm" :disabled="unmatchedPage <= 1" @click="unmatchedPage--">‹ Previous</button>
-            <span class="text-muted small">Page {{ pagedUnmatched.page }} of {{ pagedUnmatched.totalPages }}</span>
-            <button class="btn btn-outline-secondary btn-sm" :disabled="unmatchedPage >= pagedUnmatched.totalPages" @click="unmatchedPage++">Next ›</button>
+          <div class="tm-foot">
+            <span>{{ pageRange }}</span>
+            <div v-if="pagedResources.totalPages > 1" class="tm-pager">
+              <button type="button" class="tm-btn-outline" :disabled="pagedResources.page <= 1" @click="teamPage = pagedResources.page - 1">‹ Previous</button>
+              <span>Page {{ pagedResources.page }} of {{ pagedResources.totalPages }}</span>
+              <button type="button" class="tm-btn-outline" :disabled="pagedResources.page >= pagedResources.totalPages" @click="teamPage = pagedResources.page + 1">Next ›</button>
+            </div>
           </div>
+        </template>
 
-          <details class="mt-3" v-if="aliases.length">
-            <summary class="small text-muted" style="cursor:pointer">Existing aliases ({{ aliases.length }})</summary>
-            <table class="table table-sm mt-2">
-              <thead><tr><th>Name</th><th>Resolves to</th><th></th></tr></thead>
-              <tbody>
-                <tr v-for="a in aliases" :key="a.id">
-                  <td>{{ a.display_name || a.alias_normalized }}</td>
-                  <td><span v-if="a.resource_id">{{ a.first_name }} {{ a.last_name }}</span><span v-else class="text-muted">ignored</span></td>
-                  <td class="text-end">
-                    <button class="btn btn-outline-danger btn-action" :disabled="!!a._loading" @click="removeAlias(a)">Remove</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </details>
+        <!-- Empty -->
+        <div v-else class="pd-state">
+          <span class="pd-state-icon"><ph-icon name="search" :size="24"></ph-icon></span>
+          <h2 class="pd-state-title">No resources match the current filter.</h2>
+          <p class="pd-state-text">{{ filterSummary }}</p>
+          <button type="button" class="tm-btn-outline mt-2" @click="clearFilters">Clear filters</button>
         </div>
       </div>
     </div>
     </template>
 
-    <div v-else-if="!accessDenied" class="d-flex align-items-center justify-content-center" style="height:60vh">
-      <div class="spinner-border text-secondary"></div>
-    </div>
-    <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
-      <div class="text-center text-muted">
-        <div style="font-size:2rem">🔒</div>
-        <p class="mt-2">Admin access required.</p>
-        <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
+    <!-- ── UNMATCHED NAMES DRAWER ──────────────────────────── -->
+    <div class="offcanvas offcanvas-end pd-drawer pd-drawer--wide" id="unmatchedDrawer" tabindex="-1" aria-labelledby="unmatchedDrawerTitle">
+      <div class="pd-drawer-head">
+        <div>
+          <div class="pd-drawer-eyebrow">TEAM</div>
+          <h2 class="pd-drawer-title" id="unmatchedDrawerTitle">Unmatched names</h2>
+          <p class="pd-drawer-sub">Match names from uploaded actuals to resources, so their hours count in experience profiles.</p>
+        </div>
+        <button type="button" class="pd-drawer-close" data-bs-dismiss="offcanvas" aria-label="Close"><ph-icon name="close" :size="16"></ph-icon></button>
+      </div>
+      <div class="tm-um-body">
+        <!-- Bar -->
+        <div class="tm-toolbar tm-um-bar">
+          <div class="md-seg" role="group" aria-label="Unmatched names view">
+            <button type="button" class="md-seg-btn" :class="{ active: unmatchedView === 'queue' }" :aria-pressed="unmatchedView === 'queue'" @click="unmatchedView = 'queue'">
+              Queue<span class="tm-count">{{ unmatched.length }}</span>
+            </button>
+            <button type="button" class="md-seg-btn" :class="{ active: unmatchedView === 'aliases' }" :aria-pressed="unmatchedView === 'aliases'" @click="unmatchedView = 'aliases'">
+              Existing aliases<span class="tm-count">{{ aliases.length }}</span>
+            </button>
+          </div>
+          <template v-if="unmatchedView === 'queue'">
+            <div class="tm-search">
+              <ph-icon name="search" :size="14"></ph-icon>
+              <input v-model="unmatchedFilterText" type="search" placeholder="Search name…" aria-label="Search name">
+            </div>
+            <button type="button" class="tm-btn-outline" :disabled="rescanning" @click="rescan">
+              <span v-if="rescanning" class="spinner-border spinner-border-sm" role="presentation"></span>
+              <ph-icon v-else name="refresh" :size="14"></ph-icon>{{ rescanning ? 'Rescanning…' : 'Rescan' }}
+            </button>
+          </template>
+          <template v-else>
+            <label class="tm-select tm-um-resolves">
+              <span>Resolves to</span>
+              <select v-model="aliasResolves" aria-label="Resolves to">
+                <option value="any">Anything</option>
+                <option value="resource">A resource</option>
+                <option value="ignored">Ignored</option>
+              </select>
+              <ph-icon name="chevron-down" :size="14"></ph-icon>
+            </label>
+            <div class="tm-search tm-um-alias-search">
+              <ph-icon name="search" :size="14"></ph-icon>
+              <input v-model="aliasFilterText" type="search" placeholder="Search alias or resource…" aria-label="Search alias or resource">
+            </div>
+          </template>
+        </div>
+
+        <!-- Section banner -->
+        <div v-if="unmatchedBanner" class="tm-um-banner-wrap">
+          <div v-if="unmatchedBanner.kind === 'success'" class="pd-banner pd-banner--success mb-0" role="status">
+            <ph-icon name="check" :size="16"></ph-icon>
+            <div class="pd-banner-body"><strong>{{ unmatchedBanner.strong }}</strong> {{ unmatchedBanner.text }}</div>
+            <button type="button" class="pd-banner-close" aria-label="Dismiss" @click="unmatchedBanner = null"><ph-icon name="close" :size="14"></ph-icon></button>
+          </div>
+          <div v-else class="pd-banner pd-banner--error mb-0" role="alert">
+            <ph-icon name="warning" :size="16"></ph-icon>
+            <div class="pd-banner-body">{{ unmatchedBanner.text }}</div>
+            <button type="button" class="pd-banner-close" aria-label="Dismiss" @click="unmatchedBanner = null"><ph-icon name="close" :size="14"></ph-icon></button>
+          </div>
+        </div>
+
+        <!-- ── Queue ── -->
+        <template v-if="unmatchedView === 'queue'">
+          <div class="tm-um-summary">
+            <div class="tm-um-stat"><strong>{{ unmatched.length }}</strong><span>names to match</span></div>
+            <div class="tm-um-stat"><strong>{{ fmtHours(unmatchedHours) }} h</strong><span>not attributed to anyone</span></div>
+            <div class="tm-um-progress">
+              <span>{{ progress.resolved }} of {{ progress.total }} resolved this session</span>
+              <div class="tm-um-progress-track" role="progressbar" :aria-valuenow="progress.pct" aria-valuemin="0" aria-valuemax="100"
+                   :aria-label="progress.resolved + ' of ' + progress.total + ' resolved this session'">
+                <div class="tm-um-progress-fill" :style="{ width: progress.pct + '%' }"></div>
+              </div>
+            </div>
+            <div class="tm-um-stat tm-um-stat--small"><strong>{{ unmatchedAmbiguous }}</strong><span>ambiguous</span></div>
+            <p class="tm-um-help">Names found in uploaded actuals that couldn't be matched to a resource. Assign each one, or ignore names that aren't people.</p>
+          </div>
+
+          <template v-if="pagedUnmatched.pageItems.length">
+            <table class="tm-table tm-um-table">
+              <thead>
+                <tr>
+                  <th :aria-sort="unmatchedAriaSort('name')">
+                    <button type="button" class="tm-th" :class="{ 'tm-th--on': unmatchedSortKey === 'name' }" @click="unmatchedSortBy('name')">Name in actuals<span class="tm-sort" aria-hidden="true">{{ unmatchedSortGlyph('name') }}</span></button>
+                  </th>
+                  <th :aria-sort="unmatchedAriaSort('hours')">
+                    <button type="button" class="tm-th" :class="{ 'tm-th--on': unmatchedSortKey === 'hours' }" @click="unmatchedSortBy('hours')">Hours<span class="tm-sort" aria-hidden="true">{{ unmatchedSortGlyph('hours') }}</span></button>
+                  </th>
+                  <th class="tm-um-col-projects" :aria-sort="unmatchedAriaSort('projects')">
+                    <button type="button" class="tm-th" :class="{ 'tm-th--on': unmatchedSortKey === 'projects' }" @click="unmatchedSortBy('projects')">Projects<span class="tm-sort" aria-hidden="true">{{ unmatchedSortGlyph('projects') }}</span></button>
+                  </th>
+                  <th>Assign to</th>
+                  <th><span class="visually-hidden">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                <template v-for="u in pagedUnmatched.pageItems" :key="u.name_normalized">
+                  <tr :class="{ 'tm-um-row--ambiguous': isAmbiguous(u), 'tm-row--busy': !!busyUnmatched[u.name_normalized] }">
+                    <td>
+                      <div class="tm-um-name" :class="{ 'tm-um-name--strong': Number(u.hours) >= 40 }">
+                        {{ u.display_name }}
+                        <span v-if="isAmbiguous(u)" class="tm-badge-amber"><ph-icon name="warning" :size="12"></ph-icon>AMBIGUOUS</span>
+                      </div>
+                      <div v-if="isAmbiguous(u)" class="tm-um-ambiguous">{{ ambiguousText(u) }}</div>
+                      <button type="button" class="tm-um-projects-btn tm-um-projects-inline" :aria-expanded="expandedProjects.has(u.name_normalized)" @click="toggleProjects(u)">
+                        {{ u.projects }} {{ Number(u.projects) === 1 ? 'project' : 'projects' }}<ph-icon name="chevron-down" :size="12"></ph-icon>
+                      </button>
+                    </td>
+                    <td>
+                      <div class="tm-um-hours">{{ fmtHours(u.hours) }} h</div>
+                      <div class="tm-um-hbar" aria-hidden="true"><div class="tm-um-hbar-fill" :style="{ width: hoursBarPct(u.hours) + '%' }"></div></div>
+                    </td>
+                    <td class="tm-um-col-projects">
+                      <button type="button" class="tm-um-projects-btn" :aria-expanded="expandedProjects.has(u.name_normalized)" @click="toggleProjects(u)">
+                        {{ u.projects }} {{ Number(u.projects) === 1 ? 'project' : 'projects' }}<ph-icon name="chevron-down" :size="12"></ph-icon>
+                      </button>
+                    </td>
+                    <td>
+                      <combo-select v-model="assignChoice[u.name_normalized]" :options="comboOptions(u)"
+                                    placeholder="Select a resource…" :disabled="!!busyUnmatched[u.name_normalized]"
+                                    :aria-label="'Assign ' + u.display_name + ' to'"></combo-select>
+                      <div v-if="candidateChipsFor(u).length" class="tm-um-chips">
+                        <span class="tm-um-chips-label">Candidates</span>
+                        <button v-for="c in candidateChipsFor(u)" :key="c.id" type="button" class="tm-um-chip"
+                                :class="{ 'is-on': assignChoice[u.name_normalized] === c.id }" :aria-pressed="assignChoice[u.name_normalized] === c.id"
+                                :disabled="!!busyUnmatched[u.name_normalized]" @click="assignChoice[u.name_normalized] = c.id">
+                          {{ c.name }}<span>{{ c.role_code }}</span>
+                        </button>
+                      </div>
+                    </td>
+                    <td class="tm-um-actions" aria-live="polite">
+                      <span v-if="busyUnmatched[u.name_normalized]" class="pd-status-pill pd-status-pill--busy"><span class="spinner-border" role="presentation"></span>{{ busyUnmatched[u.name_normalized] === 'ignore' ? 'Ignoring…' : 'Assigning…' }}</span>
+                      <template v-else>
+                        <button type="button" class="tm-btn-navy tm-btn-sm" :disabled="!assignChoice[u.name_normalized]" @click="assign(u)">Assign</button>
+                        <button type="button" class="tm-btn-outline tm-btn-sm tm-um-ignore" title="Not a person (e.g. TBD). Stored as an ignored alias." @click="ignoreName(u)">
+                          <span class="tm-um-ignore-text">Ignore</span><tm-icon class="tm-um-ignore-icon" name="ban" :size="14"></tm-icon>
+                        </button>
+                      </template>
+                    </td>
+                  </tr>
+                  <tr v-if="expandedProjects.has(u.name_normalized)" class="tm-um-subrow">
+                    <td colspan="5">
+                      <ul class="tm-um-project-list">
+                        <li v-for="p in sortedProjects(u)" :key="p.code">{{ p.name }} <span>({{ p.code }})</span></li>
+                      </ul>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+            <div class="tm-foot">
+              <span>{{ unmatchedRange }}</span>
+              <div v-if="pagedUnmatched.totalPages > 1" class="tm-pager">
+                <button type="button" class="tm-btn-outline" :disabled="pagedUnmatched.page <= 1" @click="unmatchedPage = pagedUnmatched.page - 1">‹ Previous</button>
+                <span>Page {{ pagedUnmatched.page }} of {{ pagedUnmatched.totalPages }}</span>
+                <button type="button" class="tm-btn-outline" :disabled="pagedUnmatched.page >= pagedUnmatched.totalPages" @click="unmatchedPage = pagedUnmatched.page + 1">Next ›</button>
+              </div>
+            </div>
+          </template>
+          <div v-else-if="unmatched.length" class="pd-state">
+            <span class="pd-state-icon"><ph-icon name="search" :size="24"></ph-icon></span>
+            <h3 class="pd-state-title">No unmatched names match the search.</h3>
+          </div>
+          <div v-else class="pd-state">
+            <span class="pd-state-icon pd-state-icon--ok"><ph-icon name="check" :size="24"></ph-icon></span>
+            <h3 class="pd-state-title">No unmatched names.</h3>
+            <p class="pd-state-text">Every name in uploaded actuals resolves to a resource or is ignored. New uploads may add names here.</p>
+          </div>
+        </template>
+
+        <!-- ── Existing aliases ── -->
+        <template v-else>
+          <table v-if="aliasList.length" class="tm-table tm-um-table">
+            <thead>
+              <tr><th>Name in actuals</th><th>Resolves to</th><th><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="a in aliasList" :key="a.id">
+                <td class="tm-um-name tm-um-name--strong">{{ a.display_name || a.alias_normalized }}</td>
+                <td>
+                  <span v-if="a.resource" class="tm-um-resolves-to">
+                    <ph-icon name="arrow-right" :size="12"></ph-icon>{{ a.resource.name }}<template v-if="a.resource.role_code"> · {{ a.resource.role_code }}</template>
+                    <span v-if="a.resource.status === 'inactive'" class="tm-chip">inactive</span>
+                  </span>
+                  <span v-else class="tm-chip tm-chip--dashed">ignored</span>
+                </td>
+                <td class="tm-um-actions">
+                  <button type="button" class="tm-btn-outline tm-btn-sm" :disabled="busyAliasIds.has(a.id)" @click="removeAlias(a)">Remove</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-else class="pd-state">
+            <span class="pd-state-icon"><ph-icon name="search" :size="24"></ph-icon></span>
+            <h3 class="pd-state-title">{{ aliases.length ? 'No aliases match the filters.' : 'No aliases yet.' }}</h3>
+          </div>
+          <p class="tm-um-note">Removing an alias sends the name back to the queue. Hours already attributed are recalculated in the next background run.</p>
+        </template>
       </div>
     </div>
 
     <!-- ── RESOURCE DETAIL PANEL ───────────────────────────── -->
-    <div id="resourceDetailPanel" v-if="selectedResource"
-         style="position:fixed;top:0;right:0;bottom:0;width:860px;max-width:100%;background:#fff;
-                border-left:2px solid #dee2e6;box-shadow:-4px 0 16px rgba(0,0,0,.12);z-index:1045;
-                display:flex;flex-direction:column">
-      <div class="d-flex align-items-center justify-content-between px-3 py-2 flex-shrink-0"
-           style="border-bottom:1px solid #dee2e6;background:#0B1840;color:#fff">
-        <span class="fw-semibold" style="font-size:var(--text-md)">
-          {{ selectedResource.first_name }} {{ selectedResource.last_name }}
-          <span :class="'badge-st-' + selectedResource.status" class="ms-2">{{ selectedResource.status }}</span>
-        </span>
-        <button class="btn btn-sm btn-link text-white p-0" style="font-size:1.1rem;line-height:1" title="Close" @click="closeDetail">×</button>
-      </div>
-      <ul class="nav nav-tabs px-3 pt-2 flex-shrink-0">
-        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: detailTab === 'details' }" @click="detailTab = 'details'">Details</button></li>
-        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: detailTab === 'profile' }" @click="detailTab = 'profile'">Experience profile</button></li>
-      </ul>
-      <div class="flex-grow-1 p-3" style="overflow-y:auto">
-        <div v-if="detailTab === 'details'">
-          <div class="d-flex justify-content-end mb-3">
-            <button class="btn btn-outline-secondary btn-sm" @click="openEdit(selectedResource)">Edit</button>
+    <div id="resourceDetailPanel" v-if="selectedResource" class="tm-panel" role="dialog" aria-labelledby="resourcePanelTitle">
+      <div class="tm-panel-head">
+        <span class="tm-avatar tm-avatar--head" aria-hidden="true">{{ initials(selectedResource) }}</span>
+        <div class="tm-panel-head-text">
+          <div class="tm-panel-title-row">
+            <h2 class="tm-panel-title" id="resourcePanelTitle" tabindex="-1">{{ selectedResource.first_name }} {{ selectedResource.last_name }}</h2>
+            <span class="pd-status-pill" :class="'pd-status-pill--' + selectedResource.status">{{ selectedResource.status }}</span>
           </div>
-          <dl class="row mb-0" style="font-size:.9rem">
-            <dt class="col-sm-3 text-muted fw-normal">Name</dt>
-            <dd class="col-sm-9 fw-semibold">{{ selectedResource.first_name }} {{ selectedResource.last_name }}</dd>
-            <dt class="col-sm-3 text-muted fw-normal">Email</dt>
-            <dd class="col-sm-9">{{ selectedResource.email }}</dd>
-            <dt class="col-sm-3 text-muted fw-normal">Role</dt>
-            <dd class="col-sm-9">{{ selectedResource.role_label }} <span class="text-muted small">({{ selectedResource.role_code }})</span></dd>
-            <dt class="col-sm-3 text-muted fw-normal">Linked user</dt>
-            <dd class="col-sm-9">
-              <span v-if="selectedResource.user_id">{{ selectedResource.linked_user_first_name }} {{ selectedResource.linked_user_last_name }} <span class="text-muted small">({{ selectedResource.linked_user_email }})</span></span>
-              <span v-else class="text-muted">—</span>
-            </dd>
-            <dt class="col-sm-3 text-muted fw-normal">Status</dt>
-            <dd class="col-sm-9"><span :class="'badge-st-' + selectedResource.status">{{ selectedResource.status }}</span></dd>
-            <dt class="col-sm-3 text-muted fw-normal">Job description</dt>
-            <dd class="col-sm-9" style="white-space:pre-line">
-              <span v-if="selectedResource.job_description">{{ selectedResource.job_description }}</span>
-              <span v-else class="text-muted">—</span>
-            </dd>
-          </dl>
-          <details class="mt-4 pt-3" style="border-top:1px solid #dee2e6">
-            <summary class="fw-semibold" style="cursor:pointer;font-size:.9rem">Aliases <span class="badge bg-secondary ms-1">{{ detailAliases.length }}</span></summary>
-            <div class="mt-2">
-              <p class="text-muted small">Names from uploaded actuals that resolve to this resource.</p>
-              <div v-if="unmatchedError" class="alert alert-danger alert-sm">{{ unmatchedError }}</div>
-              <table class="table table-sm" v-if="detailAliases.length">
-                <thead><tr><th>Name</th><th></th></tr></thead>
-                <tbody>
-                  <tr v-for="a in detailAliases" :key="a.id">
-                    <td>{{ a.display_name || a.alias_normalized }}</td>
-                    <td class="text-end"><button class="btn btn-outline-danger btn-action" :disabled="!!a._loading" @click="removeAlias(a)">Remove</button></td>
-                  </tr>
-                </tbody>
-              </table>
-              <div class="empty" v-else>No aliases for this resource.</div>
-            </div>
-          </details>
+          <div class="tm-panel-sub">{{ selectedResource.role_label }} · {{ selectedResource.role_code }}</div>
         </div>
-        <div v-else style="font-size:.9rem">
-          <div v-if="profileLoading" class="text-muted">Loading…</div>
-          <div v-else-if="profileError" class="alert alert-danger alert-sm">{{ profileError }}</div>
-          <div v-else-if="profileData && !profileData.profile_computed_at" class="text-muted">
-            Not calculated yet. The profile is built in the background from uploaded actuals.
-          </div>
-          <div v-else-if="profileData && !profileTree" class="text-muted">
-            No actuals matched to this person yet. Names that could not be matched are listed in the
-            <a href="#" @click.prevent="setPageTab('unmatched')">Unmatched names</a> tab.
-          </div>
-          <div v-else-if="profileTree">
-            <div class="d-flex flex-wrap gap-4 mb-3">
-              <div><div class="text-muted small">Hours</div><div class="fw-semibold">{{ fmtHours(profileTree.totals.hours) }}</div></div>
-              <div><div class="text-muted small">Projects</div><div class="fw-semibold">{{ profileTree.totals.projects }}</div></div>
-              <div><div class="text-muted small">First month</div><div class="fw-semibold">{{ profileTree.totals.firstWorked || '—' }}</div></div>
-              <div><div class="text-muted small">Last month</div><div class="fw-semibold">{{ profileTree.totals.lastWorked || '—' }}</div></div>
-            </div>
-            <div class="text-muted small mb-3">Last calculated: {{ fmtWhen(profileData.profile_computed_at) }}</div>
+        <button type="button" class="tm-panel-close" aria-label="Close" @click="closeDetail"><ph-icon name="close" :size="16"></ph-icon></button>
+      </div>
+      <div class="tm-tabs" role="tablist">
+        <button type="button" role="tab" class="tm-tab" :class="{ active: detailTab === 'details' }" :aria-selected="detailTab === 'details'" @click="detailTab = 'details'">Details</button>
+        <button type="button" role="tab" class="tm-tab" :class="{ active: detailTab === 'profile' }" :aria-selected="detailTab === 'profile'" @click="detailTab = 'profile'">Experience profile</button>
+        <button v-if="detailTab === 'details'" type="button" class="tm-btn-outline tm-btn-sm tm-tabs-action" @click="openEdit(selectedResource)">
+          <ph-icon name="pencil" :size="14"></ph-icon>Edit
+        </button>
+      </div>
+      <div class="tm-panel-body">
 
-            <div class="mb-3">
-              <div class="text-muted small mb-1">Topics</div>
+        <!-- ── Details ── -->
+        <template v-if="detailTab === 'details'">
+          <dl class="tm-panel-card tm-dl">
+            <div class="tm-dl-row"><dt>Name</dt><dd>{{ selectedResource.first_name }} {{ selectedResource.last_name }}</dd></div>
+            <div class="tm-dl-row"><dt>Email</dt><dd>{{ selectedResource.email }}</dd></div>
+            <div class="tm-dl-row"><dt>Role</dt><dd>{{ selectedResource.role_label }}<div class="tm-dl-sub">Code {{ selectedResource.role_code }}</div></dd></div>
+            <div class="tm-dl-row"><dt>Linked user</dt>
+              <dd v-if="selectedResource.user_id">{{ selectedResource.linked_user_first_name }} {{ selectedResource.linked_user_last_name }}<div class="tm-dl-sub">{{ selectedResource.linked_user_email }}</div></dd>
+              <dd v-else>Not linked<div class="tm-dl-sub">This person doesn't sign in to PDash.</div></dd>
+            </div>
+            <div class="tm-dl-row"><dt>Status</dt><dd>{{ selectedResource.status === 'active' ? 'Active' : 'Inactive' }}</dd></div>
+            <div class="tm-dl-row"><dt>Job description</dt><dd class="tm-dl-multiline">{{ selectedResource.job_description || '—' }}</dd></div>
+          </dl>
+
+          <div class="tm-panel-card">
+            <button type="button" class="tm-aliases-toggle" :aria-expanded="aliasesOpen" aria-controls="tmPanelAliases" @click="aliasesOpen = !aliasesOpen">
+              <ph-icon :name="aliasesOpen ? 'chevron-down' : 'chevron-right'" :size="14"></ph-icon>
+              <strong>Aliases</strong><span class="tm-count">{{ detailAliases.length }}</span>
+              <span class="tm-aliases-hint">Names from uploaded actuals that resolve to this resource.</span>
+            </button>
+            <div v-if="aliasesOpen" id="tmPanelAliases">
+              <div v-if="unmatchedBanner && unmatchedBanner.kind === 'error'" class="pd-banner pd-banner--error tm-alias-error" role="alert"><ph-icon name="warning" :size="16"></ph-icon><div class="pd-banner-body">{{ unmatchedBanner.text }}</div></div>
+              <div v-for="a in detailAliases" :key="a.id" class="tm-alias-row">
+                <span>{{ a.display_name || a.alias_normalized }}</span>
+                <button type="button" class="tm-btn-outline tm-btn-sm" :disabled="busyAliasIds.has(a.id)" @click="removeAlias(a)">Remove</button>
+              </div>
+              <div v-if="!detailAliases.length" class="tm-alias-row tm-muted">No aliases for this resource.</div>
+            </div>
+          </div>
+
+          <div class="tm-panel-card tm-mgmt">
+            <div class="tm-mgmt-row">
+              <div>
+                <div class="tm-mgmt-title">{{ selectedResource.status === 'active' ? 'Deactivate' : 'Activate' }}</div>
+                <p v-if="selectedResource.status === 'active'">The right choice when someone leaves. Hidden from lists; hours and aliases stay attributed. You can reactivate any time.</p>
+                <p v-else>Back in the active list.</p>
+              </div>
+              <button type="button" class="tm-btn-outline tm-btn-outline--navy" :disabled="!!selectedResource._loading" @click="toggleStatus(selectedResource)">
+                <span v-if="selectedResource._loading" class="spinner-border spinner-border-sm" role="presentation"></span>{{ selectedResource._loading ? 'Updating…' : (selectedResource.status === 'active' ? 'Deactivate' : 'Activate') }}
+              </button>
+            </div>
+            <div class="tm-mgmt-row">
+              <div>
+                <div class="tm-mgmt-title tm-mgmt-title--danger">Delete resource</div>
+                <p>Removes the resource and its {{ aliasCountText(selectedResource) }}. Their names go back to Unmatched names. Can't be undone.</p>
+              </div>
+              <button type="button" class="tm-btn-outline tm-btn-outline--danger" :disabled="!!selectedResource._loading" @click="askDelete(selectedResource)">Delete…</button>
+            </div>
+          </div>
+        </template>
+
+        <!-- ── Experience profile ── -->
+        <template v-else>
+          <div v-if="profileLoading" class="pd-state pd-state--dashed">
+            <div class="spinner-border" role="presentation"></div>
+            <p class="pd-state-text">Loading profile…</p>
+          </div>
+          <div v-else-if="profileError" class="pd-state pd-state--dashed">
+            <div class="pd-banner pd-banner--error mb-0" role="alert"><ph-icon name="warning" :size="16"></ph-icon><div class="pd-banner-body"><strong>Couldn't load the profile.</strong> {{ profileError }}</div></div>
+            <button type="button" class="tm-btn-outline mt-2" @click="loadProfile">Try again</button>
+          </div>
+          <div v-else-if="profileData && !profileData.profile_computed_at" class="pd-state pd-state--dashed">
+            <span class="pd-state-icon"><ph-icon name="refresh" :size="24"></ph-icon></span>
+            <h3 class="pd-state-title">Not calculated yet</h3>
+            <p class="pd-state-text">The profile is built in the background from uploaded actuals. New resources get one after the next run.</p>
+          </div>
+          <div v-else-if="profileData && !profileTree" class="pd-state pd-state--dashed">
+            <span class="pd-state-icon"><tm-icon name="unlink" :size="24"></tm-icon></span>
+            <h3 class="pd-state-title">No actuals matched to this person yet</h3>
+            <p class="pd-state-text">Their name may appear in actuals in a different form. Match it to this resource from the unmatched names.</p>
+            <button type="button" class="tm-btn-navy mt-2" @click="openUnmatched('queue')">Open Unmatched names ({{ unmatched.length }})</button>
+          </div>
+          <template v-else-if="profileTree">
+            <div class="tm-panel-card tm-totals">
+              <div><span>HOURS</span><strong>{{ fmtHours(profileTree.totals.hours) }}</strong></div>
+              <div><span>PROJECTS</span><strong>{{ profileTree.totals.projects }}</strong></div>
+              <div><span>FIRST MONTH</span><strong>{{ monthText(profileTree.totals.firstWorked) }}</strong></div>
+              <div><span>LAST MONTH</span><strong>{{ monthText(profileTree.totals.lastWorked) }}</strong></div>
+            </div>
+            <div class="tm-calc">
+              <ph-icon name="refresh" :size="12"></ph-icon>
+              <p>Last calculated <strong>{{ profileCalcText(profileData.profile_computed_at) }}</strong>. Rebuilt in the background from uploaded actuals. Recent assignments appear after the next run.</p>
+              <a href="profile-jobs.html" class="tm-calc-link">Profile processing →</a>
+            </div>
+
+            <section class="tm-topics">
+              <h3 class="tm-section-title">Topics</h3>
               <template v-if="profileTree.topics.length">
-                <div v-if="profileTree.topicGroups.direct.length" class="mb-1">
-                  <div class="small fw-semibold">Direct experience</div>
-                  <div class="d-flex flex-wrap gap-1">
-                    <span v-for="t in profileTree.topicGroups.direct" :key="'d'+t.id" class="badge text-bg-light border"
-                          :title="t.direct.map(p => p.name).join(', ')">{{ t.name }}
-                      <span class="text-muted">· {{ t.direct.length }} · {{ fmtHours(t.directHours) }} h</span></span>
+                <div v-if="directTopics.length" class="tm-topic-group">
+                  <div class="tm-topic-label"><strong>Direct experience</strong> tasks with logged hours</div>
+                  <div class="tm-topic-chips">
+                    <span v-for="t in directTopics" :key="'d' + t.id" class="tm-topic" :class="{ 'tm-topic--top': topTopics.includes(t.id) }"
+                          :title="t.direct.map(p => p.name).join(', ')">
+                      <strong>{{ t.name }}</strong> {{ t.direct.length }} {{ t.direct.length === 1 ? 'project' : 'projects' }} · {{ fmtHours(t.directHours) }} h
+                    </span>
                   </div>
                 </div>
-                <div v-if="profileTree.topicGroups.context.length" class="mb-1">
-                  <div class="small fw-semibold">Project context</div>
-                  <div class="d-flex flex-wrap gap-1">
-                    <span v-for="t in profileTree.topicGroups.context" :key="'c'+t.id" class="badge text-bg-light border"
-                          :title="t.context.map(p => p.name).join(', ')">{{ t.name }}
-                      <span class="text-muted">· {{ t.context.length }}</span></span>
+                <div v-if="profileTree.topicGroups.context.length" class="tm-topic-group">
+                  <div class="tm-topic-label"><strong>Project context</strong> from descriptions of projects they worked on</div>
+                  <div class="tm-topic-chips">
+                    <span v-for="t in profileTree.topicGroups.context" :key="'c' + t.id" class="tm-topic tm-topic--dashed"
+                          :title="t.context.map(p => p.name).join(', ')">
+                      <strong>{{ t.name }}</strong> {{ t.context.length }} {{ t.context.length === 1 ? 'project' : 'projects' }}
+                    </span>
                   </div>
                 </div>
-                <div v-if="profileTree.topicGroups.legacy.length" class="mb-1">
-                  <div class="small fw-semibold">Topics <span class="text-muted fw-normal">(provenance not available — recalculate profiles)</span></div>
-                  <div class="d-flex flex-wrap gap-1">
-                    <span v-for="t in profileTree.topicGroups.legacy" :key="'l'+t.id" class="badge text-bg-light border"
-                          :title="t.projects.map(p => p.name).join(', ')">{{ t.name }}
-                      <span class="text-muted">· {{ t.projectCount }}</span></span>
+                <div v-if="profileTree.topicGroups.legacy.length" class="tm-topic-group">
+                  <div class="tm-topic-label"><strong>Topics</strong> (provenance not available — recalculate profiles)</div>
+                  <div class="tm-topic-chips">
+                    <span v-for="t in profileTree.topicGroups.legacy" :key="'l' + t.id" class="tm-topic tm-topic--dashed"
+                          :title="t.projects.map(p => p.name).join(', ')">
+                      <strong>{{ t.name }}</strong> {{ t.projectCount }} {{ t.projectCount === 1 ? 'project' : 'projects' }}
+                    </span>
                   </div>
                 </div>
               </template>
-              <div v-else class="text-muted small">No topics yet.</div>
-            </div>
+              <p v-else class="tm-muted mb-0">No topics yet.</p>
+            </section>
 
-            <details v-for="d in profileTree.dimensions" :key="d.slug" open class="mb-2">
-              <summary class="fw-semibold">{{ d.name }}
-                <span v-if="d.untaggedHours" class="text-muted fw-normal small ms-2">{{ fmtHours(d.untaggedHours) }} h on projects without a value</span>
-              </summary>
-              <div v-if="!d.values.length" class="text-muted small ms-3">No values yet.</div>
-              <details v-for="v in d.values" :key="v.key" class="ms-3 mt-1">
-                <summary>
-                  {{ v.label }}
-                  <span class="text-muted small ms-2">{{ fmtHours(v.hours) }} h · {{ fmtPct(v.share) }} · {{ v.projectCount }} project{{ v.projectCount === 1 ? '' : 's' }}<span v-if="v.last"> · last {{ v.last }}</span></span>
-                  <div style="height:4px;background:#e9ecef;border-radius:2px;max-width:240px"><div :style="{ height:'4px', borderRadius:'2px', background:'var(--brand-navy, #0B1840)', width: fmtPct(v.share) }"></div></div>
-                </summary>
-                <details v-for="p in v.projects" :key="p.code" class="ms-3 mt-1">
-                  <summary>{{ p.name }} <span class="text-muted small">({{ p.code }}) · {{ fmtHours(p.hours) }} h<span v-if="p.last"> · last {{ p.last }}</span></span></summary>
-                  <ul class="ms-3 mb-1 small"><li v-for="t in p.tasks" :key="t.name">{{ t.name }} — {{ fmtHours(t.hours) }} h</li></ul>
-                </details>
-              </details>
-            </details>
+            <section v-for="d in profileTree.dimensions" :key="d.slug" class="tm-panel-card tm-dim">
+              <header class="tm-dim-head">
+                <h3 class="tm-section-title">{{ d.name }}</h3>
+                <span class="tm-muted">{{ d.values.length }} {{ d.values.length === 1 ? 'value' : 'values' }}</span>
+                <span v-if="d.untaggedHours" class="tm-dim-untagged">{{ fmtHours(d.untaggedHours) }} h on projects without a value</span>
+              </header>
+              <p v-if="!d.values.length" class="tm-dim-empty">No values yet.</p>
+              <template v-else>
+                <div class="tm-dim-grid tm-dim-colhead" aria-hidden="true">
+                  <span></span><span>VALUE</span><span>SHARE</span><span class="tm-num">HOURS</span><span class="tm-num">%</span><span class="tm-num">PROJECTS</span><span class="tm-num">LAST</span>
+                </div>
+                <template v-for="v in d.values" :key="v.key">
+                  <button type="button" class="tm-dim-grid tm-dim-row" :aria-expanded="isExpanded('dim:' + d.slug + ':' + v.key)" @click="toggleExpanded('dim:' + d.slug + ':' + v.key)">
+                    <ph-icon :name="isExpanded('dim:' + d.slug + ':' + v.key) ? 'chevron-down' : 'chevron-right'" :size="12"></ph-icon>
+                    <span class="tm-dim-label">{{ v.label }}</span>
+                    <span class="tm-share" aria-hidden="true"><span :style="{ width: fmtPct(v.share) }"></span></span>
+                    <strong class="tm-num">{{ fmtHours(v.hours) }} h</strong>
+                    <span class="tm-num">{{ fmtPct(v.share) }}</span>
+                    <span class="tm-num">{{ v.projectCount }} {{ v.projectCount === 1 ? 'project' : 'projects' }}</span>
+                    <span class="tm-num" :class="{ 'tm-recent': isRecent(v.last) }">{{ monthText(v.last) }}</span>
+                  </button>
+                  <template v-if="isExpanded('dim:' + d.slug + ':' + v.key)">
+                    <template v-for="p in v.projects" :key="p.code">
+                      <button type="button" class="tm-dim-grid tm-dim-row tm-dim-row--project" :aria-expanded="isExpanded('dim:' + d.slug + ':' + v.key + ':' + p.code)"
+                              @click="toggleExpanded('dim:' + d.slug + ':' + v.key + ':' + p.code)">
+                        <span></span>
+                        <span class="tm-dim-label tm-dim-project"><ph-icon :name="isExpanded('dim:' + d.slug + ':' + v.key + ':' + p.code) ? 'chevron-down' : 'chevron-right'" :size="12"></ph-icon>{{ p.name }} <span class="tm-code">{{ p.code }}</span></span>
+                        <strong class="tm-num">{{ fmtHours(p.hours) }} h</strong>
+                        <span></span><span></span>
+                        <span class="tm-num tm-muted">{{ monthText(p.last) }}</span>
+                      </button>
+                      <template v-if="isExpanded('dim:' + d.slug + ':' + v.key + ':' + p.code)">
+                        <div v-for="t in p.tasks" :key="t.name" class="tm-dim-grid tm-dim-row--task">
+                          <span></span><span class="tm-dim-task">{{ t.name }}</span>
+                          <span class="tm-num">{{ fmtHours(t.hours) }} h</span><span></span><span></span><span></span>
+                        </div>
+                      </template>
+                    </template>
+                  </template>
+                </template>
+              </template>
+            </section>
 
-            <details open class="mb-2">
-              <summary class="fw-semibold">Roles</summary>
-              <div v-if="!profileTree.roles.length" class="text-muted small ms-3">No roles recorded.</div>
-              <details v-for="r in profileTree.roles" :key="r.code" class="ms-3 mt-1">
-                <summary>{{ r.label }} <span class="text-muted small">({{ r.code }}) · {{ fmtHours(r.hours) }} h · {{ fmtPct(r.share) }} · {{ r.projectCount }} project{{ r.projectCount === 1 ? '' : 's' }}</span></summary>
-                <ul class="ms-3 mb-1 small"><li v-for="p in r.projects" :key="p.code">{{ p.name }} ({{ p.code }}) — {{ fmtHours(p.hours) }} h</li></ul>
-              </details>
-            </details>
-          </div>
-        </div>
+            <section class="tm-panel-card tm-dim">
+              <header class="tm-dim-head">
+                <h3 class="tm-section-title">Roles</h3>
+                <span class="tm-muted">{{ profileTree.roles.length }} {{ profileTree.roles.length === 1 ? 'value' : 'values' }}</span>
+              </header>
+              <p v-if="!profileTree.roles.length" class="tm-dim-empty">No roles recorded.</p>
+              <template v-else>
+                <div class="tm-dim-grid tm-dim-colhead" aria-hidden="true">
+                  <span></span><span>ROLE</span><span>SHARE</span><span class="tm-num">HOURS</span><span class="tm-num">%</span><span class="tm-num">PROJECTS</span><span class="tm-num">LAST</span>
+                </div>
+                <template v-for="r in profileTree.roles" :key="r.code">
+                  <button type="button" class="tm-dim-grid tm-dim-row" :aria-expanded="isExpanded('role:' + r.code)" @click="toggleExpanded('role:' + r.code)">
+                    <ph-icon :name="isExpanded('role:' + r.code) ? 'chevron-down' : 'chevron-right'" :size="12"></ph-icon>
+                    <span class="tm-dim-label">{{ r.label }} <span class="tm-code">{{ r.code }}</span></span>
+                    <span class="tm-share" aria-hidden="true"><span :style="{ width: fmtPct(r.share) }"></span></span>
+                    <strong class="tm-num">{{ fmtHours(r.hours) }} h</strong>
+                    <span class="tm-num">{{ fmtPct(r.share) }}</span>
+                    <span class="tm-num">{{ r.projectCount }} {{ r.projectCount === 1 ? 'project' : 'projects' }}</span>
+                    <span class="tm-num" :class="{ 'tm-recent': isRecent(r.last) }">{{ monthText(r.last) }}</span>
+                  </button>
+                  <template v-if="isExpanded('role:' + r.code)">
+                    <div v-for="p in r.projects" :key="p.code" class="tm-dim-grid tm-dim-row--project tm-dim-row--static">
+                      <span></span>
+                      <span class="tm-dim-label tm-dim-project">{{ p.name }} <span class="tm-code">{{ p.code }}</span></span>
+                      <strong class="tm-num">{{ fmtHours(p.hours) }} h</strong>
+                      <span></span><span></span>
+                      <span class="tm-num tm-muted">{{ monthText(p.last) }}</span>
+                    </div>
+                  </template>
+                </template>
+              </template>
+            </section>
+          </template>
+        </template>
       </div>
     </div>
 
-    <!-- ── CREATE/EDIT MODAL ────────────────────────────────── -->
-    <div class="modal fade" id="resourceModal" tabindex="-1">
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header border-0 pb-0">
-            <h5 class="modal-title fw-bold">{{ form.id ? 'Edit resource' : 'New resource' }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+    <!-- ── NEW / EDIT RESOURCE DRAWER ──────────────────────── -->
+    <div class="offcanvas offcanvas-end pd-drawer" tabindex="-1" id="resourceDrawer" aria-labelledby="resourceDrawerTitle">
+      <div class="pd-drawer-head">
+        <div>
+          <div class="pd-drawer-eyebrow">{{ form.id ? 'RESOURCE' : 'TEAM' }}</div>
+          <h2 class="pd-drawer-title" id="resourceDrawerTitle">{{ form.id ? 'Edit resource' : 'New resource' }}</h2>
+          <p class="pd-drawer-sub">{{ form.id ? "Changes apply to this resource only. Hours already attributed don't move." : "A person who works on projects. They don't need a PDash account." }}</p>
+        </div>
+        <button type="button" class="pd-drawer-close" data-bs-dismiss="offcanvas" aria-label="Close"><ph-icon name="close" :size="16"></ph-icon></button>
+      </div>
+      <form class="pd-drawer-form" @submit.prevent="submitForm" novalidate>
+        <div class="pd-drawer-body">
+          <div v-if="created" class="tm-created" role="status">
+            <span class="tm-created-icon"><ph-icon name="check" :size="18"></ph-icon></span>
+            <strong>{{ created.name }} was created</strong>
+            <p>{{ created.roleText }}. Their experience profile appears after the next background run, once actuals match their name.</p>
+            <button type="button" class="tm-link-btn tm-link-btn--underline" @click="openCreated">Open resource</button>
           </div>
-          <form @submit.prevent="submitForm" novalidate>
-            <div class="modal-body">
-              <div v-if="form.error" class="alert alert-danger alert-sm mb-3">{{ form.error }}</div>
-              <div class="row g-3">
-                <div class="col-6">
-                  <label class="form-label">First name</label>
-                  <input v-model="form.firstName" type="text" class="form-control" required>
-                </div>
-                <div class="col-6">
-                  <label class="form-label">Last name</label>
-                  <input v-model="form.lastName" type="text" class="form-control" required>
-                </div>
-                <div class="col-12">
-                  <label class="form-label">Email</label>
-                  <input v-model="form.email" type="email" class="form-control" required>
-                </div>
-                <div class="col-12">
-                  <label class="form-label">Role</label>
-                  <select v-model="form.roleId" class="form-select" required>
-                    <option value="" disabled>Select a role…</option>
-                    <option v-for="role in roles" :key="role.id" :value="role.id">{{ role.label }} ({{ role.code }})</option>
-                  </select>
-                </div>
-                <div class="col-12">
-                  <label class="form-label">Job description</label>
-                  <textarea v-model="form.jobDescription" class="form-control" rows="3"></textarea>
-                </div>
-                <div class="col-12">
-                  <label class="form-label">Linked PDash user (optional)</label>
-                  <select v-model="form.userId" class="form-select">
-                    <option :value="null">— None —</option>
-                    <option v-for="u in users" :key="u.id" :value="u.id">{{ u.first_name }} {{ u.last_name }} ({{ u.email }})</option>
-                  </select>
-                </div>
+          <template v-else>
+            <div v-if="form.error" class="pd-banner pd-banner--error mb-0" role="alert">
+              <ph-icon name="warning" :size="16"></ph-icon>
+              <div class="pd-banner-body">{{ form.error }}</div>
+            </div>
+            <div class="tm-fields">
+              <div>
+                <label class="form-label" for="resFirst">First name <span class="tm-req" aria-hidden="true">*</span></label>
+                <input id="resFirst" v-model="form.firstName" type="text" class="form-control" :class="{ 'is-invalid': form.errors.firstName }"
+                       required autocomplete="off" :aria-describedby="form.errors.firstName ? 'resFirstErr' : null">
+                <div v-if="form.errors.firstName" id="resFirstErr" class="tm-field-error">{{ form.errors.firstName }}</div>
+              </div>
+              <div>
+                <label class="form-label" for="resLast">Last name <span class="tm-req" aria-hidden="true">*</span></label>
+                <input id="resLast" v-model="form.lastName" type="text" class="form-control" :class="{ 'is-invalid': form.errors.lastName }"
+                       required autocomplete="off" :aria-describedby="form.errors.lastName ? 'resLastErr' : null">
+                <div v-if="form.errors.lastName" id="resLastErr" class="tm-field-error">{{ form.errors.lastName }}</div>
               </div>
             </div>
-            <div class="modal-footer border-0 pt-0">
-              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-              <button type="submit" class="btn btn-primary" :disabled="form.loading">
-                <span v-if="form.loading" class="spinner-border spinner-border-sm me-2"></span>
-                {{ form.id ? 'Save' : 'Create' }}
-              </button>
+            <div>
+              <label class="form-label" for="resEmail">Email <span class="tm-req" aria-hidden="true">*</span></label>
+              <input id="resEmail" v-model="form.email" type="email" class="form-control" :class="{ 'is-invalid': form.errors.email }"
+                     required autocomplete="off" :aria-describedby="form.errors.email ? 'resEmailErr' : null">
+              <div v-if="form.errors.email" id="resEmailErr" class="tm-field-error">{{ form.errors.email }}</div>
             </div>
-          </form>
+            <div>
+              <label class="form-label" for="resRole">Role <span class="tm-req" aria-hidden="true">*</span></label>
+              <select id="resRole" v-model="form.roleId" class="form-select" :class="{ 'is-invalid': form.errors.roleId }" required
+                      aria-describedby="resRoleHelp">
+                <option value="" disabled>Select a role…</option>
+                <option v-for="role in sortedRoles" :key="role.id" :value="role.id">{{ role.label }} ({{ role.code }})</option>
+              </select>
+              <div v-if="form.errors.roleId" class="tm-field-error">{{ form.errors.roleId }}</div>
+              <p class="pd-drawer-hint mt-1" id="resRoleHelp">Missing a role? Add it first in <a href="master-roles.html">Master Data → Roles &amp; rates</a>.</p>
+            </div>
+            <div>
+              <label class="form-label" for="resJob">Job description</label>
+              <textarea id="resJob" v-model="form.jobDescription" class="form-control" rows="3" placeholder="What they do, clients or areas they cover…"></textarea>
+            </div>
+            <div>
+              <label class="form-label" for="resUser">Linked PDash user <span class="tm-optional">(optional)</span></label>
+              <select id="resUser" v-model="form.userId" class="form-select" aria-describedby="resUserHelp">
+                <option :value="null">— None —</option>
+                <option v-for="u in users" :key="u.id" :value="u.id">{{ u.first_name }} {{ u.last_name }} ({{ u.email }})</option>
+              </select>
+              <p class="pd-drawer-hint mt-1" id="resUserHelp">Only if this person signs in to PDash. Most resources don't need an account.</p>
+            </div>
+          </template>
         </div>
-      </div>
+        <div class="pd-drawer-foot">
+          <template v-if="created">
+            <button type="button" class="tm-link-btn" @click="createAnother">Create another</button>
+            <button type="button" class="tm-btn-navy" data-bs-dismiss="offcanvas">Close</button>
+          </template>
+          <template v-else>
+            <button type="button" class="tm-link-btn" data-bs-dismiss="offcanvas">Cancel</button>
+            <button type="submit" class="ph-btn-primary" :disabled="form.loading">
+              <span v-if="form.loading" class="spinner-border spinner-border-sm" role="presentation"></span>{{ form.loading ? (form.id ? 'Saving…' : 'Creating…') : (form.id ? 'Save changes' : 'Create resource') }}
+            </button>
+          </template>
+        </div>
+      </form>
     </div>
 
-    <!-- Confirm -->
-    <div class="modal fade" id="confirmModal" tabindex="-1" data-bs-backdrop="static">
-      <div class="modal-dialog modal-dialog-centered" style="max-width:460px">
-        <div class="modal-content shadow-lg">
-          <div class="modal-header border-0 pb-1">
-            <h6 class="modal-title fw-bold" id="confirmModalTitle">⚠️ Confirm</h6>
-          </div>
-          <div class="modal-body pt-1">
-            <p id="confirmModalMessage" class="mb-0" style="white-space:pre-line;font-size:.92rem"></p>
-          </div>
-          <div class="modal-footer border-0 pt-2">
-            <button class="btn btn-secondary" id="confirmModalCancel" data-bs-dismiss="modal">Cancel</button>
-            <button class="btn btn-danger" id="confirmModalOk">Confirm</button>
+    <!-- ── DELETE CONFIRMATION ─────────────────────────────── -->
+    <div class="modal fade pd-confirm-modal" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalTitle">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="pd-confirm" v-if="deleteTarget">
+            <div class="pd-confirm-head">
+              <span class="pd-confirm-icon pd-confirm-icon--danger"><ph-icon name="trash" :size="16"></ph-icon></span>
+              <h2 class="pd-confirm-title" id="deleteModalTitle">Delete {{ deleteTarget.first_name }} {{ deleteTarget.last_name }}?</h2>
+              <span class="pd-tag pd-tag--danger">IRREVERSIBLE</span>
+            </div>
+            <p class="pd-confirm-text">This can't be undone. The resource and its aliases are removed, and their names go back to Unmatched names.</p>
+            <div class="pd-confirm-boxes">
+              <div class="pd-confirm-box">
+                <div class="pd-confirm-box-title pd-confirm-box-title--danger">Deleted</div>
+                <div>Resource record</div>
+                <div>{{ deleteSummaryFor.count }} {{ deleteSummaryFor.count === 1 ? 'alias' : 'aliases' }}</div>
+              </div>
+              <div class="pd-confirm-box">
+                <div class="pd-confirm-box-title pd-confirm-box-title--warn">Back to Unmatched names</div>
+                <div v-for="n in deleteSummaryFor.names" :key="n">“{{ n }}”</div>
+                <div v-if="!deleteSummaryFor.count">No aliases</div>
+              </div>
+            </div>
+            <div v-if="deleteTarget.status === 'active'" class="pd-confirm-note">
+              <ph-icon name="info" :size="16"></ph-icon>
+              <div class="pd-confirm-note-body"><strong>Has this person left?</strong> Deactivate instead: their hours stay attributed and you can reactivate later.</div>
+              <button type="button" class="pd-confirm-note-action" @click="deactivateInstead">Deactivate</button>
+            </div>
+            <label class="pd-confirm-ack">
+              <input type="checkbox" class="form-check-input mt-0" v-model="deleteAck">
+              I understand this can't be undone.
+            </label>
+            <div class="pd-confirm-foot">
+              <button type="button" class="tm-link-btn" data-bs-dismiss="modal">Cancel</button>
+              <button type="button" class="btn btn-danger" :disabled="!deleteAck" @click="confirmDelete">Delete resource</button>
+            </div>
           </div>
         </div>
       </div>
@@ -407,7 +785,7 @@
 
   <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-  <script type="module" src="js/lib/team-ui.js?v=6"></script>
+  <script type="module" src="js/lib/team-ui.js?v=7"></script>
   <script defer src="js/api.js?v=13"></script>
   <script defer src="js/core.js?v=16"></script>
   <script type="module" src="js/lib/notif-browser.js?v=2"></script>
@@ -419,6 +797,24 @@
     // approach as pipeline.html's _pbDetailOutsideClickHandler.
     let detailOutsideHandler = null;
     let detailKeyHandler = null;
+    let menuTrigger = null;     // the ⋯ button of the open row menu (focus returns to it)
+    let deleteModal = null;
+    let resourceDrawer = null;
+    let drawerOpener = null;    // focus returns here when the New/Edit drawer closes
+    let deleteOpener = null;    // focus returns here when the Delete modal closes
+
+    // Icons js/lib/icons.js does not have (16×16, stroke = currentColor).
+    const TM_ICONS = {
+      link: '<path d="M6.8 9.2a2.6 2.6 0 0 0 3.7 0l2.2-2.2a2.6 2.6 0 0 0-3.7-3.7l-.9.9M9.2 6.8a2.6 2.6 0 0 0-3.7 0L3.3 9a2.6 2.6 0 0 0 3.7 3.7l.9-.9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+      unlink: '<path d="M9.5 4.2l.6-.6a2.6 2.6 0 0 1 3.7 3.7l-.6.6M6.5 11.8l-.6.6a2.6 2.6 0 0 1-3.7-3.7l.6-.6M5 2.5v1.5M2.5 5H4M11 13.5V12M13.5 11H12" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+      ban: '<circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.4"/><path d="M4.1 11.9L11.9 4.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+      power: '<path d="M8 2v5.5M4.7 4.6a5 5 0 1 0 6.6 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+    };
+    const TmIcon = {
+      props: { name: { type: String, required: true }, size: { type: Number, default: 16 } },
+      template: `<svg class="pd-icon" :width="size" :height="size" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false" v-html="paths"></svg>`,
+      computed: { paths() { return TM_ICONS[this.name] || ''; } },
+    };
 
     const app = Vue.createApp({
       data() {
@@ -432,7 +828,12 @@
           unmatched: [],
           aliases: [],
           assignChoice: {},
-          unmatchedError: null,
+          unmatchedBanner: null,      // { kind: 'success' | 'error', strong?, text } — the drawer's section banner
+          resolvedThisSession: 0,     // Assign/Ignore successes since the page loaded
+          aliasFilterText: '',
+          aliasResolves: 'any',
+          busyAliasIds: new Set(),
+          busyUnmatched: {},          // name_normalized → 'assign' | 'ignore' while its POST runs
           unmatchedFilterText: '',
           unmatchedSortKey: 'hours',
           unmatchedSortDir: 'desc',
@@ -440,31 +841,62 @@
           expandedProjects: new Set(),
           rescanning: false,
           filterText: '',
-          showInactive: false,
-          globalError: null,
+          statusFilter: 'active',
+          roleFilter: '',
+          linkedFilter: 'any',
+          statusFilters: [
+            { val: 'active', label: 'Active', count: 'active' },
+            { val: 'inactive', label: 'Inactive', count: 'inactive' },
+            { val: 'all', label: 'All', count: 'total' },
+          ],
+          banner: null,               // { kind: 'success' | 'error', text }
+          menuOpenId: null,
+          menuUp: false,
+          deleteTarget: null,
+          deleteAck: false,
+          authed: false,
+          unmatchedView: 'queue',
           form: this.blankForm(),
-          _resourceModal: null,
-          pageTab: 'team',
+          created: null,              // { id, name, roleText } after a successful create
           teamPage: 1,
           sortKey: 'name',
           sortDir: 'asc',
           selectedId: null,
           detailTab: 'details',
+          aliasesOpen: false,         // the panel's Aliases section, closed on every open
+          expanded: new Set(),        // open profile rows: dim:slug:value, dim:slug:value:code, role:code
           profileLoading: false,
           profileError: null,
           profileData: null,          // { profile, profile_computed_at } for the open resource
         };
       },
       computed: {
+        counts() { return window.resourceCounts(this.resources); },
+        deleteSummaryFor() { return window.deleteSummary(this.deleteTarget, this.aliases); },
         filteredResources() {
-          const q = this.filterText.trim().toLowerCase();
-          return this.resources.filter(r => {
-            if (!this.showInactive && r.status !== 'active') return false;
-            if (!q) return true;
-            const hay = `${r.first_name} ${r.last_name} ${r.email} ${r.role_label} ${r.role_code}`.toLowerCase();
-            return hay.includes(q);
+          return window.filterResources(this.resources, {
+            status: this.statusFilter, roleId: this.roleFilter, linked: this.linkedFilter, text: this.filterText,
           });
         },
+        extraFilterCount() { return (this.roleFilter ? 1 : 0) + (this.linkedFilter !== 'any' ? 1 : 0); },
+        sortedRoles() { return this.roles.slice().sort((a, b) => String(a.label).localeCompare(String(b.label))); },
+        pageRange() {
+          const { page, pageItems } = this.pagedResources;
+          const start = (page - 1) * 25 + 1;
+          return `${start}–${start + pageItems.length - 1} of ${this.filteredResources.length}`;
+        },
+        filterSummary() {
+          const parts = [`Status: ${this.statusFilters.find(f => f.val === this.statusFilter).label}`];
+          if (this.roleFilter) {
+            const role = this.roles.find(r => r.id === this.roleFilter);
+            parts.push(`Role: ${role ? role.label : '—'}`);
+          }
+          if (this.linkedFilter !== 'any') parts.push(`PDash user: ${this.linkedFilter === 'linked' ? 'Linked' : 'Not linked'}`);
+          if (this.filterText.trim()) parts.push(`Search: "${this.filterText.trim()}"`);
+          return parts.join(' · ');
+        },
+        unmatchedHours() { return this.unmatched.reduce((sum, u) => sum + (Number(u.hours) || 0), 0); },
+        unmatchedAmbiguous() { return this.unmatched.filter(u => u.candidate_resource_ids && u.candidate_resource_ids.length > 0).length; },
         sortedResources() {
           return window.sortResources(this.filteredResources, this.sortKey, this.sortDir);
         },
@@ -482,6 +914,14 @@
         pagedUnmatched() {
           return window.paginate(this.sortedUnmatched, this.unmatchedPage, 25);
         },
+        unmatchedRange() {
+          const { page, pageItems } = this.pagedUnmatched;
+          const start = (page - 1) * 25 + 1;
+          return `${start}–${start + pageItems.length - 1} of ${this.filteredUnmatched.length}`;
+        },
+        maxUnmatchedHours() { return this.unmatched.reduce((m, u) => Math.max(m, Number(u.hours) || 0), 0); },
+        progress() { return window.sessionProgress(this.resolvedThisSession, this.unmatched.length); },
+        aliasList() { return window.aliasRows(this.aliases, this.resources, { text: this.aliasFilterText, resolves: this.aliasResolves }); },
         // Looked up in `resources` (not the filtered/sorted list) so the panel follows reloads and
         // is independent of the search box.
         selectedResource() {
@@ -493,21 +933,35 @@
         profileTree() {
           return this.profileData ? window.buildProfileTree(this.profileData.profile, this.roles) : null;
         },
+        // Direct-experience topics by hours, and the two strongest (highlighted).
+        directTopics() {
+          if (!this.profileTree) return [];
+          return this.profileTree.topicGroups.direct.slice().sort((a, b) => b.directHours - a.directHours || a.name.localeCompare(b.name));
+        },
+        topTopics() {
+          return window.topTopicIds(this.directTopics.map(t => ({ id: t.id, name: t.name, hours: t.directHours })));
+        },
       },
       watch: {
         detailTab(tab) { if (tab === 'profile') this.loadProfile(); },
         selectedId() {
           this.profileData = null;
           this.profileError = null;
+          this.aliasesOpen = false;
+          this.expanded = new Set();
           if (this.selectedId && this.detailTab === 'profile') this.loadProfile();
         },
         // The open resource vanished (deleted, or reloaded away): don't leave a stale, empty panel.
         selectedResource(now) { if (this.selectedId && !now) this.closeDetail(); },
         filterText() { this.teamPage = 1; },
-        showInactive() { this.teamPage = 1; },
+        statusFilter() { this.teamPage = 1; },
+        roleFilter() { this.teamPage = 1; },
+        linkedFilter() { this.teamPage = 1; },
         sortKey() { this.teamPage = 1; },
         sortDir() { this.teamPage = 1; },
-        sortedUnmatched() { this.unmatchedPage = 1; },
+        unmatchedFilterText() { this.unmatchedPage = 1; },
+        unmatchedSortKey() { this.unmatchedPage = 1; },
+        unmatchedSortDir() { this.unmatchedPage = 1; },
       },
       async created() {
         const user = await initNav('team', { breadcrumbs: [
@@ -517,19 +971,36 @@
         if (!user) return;
         this.me = user;
         if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
-        // Sequential, not Promise.all: each loader writes to the shared globalError on
-        // failure, and running them concurrently would let a later success/failure
-        // silently overwrite an earlier one's error message.
-        const loadErrors = [];
-        await this.loadResources(); if (this.globalError) { loadErrors.push(this.globalError); this.globalError = null; }
-        await this.loadRoles(); if (this.globalError) { loadErrors.push(this.globalError); this.globalError = null; }
-        await this.loadUsers(); if (this.globalError) { loadErrors.push(this.globalError); this.globalError = null; }
+        this.authed = true;
+        // Each loader returns its error message (or null); they are joined into one banner.
+        const loadErrors = (await Promise.all([this.loadResources(), this.loadRoles(), this.loadUsers()])).filter(Boolean);
         await this.loadUnmatched();
-        if (loadErrors.length) this.globalError = loadErrors.join(' ');
+        if (loadErrors.length) this.setBanner('error', loadErrors.join(' '));
         this.ready = true;
       },
       mounted() {
-        this._resourceModal = new bootstrap.Modal(document.getElementById('resourceModal'));
+        const drawerEl = document.getElementById('resourceDrawer');
+        resourceDrawer = new bootstrap.Offcanvas(drawerEl);
+        drawerEl.addEventListener('shown.bs.offcanvas', () => document.getElementById('resFirst')?.focus());
+        drawerEl.addEventListener('hidden.bs.offcanvas', () => {
+          this.created = null;
+          if (drawerOpener && document.contains(drawerOpener)) drawerOpener.focus();
+          drawerOpener = null;
+        });
+        this._unmatchedDrawer = new bootstrap.Offcanvas(document.getElementById('unmatchedDrawer'));
+        deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+        document.getElementById('deleteModal').addEventListener('hidden.bs.modal', () => {
+          this.deleteTarget = null;
+          if (deleteOpener && document.contains(deleteOpener)) deleteOpener.focus();
+          deleteOpener = null;
+        });
+        // Row menu: Esc closes it (focus back to ⋯), a press outside closes it.
+        document.addEventListener('keydown', ev => {
+          if (ev.key === 'Escape' && this.menuOpenId) { ev.stopImmediatePropagation(); this.closeMenu(true); }
+        }, true);
+        document.addEventListener('mousedown', ev => {
+          if (this.menuOpenId && !ev.target.closest('.pd-row-menu-wrap')) this.closeMenu(false);
+        });
       },
       methods: {
         async loadProfile() {
@@ -541,7 +1012,7 @@
             const res = await fetch(`/api/resources/${id}/profile`, { credentials: 'same-origin' });
             const data = await res.json();
             if (id !== this.selectedId) return;            // the panel moved on while we waited
-            if (!res.ok) { this.profileError = data.error || 'Failed to load the profile.'; return; }
+            if (!res.ok) { this.profileError = data.error || 'The server returned an error.'; return; }
             this.profileData = data;
           } catch {
             if (id === this.selectedId) this.profileError = 'Network error.';
@@ -551,24 +1022,55 @@
         },
         fmtHours(h) { return (Math.round((Number(h) || 0) * 100) / 100).toLocaleString('en-US'); },
         fmtPct(share) { return `${Math.round((Number(share) || 0) * 100)}%`; },
-        fmtWhen(iso) { return iso ? new Date(iso).toLocaleString() : '—'; },
-        setPageTab(tab) {
-          this.closeDetail();
-          this.pageTab = tab;
+        monthText(ym) { return window.profileMonthText(ym); },
+        profileCalcText(iso) { return window.profileCalcText(iso); },
+        isRecent(ym) { return window.isRecentMonth(ym); },
+        isExpanded(key) { return this.expanded.has(key); },
+        toggleExpanded(key) {
+          if (this.expanded.has(key)) this.expanded.delete(key);
+          else this.expanded.add(key);
+        },
+        // Opens the Unmatched names drawer on the queue or on the Existing aliases view.
+        openUnmatched(view) {
+          this.unmatchedView = view === 'aliases' ? 'aliases' : 'queue';
+          this._unmatchedDrawer.show();
+        },
+        setBanner(kind, text) { this.banner = { kind, text }; },
+        clearBanner() { this.banner = null; },
+        clearFilters() {
+          this.statusFilter = 'active';
+          this.roleFilter = '';
+          this.linkedFilter = 'any';
+          this.filterText = '';
+        },
+        initials(r) { return `${(r.first_name || '').charAt(0)}${(r.last_name || '').charAt(0)}`.toUpperCase(); },
+        ariaSort(key) {
+          if (this.sortKey !== key) return 'none';
+          return this.sortDir === 'asc' ? 'ascending' : 'descending';
+        },
+        sortGlyph(key) {
+          if (this.sortKey !== key) return '↕';
+          return this.sortDir === 'asc' ? '↑' : '↓';
         },
         openDetail(r) {
+          if (r.id === this.selectedId) return;          // already open: no reset, no flicker
           this.selectedId = r.id;
           this.detailTab = 'details';
+          this.$nextTick(() => document.getElementById('resourcePanelTitle')?.focus());
           this.removeDetailHandlers();
           const outside = (e) => {
             const panel = document.getElementById('resourceDetailPanel');
             if (!panel || panel.contains(e.target)) return;
-            // Modals opened from the panel (Edit, Confirm) live outside it in the DOM.
-            if (e.target.closest('.modal') || e.target.classList.contains('modal-backdrop')) return;
+            // Drawers and modals opened from the panel live outside it in the DOM.
+            if (e.target.closest('.modal, .offcanvas') || e.target.classList.contains('modal-backdrop')
+                || e.target.classList.contains('offcanvas-backdrop')) return;
+            // A row click switches the panel to that row (or keeps it): closing first would flicker.
+            if (e.target.closest('.tm-row')) return;
             this.closeDetail();
           };
           const onKey = (e) => {
-            if (e.key === 'Escape' && !document.querySelector('.modal.show')) this.closeDetail();
+            // Esc closes only the topmost layer: a drawer or modal above the panel handles it itself.
+            if (e.key === 'Escape' && !document.querySelector('.modal.show, .offcanvas.show')) this.closeDetail();
           };
           detailOutsideHandler = outside;
           detailKeyHandler = onKey;
@@ -596,194 +1098,302 @@
           if (this.sortKey === key) this.sortDir = this.sortDir === 'asc' ? 'desc' : 'asc';
           else { this.sortKey = key; this.sortDir = 'asc'; }
         },
-        sortIndicator(key) {
-          return this.sortKey === key ? (this.sortDir === 'asc' ? '▲' : '▼') : '';
-        },
         unmatchedSortBy(key) {
           if (this.unmatchedSortKey === key) this.unmatchedSortDir = this.unmatchedSortDir === 'asc' ? 'desc' : 'asc';
-          else { this.unmatchedSortKey = key; this.unmatchedSortDir = 'asc'; }
+          else { this.unmatchedSortKey = key; this.unmatchedSortDir = key === 'name' ? 'asc' : 'desc'; }
         },
-        unmatchedSortIndicator(key) {
-          return this.unmatchedSortKey === key ? (this.unmatchedSortDir === 'asc' ? '▲' : '▼') : '';
+        unmatchedAriaSort(key) {
+          if (this.unmatchedSortKey !== key) return 'none';
+          return this.unmatchedSortDir === 'asc' ? 'ascending' : 'descending';
+        },
+        unmatchedSortGlyph(key) {
+          if (this.unmatchedSortKey !== key) return '↕';
+          return this.unmatchedSortDir === 'asc' ? '↑' : '↓';
         },
         toggleProjects(u) {
           const key = u.name_normalized;
           if (this.expandedProjects.has(key)) this.expandedProjects.delete(key);
           else this.expandedProjects.add(key);
         },
-        // "Project name (CODE)", alphabetical by name — friendlier than bare project codes.
-        formatProjectList(u) {
-          return (u.project_list || [])
-            .slice()
-            .sort((a, b) => a.name.localeCompare(b.name))
-            .map(p => `${p.name} (${p.code})`)
-            .join(', ');
+        // "Project name (CODE)", alphabetical by name.
+        sortedProjects(u) {
+          return (u.project_list || []).slice().sort((a, b) => String(a.name).localeCompare(String(b.name)));
         },
+        isAmbiguous(u) { return !!(u.candidate_resource_ids && u.candidate_resource_ids.length); },
+        // The matcher falls back to inactive namesakes only when no active resource has the name.
+        ambiguousText(u) {
+          const ids = new Set(u.candidate_resource_ids || []);
+          const found = this.resources.filter(r => ids.has(r.id));
+          const kind = found.length && found.every(r => r.status !== 'active') ? 'inactive' : 'active';
+          return `${ids.size} ${kind} resources share this name. Pick the right one.`;
+        },
+        hoursBarPct(h) { return window.hoursBarPct(h, this.maxUnmatchedHours); },
+        candidateChipsFor(u) { return window.candidateChips(u, this.resources); },
         blankForm() {
           return { id: null, firstName: '', lastName: '', email: '', roleId: '',
-                    jobDescription: '', userId: null, status: 'active', loading: false, error: null };
+                    jobDescription: '', userId: null, status: 'active', loading: false, error: null, errors: {} };
         },
+        // Loaders return an error message, or null on success.
         async loadResources() {
-          this.globalError = null;
           try {
             const res = await fetch('/api/resources', { credentials: 'same-origin' });
             const data = await res.json();
-            if (!res.ok) { this.globalError = data.error || 'Failed to load resources.'; return; }
+            if (!res.ok) return data.error || 'Failed to load resources.';
             this.resources = data;
+            return null;
           } catch {
-            this.globalError = 'Network error.';
+            return 'Network error.';
           }
         },
         async loadRoles() {
-          this.globalError = null;
           try {
             const res = await fetch('/api/roles', { credentials: 'same-origin' });
             const data = await res.json();
-            if (!res.ok) { this.globalError = data.error || 'Failed to load roles.'; return; }
+            if (!res.ok) return data.error || 'Failed to load roles.';
             this.roles = data;
+            return null;
           } catch {
-            this.globalError = 'Network error.';
+            return 'Network error.';
           }
         },
         async loadUsers() {
-          this.globalError = null;
           try {
             const res = await fetch('/api/users/active-list', { credentials: 'same-origin' });
             const data = await res.json();
-            if (!res.ok) { this.globalError = data.error || 'Failed to load users.'; return; }
+            if (!res.ok) return data.error || 'Failed to load users.';
             this.users = data;
+            return null;
           } catch {
-            this.globalError = 'Network error.';
+            return 'Network error.';
           }
         },
 
+        // Errors go to the drawer's own section banner, separate from the page one.
         async loadUnmatched() {
-          this.unmatchedError = null;
           try {
             const [uRes, aRes] = await Promise.all([
               fetch('/api/resources/unmatched', { credentials: 'same-origin' }),
               fetch('/api/resources/aliases', { credentials: 'same-origin' }),
             ]);
             const [u, a] = [await uRes.json(), await aRes.json()];
-            if (!uRes.ok || !aRes.ok) { this.unmatchedError = (u && u.error) || (a && a.error) || 'Failed to load unmatched names.'; return; }
+            if (!uRes.ok || !aRes.ok) { this.setUnmatchedError((u && u.error) || (a && a.error) || 'Failed to load unmatched names.'); return false; }
             this.unmatched = u;
             this.aliases = a;
+            return true;
           } catch {
-            this.unmatchedError = 'Network error.';
+            this.setUnmatchedError('Network error.');
+            return false;
           }
         },
-        // Ambiguous candidates first, then the other active resources, then inactive ones (a
-        // leaver's historical actuals can only belong to an inactive resource, and the API
-        // accepts an alias to one — the automatic match ignores them, an explicit alias doesn't).
-        assignOptions(u) {
-          const cand = new Set(u.candidate_resource_ids || []);
-          const active = this.resources.filter(r => r.status === 'active');
-          const inactive = this.resources.filter(r => r.status !== 'active');
-          return [...active.filter(r => cand.has(r.id)), ...active.filter(r => !cand.has(r.id)), ...inactive];
-        },
+        setUnmatchedError(text) { this.unmatchedBanner = { kind: 'error', text }; },
+        // Grouped for the Assign to combo: same-name candidates (inactive ones when the matcher fell
+        // back to them), the other active resources, then the other inactive ones (a leaver's
+        // historical actuals can only belong to an inactive resource, and the API accepts an alias to one).
         comboOptions(u) {
-          return this.assignOptions(u).map(r => ({
+          const cand = new Set(u.candidate_resource_ids || []);
+          const opt = r => ({
             id: r.id,
             label: `${r.first_name} ${r.last_name}${r.status === 'active' ? '' : ' (inactive)'}`,
-          }));
+            hint: r.role_code,
+          });
+          const others = this.resources.filter(r => !cand.has(r.id));
+          const groups = [
+            ['Same name · candidates', this.resources.filter(r => cand.has(r.id))],
+            ['Active resources', others.filter(r => r.status === 'active')],
+            ['Inactive', others.filter(r => r.status !== 'active')],
+          ];
+          return groups.filter(([, list]) => list.length).flatMap(([group, list]) => [{ group }, ...list.map(opt)]);
         },
-        async postAlias(u, body) {
-          u._loading = true;
-          this.unmatchedError = null;
+        // Busy state is keyed by name: the queue reload replaces the row objects mid-request.
+        async postAlias(u, body, action) {
+          const key = u.name_normalized;
+          if (this.busyUnmatched[key]) return;
+          this.busyUnmatched[key] = action;
+          this.unmatchedBanner = null;
+          const resource = body.resourceId ? this.resources.find(r => r.id === body.resourceId) : null;
           try {
             const res = await fetch('/api/resources/aliases', {
               method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
               body: JSON.stringify({ name: u.display_name, ...body }),
             });
             const data = await res.json();
-            if (!res.ok) { this.unmatchedError = data.error || 'Save failed'; return; }
+            if (!res.ok) { this.setUnmatchedError(data.error || 'Save failed.'); return; }
             delete this.assignChoice[u.name_normalized];
-            await this.loadUnmatched();
+            this.resolvedThisSession++;
+            const reloaded = await this.loadUnmatched();
+            if (!reloaded) return;
+            this.unmatchedBanner = action === 'ignore'
+              ? { kind: 'success', strong: `"${u.display_name}" ignored.`, text: 'Stored as an ignored alias.' }
+              : { kind: 'success',
+                  strong: `"${u.display_name}" assigned to ${resource ? `${resource.first_name} ${resource.last_name} (${resource.role_code})` : 'the resource'}.`,
+                  text: 'Removed from the queue. Their profile updates in the next background run.' };
           } catch {
-            this.unmatchedError = 'Network error.';
+            this.setUnmatchedError('Network error.');
           } finally {
-            u._loading = false;
+            delete this.busyUnmatched[key];
           }
         },
         assign(u) {
           const resourceId = this.assignChoice[u.name_normalized];
           if (!resourceId) return;
-          return this.postAlias(u, { resourceId });
+          return this.postAlias(u, { resourceId }, 'assign');
         },
-        ignoreName(u) { return this.postAlias(u, { ignore: true }); },
+        ignoreName(u) { return this.postAlias(u, { ignore: true }, 'ignore'); },
+        // No confirmation, as before. Busy state is tracked by id: the aliases view renders copies.
         async removeAlias(a) {
-          a._loading = true;
-          this.unmatchedError = null;
+          this.busyAliasIds.add(a.id);
+          this.unmatchedBanner = null;
           try {
             const res = await fetch(`/api/resources/aliases/${a.id}`, { method: 'DELETE', credentials: 'same-origin' });
             const data = await res.json();
-            if (!res.ok) { this.unmatchedError = data.error || 'Remove failed'; return; }
+            if (!res.ok) { this.setUnmatchedError(data.error || 'Remove failed.'); return; }
             await this.loadUnmatched();
           } catch {
-            this.unmatchedError = 'Network error.';
+            this.setUnmatchedError('Network error.');
           } finally {
-            a._loading = false;
+            this.busyAliasIds.delete(a.id);
           }
         },
         async rescan() {
           this.rescanning = true;
-          this.unmatchedError = null;
+          this.unmatchedBanner = null;
           try {
             const res = await fetch('/api/resources/unmatched/rescan', { method: 'POST', credentials: 'same-origin' });
             const data = await res.json();
-            if (!res.ok) { this.unmatchedError = data.error || 'Rescan failed'; return; }
+            if (!res.ok) { this.setUnmatchedError(data.error || 'Rescan failed.'); return; }
             await this.loadUnmatched();
           } catch {
-            this.unmatchedError = 'Network error.';
+            this.setUnmatchedError('Network error.');
           } finally {
             this.rescanning = false;
           }
         },
 
+        // ── New / Edit drawer ──
         openCreate() {
           this.form = this.blankForm();
-          this._resourceModal.show();
+          this.created = null;
+          drawerOpener = document.activeElement;
+          resourceDrawer.show();
         },
         openEdit(r) {
           this.form = {
+            ...this.blankForm(),
             id: r.id, firstName: r.first_name, lastName: r.last_name, email: r.email,
-            roleId: r.role_id,
-            jobDescription: r.job_description || '', userId: r.user_id, status: r.status,
-            loading: false, error: null,
+            roleId: r.role_id, jobDescription: r.job_description || '', userId: r.user_id, status: r.status,
           };
-          this._resourceModal.show();
+          this.created = null;
+          drawerOpener = document.activeElement;
+          resourceDrawer.show();
         },
-
+        // The four fields the API requires on create (PATCH refuses the first three empty).
+        validateForm() {
+          const f = this.form;
+          const errors = {};
+          if (!String(f.firstName || '').trim()) errors.firstName = 'First name is required.';
+          if (!String(f.lastName || '').trim()) errors.lastName = 'Last name is required.';
+          if (!String(f.email || '').trim()) errors.email = 'Email is required.';
+          if (!f.roleId) errors.roleId = 'Role is required.';
+          f.errors = errors;
+          const first = Object.values(errors)[0];
+          // The box repeats the first field message; the Role one also says where roles come from (13ag).
+          f.error = first === errors.roleId && first
+            ? 'Role is required. Pick one from the list, or add it in Master Data first.'
+            : (first || null);
+          return !first;
+        },
         async submitForm() {
+          if (!this.validateForm()) return;
           this.form.loading = true;
-          this.form.error = null;
-          if (!this.form.roleId) { this.form.error = 'Role is required'; this.form.loading = false; return; }
           const payload = {
             firstName: this.form.firstName, lastName: this.form.lastName, email: this.form.email,
             roleId: this.form.roleId, jobDescription: this.form.jobDescription, userId: this.form.userId,
           };
+          const editing = !!this.form.id;
           try {
-            const url = this.form.id ? `/api/resources/${this.form.id}` : '/api/resources';
-            const method = this.form.id ? 'PATCH' : 'POST';
+            const url = editing ? `/api/resources/${this.form.id}` : '/api/resources';
+            const method = editing ? 'PATCH' : 'POST';
             const res = await fetch(url, {
               method, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
               body: JSON.stringify(payload),
             });
             const data = await res.json();
-            if (!res.ok) { this.form.error = data.error || 'Save failed'; return; }
-            this._resourceModal.hide();
-            await this.loadResources();
+            if (!res.ok) { this.form.error = data.error || 'Save failed.'; return; }
+            const err = await this.loadResources();
             await this.loadUnmatched();
+            if (editing) {
+              resourceDrawer.hide();
+              this.setBanner(err ? 'error' : 'success', err || 'Changes saved.');
+            } else {
+              const role = this.roles.find(x => x.id === payload.roleId);
+              this.created = {
+                id: data.id,
+                name: `${data.first_name} ${data.last_name}`,
+                roleText: role ? `${role.label} (${role.code})` : '',
+              };
+              if (err) this.setBanner('error', err);
+            }
           } catch {
             this.form.error = 'Network error. Please try again.';
           } finally {
             this.form.loading = false;
           }
         },
+        // Empties the form for the next person, keeping the last role.
+        createAnother() {
+          const roleId = this.form.roleId;
+          this.form = { ...this.blankForm(), roleId };
+          this.created = null;
+          this.$nextTick(() => document.getElementById('resFirst')?.focus());
+        },
+        openCreated() {
+          const r = this.created && this.resources.find(x => x.id === this.created.id);
+          drawerOpener = null;
+          resourceDrawer.hide();
+          if (r) this.openDetail(r);
+        },
+
+        // ── Row menu ──
+        // The popover opens upwards when it would not fit between the button and the viewport bottom.
+        openMenu(r, ev) {
+          if (this.menuOpenId === r.id) { this.closeMenu(true); return; }
+          menuTrigger = ev.currentTarget;
+          this.menuUp = menuTrigger.getBoundingClientRect().bottom + 240 > window.innerHeight;
+          this.menuOpenId = r.id;
+          this.$nextTick(() => {
+            const first = document.querySelector('.pd-row-menu [role="menuitem"]');
+            if (first) first.focus();
+          });
+        },
+        closeMenu(returnFocus) {
+          this.menuOpenId = null;
+          if (returnFocus && menuTrigger) menuTrigger.focus();
+        },
+        onMenuKey(ev) {
+          if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') return;
+          ev.preventDefault();
+          const items = [...ev.currentTarget.querySelectorAll('[role="menuitem"]')];
+          const at = items.indexOf(document.activeElement);
+          const step = ev.key === 'ArrowDown' ? 1 : -1;
+          items[(at + step + items.length) % items.length].focus();
+        },
+        // The menu closes before the action starts. The chosen item is removed with the menu, so
+        // focus goes back to ⋯ and the drawer or modal returns it there.
+        runMenu(r, action) {
+          this.closeMenu(true);
+          if (action === 'edit') this.openEdit(r);
+          else if (action === 'status') this.toggleStatus(r);
+          else if (action === 'delete') this.askDelete(r);
+        },
+        aliasCountText(r) {
+          const n = window.deleteSummary(r, this.aliases).count;
+          return `${n} ${n === 1 ? 'alias' : 'aliases'}`;
+        },
 
         async toggleStatus(r) {
           r._loading = true;
-          this.globalError = null;
+          this.clearBanner();
+          const name = `${r.first_name} ${r.last_name}`;
           try {
             const newStatus = r.status === 'active' ? 'inactive' : 'active';
             const res = await fetch(`/api/resources/${r.id}`, {
@@ -791,30 +1401,50 @@
               body: JSON.stringify({ status: newStatus }),
             });
             const data = await res.json();
-            if (!res.ok) { this.globalError = data.error; return; }
+            if (!res.ok) { this.setBanner('error', data.error || 'Save failed.'); return; }
             r.status = data.status;
+            this.setBanner('success', data.status === 'active'
+              ? `${name} was activated.`
+              : `${name} was deactivated. Their hours and aliases stay attributed. Find them under Inactive.`);
             await this.loadUnmatched();
           } catch {
-            this.globalError = 'Network error.';
+            this.setBanner('error', 'Network error.');
           } finally {
             r._loading = false;
           }
         },
 
-        confirmDelete(r) {
-          showConfirm(`Delete resource "${r.first_name} ${r.last_name}"?\n\nThis cannot be undone.`, () => this.deleteResource(r));
+        // ── Delete ──
+        askDelete(r) {
+          deleteOpener = document.activeElement;
+          this.deleteTarget = r;
+          this.deleteAck = false;
+          deleteModal.show();
+        },
+        confirmDelete() {
+          if (!this.deleteAck || !this.deleteTarget) return;
+          const r = this.deleteTarget;
+          deleteModal.hide();
+          this.deleteResource(r);
+        },
+        deactivateInstead() {
+          const r = this.deleteTarget;
+          deleteModal.hide();
+          if (r && r.status === 'active') this.toggleStatus(r);
         },
         async deleteResource(r) {
           r._loading = true;
-          this.globalError = null;
+          this.clearBanner();
+          const name = `${r.first_name} ${r.last_name}`;
           try {
             const res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE', credentials: 'same-origin' });
             const data = await res.json();
-            if (!res.ok) { this.globalError = data.error; return; }
-            await this.loadResources();
+            if (!res.ok) { this.setBanner('error', data.error || 'Delete failed.'); return; }
+            this.setBanner('success', `${name} was deleted.`);
+            const err = await this.loadResources(); if (err) this.setBanner('error', err);
             await this.loadUnmatched();
           } catch {
-            this.globalError = 'Network error.';
+            this.setBanner('error', 'Network error.');
           } finally {
             r._loading = false;
           }
@@ -823,29 +1453,43 @@
     });
 
     // Searchable select (no library, no build step). Option order is decided by the caller.
-    // Index 0 in the list is the "— none —" entry; visible options are 1..n.
+    // options: [{ id, label, hint? }] plus non-selectable group headers { group }. Index 0 of the
+    // keyboard cursor is the "— none —" entry; selectable options are 1..n (headers are skipped).
     app.component('combo-select', {
       props: {
         options: { type: Array, default: () => [] },
         modelValue: { default: undefined },
         placeholder: { type: String, default: 'Select…' },
         disabled: { type: Boolean, default: false },
+        ariaLabel: { type: String, default: null },
       },
       emits: ['update:modelValue'],
       data() { return { open: false, query: '', active: 0 }; },
       computed: {
-        selectedLabel() {
-          const o = this.options.find(o => o.id === this.modelValue);
-          return o ? o.label : '';
+        items() { return this.options.filter(o => !o.group); },
+        selected() { return this.items.find(o => o.id === this.modelValue) || null; },
+        // Filtered options with their group headers; a header with no option left under it is dropped.
+        rows() {
+          const keep = new Set(window.filterComboOptions(this.items, this.query));
+          const out = [];
+          let header = null;
+          let n = 0;
+          for (const o of this.options) {
+            if (o.group) { header = o; continue; }
+            if (!keep.has(o)) continue;
+            if (header) { out.push({ key: 'g:' + header.group, group: header.group }); header = null; }
+            out.push({ key: o.id, opt: o, idx: ++n });
+          }
+          return out;
         },
-        visible() { return window.filterComboOptions(this.options, this.query); },
+        visible() { return this.rows.filter(r => r.opt).map(r => r.opt); },
       },
       methods: {
         openList() {
           if (this.disabled || this.open) return;
           this.open = true;
           this.query = '';
-          const idx = this.options.findIndex(o => o.id === this.modelValue);
+          const idx = this.items.findIndex(o => o.id === this.modelValue);
           this.active = idx >= 0 ? idx + 1 : 0;
           document.addEventListener('mousedown', this.onDocDown);
         },
@@ -856,7 +1500,7 @@
         },
         scrollActive() {
           this.$nextTick(() => {
-            const el = this.$refs.list && this.$refs.list.querySelector('.active');
+            const el = this.$refs.list && this.$refs.list.querySelector('.is-active');
             if (el) el.scrollIntoView({ block: 'nearest' });
           });
         },
@@ -886,29 +1530,44 @@
             if (this.active > this.visible.length) return;
             this.pick(this.active === 0 ? null : this.visible[this.active - 1]);
           } else if (e.key === 'Escape' && this.open) {
+            // Only the list closes: the drawer around it must not see this Esc.
             e.preventDefault();
+            e.stopPropagation();
             this.closeList();
           }
         },
       },
       beforeUnmount() { document.removeEventListener('mousedown', this.onDocDown); },
       template: `
-        <div class="position-relative" style="min-width:220px">
-          <input type="text" class="form-control form-control-sm" autocomplete="off"
+        <div class="tm-combo" :class="{ 'is-open': open }">
+          <input type="text" class="tm-combo-input" autocomplete="off" role="combobox" :aria-expanded="open" :aria-label="ariaLabel"
                  :placeholder="placeholder" :disabled="disabled"
-                 :value="open ? query : selectedLabel"
+                 :value="open ? query : (selected ? selected.label : '')"
                  @focus="openList" @blur="closeList" @click="openList" @input="onInput" @keydown="onKey">
-          <ul v-if="open" ref="list" @mousedown.prevent class="list-group position-absolute w-100 shadow-sm"
-              style="z-index:1050;max-height:240px;overflow-y:auto;top:100%">
-            <li class="list-group-item list-group-item-action py-1 small text-muted" :class="{ active: active === 0 }"
-                @mousedown.prevent="pick(null)">— none —</li>
-            <li v-for="(o, i) in visible" :key="o.id" class="list-group-item list-group-item-action py-1 small"
-                :class="{ active: active === i + 1 }" @mousedown.prevent="pick(o)">{{ o.label }}</li>
-            <li v-if="!visible.length" class="list-group-item py-1 small text-muted">No matches</li>
-          </ul>
+          <span v-if="selected && !open && selected.hint" class="tm-combo-hint" aria-hidden="true">{{ selected.hint }}</span>
+          <ph-icon class="tm-combo-chevron" name="chevron-down" :size="14"></ph-icon>
+          <div v-if="open" class="tm-combo-menu" @mousedown.prevent>
+            <ul ref="list" class="tm-combo-list" role="listbox">
+              <li class="tm-combo-opt tm-combo-none" role="option" :aria-selected="active === 0" :class="{ 'is-active': active === 0 }"
+                  @mousedown.prevent="pick(null)">— none —</li>
+              <template v-for="r in rows" :key="r.key">
+                <li v-if="r.group" class="tm-combo-group" role="presentation">{{ r.group }}</li>
+                <li v-else class="tm-combo-opt" role="option" :aria-selected="r.opt.id === modelValue"
+                    :class="{ 'is-active': active === r.idx, 'is-selected': r.opt.id === modelValue }" @mousedown.prevent="pick(r.opt)">
+                  <span class="tm-combo-label">{{ r.opt.label }}</span>
+                  <span v-if="r.opt.hint" class="tm-combo-opt-hint">{{ r.opt.hint }}</span>
+                  <ph-icon v-if="r.opt.id === modelValue" name="check" :size="12"></ph-icon>
+                </li>
+              </template>
+              <li v-if="!visible.length" class="tm-combo-empty">No matches</li>
+            </ul>
+            <div class="tm-combo-legend" aria-hidden="true"><span>↑↓ move</span><span>Enter select</span><span>Esc close</span></div>
+          </div>
         </div>`,
     });
 
+    app.component('ph-icon', window.PhIcon);
+    app.component('tm-icon', TmIcon);
     app.mount('#app');
   </script>
 </body>
