@@ -94,6 +94,25 @@
             </select>
             <ph-icon name="chevron-down" :size="14"></ph-icon>
           </label>
+          <!-- Below 1280px Role and PDash user move into this dropdown (no :class on the toggle: it would drop Bootstrap's .show) -->
+          <div class="dropdown tm-filter-compact">
+            <button type="button" class="tm-btn-outline" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+              <ph-icon name="filter" :size="14"></ph-icon>Filters<span v-if="extraFilterCount" class="tm-count">{{ extraFilterCount }}</span>
+            </button>
+            <div class="dropdown-menu tm-filter-menu">
+              <label class="form-label" for="tmRoleCompact">Role</label>
+              <select id="tmRoleCompact" v-model="roleFilter" class="form-select">
+                <option value="">All roles</option>
+                <option v-for="role in sortedRoles" :key="role.id" :value="role.id">{{ role.label }}</option>
+              </select>
+              <label class="form-label mt-3" for="tmLinkedCompact">PDash user</label>
+              <select id="tmLinkedCompact" v-model="linkedFilter" class="form-select">
+                <option value="any">Any</option>
+                <option value="linked">Linked</option>
+                <option value="unlinked">Not linked</option>
+              </select>
+            </div>
+          </div>
           <div class="tm-search">
             <ph-icon name="search" :size="14"></ph-icon>
             <input v-model="filterText" type="search" placeholder="Search name, email or role…" aria-label="Search name, email or role">
@@ -128,7 +147,7 @@
               <tr v-for="r in pagedResources.pageItems" :key="r.id" tabindex="0" class="tm-row"
                   :class="{ 'is-open': r.id === selectedId, 'tm-row--inactive': r.status !== 'active', 'tm-row--busy': r._loading }"
                   @click="openDetail(r)" @keydown.enter.self="openDetail(r)">
-                <td>
+                <td class="tm-cell-name">
                   <div class="tm-name">
                     <span class="tm-avatar" aria-hidden="true">{{ initials(r) }}</span>
                     <div class="tm-name-text">
@@ -138,7 +157,7 @@
                     </div>
                   </div>
                 </td>
-                <td>
+                <td class="tm-cell-role">
                   <div class="tm-role">{{ r.role_label }}</div>
                   <div class="tm-code">{{ r.role_code }}</div>
                 </td>
@@ -146,7 +165,7 @@
                   <span v-if="r.user_id" class="tm-linked"><tm-icon name="link" :size="14"></tm-icon>{{ r.linked_user_first_name }} {{ r.linked_user_last_name }}</span>
                   <span v-else class="tm-muted">—</span>
                 </td>
-                <td aria-live="polite">
+                <td class="tm-cell-status" aria-live="polite">
                   <span v-if="r._loading" class="pd-status-pill pd-status-pill--busy"><span class="spinner-border" role="presentation"></span>Updating…</span>
                   <span v-else class="pd-status-pill" :class="'pd-status-pill--' + r.status">{{ r.status }}</span>
                 </td>
@@ -859,6 +878,7 @@
             status: this.statusFilter, roleId: this.roleFilter, linked: this.linkedFilter, text: this.filterText,
           });
         },
+        extraFilterCount() { return (this.roleFilter ? 1 : 0) + (this.linkedFilter !== 'any' ? 1 : 0); },
         sortedRoles() { return this.roles.slice().sort((a, b) => String(a.label).localeCompare(String(b.label))); },
         pageRange() {
           const { page, pageItems } = this.pagedResources;
