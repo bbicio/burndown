@@ -603,14 +603,13 @@
                               @click="toggleExpanded('dim:' + d.slug + ':' + v.key + ':' + p.code)">
                         <span></span>
                         <span class="tm-dim-label tm-dim-project"><ph-icon :name="isExpanded('dim:' + d.slug + ':' + v.key + ':' + p.code) ? 'chevron-down' : 'chevron-right'" :size="12"></ph-icon>{{ p.name }} <span class="tm-code">{{ p.code }}</span></span>
-                        <span></span>
                         <strong class="tm-num">{{ fmtHours(p.hours) }} h</strong>
                         <span></span><span></span>
                         <span class="tm-num tm-muted">{{ monthText(p.last) }}</span>
                       </button>
                       <template v-if="isExpanded('dim:' + d.slug + ':' + v.key + ':' + p.code)">
                         <div v-for="t in p.tasks" :key="t.name" class="tm-dim-grid tm-dim-row--task">
-                          <span></span><span class="tm-dim-task">{{ t.name }}</span><span></span>
+                          <span></span><span class="tm-dim-task">{{ t.name }}</span>
                           <span class="tm-num">{{ fmtHours(t.hours) }} h</span><span></span><span></span><span></span>
                         </div>
                       </template>
@@ -644,7 +643,6 @@
                     <div v-for="p in r.projects" :key="p.code" class="tm-dim-grid tm-dim-row--project tm-dim-row--static">
                       <span></span>
                       <span class="tm-dim-label tm-dim-project">{{ p.name }} <span class="tm-code">{{ p.code }}</span></span>
-                      <span></span>
                       <strong class="tm-num">{{ fmtHours(p.hours) }} h</strong>
                       <span></span><span></span>
                       <span class="tm-num tm-muted">{{ monthText(p.last) }}</span>
