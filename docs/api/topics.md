@@ -34,7 +34,7 @@ All `requireAuth, requireAdmin` (admin or sysadmin). Malformed ids answer 404 (`
 
 ## Read-time resolution
 
-`GET /api/resources/:id/profile` resolves `profile.topics` against `topics` on every read (`resolveProfileTopics`): follow `merged_into`, keep only `approved`, dedupe by final topic (union of project codes), attach names, return `[{ id, name, projectCodes }]` sorted by project count. Rename, approve, reject and merge therefore need **no recalculation** and show up at once; proposed and rejected topics never appear in profiles.
+`GET /api/resources/:id/profile` resolves `profile.topics` against `topics` on every read (`resolveProfileTopics`): follow `merged_into`, keep only `approved`, dedupe by final topic (union of project codes), attach names, return `[{ id, name, projectCodes }]` sorted by project count. Since 2026-11-09 it also resolves each task's `topicIds` to `topics: [{ id, name }]` by the same rule (`resolveProfileTaskTopics`, `docs/api/profile-engine.md` → "Profile version 3"). Rename, approve, reject and merge therefore need **no recalculation** and show up at once; proposed and rejected topics never appear in profiles.
 
 ## UI notes (`attribute-lists.html`)
 

@@ -75,3 +75,12 @@ Spec `docs/superpowers/specs/2026-11-08-team-redesign-design.md`, plan `docs/sup
 - **Fixed at review (`b59ed21`):** an ambiguous name whose candidates are all inactive (the matcher's fallback in `api/src/lib/match-resource.js`) says "inactive" (`ambiguousText`) and keeps them under Same name · candidates; after Edit or Delete… from the ⋯ menu focus returns to ⋯ (`deleteOpener` for the modal); the Assign/Ignore busy state is the `busyUnmatched` map keyed by `name_normalized`, because the queue reload replaces the row objects mid-request.
 - **Left out:** Undo on banners, hours per alias and per project in the queue (they need API fields), the full smartphone design.
 - **Accepted deviations from the boards:** the callout uses the existing amber token (more yellow than the board); on tablet the sidebar stays as the nav sets it; the first menu item takes focus when the menu opens; the Assign to search stays in the field itself; the project sub-row has no hours; on a phone the header keeps the full New resource button; on tablet and phone the profile tables drop columns; Last calculated uses the app's day format (`Nov 4, 2026, 22:30`).
+
+## Roles → project → task, topic chips on tasks (2026-11-09)
+
+Spec `docs/superpowers/specs/2026-11-09-team-roles-task-level-design.md`, plan `docs/superpowers/plans/2026-11-09-team-roles-task-level.md`. Needs profile version 3 (`docs/api/profile-engine.md`), so a "Rebuild" after deploy.
+
+- **Roles.** Under a role, a project row shows the person's hours **in that role** and is an `aria-expanded` button with a chevron (key `role:<code>:<projectCode>`, same markup as the dimension project row) that opens the tasks and their hours in that role. A project with no tasks — a version-2 profile, or a contribution not reprocessed since — stays the static row; in a version-2 profile it shows the project total.
+- **Topic chips.** Every task row, under Roles and under the dimensions, shows its approved topics after the name as `.tm-chip`s in a `.tm-topic-chips` container (none when the task has no topic). Inside the task cell the chips are white on navy (`.tm-dim-task .tm-chip`, `--text-inverse` on `--brand-navy`), and task rows are spaced by 5px; the Topics block and the drawer's chips keep their look.
+- **Tree.** `buildProfileTree` gives every task node `topics` (`[]` when absent) and builds role project nodes from `r.byProject` (`docs/js/lib.md`). `team-ui.js` is `?v=8`, `team.css` `?v=2`.
+- **Not changed:** a project row's last month under a role is still the project's, not the role's.
