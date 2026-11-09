@@ -225,9 +225,34 @@ function chunk(array, size) {
   return out;
 }
 
+// Task topic ids → the approved final topics a chip shows: [{ id, name }], one per final topic, sorted by name.
+function resolveTaskTopics(ids, topicsById) {
+  const byId = new Map();
+  for (const id of ids || []) {
+    const t = finalTopic(id, topicsById);
+    if (t && t.status === 'approved') byId.set(t.id, { id: t.id, name: t.name });
+  }
+  return [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// A copy of the stored profile where every task of projects[*].tasks and roles[*].byProject[*].tasks carries
+// `topics` ([{ id, name }]) instead of `topicIds`. A task without topicIds (profile v2) gets [].
+function resolveProfileTaskTopics(profile, topicsById) {
+  const tasks = list => (list || []).map(({ topicIds, ...t }) => ({ ...t, topics: resolveTaskTopics(topicIds, topicsById) }));
+  const projects = {};
+  for (const [code, p] of Object.entries(profile.projects || {})) projects[code] = { ...p, tasks: tasks(p.tasks) };
+  const roles = (profile.roles || []).map(r => {
+    if (!r.byProject) return r;
+    const byProject = {};
+    for (const [code, bp] of Object.entries(r.byProject)) byProject[code] = { ...bp, tasks: tasks(bp.tasks) };
+    return { ...r, byProject };
+  });
+  return { ...profile, projects, roles };
+}
+
 module.exports = {
   chunk,
   MIN_TEXT_CHARS, MAX_TOPICS_PER_TEXT, MAX_TOPIC_WORDS, MAX_TOPIC_CHARS, PROJECT_REF,
   normalizeTopicName, cleanTopicName, taskKey, hashText, isExtractable, descriptionsSignature, buildItems,
-  buildVocabulary, buildPrompt, parseExtraction, finalTopic, resolveCandidates, resolveProfileTopics, topicNameError,
+  buildVocabulary, buildPrompt, parseExtraction, finalTopic, resolveCandidates, resolveProfileTopics, resolveTaskTopics, resolveProfileTaskTopics, topicNameError,
 };

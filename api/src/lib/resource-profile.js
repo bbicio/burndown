@@ -33,7 +33,7 @@ function buildContributions(rows, ctx, projectName) {
     if (m.kind !== 'alias' && m.kind !== 'matched') continue;
     let c = byResource.get(m.resourceId);
     if (!c) {
-      c = { projectName, hours: 0, first: null, last: null, roles: {}, tasks: {} };
+      c = { projectName, hours: 0, first: null, last: null, roles: {}, tasks: {}, roleTasks: {} };
       byResource.set(m.resourceId, c);
     }
     const hours = toHours(row.hours);
@@ -44,8 +44,14 @@ function buildContributions(rows, ctx, projectName) {
       if (!c.last || month > c.last) c.last = month;
     }
     const role = String(row.role ?? '').trim();
-    if (role) c.roles[role] = (c.roles[role] || 0) + hours;
     const t = normalizeTask(row.task);
+    if (role) {
+      c.roles[role] = (c.roles[role] || 0) + hours;
+      const rt = c.roleTasks[role] || (c.roleTasks[role] = {});
+      const rcur = rt[t.key] || { name: t.name, hours: 0 };
+      rcur.hours += hours;
+      rt[t.key] = rcur;
+    }
     const cur = c.tasks[t.key] || { name: t.name, hours: 0 };
     cur.hours += hours;
     c.tasks[t.key] = cur;
@@ -54,6 +60,7 @@ function buildContributions(rows, ctx, projectName) {
     c.hours = round2(c.hours);
     for (const k of Object.keys(c.roles)) c.roles[k] = round2(c.roles[k]);
     for (const k of Object.keys(c.tasks)) c.tasks[k].hours = round2(c.tasks[k].hours);
+    for (const rt of Object.values(c.roleTasks)) for (const k of Object.keys(rt)) rt[k].hours = round2(rt[k].hours);
   }
   return byResource;
 }
@@ -111,23 +118,26 @@ function aggregateProfile(contribByCode, projectsByCode, now = new Date()) {
       else acc.contextCodes.add(code);
     }
 
+    const taskList = entries => entries
+      .map(([key, t]) => ({ name: t.name, hours: round2(t.hours), topicIds: [...((info.taskTopics || {})[key] || [])] }))
+      .sort((a, b) => b.hours - a.hours || a.name.localeCompare(b.name));
+
     projects[code] = {
       name: info.name || c.projectName || code,
       projectId: info.projectId || null,
       hours: round2(c.hours),
       last: c.last,
       tags,
-      tasks: Object.values(c.tasks || {})
-        .map(t => ({ name: t.name, hours: round2(t.hours) }))
-        .sort((a, b) => b.hours - a.hours || a.name.localeCompare(b.name)),
+      tasks: taskList(Object.entries(c.tasks || {})),
     };
 
     for (const [role, h] of Object.entries(c.roles || {})) {
       let r = roleAcc.get(role);
-      if (!r) { r = { code: role, hours: 0, last: null, projectCodes: [] }; roleAcc.set(role, r); }
+      if (!r) { r = { code: role, hours: 0, last: null, projectCodes: [], byProject: {} }; roleAcc.set(role, r); }
       r.hours += h;
       if (c.last && (!r.last || c.last > r.last)) r.last = c.last;
       r.projectCodes.push(code);
+      r.byProject[code] = { hours: round2(h), tasks: taskList(Object.entries((c.roleTasks || {})[role] || {})) };
     }
   }
 
@@ -155,6 +165,7 @@ function aggregateProfile(contribByCode, projectsByCode, now = new Date()) {
     .map(r => ({
       code: r.code, hours: round2(r.hours), share: share(r.hours),
       projects: r.projectCodes.length, last: r.last, projectCodes: r.projectCodes,
+      byProject: r.byProject,
     }))
     .sort((a, b) => byHoursThen(a, b, a.code, b.code));
 
@@ -164,7 +175,7 @@ function aggregateProfile(contribByCode, projectsByCode, now = new Date()) {
   }
 
   return {
-    version: 2,
+    version: 3,
     computedAt: now.toISOString(),
     totals: { hours: round2(totalHours), projects: codes.length, firstWorked, lastWorked },
     dimensions,

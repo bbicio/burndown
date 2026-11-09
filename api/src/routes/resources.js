@@ -5,7 +5,7 @@ const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { normalizeName } = require('../lib/match-resource');
 const { refreshUnmatched } = require('../services/resource-matching');
 const { loadVocabulary } = require('../services/topic-extraction');
-const { resolveProfileTopics } = require('../lib/topic-extract');
+const { resolveProfileTopics, resolveProfileTaskTopics } = require('../lib/topic-extract');
 const { enqueueAllQuiet, OLDEST_PROJECT_ORDER_BY } = require('../services/profile-engine');
 
 const router = express.Router();
@@ -130,7 +130,7 @@ router.get('/:id/profile', async (req, res, next) => {
     let profile = rows[0].profile;
     if (profile) {
       const vocab = await loadVocabulary();
-      profile = { ...profile, topics: resolveProfileTopics(profile.topics, vocab.topicsById) };
+      profile = resolveProfileTaskTopics({ ...profile, topics: resolveProfileTopics(profile.topics, vocab.topicsById) }, vocab.topicsById);
     }
     res.json({ profile, profile_computed_at: rows[0].profile_computed_at });
   } catch (err) {

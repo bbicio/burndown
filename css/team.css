@@ -342,8 +342,10 @@
 .tm-dim-project > .pd-icon { flex: none; align-self: center; }
 .tm-dim-project .tm-code { white-space: nowrap; }
 .tm-dim-task { grid-column: span 2; }
-.tm-dim-row--task { min-height: 26px; color: var(--text-secondary); }
+.tm-dim-row--task { min-height: 26px; margin-bottom: 5px; color: var(--text-secondary); }
 .tm-dim-task { margin-left: 40px; padding-left: var(--space-3); border-left: 1px solid var(--border-dark); }
+.tm-dim-task .tm-topic-chips { padding: 5px; }
+.tm-dim-task .tm-chip { color: var(--text-inverse); background: var(--brand-navy); }
 .tm-share { display: block; height: 8px; border-radius: 4px; background: var(--surface-subtle); overflow: hidden; }
 .tm-share > span { display: block; height: 100%; background: var(--brand-navy); border-radius: 4px; }
 .tm-num { text-align: right; white-space: nowrap; }

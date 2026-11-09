@@ -37,6 +37,7 @@ test('buildContributions: sums hours, months, roles and tasks per resource; spel
     projectName: 'Alpha', hours: 7.5, first: '2026-01', last: '2026-02',
     roles: { DEV: 6.5, PM: 1 },
     tasks: { analysis: { name: 'Analysis', hours: 6.5 }, kickoff: { name: 'Kickoff', hours: 1 } },
+    roleTasks: { DEV: { analysis: { name: 'Analysis', hours: 6.5 } }, PM: { kickoff: { name: 'Kickoff', hours: 1 } } },
   });
   assert.equal(m.get('r2').hours, 8);
 });
@@ -92,14 +93,14 @@ test('aggregateProfile: totals, project index, dimensions, roles and untagged ho
     P2: { projectId: 'id2', name: 'Beta', tags: [] },
   };
   const p = aggregateProfile(contrib, projects, NOW);
-  assert.equal(p.version, 2);
+  assert.equal(p.version, 3);
   assert.equal(p.computedAt, NOW.toISOString());
   assert.deepEqual(p.totals, { hours: 13, projects: 2, firstWorked: '2026-01', lastWorked: '2026-03' });
   assert.deepEqual(Object.keys(p.projects), ['P1', 'P2']);            // ordered by hours desc
   assert.deepEqual(p.projects.P1, {
     name: 'Alpha', projectId: 'id1', hours: 10, last: '2026-02',
     tags: { market: ['Italy'], brand: ['Brand A'] },
-    tasks: [{ name: 'Analysis', hours: 10 }],
+    tasks: [{ name: 'Analysis', hours: 10, topicIds: [] }],
   });
   assert.deepEqual(p.dimensions.market, {
     name: 'Market', untaggedHours: 3,
@@ -107,8 +108,10 @@ test('aggregateProfile: totals, project index, dimensions, roles and untagged ho
   });
   assert.equal(p.dimensions.brand.untaggedHours, 3);
   assert.deepEqual(p.roles, [
-    { code: 'DEV', hours: 12, share: 0.9231, projects: 2, last: '2026-03', projectCodes: ['P1', 'P2'] },
-    { code: 'PM', hours: 1, share: 0.0769, projects: 1, last: '2026-03', projectCodes: ['P2'] },
+    { code: 'DEV', hours: 12, share: 0.9231, projects: 2, last: '2026-03', projectCodes: ['P1', 'P2'],
+      byProject: { P1: { hours: 10, tasks: [] }, P2: { hours: 2, tasks: [] } } },
+    { code: 'PM', hours: 1, share: 0.0769, projects: 1, last: '2026-03', projectCodes: ['P2'],
+      byProject: { P2: { hours: 1, tasks: [] } } },
   ]);
 });
 
@@ -179,7 +182,7 @@ test('aggregateProfile v2: topic provenance is direct (task with hours) or conte
     B: { projectId: 'pb', name: 'Beta', tags: [], topicIds: ['t-ctx'] },
   };
   const p = aggregateProfile(contrib, projects, new Date('2026-09-30T00:00:00Z'));
-  assert.equal(p.version, 2);
+  assert.equal(p.version, 3);
   const by = Object.fromEntries(p.topics.map(t => [t.topicId, t]));
   assert.equal(by['t-never'], undefined);                       // the person has no hours on that task
   assert.deepEqual(by['t-dir'].direct, { hours: 6, projectCodes: ['A'] });
@@ -189,4 +192,37 @@ test('aggregateProfile v2: topic provenance is direct (task with hours) or conte
   assert.deepEqual(by['t-ctx'].direct, { hours: 0, projectCodes: [] });
   assert.deepEqual(by['t-ctx'].context.projectCodes.sort(), ['A', 'B']);
   assert.deepEqual(by['t-ctx'].projectCodes.sort(), ['A', 'B']);             // union kept for team.html
+});
+
+test('aggregateProfile v3: two roles on one project split hours and tasks per role', () => {
+  const rows = [
+    { owner: 'Mario Rossi', role: 'DEV', task: 'Analysis', hours: 4, date: '2026-01-15' },
+    { owner: 'Mario Rossi', role: 'DEV', task: '  Medical  Review ', hours: 2, date: '2026-01-16' },
+    { owner: 'Mario Rossi', role: 'PM', task: 'Analysis', hours: 1.5, date: '2026-01-17' },
+    { owner: 'Mario Rossi', role: 'PM', task: '', hours: 0.5, date: '2026-01-18' },
+    { owner: 'Mario Rossi', role: '', task: 'Analysis', hours: 3, date: '2026-01-19' },
+  ];
+  const contrib = { P1: buildContributions(rows, ctx, 'Alpha').get('r1') };
+  const p = aggregateProfile(contrib, { P1: { projectId: 'id1', name: 'Alpha', tags: [],
+    taskTopics: { analysis: ['t1'], 'medical review': ['t2', 't3'] } } }, NOW);
+  const dev = p.roles.find(r => r.code === 'DEV'), pm = p.roles.find(r => r.code === 'PM');
+  assert.deepEqual(dev.byProject.P1, { hours: 6, tasks: [
+    { name: 'Analysis', hours: 4, topicIds: ['t1'] },
+    { name: 'Medical Review', hours: 2, topicIds: ['t2', 't3'] },
+  ] });
+  assert.deepEqual(pm.byProject.P1, { hours: 2, tasks: [
+    { name: 'Analysis', hours: 1.5, topicIds: ['t1'] },
+    { name: '(no task)', hours: 0.5, topicIds: [] },
+  ] });
+  assert.equal(dev.byProject.P1.hours + pm.byProject.P1.hours, 8);   // no-role 3 h excluded from Roles
+  assert.equal(p.projects.P1.hours, 11);
+  assert.deepEqual(p.projects.P1.tasks.find(t => t.name === 'Analysis').topicIds, ['t1']);
+  assert.equal(dev.hours, 6);                                        // existing fields unchanged
+  assert.deepEqual(dev.projectCodes, ['P1']);
+});
+
+test('aggregateProfile v3: a contribution stored before v3 (no roleTasks) gives byProject hours with no tasks', () => {
+  const p = aggregateProfile({ P2: C(3, '2026-03', '2026-03', { DEV: 2 }, { kickoff: { name: 'Kickoff', hours: 3 } }) },
+    { P2: { projectId: 'id2', name: 'Beta', tags: [] } }, NOW);
+  assert.deepEqual(p.roles[0].byProject, { P2: { hours: 2, tasks: [] } });
 });
