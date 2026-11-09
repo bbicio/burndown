@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>PDash — Attribute Lists</title><style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#F3F4F6}
+a{color:#0B1840}a:hover{color:#F0287A}
+input::placeholder{color:#9AA0AC}
+@keyframes ua-spin{to{transform:rotate(360deg)}}
+.pb-navitem{height:40px;padding:0 10px;display:flex;align-items:center;gap:10px;border-radius:8px;text-decoration:none}
+.pb-navitem span{color:rgba(255,255,255,.75);font-size:13px;font-weight:500}
+.pb-subitem{height:32px;padding:0 10px 0 14px;display:flex;align-items:center;gap:9px;border-radius:8px;text-decoration:none}
+.pb-subitem span{color:rgba(255,255,255,.58);font-size:12px}
+.pb-subitem.active{background:rgba(255,255,255,.1);box-shadow:inset 3px 0 0 #F0287A}
+.pb-subitem.active span{color:#fff;font-weight:600}
+.pb-sublabel{padding:10px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.38)}
+</style></helmet>
+<div style="width:1400px;height:1000px;box-sizing:border-box;display:flex;background:#F3F4F6;overflow:hidden;position:relative">
+
+  <div style="width:220px;flex-shrink:0;background:#0B1840;display:flex;flex-direction:column;box-sizing:border-box">
+    <div style="height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 16px;border-bottom:3px solid #F0287A">
+      <span style="color:#FFFFFF;font-weight:700;font-size:22px;letter-spacing:-0.02em"><span style="color:#F0287A">P</span>Dash</span>
+      <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="rgba(255,255,255,.6)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+    </div>
+    <div style="padding:10px 8px 0;display:flex;flex-direction:column;gap:2px">
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.65)" stroke-width="1.6" stroke-linecap="round"></path></svg><span>Pipeline</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect></svg><span>Portfolio</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linecap="round"></path></svg><span>Planning</span></a>
+      <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+      <div class="pb-sublabel">Admin</div>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.4" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></circle><path d="M8 2v1.6M8 12.4V14M14 8h-1.6M3.6 8H2" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Master Data</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="1.2" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></rect><path d="M2 4l1.6-2h8.8L14 4" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg><span>Timesheets</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.3" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></circle><path d="M3 14c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg><span>User Admin</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5.5" r="2" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></circle><circle cx="11" cy="6.5" r="1.6" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></circle><path d="M2 14c0-2.3 1.7-3.8 3.9-3.8 1.6 0 2.9.8 3.5 2M9.6 10.3c1.6 0 3 1.1 3 3" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Team</span></a>
+      <a class="pb-subitem active" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5L14 8.5 7.5 15 2 9.5V2Z" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Attribute Lists</span></a>
+      <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+      <div class="pb-sublabel">Sysadmin</div>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><ellipse cx="8" cy="3.5" rx="5.2" ry="1.8" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></ellipse><path d="M2.8 3.5v9c0 1 2.3 1.8 5.2 1.8s5.2-.8 5.2-1.8v-9" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></path></svg><span>DB Reset</span></a>
+      <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 2h5.5L13 5.5V14H4V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Terms &amp; Conditions</span></a>
+    </div>
+    <div style="flex:1"></div>
+    <div style="border-top:1px solid rgba(255,255,255,.12);padding:12px 12px 14px;display:flex;align-items:center;gap:10px">
+      <div style="width:26px;height:26px;border-radius:999px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:700;flex-shrink:0">FF</div>
+      <span style="color:#fff;font-size:12px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">fabrizio.fortini@eversana.com</span>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="flex-shrink:0;height:44px;box-sizing:border-box;background:#FFFFFF;border-bottom:1px solid #DDE1E8;padding:0 24px;display:flex;align-items:center">
+      <div style="font-size:12px;color:#6B7280;display:flex;align-items:center;gap:6px">Home <span style="color:#C7CCD9">/</span> <span style="color:#374151;font-weight:600">Attribute Lists</span></div>
+    </div>
+
+    <sc-if value="{{ denied }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:24px">
+        <div style="width:420px;background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:32px 28px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center">
+          <div style="width:48px;height:48px;border-radius:999px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;color:#0B1840"><svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg></div>
+          <span style="font-size:17px;font-weight:700;color:#0B1840">Admin access required</span>
+          <span style="font-size:12.5px;color:#6B7280;line-height:1.55;text-wrap:pretty">Attribute lists and topics are managed by admins and sysadmins. Ask an admin if you need access.</span>
+          <span style="margin-top:8px;font-size:12.5px;font-weight:600;color:#fff;background:#0B1840;border-radius:8px;padding:9px 16px;cursor:pointer">Go to app</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ allowed }}" hint-placeholder-val="{{ true }}">
+      <div style="flex-shrink:0;padding:16px 24px 0;display:flex;align-items:flex-end;gap:16px">
+        <div style="flex:1;display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:26px;font-weight:700;color:#0B1840">{{ title }}</span>
+          <span style="font-size:12.5px;color:#6B7280">{{ subtitle }}</span>
+        </div>
+        <sc-if value="{{ hdrTopics }}" hint-placeholder-val="{{ false }}"><div onClick="{{ openTopics }}" style="display:flex;align-items:center;gap:8px;height:36px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #DDE1E8;background:#fff;font-size:13px;font-weight:600;color:#0B1840;cursor:pointer" style-hover="border-color:#0B1840"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"></circle><circle cx="3" cy="4" r="1.4"></circle><circle cx="13" cy="4" r="1.4"></circle><circle cx="8" cy="14" r="1.2"></circle><path d="M4.2 4.9L6.3 6.8M11.8 4.9L9.7 6.8M8 10.2v2.6"></path></svg>Topics<sc-if value="{{ hasNProp }}"><span title="Proposed topics waiting for review" style="min-width:20px;height:20px;box-sizing:border-box;padding:0 6px;border-radius:999px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;background:#FDE7F0;color:#A3134F">{{ nProp }}</span></sc-if></div></sc-if>
+        <div onClick="{{ primary }}" style="display:flex;align-items:center;gap:7px;height:36px;box-sizing:border-box;padding:0 16px;border-radius:8px;background:#F0287A;font-size:13px;font-weight:600;color:#fff;cursor:pointer" style-hover="background:#D81E6A"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg>{{ primaryLabel }}</div>
+      </div>
+      <sc-if value="{{ showTabs }}" hint-placeholder-val="{{ false }}"><div style="flex-shrink:0;padding:10px 24px 0;display:flex;gap:4px;border-bottom:1px solid #DDE1E8">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+          <div onClick="{{ t.pick }}" tabIndex="0" style="height:40px;padding:0 12px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:{{ t.w }};color:{{ t.c }};box-shadow:{{ t.sh }};outline:none" style-focus="background:#FFF5F9">{{ t.label }}<sc-if value="{{ t.hasN }}"><span title="Proposed topics waiting for review" style="min-width:20px;height:20px;box-sizing:border-box;padding:0 6px;border-radius:999px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;background:#FDE7F0;color:#A3134F">{{ t.n }}</span></sc-if></div>
+        </sc-for>
+      </div></sc-if>
+
+      <div style="flex:1;min-height:0;overflow-y:scroll;scrollbar-gutter:stable;overflow-x:hidden;padding:16px 24px 24px;display:flex;gap:20px;align-items:flex-start">
+        <sc-if value="{{ isSub }}" hint-placeholder-val="{{ true }}">
+          <div style="width:212px;flex-shrink:0;background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:6px 6px 10px;display:flex;flex-direction:column">
+            <sc-for list="{{ subnav }}" as="g" hint-placeholder-count="2">
+              <span style="padding:12px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">{{ g.label }}</span>
+              <sc-for list="{{ g.items }}" as="i">
+                <div onClick="{{ i.pick }}" tabIndex="0" style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;background:{{ i.bg }};box-shadow:{{ i.bar }};outline:none" style-hover="background:#F3F4F6" style-focus="box-shadow:inset 0 0 0 2px #F0287A">
+                  <span style="flex:1;font-size:12.5px;font-weight:{{ i.w }};color:{{ i.c }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ i.label }}</span>
+                  <sc-if value="{{ i.badge }}"><span style="min-width:20px;height:20px;box-sizing:border-box;padding:0 6px;border-radius:999px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;background:#FDE7F0;color:#A3134F">{{ i.count }}</span></sc-if>
+                  <sc-if value="{{ i.plain }}"><span style="font-size:11px;color:#6B7280">{{ i.count }}</span></sc-if>
+                </div>
+              </sc-for>
+            </sc-for>
+          </div>
+        </sc-if>
+        <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:12px">
+        <sc-if value="{{ hasBanner }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid {{ bn.border }};background:{{ bn.bg }};color:{{ bn.c }};font-size:12.5px">
+            <sc-if value="{{ bn.ok }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6.2"></circle><path d="M5.3 8.2l1.8 1.8 3.6-3.8"></path></svg></sc-if>
+            <sc-if value="{{ bn.err }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 4.8v3.8M8 11v.2"></path></svg></sc-if>
+            <span style="flex:1;line-height:1.45"><strong>{{ bn.title }}</strong> {{ bn.text }}</span>
+            <sc-if value="{{ bn.hasAct }}"><span onClick="{{ bn.act }}" style="font-weight:700;cursor:pointer;text-decoration:underline;white-space:nowrap">{{ bn.actLabel }}</span></sc-if>
+            <div onClick="{{ closeBanner }}" title="Dismiss" style="width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:rgba(0,0,0,.05)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasCallout }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid #F2D3A6;background:#FFF8EC">
+            <div style="width:32px;height:32px;border-radius:999px;background:#FFF1DC;color:#8A4B08;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="2.2"></circle><circle cx="3" cy="4" r="1.4"></circle><circle cx="13" cy="4" r="1.4"></circle><circle cx="8" cy="14" r="1.2"></circle><path d="M4.2 4.9L6.3 6.8M11.8 4.9L9.7 6.8M8 10.2v2.6"></path></svg></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0"><span style="font-size:13px;font-weight:700;color:#0B1840">{{ coTitle }}</span><span style="font-size:12px;color:#8A4B08">Suggested by the agent from project and task descriptions. They don't appear in experience profiles until you approve them.</span></div>
+            <div onClick="{{ openTopics }}" style="height:34px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;color:#fff;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">Review topics<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h9M9 4.5L12.5 8 9 11.5"></path></svg></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;height:480px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#6B7280;font-size:12.5px">{{ bigSpin }}<span>{{ loadingText }}</span></div>
+        </sc-if>
+
+        <sc-if value="{{ isListsTable }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 240px 220px 40px;gap:12px;padding:9px 16px;background:#F7F8FA;border-bottom:1px solid #EEF0F4;border-radius:12px 12px 0 0;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280"><span>Name</span><span>Slug</span><span>Items</span><span></span></div>
+            <sc-if value="{{ listsEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center">
+                <div style="width:44px;height:44px;border-radius:999px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;color:#0B1840"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M2 2h5.5L14 8.5 7.5 15 2 9.5V2Z"></path><circle cx="5.2" cy="5.2" r="1"></circle></svg></div>
+                <span style="font-size:14px;font-weight:700;color:#0B1840">No attribute lists yet.</span>
+                <span style="font-size:12px;color:#6B7280;max-width:400px;line-height:1.5">A list is a set of values, like Market or Brand, used to tag proposals and projects.</span>
+                <span onClick="{{ newList }}" style="margin-top:6px;font-size:12.5px;font-weight:600;color:#0B1840;border:1px solid #DDE1E8;border-radius:8px;padding:7px 14px;cursor:pointer" style-hover="background:#F7F8FA">Create the first list</span>
+              </div>
+            </sc-if>
+            <sc-for list="{{ lrows }}" as="l" hint-placeholder-count="5">
+              <div onClick="{{ l.open }}" tabIndex="0" style="display:grid;grid-template-columns:minmax(0,1fr) 240px 220px 40px;gap:12px;padding:0 16px;min-height:56px;align-items:center;border-bottom:1px solid #F0F1F4;background:{{ l.bg }};box-shadow:{{ l.bar }};cursor:pointer;outline:none" style-hover="background:#FAFBFC" style-focus="box-shadow:inset 0 0 0 2px #F0287A">
+                <span style="font-size:13px;font-weight:700;color:#0B1840">{{ l.name }}</span>
+                <span><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:#374151;background:#F1F2F5;border-radius:5px;padding:2px 7px">{{ l.slug }}</span></span>
+                <span style="font-size:12.5px;color:#374151"><strong style="color:#0B1840;font-weight:700">{{ l.act }}</strong> active<sc-if value="{{ l.hasInact }}"><span style="color:#6B7280"> · {{ l.inact }} inactive</span></sc-if></span>
+                <div style="position:relative;display:flex;justify-content:flex-end">
+                  <div onClick="{{ l.toggleMenu }}" title="More actions" style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#374151;background:{{ l.mBg }};border:1px solid {{ l.mB }};box-sizing:border-box" style-hover="background:#F3F4F6"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></div>
+                  <sc-if value="{{ l.menuOpen }}">
+                    <div onClick="{{ stop }}" style="position:absolute;right:0;top:34px;width:260px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;box-shadow:0 12px 32px rgba(11,24,64,.16);z-index:30;padding:6px;display:flex;flex-direction:column;cursor:default">
+                      <sc-for list="{{ l.items }}" as="it">
+                        <div onClick="{{ it.run }}" style="display:flex;align-items:flex-start;gap:10px;padding:7px 8px;border-radius:7px;cursor:pointer;color:#0B1840" style-hover="background:#F3F4F6">
+                          <div style="width:16px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                            <sc-if value="{{ it.iEdit }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M10.5 2.5l3 3L6 13H3v-3l7.5-7.5Z"></path></svg></sc-if>
+                            <sc-if value="{{ it.iOpen }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2.5" width="12" height="11" rx="1.5"></rect><path d="M10 2.5v11"></path></svg></sc-if>
+                          </div>
+                          <div style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0"><span style="font-size:12.5px;font-weight:600">{{ it.label }}</span><span style="font-size:11px;color:#6B7280;line-height:1.35">{{ it.sub }}</span></div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+            <div style="padding:12px 16px;display:flex;gap:10px;align-items:flex-start;font-size:11.5px;color:#4B5563;line-height:1.5">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 7.2v4M8 4.8v.2"></path></svg>
+              <span style="text-wrap:pretty">Values are offered as <strong style="color:#0B1840">Tags</strong> in Cost Grid and Project config, and each list is a dimension of the <strong style="color:#0B1840">experience profile</strong> in <a href="#">Team</a>. Lists and values can't be deleted, because they may already be applied: rename a list, or deactivate the values you no longer need.</span>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isTopics }}" hint-placeholder-val="{{ false }}">
+          <div style="position:{{ tw.pos }};top:0;right:0;bottom:0;width:{{ tw.w }};z-index:{{ tw.z }};background:#fff;border:{{ tw.b }};border-radius:{{ tw.r }};box-shadow:{{ tw.sh }};overflow-y:{{ tw.ov }};scrollbar-gutter:stable;overflow-x:hidden;box-sizing:border-box;display:flex;flex-direction:column">
+            <sc-if value="{{ tw.drawer }}"><div style="display:flex;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid #EEF0F4"><div style="flex:1;display:flex;flex-direction:column;gap:4px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">Attribute Lists</span><span style="font-size:19px;font-weight:700;color:#0B1840">Topics</span><span style="font-size:12px;color:#6B7280">Competences extracted from project descriptions. Approved topics appear in experience profiles in Team.</span></div><div onClick="{{ newTopic }}" style="display:flex;align-items:center;gap:7px;height:34px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#F0287A;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer;white-space:nowrap" style-hover="background:#D81E6A"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg>New topic</div><div onClick="{{ closeTopics }}" title="Close (Esc)" style="width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#F3F4F6"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div></div></sc-if>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #EEF0F4">
+              <sc-if value="{{ showSeg }}"><div style="display:flex;background:#F1F2F5;border-radius:8px;padding:3px;gap:2px">
+                <sc-for list="{{ tvs }}" as="f" hint-placeholder-count="3">
+                  <div onClick="{{ f.pick }}" style="height:28px;padding:0 11px;border-radius:6px;display:flex;align-items:center;gap:6px;cursor:pointer;background:{{ f.bg }};box-shadow:{{ f.sh }};font-size:12.5px;font-weight:{{ f.w }};color:{{ f.c }}">{{ f.label }}<span style="font-size:11px;font-weight:600;color:{{ f.nc }}">{{ f.n }}</span></div>
+                </sc-for>
+              </div></sc-if>
+              <sc-if value="{{ showSecTitle }}"><span style="font-size:14px;font-weight:700;color:#0B1840">{{ secTitle }}</span></sc-if>
+              <div style="flex:1"></div>
+              <div style="display:flex;align-items:center;gap:8px;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;width:260px"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg><input value="{{ tq }}" onChange="{{ onTq }}" placeholder="Search topics…" style="flex:1;min-width:0;border:0;outline:none;font-size:12.5px;font-family:inherit;background:transparent;color:#0B1840"></div>
+            </div>
+
+            <sc-if value="{{ isProposed }}">
+              <div style="display:flex;align-items:center;gap:24px;padding:14px 16px;border-bottom:1px solid #EEF0F4">
+                <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:22px;font-weight:700;color:#0B1840;line-height:1.1">{{ qs.left }}</span><span style="font-size:11.5px;color:#6B7280">to review</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:6px;max-width:300px">
+                  <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#374151"><span>{{ qs.doneLabel }}</span></div>
+                  <div style="height:6px;border-radius:999px;background:#EEF0F4;overflow:hidden"><div style="height:100%;width:{{ qs.pct }};background:#1F9D55;border-radius:999px"></div></div>
+                </div>
+                <span style="flex:1"></span>
+                <span style="font-size:11.5px;color:#6B7280;max-width:420px;line-height:1.45;text-wrap:pretty">Suggested by the agent from project and task descriptions. Proposed topics don't appear in experience profiles until you approve them.</span>
+              </div>
+            </sc-if>
+
+            <sc-if value="{{ hasSb }}">
+              <div style="margin:12px 16px 0;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid {{ sb.border }};background:{{ sb.bg }};color:{{ sb.c }};font-size:12.5px">
+                <sc-if value="{{ sb.ok }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6.2"></circle><path d="M5.3 8.2l1.8 1.8 3.6-3.8"></path></svg></sc-if>
+                <sc-if value="{{ sb.err }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 4.8v3.8M8 11v.2"></path></svg></sc-if>
+                <span style="flex:1;line-height:1.45"><strong>{{ sb.title }}</strong> {{ sb.text }}</span>
+                <sc-if value="{{ sb.hasAct }}"><span onClick="{{ sb.act }}" style="font-weight:700;cursor:pointer;text-decoration:underline;white-space:nowrap">{{ sb.actLabel }}</span></sc-if>
+                <div onClick="{{ closeSb }}" title="Dismiss" style="width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:rgba(0,0,0,.05)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+              </div>
+            </sc-if>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 180px 200px;gap:12px;padding:9px 16px;margin-top:{{ headMt }};background:#F7F8FA;border-top:1px solid {{ headBt }};border-bottom:1px solid #EEF0F4;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280"><span>Name</span><span>Used in</span><span></span></div>
+
+            <sc-if value="{{ tEmpty }}">
+              <div style="height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center">
+                <div style="width:44px;height:44px;border-radius:999px;background:{{ te.bg }};display:flex;align-items:center;justify-content:center;color:{{ te.c }}"><sc-if value="{{ te.done }}"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.4l2.6 2.6L12 5.4"></path></svg></sc-if><sc-if value="{{ te.search }}"><svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="6" cy="6" r="4.5"></circle><path d="M9.5 9.5L13 13"></path></svg></sc-if><sc-if value="{{ te.none }}"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="6"></circle><path d="M5.5 8h5"></path></svg></sc-if></div>
+                <span style="font-size:14px;font-weight:700;color:#0B1840">{{ te.title }}</span>
+                <span style="font-size:12px;color:#6B7280;max-width:400px;line-height:1.5">{{ te.text }}</span>
+                <sc-if value="{{ te.hasBtn }}"><span onClick="{{ te.run }}" style="margin-top:6px;font-size:12.5px;font-weight:600;color:#0B1840;border:1px solid #DDE1E8;border-radius:8px;padding:7px 14px;cursor:pointer" style-hover="background:#F7F8FA">{{ te.btn }}</span></sc-if>
+              </div>
+            </sc-if>
+
+            <sc-for list="{{ trows }}" as="r" hint-placeholder-count="8">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 180px 200px;gap:12px;padding:10px 16px;min-height:56px;box-sizing:border-box;align-items:center;border-bottom:1px solid #F0F1F4;background:{{ r.bg }}">
+                <div style="display:flex;flex-direction:column;gap:3px;min-width:0">
+                  <span style="font-size:13px;font-weight:600;color:{{ r.nameC }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span>
+                  <sc-if value="{{ r.unused }}"><span style="font-size:11.5px;color:#8A4B08;line-height:1.4">Not linked to any description yet. The agent uses it on new or edited descriptions; to apply it to an existing project, run <a href="#" style="color:#8A4B08;font-weight:600">Process in Profile processing</a>.</span></sc-if>
+                </div>
+                <span style="font-size:12.5px;color:{{ r.usedC }};font-variant-numeric:tabular-nums">{{ r.used }}</span>
+                <div style="position:relative;display:flex;align-items:center;justify-content:flex-end;gap:6px">
+                  <sc-if value="{{ r.busy }}"><span style="display:flex;align-items:center;gap:7px;font-size:12px;color:#6B7280">{{ spin }}{{ r.busyText }}</span></sc-if>
+                  <sc-if value="{{ r.canApprove }}"><div onClick="{{ r.approve }}" style="height:32px;box-sizing:border-box;padding:0 14px;border-radius:7px;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;background:#0B1840;color:#fff;cursor:pointer" style-hover="background:#1A2A5C"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.4l3 3L12.5 5"></path></svg>Approve</div></sc-if>
+                  <sc-if value="{{ r.canRestore }}"><div onClick="{{ r.restore }}" title="Back to approved" style="height:32px;box-sizing:border-box;padding:0 12px;border-radius:7px;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#0B1840;cursor:pointer;border:1px solid #DDE1E8;background:#fff" style-hover="border-color:#0B1840"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8a5 5 0 1 0 1.5-3.6M3 2.5v2.5h2.5"></path></svg>Restore</div></sc-if>
+                  <sc-if value="{{ r.hasMenu }}"><div onClick="{{ r.toggleMenu }}" title="More actions" style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#374151;background:{{ r.mBg }};border:1px solid {{ r.mB }};box-sizing:border-box" style-hover="background:#F3F4F6"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></div></sc-if>
+                  <sc-if value="{{ r.menuOpen }}">
+                    <div onClick="{{ stop }}" style="position:absolute;right:0;top:{{ r.mTop }};bottom:{{ r.mBot }};width:290px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;box-shadow:0 12px 32px rgba(11,24,64,.16);z-index:30;padding:6px;display:flex;flex-direction:column;cursor:default">
+                      <sc-for list="{{ r.items }}" as="it">
+                        <sc-if value="{{ it.sep }}"><div style="height:1px;background:#EEF0F4;margin:5px 4px"></div></sc-if>
+                        <div onClick="{{ it.run }}" style="display:flex;align-items:flex-start;gap:10px;padding:7px 8px;border-radius:7px;cursor:pointer;color:{{ it.c }}" style-hover="background:{{ it.hov }}">
+                          <div style="width:16px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                            <sc-if value="{{ it.iEdit }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M10.5 2.5l3 3L6 13H3v-3l7.5-7.5Z"></path></svg></sc-if>
+                            <sc-if value="{{ it.iX }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="6"></circle><path d="M4 12L12 4"></path></svg></sc-if>
+                            <sc-if value="{{ it.iMerge }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5v3c0 2 1.5 3 4 3.5M12 2.5v3c0 2-1.5 3-4 3.5v4.5M6 11.5l2 2 2-2"></path></svg></sc-if>
+                          </div>
+                          <div style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0">
+                            <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12.5px;font-weight:600">{{ it.label }}</span><sc-if value="{{ it.hasTag }}"><span style="font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:4px;padding:1px 5px;background:{{ it.tagBg }};color:{{ it.tagC }}">{{ it.tag }}</span></sc-if></div>
+                            <span style="font-size:11px;color:#6B7280;line-height:1.35">{{ it.sub }}</span>
+                          </div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+            <div style="padding:10px 16px;font-size:11.5px;color:#6B7280;line-height:1.5">{{ tFoot }}</div>
+            <sc-if value="{{ tw.drawer }}"><div style="margin-top:auto;position:sticky;bottom:0;background:#fff;display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EEF0F4"><span style="flex:1;font-size:11.5px;color:#6B7280">Approvals, rejections and merges are saved as you make them.</span><div onClick="{{ closeTopics }}" style="height:36px;box-sizing:border-box;padding:0 18px;border-radius:8px;background:#0B1840;display:flex;align-items:center;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer">Close</div></div></sc-if>
+          </div>
+        </sc-if>
+        <sc-if value="{{ showList }}" hint-placeholder-val="{{ false }}">
+          <div style="position:{{ dw.pos }};top:0;right:0;bottom:0;width:{{ dw.w }};background:#fff;z-index:{{ dw.z }};box-shadow:{{ dw.sh }};border:{{ dw.b }};border-radius:{{ dw.r }};overflow:hidden;box-sizing:border-box;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid #EEF0F4">
+              <div style="flex:1;display:flex;flex-direction:column;gap:5px;min-width:0">
+                <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">Attribute list</span>
+                <span style="font-size:19px;font-weight:700;color:#0B1840">{{ dl.name }}</span>
+                <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:#6B7280"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;color:#374151;background:#F1F2F5;border-radius:5px;padding:2px 7px">{{ dl.slug }}</span><span>Slug · set at creation, never changes</span></div>
+          <span style="font-size:11.5px;color:#4B5563;line-height:1.45;text-wrap:pretty">Offered as Tags in Cost Grid and Project config, and a dimension of experience profiles in <a href="#">Team</a>.</span>
+              </div>
+              <div onClick="{{ dl.rename }}" style="height:32px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:7px;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#0B1840;cursor:pointer" style-hover="border-color:#0B1840"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M10.5 2.5l3 3L6 13H3v-3l7.5-7.5Z"></path></svg>Rename</div>
+              <sc-if value="{{ dw.drawer }}"><div onClick="{{ closeDrawer }}" title="Close (Esc)" style="width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#F3F4F6"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div></sc-if>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 20px;border-bottom:1px solid #EEF0F4">
+              <div style="display:flex;background:#F1F2F5;border-radius:8px;padding:3px;gap:2px">
+                <sc-for list="{{ ifs }}" as="f"><div onClick="{{ f.pick }}" style="height:28px;padding:0 11px;border-radius:6px;display:flex;align-items:center;gap:6px;cursor:pointer;background:{{ f.bg }};box-shadow:{{ f.sh }};font-size:12.5px;font-weight:{{ f.w }};color:{{ f.c }}">{{ f.label }}<span style="font-size:11px;font-weight:600;color:{{ f.nc }}">{{ f.n }}</span></div></sc-for>
+              </div>
+              <div style="flex:1;display:flex;align-items:center;gap:8px;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;min-width:0"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg><input value="{{ iq }}" onChange="{{ onIq }}" placeholder="Search values…" style="flex:1;min-width:0;border:0;outline:none;font-size:12.5px;font-family:inherit;background:transparent;color:#0B1840"></div>
+              <div onClick="{{ dl.newItem }}" style="display:flex;align-items:center;gap:7px;height:34px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#F0287A;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer;white-space:nowrap" style-hover="background:#D81E6A"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg>New item</div>
+            </div>
+            <div style="flex:1;min-height:0;overflow-y:{{ dw.ov }};scrollbar-gutter:stable;overflow-x:hidden;display:flex;flex-direction:column">
+              <sc-if value="{{ hasDb }}">
+                <div style="margin:12px 20px 4px;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid {{ db.border }};background:{{ db.bg }};color:{{ db.c }};font-size:12.5px">
+                  <sc-if value="{{ db.ok }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6.2"></circle><path d="M5.3 8.2l1.8 1.8 3.6-3.8"></path></svg></sc-if>
+                  <span style="flex:1;line-height:1.45"><strong>{{ db.title }}</strong> {{ db.text }}</span>
+                  <sc-if value="{{ db.hasAct }}"><span onClick="{{ db.act }}" style="font-weight:700;cursor:pointer;text-decoration:underline">{{ db.actLabel }}</span></sc-if>
+                  <div onClick="{{ closeDb }}" title="Dismiss" style="width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:rgba(0,0,0,.05)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+                </div>
+              </sc-if>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 40px;gap:12px;padding:9px 20px;background:#F7F8FA;border-bottom:1px solid #EEF0F4;margin-top:{{ dHeadMt }};font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280"><span>Label</span><span>Status</span><span></span></div>
+              <sc-if value="{{ iEmpty }}">
+                <div style="height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;padding:0 24px">
+                  <div style="width:40px;height:40px;border-radius:999px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;color:#6B7280"><svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="6" cy="6" r="4.5"></circle><path d="M9.5 9.5L13 13"></path></svg></div>
+                  <span style="font-size:14px;font-weight:700;color:#0B1840">No items match the current filter.</span>
+                  <span style="font-size:12px;color:#6B7280">{{ iEmptyHint }}</span>
+                  <span onClick="{{ clearIf }}" style="margin-top:6px;font-size:12.5px;font-weight:600;color:#0B1840;border:1px solid #DDE1E8;border-radius:8px;padding:7px 14px;cursor:pointer" style-hover="background:#F7F8FA">Show all items</span>
+                </div>
+              </sc-if>
+              <sc-for list="{{ irows }}" as="r" hint-placeholder-count="6">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 40px;gap:12px;padding:0 20px;min-height:50px;align-items:center;border-bottom:1px solid #F0F1F4;background:{{ r.bg }}">
+                  <span style="font-size:13px;font-weight:600;color:{{ r.c }}">{{ r.label }}</span>
+                  <div>
+                    <sc-if value="{{ r.busy }}"><span style="display:flex;align-items:center;gap:7px;font-size:12px;color:#6B7280">{{ spin }}Updating…</span></sc-if>
+                    <sc-if value="{{ r.idle }}"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:{{ r.stBg }};color:{{ r.stC }}"><span style="width:6px;height:6px;border-radius:999px;background:{{ r.stDot }}"></span>{{ r.status }}</span></sc-if>
+                  </div>
+                  <div style="position:relative;display:flex;justify-content:flex-end">
+                    <div onClick="{{ r.toggleMenu }}" title="More actions" style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#374151;background:{{ r.mBg }};border:1px solid {{ r.mB }};box-sizing:border-box" style-hover="background:#F3F4F6"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></div>
+                    <sc-if value="{{ r.menuOpen }}">
+                      <div onClick="{{ stop }}" style="position:absolute;right:0;top:34px;width:280px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;box-shadow:0 12px 32px rgba(11,24,64,.16);z-index:30;padding:6px;display:flex;flex-direction:column;cursor:default">
+                        <sc-for list="{{ r.items }}" as="it">
+                          <div onClick="{{ it.run }}" style="display:flex;align-items:flex-start;gap:10px;padding:7px 8px;border-radius:7px;cursor:pointer;color:#0B1840" style-hover="background:#F3F4F6">
+                            <div style="width:16px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                              <sc-if value="{{ it.iEdit }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M10.5 2.5l3 3L6 13H3v-3l7.5-7.5Z"></path></svg></sc-if>
+                              <sc-if value="{{ it.iPower }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v5.5M4.6 4.2a5 5 0 1 0 6.8 0"></path></svg></sc-if>
+                            </div>
+                            <div style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:12.5px;font-weight:600">{{ it.label }}</span><sc-if value="{{ it.hasTag }}"><span style="font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:4px;padding:1px 5px;background:#E8EBF3;color:#0B1840">{{ it.tag }}</span></sc-if></div><span style="font-size:11px;color:#6B7280;line-height:1.35">{{ it.sub }}</span></div>
+                          </div>
+                        </sc-for>
+                      </div>
+                    </sc-if>
+                  </div>
+                </div>
+              </sc-for>
+              <div style="padding:12px 20px;display:flex;gap:10px;align-items:flex-start;font-size:11.5px;color:#4B5563;line-height:1.5">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 7.2v4M8 4.8v.2"></path></svg>
+                <span style="text-wrap:pretty">Items can't be deleted: they may already be tagged on proposals and projects. <strong style="color:#0B1840">Deactivate</strong> a value to stop offering it when tagging; existing tags and experience profiles keep it.</span>
+              </div>
+            </div>
+            <sc-if value="{{ dw.drawer }}"><div style="display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EEF0F4"><span style="flex:1;font-size:11.5px;color:#6B7280">Changes to items are saved as you make them.</span><div onClick="{{ closeDrawer }}" style="height:36px;box-sizing:border-box;padding:0 18px;border-radius:8px;background:#0B1840;display:flex;align-items:center;font-size:12.5px;font-weight:600;color:#fff;cursor:pointer">Close</div></div></sc-if>
+          </div>
+        </sc-if>
+      
+      
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ sideBackdrop }}" hint-placeholder-val="{{ false }}"><div onClick="{{ closeSide }}" style="position:absolute;inset:0;background:rgba(11,24,64,.28);z-index:40"></div></sc-if>
+  <sc-if value="{{ popBackdrop }}" hint-placeholder-val="{{ false }}"><div onClick="{{ closePops }}" style="position:absolute;inset:0;z-index:20"></div></sc-if>
+
+  <sc-if value="{{ formOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeForm }}" style="position:absolute;inset:0;background:rgba(11,24,64,.28);z-index:50"></div>
+    <div style="position:absolute;top:0;right:0;bottom:0;width:480px;background:#fff;z-index:51;box-shadow:-12px 0 32px rgba(11,24,64,.18);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid #EEF0F4">
+        <div style="flex:1;display:flex;flex-direction:column;gap:4px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">{{ fm.kicker }}</span><span style="font-size:19px;font-weight:700;color:#0B1840">{{ fm.title }}</span><span style="font-size:12px;color:#6B7280;line-height:1.45">{{ fm.sub }}</span></div>
+        <div onClick="{{ closeForm }}" title="Close (Esc)" style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#F3F4F6"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+      </div>
+      <div style="flex:1;min-height:0;overflow-y:scroll;scrollbar-gutter:stable;overflow-x:hidden;padding:16px 20px;display:flex;flex-direction:column;gap:14px">
+        <sc-if value="{{ fm.hasErr }}"><div style="display:flex;gap:9px;padding:10px 12px;border-radius:8px;background:#FDEFF0;border:1px solid #F5C7CB;color:#B42318;font-size:12.5px;line-height:1.45"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 4.8v3.8M8 11v.2"></path></svg><span>{{ fm.err }}</span></div></sc-if>
+
+        <sc-if value="{{ fm.isText }}">
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <span style="font-size:11.5px;font-weight:600;color:#374151">{{ fm.label }} <span style="color:#B42318">*</span><sc-if value="{{ fm.hasHelp }}"><span style="font-weight:400;color:#6B7280"> {{ fm.help }}</span></sc-if></span>
+            <input value="{{ fm.val }}" onChange="{{ fm.onVal }}" placeholder="{{ fm.ph }}" style="height:36px;box-sizing:border-box;border:1px solid {{ fm.inB }};border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;outline:none;color:#0B1840;width:100%;box-shadow:{{ fm.inSh }}">
+            <sc-if value="{{ fm.fieldErr }}"><span style="font-size:11.5px;font-weight:600;color:#B42318">{{ fm.fieldErrText }}</span></sc-if>
+            <sc-if value="{{ fm.hasHint }}"><span style="font-size:11px;color:#6B7280;line-height:1.45">{{ fm.hint }}</span></sc-if>
+          </div>
+          <sc-if value="{{ fm.hasSlug }}">
+            <div style="display:grid;grid-template-columns:110px minmax(0,1fr);border:1px solid #EEF0F4;border-radius:10px">
+              <div style="padding:11px 14px;background:#F7F8FA;font-size:11.5px;font-weight:600;color:#6B7280;border-radius:10px 0 0 10px">Slug</div>
+              <div style="padding:9px 14px;display:flex;flex-direction:column;gap:4px"><span><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:#374151;background:#F1F2F5;border-radius:5px;padding:2px 7px">{{ fm.slug }}</span></span><span style="font-size:11.5px;color:#6B7280;line-height:1.45">{{ fm.slugNote }}</span></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ fm.isTopic }}">
+            <div style="display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:10px;border:1px solid #DDE1E8;background:#F7F8FA;font-size:12px;color:#374151;line-height:1.5">
+              <span style="font-size:12.5px;font-weight:700;color:#0B1840">{{ fm.infoTitle }}</span>
+              <sc-for list="{{ fm.info }}" as="x"><div style="display:flex;gap:8px"><span style="width:5px;height:5px;border-radius:999px;background:#0B1840;margin-top:7px;flex-shrink:0"></span><span style="text-wrap:pretty">{{ x }}</span></div></sc-for>
+              <sc-if value="{{ fm.isNewTopic }}"><a href="#" style="font-weight:600;align-self:flex-start">Open Profile processing →</a></sc-if>
+            </div>
+          </sc-if>
+        </sc-if>
+
+        <sc-if value="{{ fm.isMerge }}">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid #EEF0F4;border-radius:10px">
+            <div style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">Topic to merge</span><span style="font-size:14px;font-weight:700;color:#0B1840">{{ mg.src }}</span><span style="font-size:11.5px;color:#6B7280">{{ mg.srcMeta }}</span></div>
+            <span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:{{ mg.stBg }};color:{{ mg.stC }}"><span style="width:6px;height:6px;border-radius:999px;background:{{ mg.stDot }}"></span>{{ mg.st }}</span>
+          </div>
+          <div style="position:relative;display:flex;flex-direction:column;gap:5px">
+            <span style="font-size:11.5px;font-weight:600;color:#374151">Merge into <span style="color:#B42318">*</span></span>
+            <div onClick="{{ mg.toggleCombo }}" style="height:36px;box-sizing:border-box;border:1px solid {{ mg.cB }};border-radius:8px;padding:0 10px;display:flex;align-items:center;gap:8px;cursor:pointer;background:#fff;box-shadow:{{ mg.cSh }}">
+              <span style="flex:1;min-width:0;font-size:13px;color:{{ mg.cC }};font-weight:{{ mg.cW }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ mg.cLabel }}</span>
+              <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg>
+            </div>
+            <span style="font-size:11px;color:#6B7280;line-height:1.45">{{ mg.rule }}</span>
+            <sc-if value="{{ mg.comboOpen }}">
+              <div onClick="{{ stop }}" style="position:absolute;left:0;right:0;top:62px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;box-shadow:0 12px 32px rgba(11,24,64,.16);z-index:30;display:flex;flex-direction:column;overflow:hidden">
+                <div style="padding:8px;border-bottom:1px solid #EEF0F4"><div style="display:flex;align-items:center;gap:8px;border:1px solid #0B1840;border-radius:7px;padding:0 9px;height:32px;box-sizing:border-box"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg><input value="{{ mg.q }}" onChange="{{ mg.onQ }}" placeholder="Search topics…" style="flex:1;min-width:0;border:0;outline:none;font-size:12.5px;font-family:inherit;background:transparent;color:#0B1840"></div></div>
+                <div style="max-height:300px;overflow-y:auto;overflow-x:hidden;padding:4px 6px 6px;display:flex;flex-direction:column">
+                  <sc-for list="{{ mg.groups }}" as="g" hint-placeholder-count="1">
+                    <span style="padding:8px 8px 3px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">{{ g.label }}</span>
+                    <sc-for list="{{ g.items }}" as="o">
+                      <div onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;cursor:pointer;background:{{ o.bg }}" style-hover="background:#F3F4F6">
+                        <span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:#0B1840;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ o.label }}</span>
+                        <span style="font-size:10.5px;color:#6B7280;white-space:nowrap">{{ o.meta }}</span>
+                        <sc-if value="{{ o.on }}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#0B1840" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.4l3 3L12.5 5"></path></svg></sc-if>
+                      </div>
+                    </sc-for>
+                  </sc-for>
+                  <sc-if value="{{ mg.noRes }}"><span style="padding:14px 8px;font-size:12px;color:#6B7280">No topics match “{{ mg.q }}”.</span></sc-if>
+                </div>
+                <div style="padding:7px 12px;border-top:1px solid #EEF0F4;background:#F7F8FA;font-size:10.5px;color:#6B7280;display:flex;gap:12px"><span>↑ ↓ move</span><span>Enter select</span><span>Esc close</span></div>
+              </div>
+            </sc-if>
+          </div>
+          <sc-if value="{{ mg.hasTarget }}">
+            <div style="display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-radius:10px;border:1px solid #DDE1E8;background:#F7F8FA;font-size:12px;color:#374151;line-height:1.5">
+              <span style="font-size:12.5px;font-weight:700;color:#0B1840">What happens</span>
+              <div style="display:flex;gap:8px"><span style="width:5px;height:5px;border-radius:999px;background:#0B1840;margin-top:7px;flex-shrink:0"></span><span>{{ mg.l1 }}</span></div>
+              <div style="display:flex;gap:8px"><span style="width:5px;height:5px;border-radius:999px;background:#0B1840;margin-top:7px;flex-shrink:0"></span><span>{{ mg.l2 }}</span></div>
+              <div style="display:flex;gap:8px"><span style="width:5px;height:5px;border-radius:999px;background:#B42318;margin-top:7px;flex-shrink:0"></span><span><strong style="color:#B42318">Can't be undone.</strong> To hide a topic without losing it, reject it instead.</span></div>
+            </div>
+          </sc-if>
+        </sc-if>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:12px 20px;border-top:1px solid #EEF0F4">
+        <div onClick="{{ closeForm }}" style="height:36px;box-sizing:border-box;padding:0 16px;border-radius:8px;border:1px solid #DDE1E8;background:#fff;display:flex;align-items:center;font-size:12.5px;font-weight:600;color:#374151;cursor:pointer" style-hover="border-color:#0B1840">Cancel</div>
+        <div onClick="{{ fm.save }}" style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:#fff;background:{{ fm.btnBg }};border-radius:8px;padding:0 16px;height:36px;cursor:{{ fm.btnCur }}">{{ fm.spin }}{{ fm.btn }}</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ cfOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(11,24,64,.42);z-index:60;display:flex;align-items:center;justify-content:center">
+      <div style="width:480px;background:#fff;border-radius:12px;box-shadow:0 24px 64px rgba(11,24,64,.28);padding:20px 22px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#FDEFF0;color:#B42318"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2.5v3c0 2 1.5 3 4 3.5M12 2.5v3c0 2-1.5 3-4 3.5v4.5M6 11.5l2 2 2-2"></path></svg></div>
+          <span style="flex:1;font-size:16px;font-weight:700;color:#0B1840">{{ cf.title }}</span>
+          <span style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#B42318;background:#FDEFF0;border-radius:4px;padding:2px 7px">Irreversible</span>
+        </div>
+        <span style="font-size:12.5px;color:#374151;line-height:1.55;text-wrap:pretty">This can't be undone. Profiles in Team update immediately.</span>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px">
+          <div style="display:flex;flex-direction:column;gap:5px;background:#F7F8FA;border-radius:8px;padding:10px 12px;font-size:12px;color:#374151;line-height:1.45"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#B42318">Disappears</span><span><strong style="color:#0B1840">{{ cf.src }}</strong></span><span>{{ cf.srcSt }}</span></div>
+          <div style="display:flex;flex-direction:column;gap:5px;background:#F7F8FA;border-radius:8px;padding:10px 12px;font-size:12px;color:#374151;line-height:1.45"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#146C3A">Moves to {{ cf.dst }}</span><span>{{ cf.moved }}</span><span>{{ cf.after }}</span></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:1px solid #DDE1E8;font-size:12.5px;color:#0B1840;line-height:1.45"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 7.2v4M8 4.8v.2"></path></svg><span style="flex:1"><strong>Just want it gone?</strong> Reject hides it and stops new proposals. You can restore it later.</span><span onClick="{{ cf.reject }}" style="font-weight:700;cursor:pointer;white-space:nowrap;text-decoration:underline">Reject instead</span></div>
+        <div onClick="{{ cf.toggleAck }}" style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:12.5px;color:#0B1840;padding:2px 0"><div style="width:16px;height:16px;border-radius:4px;border:1.5px solid {{ cf.ackB }};background:{{ cf.ackBg }};box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.4l3 3L12.5 5"></path></svg></div>I understand this can't be undone.</div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:4px"><span onClick="{{ cf.cancel }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:8px 6px">Back</span><span onClick="{{ cf.go }}" style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:#fff;background:{{ cf.btnBg }};border-radius:8px;padding:9px 16px;cursor:{{ cf.btnCur }}">{{ cf.spin }}Merge topics</span></div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1000},&quot;nav&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;tabs&quot;,&quot;subnav&quot;,&quot;callout&quot;],&quot;default&quot;:&quot;tabs&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;content&quot;,&quot;loading&quot;,&quot;denied&quot;,&quot;emptyLists&quot;],&quot;default&quot;:&quot;content&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;tab&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;lists&quot;,&quot;topics&quot;],&quot;default&quot;:&quot;lists&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;topicView&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;proposed&quot;,&quot;approved&quot;,&quot;rejected&quot;,&quot;noApproved&quot;],&quot;default&quot;:&quot;proposed&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;queue&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;default&quot;,&quot;approved&quot;,&quot;empty&quot;],&quot;default&quot;:&quot;default&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;drawer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;list&quot;,&quot;listInactive&quot;,&quot;listEmpty&quot;,&quot;deactivated&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;form&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;newList&quot;,&quot;newListErr&quot;,&quot;renameList&quot;,&quot;newItem&quot;,&quot;editItem&quot;,&quot;editItemErr&quot;,&quot;newTopic&quot;,&quot;renameTopicErr&quot;,&quot;merge&quot;,&quot;mergeReady&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;confirm&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;merge&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;menu&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;banner&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;success&quot;,&quot;error&quot;,&quot;topicError&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const LISTS0 = [
+  { id: 1, name: 'Brand', slug: 'brand', items: [['Akantior', 1], ['Aurora', 1], ['Bermits', 1], ['Karomy', 1], ['Nexira', 0], ['Xelvo', 0]] },
+  { id: 2, name: 'Market', slug: 'market', items: [['France', 0], ['Germany', 1], ['Global', 1], ['Italy', 1], ['Spain', 1], ['United Kingdom', 1]] },
+  { id: 3, name: 'Service Type', slug: 'service-type', items: [['Content', 1], ['Data & analytics', 1], ['Digital platform development', 1], ['Events', 0], ['Launch support', 1], ['Platform maintenance', 1]] },
+  { id: 4, name: 'Therapeutic Area', slug: 'therapeutic-area', items: [['Cardiology', 1], ['Dermatology', 0], ['Oncology', 1], ['Ophthalmology', 1], ['Rare diseases', 1]] },
+  { id: 5, name: 'Channel', slug: 'channel', items: [['Email', 1], ['Field force', 1], ['Social', 1], ['Web', 1]] }
+].map(l => ({ ...l, items: l.items.map(([label, a], i) => ({ id: l.id * 100 + i, label, active: !!a })) }));
+const TOPICS0 = [
+  ['Pharmacovigilance', 'proposed', 4], ['Regulatory affairs', 'proposed', 3], ['KOL engagement', 'proposed', 2], ['Hospital rankings', 'proposed', 2],
+  ['Pharmacovigilance reporting', 'proposed', 1], ['Launch planning', 'proposed', 1], ['UX research', 'proposed', 1], ['Translation management', 'proposed', 1],
+  ['Back-end development', 'approved', 2], ['Content management', 'approved', 1], ['Front-end development', 'approved', 2], ['Medical content review', 'approved', 0],
+  ['Project management', 'approved', 1], ['Project planning', 'approved', 1], ['Quality assurance', 'approved', 3], ['Resource allocation', 'approved', 1],
+  ['Stakeholder management', 'approved', 1], ['Website maintenance', 'approved', 1],
+  ['Meetings', 'rejected', 6], ['Email', 'rejected', 3], ['Miscellaneous', 'rejected', 2]
+].map(([name, st, used], i) => ({ id: 't' + i, name, st, used }));
+const ST = { active: ['#E7F5EC', '#146C3A', '#1F9D55'], inactive: ['#F0F1F4', '#4B5563', '#9AA0AC'], proposed: ['#FFF1DC', '#8A4B08', '#D97706'], approved: ['#E7F5EC', '#146C3A', '#1F9D55'], rejected: ['#F0F1F4', '#4B5563', '#9AA0AC'] };
+const BN = { ok: { bg: '#F3FAF5', border: '#CDE9D6', c: '#146C3A' }, err: { bg: '#FDEFF0', border: '#F5C7CB', c: '#B42318' } };
+const seg = on => ({ bg: on ? '#fff' : 'transparent', sh: on ? '0 1px 2px rgba(11,24,64,.12)' : 'none', w: on ? 700 : 500, c: on ? '#0B1840' : '#4B5563', nc: on ? '#F0287A' : '#6B7280' });
+const desc = n => n + (n === 1 ? ' description' : ' descriptions');
+const slugify = s => s.trim().toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+const spinEl = (s, w) => React.createElement('span', { style: { width: s, height: s, boxSizing: 'border-box', border: w + 'px solid rgba(155,160,172,.35)', borderTopColor: '#F0287A', borderRadius: 999, display: 'inline-block', animation: 'ua-spin .8s linear infinite', flexShrink: 0 } });
+const spinW = () => React.createElement('span', { style: { width: 13, height: 13, boxSizing: 'border-box', border: '2px solid rgba(255,255,255,.4)', borderTopColor: '#fff', borderRadius: 999, display: 'inline-block', animation: 'ua-spin .8s linear infinite' } });
+const ban = (kind, title, text, actLabel, act) => ({ kind, title, text, actLabel, act });
+
+class Component extends DCLogic {
+  state = {};
+  componentDidMount() {
+    this._esc = e => { if (e.key !== 'Escape') return; const S = this.state; if (S.menu || S.combo) this.setState({ menu: null, combo: false }); else if (this.cur().cf) this.setState({ cf: null }); else if (this.cur().form) this.setState({ form: null }); else this.setState({ sel: null, topicsOpen: false }); };
+    window.addEventListener('keydown', this._esc);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this._esc); }
+  cur() {
+    const S = this.state, P = this.props, fp = P.form ?? 'none';
+    const presets = {
+      newList: { kind: 'newList', val: '' },
+      newListErr: { kind: 'newList', val: 'market', err: 'A list called “Market” already exists. Pick another name, or rename the existing list.' },
+      renameList: { kind: 'renameList', id: 2, val: 'Market' },
+      newItem: { kind: 'item', listId: 2, val: '' },
+      editItem: { kind: 'item', listId: 2, itemId: 205, val: 'United Kingdom' },
+      editItemErr: { kind: 'item', listId: 2, itemId: 205, val: 'italy', err: '“Italy” is already in Market. Labels are unique within a list, regardless of case.' },
+      newTopic: { kind: 'newTopic', val: '' },
+      renameTopicErr: { kind: 'renameTopic', id: 't2', val: 'Key opinion leader engagement and advocacy', err: 'Use 1–4 words and up to 60 characters. This name has 6 words.' },
+      merge: { kind: 'merge', id: 't4', target: null },
+      mergeReady: { kind: 'merge', id: 't4', target: 't0' }
+    };
+    const form = S.form !== undefined ? S.form : (presets[fp] ?? null);
+    const cfp = P.confirm ?? 'none';
+    const cf = S.cf !== undefined ? S.cf : (cfp === 'merge' ? { id: 't4', target: 't0', ack: false } : null);
+    return { form, cf };
+  }
+  renderVals() {
+    const S = this.state, P = this.props;
+    const view = P.view ?? 'content';
+    const lists = S.lists ?? (view === 'emptyLists' ? [] : LISTS0);
+    const topics = S.topics ?? (P.queue === 'empty' ? TOPICS0.map(t => t.st === 'proposed' ? { ...t, st: 'approved' } : t) : (P.queue === 'approved' ? TOPICS0.map(t => ['t0', 't1'].includes(t.id) ? { ...t, st: 'approved' } : t) : (P.topicView === 'noApproved' ? TOPICS0.filter(t => t.st !== 'approved') : TOPICS0)));
+    const nav = P.nav ?? 'tabs';
+    const tab = nav === 'callout' ? 'lists' : (S.tab ?? (P.tab ?? 'lists'));
+    const topicsOpen = nav === 'callout' && (S.topicsOpen ?? (P.tab === 'topics'));
+    const tvRaw = S.tv ?? (P.topicView === 'noApproved' ? 'approved' : (P.topicView ?? 'proposed'));
+    const tv = tvRaw;
+    const reviewed = S.reviewed ?? (P.queue === 'approved' ? 2 : P.queue === 'empty' ? 8 : 0);
+    const { form, cf } = this.cur();
+    const sel0 = S.sel !== undefined ? S.sel : ((P.drawer ?? 'none') !== 'none' ? 2 : null);
+    const sel = nav === 'subnav' && tab === 'lists' ? (sel0 ?? 2) : (nav === 'subnav' ? null : sel0);
+    const menu = S.menu !== undefined ? S.menu : (P.menu ? (tab === 'topics' ? 't1' : (sel ? 'i203' : 'l2')) : null);
+    const tMode = nav === 'callout' ? topicsOpen : tab === 'topics';
+    const busy = S.busy ?? null;
+    const set = p => this.setState(p);
+    const updT = (id, f) => set({ topics: topics.map(t => t.id === id ? f(t) : t) });
+    const tById = id => topics.find(t => t.id === id);
+    const lById = id => lists.find(l => l.id === id);
+
+    const pbDef = { success: ban('ok', 'Approved “KOL engagement”.', 'It now shows in experience profiles in Team.'), error: ban('err', 'Couldn’t load attribute lists.', 'The server didn’t respond. Your data is safe.', 'Try again', () => set({ banner: null })) }[P.banner];
+    const banner = S.banner !== undefined ? S.banner : (P.banner === 'error' ? pbDef : null);
+    const sbDef = P.banner === 'success' || P.queue === 'approved' ? ban('ok', 'Approved “Regulatory affairs”.', 'It now shows in experience profiles in Team. 6 left to review.') : (P.banner === 'topicError' ? ban('err', 'Couldn’t approve “Regulatory affairs”.', 'The list was reloaded. Server: a topic with this name was approved in the meantime. Merge the two instead.') : null);
+    const sban = S.sban !== undefined ? S.sban : (tMode ? sbDef : null);
+    const dbDef = P.drawer === 'deactivated' ? ban('ok', 'Deactivated “France”.', 'It’s no longer offered when tagging. Existing tags stay.', 'Undo', null) : null;
+    const dban = S.dban !== undefined ? S.dban : dbDef;
+    const mkBn = b => b ? { ...BN[b.kind], ok: b.kind === 'ok', err: b.kind === 'err', title: b.title, text: b.text, hasAct: !!b.actLabel, actLabel: b.actLabel || '', act: b.act || (() => {}) } : {};
+
+    const nProp = topics.filter(t => t.st === 'proposed').length;
+    const isLists = view !== 'loading' && view !== 'denied' && tab === 'lists';
+    const isTopics = view !== 'loading' && view !== 'denied' && tMode;
+
+    const tabs = [['lists', 'Lists'], ['topics', 'Topics']].map(([k, label]) => {
+      const on = tab === k;
+      return { label, w: on ? 700 : 500, c: on ? '#0B1840' : '#4B5563', sh: on ? 'inset 0 -2px 0 #F0287A' : 'none', hasN: k === 'topics' && nProp > 0, n: nProp, pick: () => set({ tab: k, menu: null }) };
+    });
+
+    const lrows = lists.map(l => {
+      const act = l.items.filter(i => i.active).length, inact = l.items.length - act, mk = 'l' + l.id, open = menu === mk;
+      return {
+        name: l.name, slug: l.slug, act, inact, hasInact: inact > 0,
+        bg: sel === l.id ? '#FFF5F9' : '#fff', bar: sel === l.id ? 'inset 3px 0 0 #F0287A' : 'none',
+        open: () => set({ sel: l.id, itemF: 'active', iq: '', dban: null, menu: null }),
+        menuOpen: open, mBg: open ? '#F3F4F6' : '#fff', mB: open ? '#DDE1E8' : 'transparent',
+        toggleMenu: e => { e.stopPropagation(); set({ menu: open ? null : mk }); },
+        items: [
+          { label: 'Rename list', sub: 'The slug stays “' + l.slug + '”.', iEdit: true, run: () => set({ menu: null, form: { kind: 'renameList', id: l.id, val: l.name } }) },
+          { label: 'Open items', sub: act + ' active · ' + inact + ' inactive', iOpen: true, run: () => set({ menu: null, sel: l.id, itemF: 'active', iq: '' }) }
+        ]
+      };
+    });
+
+    const tq = S.tq ?? '';
+    const cnt = k => topics.filter(t => t.st === k).length;
+    const tvs = [['proposed', 'Proposed'], ['approved', 'Approved'], ['rejected', 'Rejected']].map(([k, label]) => ({ ...seg(tv === k), label, n: cnt(k), pick: () => set({ tv: k, menu: null, sban: null }) }));
+    const tl = topics.filter(t => t.st === tv && (!tq || t.name.toLowerCase().includes(tq.toLowerCase()))).sort((a, b) => tv === 'proposed' ? b.used - a.used || a.name.localeCompare(b.name) : a.name.localeCompare(b.name));
+    const approve = t => { set({ busy: { id: t.id, text: 'Approving…' }, menu: null }); setTimeout(() => { const left = this.state.topics ? this.state.topics : topics; this.setState({ busy: null, reviewed: (this.state.reviewed ?? reviewed) + 1, topics: (this.state.topics ?? topics).map(x => x.id === t.id ? { ...x, st: 'approved' } : x), sban: ban('ok', 'Approved “' + t.name + '”.', 'It now shows in experience profiles in Team.') }); }, 650); };
+    const reject = t => { const wasP = t.st === 'proposed'; this.setState({ menu: null, cf: null, form: null, busy: null, reviewed: wasP ? reviewed + 1 : reviewed, topics: topics.map(x => x.id === t.id ? { ...x, st: 'rejected' } : x), sban: ban('ok', 'Rejected “' + t.name + '”.', 'It’s hidden and won’t be proposed again.', 'View rejected', () => set({ tv: 'rejected', sban: null })) }); };
+    const trows = tl.map((t, i) => {
+      const mk = t.id, open = menu === mk, b = busy && busy.id === t.id;
+      const items = [
+        { label: 'Rename', sub: 'Profiles show the new name at once.', iEdit: true, c: '#0B1840', hov: '#F3F4F6', run: () => set({ menu: null, form: { kind: 'renameTopic', id: t.id, val: t.name } }) },
+        { label: 'Reject', sub: 'Hidden from profiles and never proposed again. You can restore it.', iX: true, c: '#0B1840', hov: '#F3F4F6', hasTag: true, tag: 'Reversible', tagBg: '#E8EBF3', tagC: '#0B1840', run: () => reject(t) },
+        { sep: true, label: 'Merge into…', sub: 'Its descriptions move to another topic; this one disappears.', iMerge: true, c: '#B42318', hov: '#FDEFF0', hasTag: true, tag: 'Irreversible', tagBg: '#FDEFF0', tagC: '#B42318', run: () => set({ menu: null, combo: true, mq: '', form: { kind: 'merge', id: t.id, target: null } }) }
+      ];
+      const low = i >= tl.length - 3 && tl.length > 5;
+      return {
+        name: t.name, nameC: t.st === 'rejected' ? '#4B5563' : '#0B1840', used: desc(t.used), usedC: t.used === 0 ? '#8A4B08' : '#374151', unused: t.st === 'approved' && t.used === 0,
+        bg: open ? '#FAFBFC' : '#fff', busy: !!b, busyText: b ? busy.text : '',
+        canApprove: t.st === 'proposed' && !b, approve: () => approve(t),
+        canRestore: t.st === 'rejected', restore: () => { this.setState({ topics: topics.map(x => x.id === t.id ? { ...x, st: 'approved' } : x), sban: ban('ok', 'Restored “' + t.name + '”.', 'It’s approved again and shows in experience profiles.') }); },
+        hasMenu: t.st !== 'rejected' && !b, menuOpen: open, mBg: open ? '#F3F4F6' : '#fff', mB: open ? '#DDE1E8' : 'transparent',
+        mTop: low ? 'auto' : '34px', mBot: low ? '34px' : 'auto',
+        toggleMenu: e => { e.stopPropagation(); set({ menu: open ? null : mk }); }, items
+      };
+    });
+    const tEmpty = isTopics && trows.length === 0;
+    const te = tq && topics.some(t => t.st === tv) ? { search: true, bg: '#F3F4F6', c: '#6B7280', title: 'No topics match “' + tq + '”.', text: 'Try another word, or clear the search.', hasBtn: true, btn: 'Clear search', run: () => set({ tq: '' }) }
+      : tv === 'proposed' ? { done: true, bg: '#E7F5EC', c: '#146C3A', title: 'No topics to review.', text: 'New proposals appear here after the agent processes new or edited project and task descriptions.', hasBtn: false, btn: '', run: () => {} }
+      : tv === 'approved' ? { none: true, bg: '#F3F4F6', c: '#6B7280', title: 'No approved topics yet.', text: 'Approve proposals from the queue, or create a topic with New topic.', hasBtn: true, btn: 'Review proposed (' + nProp + ')', run: () => set({ tv: 'proposed' }) }
+      : { none: true, bg: '#F3F4F6', c: '#6B7280', title: 'No rejected topics.', text: 'Rejected topics are hidden from profiles and never proposed again.', hasBtn: false, btn: '', run: () => {} };
+    const total = nProp + reviewed;
+    const qs = { left: nProp, doneLabel: reviewed ? reviewed + ' of ' + total + ' reviewed this session' : 'None reviewed yet this session', pct: total ? Math.round(reviewed / total * 100) + '%' : '0%' };
+    const tFoot = { proposed: 'Approve keeps the agent’s name. Rename first if the wording needs fixing; merge if the same competence already exists.', approved: 'Approved topics appear in experience profiles in Team. Renames, rejections and merges show there immediately, without recalculation.', rejected: 'Rejected topics are hidden from profiles and the agent never proposes them again. Restore makes a topic approved.' }[tv];
+
+    const L = sel ? lById(sel) : null;
+    const itemF = S.itemF ?? (P.drawer === 'listInactive' ? 'all' : P.drawer === 'listEmpty' ? 'inactive' : 'active');
+    const iq = S.iq ?? (P.drawer === 'listEmpty' ? 'spain' : '');
+    let ifs = [], irows = [], dl = {}, iEmpty = false;
+    if (L) {
+      const base = L.items.filter(i => !iq || i.label.toLowerCase().includes(iq.toLowerCase()));
+      const c = k => base.filter(i => k === 'all' || (k === 'active') === i.active).length;
+      ifs = [['active', 'Active'], ['inactive', 'Inactive'], ['all', 'All']].map(([k, label]) => ({ ...seg(itemF === k), label, n: c(k), pick: () => set({ itemF: k, menu: null }) }));
+      const toggle = it => { set({ busy: { id: it.id }, menu: null }); setTimeout(() => { const ls = (this.state.lists ?? lists).map(l => l.id !== L.id ? l : { ...l, items: l.items.map(x => x.id === it.id ? { ...x, active: !x.active } : x) }); const undo = () => this.setState({ lists: (this.state.lists).map(l => l.id !== L.id ? l : { ...l, items: l.items.map(x => x.id === it.id ? { ...x, active: it.active } : x) }), dban: null }); this.setState({ busy: null, lists: ls, dban: it.active ? ban('ok', 'Deactivated “' + it.label + '”.', 'It’s no longer offered when tagging. Existing tags stay.', 'Undo', undo) : ban('ok', 'Activated “' + it.label + '”.', 'It’s offered again when tagging.', 'Undo', undo) }); }, 650); };
+      irows = base.filter(i => itemF === 'all' || (itemF === 'active') === i.active).map(it => {
+        const mk = 'i' + it.id, open = menu === mk, b = busy && busy.id === it.id, st = it.active ? 'active' : 'inactive';
+        return {
+          label: it.label, c: it.active ? '#0B1840' : '#4B5563', bg: open ? '#FAFBFC' : '#fff', busy: !!b, idle: !b,
+          status: st, stBg: ST[st][0], stC: ST[st][1], stDot: ST[st][2],
+          menuOpen: open, mBg: open ? '#F3F4F6' : '#fff', mB: open ? '#DDE1E8' : 'transparent',
+          toggleMenu: e => { e.stopPropagation(); set({ menu: open ? null : mk }); },
+          items: [
+            { label: 'Edit label', sub: 'Tags already applied show the new label.', iEdit: true, run: () => set({ menu: null, form: { kind: 'item', listId: L.id, itemId: it.id, val: it.label } }) },
+            it.active ? { label: 'Deactivate', sub: 'No longer offered when tagging. Existing tags and profiles keep it.', iPower: true, hasTag: true, tag: 'Instead of delete', run: () => toggle(it) } : { label: 'Activate', sub: 'Offered again when tagging.', iPower: true, run: () => toggle(it) }
+          ]
+        };
+      });
+      iEmpty = irows.length === 0;
+      dl = { name: L.name, slug: L.slug, rename: () => set({ form: { kind: 'renameList', id: L.id, val: L.name } }), newItem: () => set({ form: { kind: 'item', listId: L.id, val: '' } }) };
+    }
+
+    let fm = {}, mg = {};
+    if (form) {
+      const v = form.val ?? '';
+      const onVal = e => set({ form: { ...form, val: e.target.value, err: null } });
+      const saving = !!form.saving;
+      const done = (patch, b, target) => { set({ form: { ...form, saving: true } }); setTimeout(() => this.setState({ form: null, ...patch, ...(target === 'd' ? { dban: b } : target === 's' ? { sban: b } : { banner: b }) }), 600); };
+      const fail = err => set({ form: { ...form, err } });
+      const allActiveLabels = lists.flatMap(l => l.items.filter(i => i.active).map(i => [i.label, l.name]));
+      const topicErr = (name, selfId) => {
+        const w = name.trim().split(/\s+/).filter(Boolean).length;
+        if (!name.trim()) return 'Enter a name.';
+        if (w > 4 || name.length > 60) return 'Use 1–4 words and up to 60 characters. This name has ' + w + ' words.';
+        const l = lists.find(x => x.name.toLowerCase() === name.trim().toLowerCase()); if (l) return '“' + l.name + '” is the name of an attribute list. Topics can’t reuse list names.';
+        const it = allActiveLabels.find(([x]) => x.toLowerCase() === name.trim().toLowerCase()); if (it) return '“' + it[0] + '” is an active value in ' + it[1] + '. Topics can’t reuse active values.';
+        const t = topics.find(x => x.id !== selfId && x.name.toLowerCase() === name.trim().toLowerCase()); if (t) return 'A topic called “' + t.name + '” already exists (' + t.st + '). Merge into it instead.';
+        return null;
+      };
+      const common = { hasErr: !!form.err, err: form.err || '', val: v, onVal, spin: saving ? spinW() : null, btnBg: saving ? '#9AA0AC' : '#F0287A', btnCur: saving ? 'default' : 'pointer', fieldErr: !!form.err, fieldErrText: '', inB: form.err ? '#B42318' : '#DDE1E8', inSh: form.err ? '0 0 0 3px rgba(180,35,24,.12)' : 'none', isText: form.kind !== 'merge', isMerge: form.kind === 'merge', hasHelp: false, help: '', hasHint: false, hint: '', hasSlug: false, isTopic: false, isNewTopic: false, info: [] };
+      if (form.kind === 'newList') fm = { ...common, kicker: 'Attribute Lists', title: 'New list', sub: 'Create a set of values to tag proposals and projects. It also becomes a dimension of experience profiles.', label: 'Name', ph: 'e.g. Channel', hasSlug: true, slug: slugify(v) || '—', slugNote: 'Generated from the name when you create the list. It never changes, even if you rename the list later.', btn: 'Create list', save: () => { if (!v.trim()) return fail('Enter a name.'); if (lists.some(l => l.name.toLowerCase() === v.trim().toLowerCase())) return fail('A list called “' + v.trim() + '” already exists. Pick another name, or rename the existing list.'); const id = Math.max(...lists.map(l => l.id), 0) + 1; done({ lists: [...lists, { id, name: v.trim(), slug: slugify(v), items: [] }], sel: id, itemF: 'all' }, ban('ok', 'Created “' + v.trim() + '”.', 'Add its first values with New item.')); } };
+      if (form.kind === 'renameList') { const l = lById(form.id); fm = { ...common, kicker: 'Attribute list', title: 'Rename list', sub: 'Tags already applied keep working: they refer to the slug, not the name.', label: 'Name', ph: l.name, hasSlug: true, slug: l.slug, slugNote: 'Stays the same after renaming.', btn: 'Save', save: () => { if (!v.trim()) return fail('Enter a name.'); done({ lists: lists.map(x => x.id === l.id ? { ...x, name: v.trim() } : x) }, ban('ok', 'Renamed to “' + v.trim() + '”.', 'The slug is still “' + l.slug + '”.'), sel ? 'd' : 'p'); } }; }
+      if (form.kind === 'item') { const l = lById(form.listId), editing = !!form.itemId; fm = { ...common, kicker: l.name, title: editing ? 'Edit item' : 'New item', sub: editing ? 'Proposals and projects already tagged with this value show the new label.' : 'Offered as a tag in Cost Grid and Project config as soon as you add it.', label: 'Label', ph: 'e.g. Portugal', hasHint: true, hint: 'Must be unique in ' + l.name + ', regardless of upper or lower case.', btn: editing ? 'Save' : 'Add item', save: () => { if (!v.trim()) return fail('Enter a label.'); const dup = l.items.find(i => i.id !== form.itemId && i.label.toLowerCase() === v.trim().toLowerCase()); if (dup) return fail('“' + dup.label + '” is already in ' + l.name + (dup.active ? '' : ' (inactive — activate it instead)') + '. Labels are unique within a list, regardless of case.'); const items = editing ? l.items.map(i => i.id === form.itemId ? { ...i, label: v.trim() } : i) : [...l.items, { id: l.id * 100 + l.items.length + 50, label: v.trim(), active: true }]; done({ lists: lists.map(x => x.id === l.id ? { ...x, items } : x) }, ban('ok', editing ? 'Saved “' + v.trim() + '”.' : 'Added “' + v.trim() + '”.', editing ? 'Existing tags show the new label.' : 'It’s offered when tagging.'), 'd'); } }; }
+      if (form.kind === 'newTopic') fm = { ...common, kicker: 'Topics', title: 'New topic', sub: 'Add a competence to the vocabulary the agent uses.', label: 'Name', help: '(a competence, 1–4 words, English)', hasHelp: true, ph: 'e.g. Medical writing', isTopic: true, isNewTopic: true, infoTitle: 'It starts empty', info: ['The topic is approved at once and added to the vocabulary the agent receives on every extraction.', 'It doesn’t classify anything retroactively: “Used in” stays at 0 until the agent picks it for a description.', 'The agent only rereads new or edited descriptions. To apply it to a project already processed, run Process on that project in Profile processing.'], btn: 'Create topic', save: () => { const e = topicErr(v); if (e) return fail(e); done({ topics: [...topics, { id: 'n' + Date.now(), name: v.trim(), st: 'approved', used: 0 }], tab: 'topics', tv: 'approved', tq: '' }, ban('ok', 'Created “' + v.trim() + '”.', 'It’s approved and used in 0 descriptions until the agent picks it.', 'Profile processing', () => {}), 's'); } };
+      if (form.kind === 'renameTopic') { const t = tById(form.id); fm = { ...common, kicker: 'Topic · ' + t.st, title: 'Rename topic', sub: 'Profiles in Team show the new name immediately.', label: 'Name', help: '(a competence, 1–4 words, English)', hasHelp: true, ph: t.name, isTopic: true, infoTitle: 'Naming rules', info: ['1–4 words, up to 60 characters, in English.', 'Can’t match an attribute list name or an active value in any list.', 'If the name already exists as another topic, merge into it instead.'], btn: 'Save', save: () => { const e = topicErr(v, t.id); if (e) return fail(e); done({ topics: topics.map(x => x.id === t.id ? { ...x, name: v.trim() } : x) }, ban('ok', 'Renamed to “' + v.trim() + '”.', 'Profiles show the new name.'), 's'); } }; }
+      if (form.kind === 'merge') {
+        const t = tById(form.id), T = form.target ? tById(form.target) : null, q = S.mq ?? (P.form === 'merge' ? 'pharma' : '');
+        const comboOpen = S.combo ?? (P.form === 'merge');
+        const pool = topics.filter(x => x.id !== t.id && (x.st === 'approved' || (t.st === 'proposed' && x.st === 'proposed')) && (!q || x.name.toLowerCase().includes(q.toLowerCase())));
+        const mkO = x => ({ label: x.name, meta: desc(x.used), on: T && T.id === x.id, bg: T && T.id === x.id ? '#F3F4F6' : 'transparent', pick: () => set({ form: { ...form, target: x.id }, combo: false }) });
+        const groups = [['Approved', pool.filter(x => x.st === 'approved')], ['Proposed', pool.filter(x => x.st === 'proposed')]].filter(g => g[1].length).map(([label, xs]) => ({ label, items: xs.map(mkO) }));
+        const s = ST[t.st];
+        fm = { ...common, kicker: 'Topics', title: 'Merge topic', sub: 'Use this when two topics describe the same competence.', btn: 'Merge…', btnBg: T ? '#B42318' : '#C9CDD3', btnCur: T ? 'pointer' : 'default', save: () => { if (T) set({ cf: { id: t.id, target: T.id, ack: false } }); } };
+        mg = { src: t.name, srcMeta: 'Used in ' + desc(t.used), st: t.st, stBg: s[0], stC: s[1], stDot: s[2], comboOpen, toggleCombo: e => { e.stopPropagation(); set({ combo: !comboOpen }); }, cB: comboOpen ? '#0B1840' : '#DDE1E8', cSh: comboOpen ? '0 0 0 3px rgba(11,24,64,.1)' : 'none', cLabel: T ? T.name + (T.st === 'proposed' ? ' (proposed)' : '') : 'Choose the topic to keep…', cC: T ? '#0B1840' : '#6B7280', cW: T ? 600 : 400, q, onQ: e => set({ mq: e.target.value }), groups, noRes: pool.length === 0, rule: t.st === 'approved' ? 'An approved topic can only merge into another approved topic, so the approval isn’t lost.' : 'You can merge into an approved or a proposed topic.', hasTarget: !!T, l1: T ? 'The ' + desc(t.used) + ' using “' + t.name + '” will use “' + T.name + '” (' + desc(T.used + t.used) + ' in total).' : '', l2: '“' + t.name + '” disappears from the vocabulary and from experience profiles.' };
+      }
+    }
+
+    let cfv = {};
+    if (cf) {
+      const t = tById(cf.id), T = tById(cf.target), saving = !!cf.saving;
+      cfv = { title: 'Merge “' + t.name + '” into “' + T.name + '”?', src: t.name, srcSt: t.st === 'proposed' ? 'Proposed · removed from the queue' : 'Approved · removed from profiles', dst: T.name, moved: desc(t.used) + ' move over', after: desc(T.used + t.used) + ' in total', ackB: cf.ack ? '#0B1840' : '#9AA0AC', ackBg: cf.ack ? '#0B1840' : '#fff', toggleAck: () => set({ cf: { ...cf, ack: !cf.ack } }), btnBg: cf.ack && !saving ? '#B42318' : '#E3A5A0', btnCur: cf.ack ? 'pointer' : 'default', spin: saving ? spinW() : null, cancel: () => set({ cf: null }), reject: () => reject(t),
+        go: () => { if (!cf.ack || saving) return; set({ cf: { ...cf, saving: true } }); setTimeout(() => this.setState({ cf: null, form: null, reviewed: t.st === 'proposed' ? reviewed + 1 : reviewed, topics: topics.filter(x => x.id !== t.id).map(x => x.id === T.id ? { ...x, used: x.used + t.used } : x), sban: ban('ok', 'Merged “' + t.name + '” into “' + T.name + '”.', desc(t.used) + ' now use “' + T.name + '”.') }), 700); } };
+    }
+
+    return {
+      denied: view === 'denied', allowed: view !== 'denied', loading: view === 'loading', loadingText: tab === 'topics' ? 'Loading topics…' : 'Loading attribute lists…',
+      title: nav === 'tabs' && tab === 'topics' ? 'Topics' : 'Attribute Lists', subtitle: nav === 'subnav' ? 'Values to tag proposals and projects, and topics for experience profiles' : (nav === 'tabs' && tab === 'topics' ? 'Competences extracted from project descriptions' : lists.length + (lists.length === 1 ? ' list' : ' lists')),
+      primaryLabel: tab === 'topics' ? 'New topic' : 'New list', primary: () => set({ form: { kind: tab === 'topics' ? 'newTopic' : 'newList', val: '' } }), newList: () => set({ form: { kind: 'newList', val: '' } }),
+      tabs, hasBanner: !!banner, bn: mkBn(banner), closeBanner: () => set({ banner: null }),
+      isLists, isListsTable: isLists && (nav !== 'subnav' || lists.length === 0), listsEmpty: isLists && lists.length === 0, lrows: isLists && nav !== 'subnav' ? lrows : [],
+      showTabs: nav === 'tabs', isSub: nav === 'subnav' && view !== 'denied' && view !== 'loading', hdrTopics: nav === 'callout', nProp, hasNProp: nProp > 0,
+      hasCallout: nav === 'callout' && isLists && nProp > 0, coTitle: nProp + (nProp === 1 ? ' proposed topic is' : ' proposed topics are') + ' waiting for review',
+      openTopics: () => set({ topicsOpen: true, tv: 'proposed', menu: null }), closeTopics: () => set({ topicsOpen: false, menu: null, sban: null }), newTopic: () => set({ form: { kind: 'newTopic', val: '' } }),
+      sideBackdrop: (!!L && nav !== 'subnav') || (nav === 'callout' && isTopics), closeSide: () => set({ sel: null, topicsOpen: false, menu: null, dban: null }),
+      subnav: [
+        { label: 'Attribute lists', items: lists.map(l => { const on = tab === 'lists' && sel === l.id; return { label: l.name, count: l.items.filter(i => i.active).length, badge: false, plain: true, bg: on ? '#F3F4F6' : 'transparent', bar: on ? 'inset 3px 0 0 #F0287A' : 'none', w: on ? 700 : 500, c: on ? '#0B1840' : '#374151', pick: () => set({ tab: 'lists', sel: l.id, itemF: 'active', iq: '', dban: null, menu: null }) }; }) },
+        { label: 'Topics', items: [['proposed', 'Proposed'], ['approved', 'Approved'], ['rejected', 'Rejected']].map(([k, label]) => { const on = tab === 'topics' && tv === k, n = cnt(k); return { label, count: n, badge: k === 'proposed' && n > 0, plain: !(k === 'proposed' && n > 0), bg: on ? '#F3F4F6' : 'transparent', bar: on ? 'inset 3px 0 0 #F0287A' : 'none', w: on ? 700 : 500, c: on ? '#0B1840' : '#374151', pick: () => set({ tab: 'topics', tv: k, menu: null, sban: null }) }; }) }
+      ],
+      showSeg: nav !== 'subnav', showSecTitle: nav === 'subnav', secTitle: { proposed: 'Proposed topics', approved: 'Approved topics', rejected: 'Rejected topics' }[tv],
+      tw: nav === 'callout' ? { pos: 'absolute', w: '980px', z: 41, b: '0', r: '0', sh: '-12px 0 32px rgba(11,24,64,.18)', ov: 'scroll', drawer: true } : { pos: 'relative', w: 'auto', z: 'auto', b: '1px solid #DDE1E8', r: '12px', sh: 'none', ov: 'visible', drawer: false },
+      showList: !!L && view !== 'loading' && view !== 'denied', dw: nav === 'subnav' ? { pos: 'relative', w: 'auto', z: 'auto', sh: 'none', b: '1px solid #DDE1E8', r: '12px', ov: 'visible', drawer: false } : { pos: 'absolute', w: '640px', z: 41, sh: '-12px 0 32px rgba(11,24,64,.18)', b: '0', r: '0', ov: 'scroll', drawer: true },
+      isTopics, tvs, tq, onTq: e => set({ tq: e.target.value }), isProposed: isTopics && tv === 'proposed', qs,
+      hasSb: isTopics && !!sban, sb: mkBn(sban), closeSb: () => set({ sban: null }), headMt: sban ? '12px' : '0', headBt: sban ? '#EEF0F4' : 'transparent',
+      tEmpty, te, trows: isTopics ? trows : [], tFoot,
+      spin: spinEl(13, 2), bigSpin: spinEl(28, 3), stop: e => e.stopPropagation(),
+      popBackdrop: !!menu || (!!S.combo && !!form), closePops: () => set({ menu: null, combo: false }),
+      closeDrawer: () => set({ sel: null, menu: null, dban: null }), dl, ifs, iq, onIq: e => set({ iq: e.target.value }), irows, iEmpty, iEmptyHint: iq ? 'No ' + (itemF === 'all' ? '' : itemF + ' ') + 'values contain “' + iq + '”.' : 'There are no ' + itemF + ' values in this list.', clearIf: () => set({ itemF: 'all', iq: '' }),
+      hasDb: !!L && !!dban, db: mkBn(dban), closeDb: () => set({ dban: null }), dHeadMt: dban ? '8px' : '0',
+      formOpen: !!form, fm, mg, closeForm: () => set({ form: null, combo: false }),
+      cfOpen: !!cf, cf: cfv
+    };
+  }
+}
+</script>
+</body>
+</html>

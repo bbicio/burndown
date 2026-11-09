@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>PDash — Attribute Lists · responsive</title><style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#fff}
+a{color:#0B1840}a:hover{color:#F0287A}
+</style></helmet>
+<div style="display:flex;gap:40px;align-items:flex-start;padding:4px;flex-wrap:nowrap">
+  <sc-for list="{{ tablets }}" as="tb" hint-placeholder-count="2">
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:12px;font-weight:700;color:#0B1840">{{ tb.title }}</div>
+    <div style="font-size:11px;color:#6B7280;max-width:1024px;line-height:1.45">{{ tb.note }}</div>
+    <div style="width:1024px;height:768px;display:flex;background:#F3F4F6;border:1px solid #DDE1E8;border-radius:18px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08);position:relative">
+      <div style="width:64px;flex-shrink:0;background:#0B1840;display:flex;flex-direction:column;align-items:center">
+        <div style="height:56px;width:100%;display:flex;align-items:center;justify-content:center;border-bottom:3px solid #F0287A;box-sizing:border-box"><span style="color:#F0287A;font-weight:800;font-size:22px">P</span></div>
+        <div style="display:flex;flex-direction:column;gap:4px;padding-top:10px;align-items:center">
+          <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.65)" stroke-width="1.6" stroke-linecap="round"></path></svg></div>
+          <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect></svg></div>
+          <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linecap="round"></path></svg></div>
+          <div style="width:32px;height:1px;background:rgba(255,255,255,.12);margin:6px 0"></div>
+          <div style="width:36px;height:32px;border-radius:7px;background:rgba(255,255,255,.1);box-shadow:inset 3px 0 0 #F0287A;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5L14 8.5 7.5 15 2 9.5V2Z" stroke="#fff" stroke-width="1.2" stroke-linejoin="round"></path></svg></div>
+        </div>
+      </div>
+      <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+        <div style="flex-shrink:0;height:40px;box-sizing:border-box;background:#fff;border-bottom:1px solid #DDE1E8;padding:0 20px;display:flex;align-items:center;font-size:12px;color:#6B7280;gap:6px">Home <span style="color:#C7CCD9">/</span> <span style="color:#374151;font-weight:600">Attribute Lists</span></div>
+        <div style="flex-shrink:0;padding:14px 20px 0;display:flex;align-items:flex-end;gap:12px">
+          <div style="flex:1;display:flex;flex-direction:column"><span style="font-size:22px;font-weight:700;color:#0B1840">Attribute Lists</span><span style="font-size:12px;color:#6B7280">Values to tag proposals and projects, and topics for experience profiles</span></div>
+          <div style="height:40px;box-sizing:border-box;padding:0 16px;border-radius:8px;background:#F0287A;display:flex;align-items:center;font-size:13px;font-weight:600;color:#fff">{{ tb.btn }}</div>
+        </div>
+        <div style="flex-shrink:0;display:flex;align-items:center;gap:6px;padding:10px 20px;border-bottom:1px solid #DDE1E8;overflow:hidden">
+          <sc-for list="{{ tb.chips }}" as="c">
+            <sc-if value="{{ c.isLabel }}"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280;padding:0 4px 0 {{ c.pl }};white-space:nowrap">{{ c.label }}</span></sc-if>
+            <sc-if value="{{ c.isChip }}"><div style="height:40px;box-sizing:border-box;padding:0 12px;border-radius:8px;display:flex;align-items:center;gap:6px;white-space:nowrap;background:{{ c.bg }};border:1px solid {{ c.border }};box-shadow:inset 0 -3px 0 {{ c.bar }};font-size:12.5px;font-weight:{{ c.w }};color:{{ c.c }}">{{ c.label }}<sc-if value="{{ c.badge }}"><span style="min-width:20px;height:20px;box-sizing:border-box;padding:0 6px;border-radius:999px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;background:#FDE7F0;color:#A3134F">{{ c.n }}</span></sc-if><sc-if value="{{ c.plain }}"><span style="font-size:11px;color:#6B7280">{{ c.n }}</span></sc-if></div></sc-if>
+          </sc-for>
+        </div>
+        <div style="flex:1;min-height:0;overflow:hidden;padding:14px 20px">
+          <sc-if value="{{ tb.isList }}">
+            <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+              <div style="display:flex;align-items:flex-start;gap:10px;padding:14px 16px 12px;border-bottom:1px solid #EEF0F4"><div style="flex:1;display:flex;flex-direction:column;gap:4px"><span style="font-size:18px;font-weight:700;color:#0B1840">Market</span><span style="font-size:11.5px;color:#6B7280"><span style="font-family:ui-monospace,Menlo,monospace;color:#374151;background:#F1F2F5;border-radius:5px;padding:2px 7px">market</span> Slug · never changes</span></div><div style="height:40px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:7px;display:flex;align-items:center;font-size:12.5px;font-weight:600;color:#0B1840">Rename</div></div>
+              <div style="display:flex;align-items:center;gap:8px;padding:10px 16px;border-bottom:1px solid #EEF0F4"><div style="display:flex;background:#F1F2F5;border-radius:8px;padding:3px;gap:2px"><div style="height:34px;padding:0 10px;display:flex;align-items:center;gap:5px;font-size:12.5px;color:#4B5563">Active<span style="font-size:11px;color:#6B7280">5</span></div><div style="height:34px;padding:0 10px;display:flex;align-items:center;gap:5px;font-size:12.5px;color:#4B5563">Inactive<span style="font-size:11px;color:#6B7280">1</span></div><div style="height:34px;padding:0 10px;border-radius:6px;display:flex;align-items:center;gap:5px;background:#fff;box-shadow:0 1px 2px rgba(11,24,64,.12);font-size:12.5px;font-weight:700;color:#0B1840">All<span style="font-size:11px;color:#F0287A">6</span></div></div><div style="flex:1;height:40px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;display:flex;align-items:center;font-size:12.5px;color:#9AA0AC">Search values…</div><div style="height:40px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#F0287A;display:flex;align-items:center;font-size:12.5px;font-weight:600;color:#fff">+ New item</div></div>
+              <sc-for list="{{ items }}" as="it">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 120px 44px;gap:10px;padding:0 16px;min-height:50px;align-items:center;border-bottom:1px solid #F0F1F4"><span style="font-size:13px;font-weight:600;color:{{ it.c }}">{{ it.label }}</span><span><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:{{ it.bg }};color:{{ it.fc }}"><span style="width:6px;height:6px;border-radius:999px;background:{{ it.dot }}"></span>{{ it.st }}</span></span><div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#374151"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></div></div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <sc-if value="{{ tb.isTopics }}">
+            <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+              <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #EEF0F4"><span style="font-size:14px;font-weight:700;color:#0B1840">Proposed topics</span><div style="flex:1"></div><div style="width:240px;height:40px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;display:flex;align-items:center;font-size:12.5px;color:#9AA0AC">Search topics…</div></div>
+              <div style="display:flex;align-items:center;gap:20px;padding:12px 16px;border-bottom:1px solid #EEF0F4"><div style="display:flex;flex-direction:column"><span style="font-size:20px;font-weight:700;color:#0B1840">6</span><span style="font-size:11.5px;color:#6B7280">to review</span></div><div style="flex:1;display:flex;flex-direction:column;gap:6px;max-width:260px"><span style="font-size:11.5px;color:#374151">2 of 8 reviewed this session</span><div style="height:6px;border-radius:999px;background:#EEF0F4;overflow:hidden"><div style="height:100%;width:25%;background:#1F9D55"></div></div></div></div>
+              <div style="margin:12px 16px 0;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;border:1px solid #CDE9D6;background:#F3FAF5;color:#146C3A;font-size:12.5px"><span style="flex:1"><strong>Approved “Regulatory affairs”.</strong> It now shows in experience profiles in Team.</span></div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 140px 170px;gap:12px;padding:9px 16px;margin-top:12px;background:#F7F8FA;border-top:1px solid #EEF0F4;border-bottom:1px solid #EEF0F4;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280"><span>Name</span><span>Used in</span><span></span></div>
+              <sc-for list="{{ queue }}" as="q">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) 140px 170px;gap:12px;padding:6px 16px;min-height:56px;box-sizing:border-box;align-items:center;border-bottom:1px solid #F0F1F4"><span style="font-size:13px;font-weight:600;color:#0B1840">{{ q.name }}</span><span style="font-size:12.5px;color:#374151">{{ q.used }}</span><div style="display:flex;justify-content:flex-end;gap:6px"><div style="height:40px;box-sizing:border-box;padding:0 14px;border-radius:7px;display:flex;align-items:center;font-size:12.5px;font-weight:600;background:#0B1840;color:#fff">Approve</div><div style="width:44px;height:40px;display:flex;align-items:center;justify-content:center;color:#374151"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></div></div></div>
+              </sc-for>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </div>
+  </sc-for>
+
+  <sc-for list="{{ phones }}" as="ph" hint-placeholder-count="5">
+  <div style="display:flex;flex-direction:column;gap:10px">
+    <div style="font-size:12px;font-weight:700;color:#0B1840">{{ ph.title }}</div>
+    <div style="font-size:11px;color:#6B7280;max-width:390px;line-height:1.45">{{ ph.note }}</div>
+    <div style="width:390px;height:844px;background:#F3F4F6;border:1px solid #DDE1E8;border-radius:28px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,.08);display:flex;flex-direction:column;position:relative">
+      <div style="height:52px;flex-shrink:0;background:#0B1840;border-bottom:3px solid #F0287A;display:flex;align-items:center;padding:0 8px 0 14px;gap:8px">
+        <span style="color:#fff;font-weight:700;font-size:19px;flex:1"><span style="color:#F0287A">P</span>Dash</span>
+        <div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#fff" stroke-width="1.5" stroke-linecap="round"><path d="M2 4h12M2 8h12M2 12h12"></path></svg></div>
+      </div>
+      <div style="padding:12px 16px 0;display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;gap:10px"><div style="flex:1;display:flex;flex-direction:column"><span style="font-size:20px;font-weight:700;color:#0B1840">Attribute Lists</span></div><div title="{{ ph.btn }}" style="width:44px;height:44px;border-radius:10px;background:#F0287A;color:#fff;display:flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg></div></div>
+        <div style="height:48px;box-sizing:border-box;background:#fff;border:1px solid {{ ph.pickB }};border-radius:10px;padding:0 14px;display:flex;align-items:center;gap:10px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">{{ ph.group }}</span><span style="flex:1;font-size:14px;font-weight:700;color:#0B1840">{{ ph.section }}</span><sc-if value="{{ ph.pickBadge }}"><span style="min-width:20px;height:20px;box-sizing:border-box;padding:0 6px;border-radius:999px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;background:#FDE7F0;color:#A3134F">6</span></sc-if><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg></div>
+      </div>
+
+      <sc-if value="{{ ph.isList }}">
+        <div style="padding:10px 16px 0;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;background:#E6E9EE;border-radius:8px;padding:3px;gap:2px"><div style="flex:1;height:38px;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:13px;font-weight:700;color:#0B1840;background:#fff">Active<span style="font-size:11px;color:#F0287A">4</span></div><div style="flex:1;height:38px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:13px;color:#4B5563">Inactive<span style="font-size:11px;color:#6B7280">2</span></div><div style="flex:1;height:38px;display:flex;align-items:center;justify-content:center;gap:5px;font-size:13px;color:#4B5563">All<span style="font-size:11px;color:#6B7280">6</span></div></div>
+          <div style="display:flex;gap:8px"><div style="flex:1;height:44px;box-sizing:border-box;background:#fff;border:1px solid #DDE1E8;border-radius:8px;display:flex;align-items:center;padding:0 12px;font-size:13px;color:#9AA0AC">Search values…</div><div style="height:44px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;color:#fff;font-size:13px;font-weight:600;display:flex;align-items:center">+ New item</div></div>
+          <div style="display:flex;align-items:center;gap:8px;padding:6px 6px 6px 12px;border-radius:10px;border:1px solid #CDE9D6;background:#F3FAF5;color:#146C3A;font-size:12.5px;line-height:1.45"><span style="flex:1"><strong>Deactivated “France”.</strong> No longer offered when tagging.</span><span style="font-weight:700;text-decoration:underline;padding:10px 8px">Undo</span></div>
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+            <sc-for list="{{ activeItems }}" as="it"><div style="display:flex;align-items:center;gap:10px;padding:0 4px 0 14px;min-height:52px;border-bottom:1px solid #F0F1F4"><span style="flex:1;font-size:14px;font-weight:600;color:#0B1840">{{ it.label }}</span><div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#374151"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></div></div></sc-for>
+          </div>
+          <span style="font-size:11.5px;color:#4B5563;line-height:1.5;padding:0 2px">Slug: <span style="font-family:ui-monospace,Menlo,monospace">brand</span> · never changes. Items can't be deleted: deactivate a value to stop offering it.</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ ph.isPicker }}">
+        <div style="position:absolute;inset:0;background:rgba(11,24,64,.36)"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:18px 18px 0 0;padding:8px 12px 20px;display:flex;flex-direction:column;box-shadow:0 -12px 32px rgba(11,24,64,.2)">
+          <div style="width:36px;height:4px;border-radius:999px;background:#DDE1E8;align-self:center;margin-bottom:6px"></div>
+          <sc-for list="{{ picker }}" as="g">
+            <span style="padding:12px 8px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">{{ g.label }}</span>
+            <sc-for list="{{ g.items }}" as="i"><div style="display:flex;align-items:center;gap:10px;min-height:48px;padding:0 10px;border-radius:8px;background:{{ i.bg }};box-shadow:{{ i.bar }}"><span style="flex:1;font-size:14px;font-weight:{{ i.w }};color:#0B1840">{{ i.label }}</span><sc-if value="{{ i.badge }}"><span style="min-width:20px;height:20px;box-sizing:border-box;padding:0 6px;border-radius:999px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;background:#FDE7F0;color:#A3134F">{{ i.n }}</span></sc-if><sc-if value="{{ i.plain }}"><span style="font-size:12px;color:#6B7280">{{ i.n }}</span></sc-if></div></sc-for>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ ph.isQueue }}">
+        <div style="padding:10px 16px 0;display:flex;flex-direction:column;gap:6px"><div style="display:flex;justify-content:space-between;font-size:12px;color:#374151"><span><strong style="color:#0B1840">6</strong> to review</span><span style="color:#6B7280">2 of 8 reviewed</span></div><div style="height:6px;border-radius:999px;background:#E3E6EC;overflow:hidden"><div style="height:100%;width:25%;background:#1F9D55"></div></div></div>
+        <div style="padding:10px 16px;display:flex;flex-direction:column;gap:8px">
+          <sc-for list="{{ queue }}" as="q">
+            <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:12px 6px 12px 14px;display:flex;align-items:center;gap:8px"><div style="flex:1;display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:14px;font-weight:700;color:#0B1840">{{ q.name }}</span><span style="font-size:12px;color:#6B7280">Used in {{ q.used }}</span></div><div style="height:44px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;color:#fff;display:flex;align-items:center;font-size:13px;font-weight:600">Approve</div><div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#374151"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></div></div>
+          </sc-for>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ ph.isSheet }}">
+        <div style="position:absolute;inset:0;background:rgba(11,24,64,.36)"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:18px 18px 0 0;padding:8px 12px 20px;display:flex;flex-direction:column;box-shadow:0 -12px 32px rgba(11,24,64,.2)">
+          <div style="width:36px;height:4px;border-radius:999px;background:#DDE1E8;align-self:center;margin-bottom:10px"></div>
+          <div style="padding:0 8px 10px;display:flex;flex-direction:column;gap:2px;border-bottom:1px solid #EEF0F4"><span style="font-size:16px;font-weight:700;color:#0B1840">KOL engagement</span><span style="font-size:12px;color:#6B7280">Proposed · used in 2 descriptions</span></div>
+          <sc-for list="{{ sheet }}" as="s">
+            <sc-if value="{{ s.sep }}"><div style="height:1px;background:#EEF0F4;margin:4px 8px"></div></sc-if>
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:12px 8px;min-height:52px;box-sizing:border-box;color:{{ s.c }}"><div style="flex:1;display:flex;flex-direction:column;gap:2px"><div style="display:flex;align-items:center;gap:6px"><span style="font-size:14px;font-weight:600">{{ s.label }}</span><sc-if value="{{ s.hasTag }}"><span style="font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:4px;padding:1px 5px;background:{{ s.tagBg }};color:{{ s.tagC }}">{{ s.tag }}</span></sc-if></div><span style="font-size:12px;color:#6B7280;line-height:1.4">{{ s.sub }}</span></div></div>
+          </sc-for>
+          <div style="margin-top:6px;height:48px;border-radius:10px;border:1px solid #DDE1E8;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#374151">Cancel</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ ph.isMerge }}">
+        <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:#fff;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:4px;padding:6px 8px 6px 16px;border-bottom:1px solid #EEF0F4"><span style="flex:1;font-size:17px;font-weight:700;color:#0B1840">Merge topic</span><div style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:#6B7280"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div></div>
+          <div style="flex:1;padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+            <div style="padding:12px 14px;border:1px solid #EEF0F4;border-radius:10px;display:flex;flex-direction:column;gap:2px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">Topic to merge</span><span style="font-size:15px;font-weight:700;color:#0B1840">Pharmacovigilance reporting</span><span style="font-size:12px;color:#6B7280">Proposed · used in 1 description</span></div>
+            <span style="font-size:12px;font-weight:600;color:#374151">Merge into</span>
+            <div style="height:44px;box-sizing:border-box;border:1px solid #0B1840;border-radius:8px;padding:0 12px;display:flex;align-items:center;gap:8px;font-size:14px;color:#0B1840">pharma</div>
+            <div style="border:1px solid #DDE1E8;border-radius:10px;display:flex;flex-direction:column;padding:4px 6px">
+              <span style="padding:8px 8px 3px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">Proposed</span>
+              <div style="display:flex;align-items:center;gap:8px;padding:0 8px;min-height:44px;border-radius:7px;background:#F3F4F6"><span style="flex:1;font-size:14px;font-weight:600;color:#0B1840">Pharmacovigilance</span><span style="font-size:11px;color:#6B7280">4 descriptions</span><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#0B1840" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.4l3 3L12.5 5"></path></svg></div>
+            </div>
+            <div style="padding:12px 14px;border-radius:10px;background:#F7F8FA;border:1px solid #DDE1E8;font-size:12.5px;color:#374151;line-height:1.5">1 description moves to “Pharmacovigilance”; “Pharmacovigilance reporting” disappears. <strong style="color:#B42318">Can't be undone.</strong></div>
+          </div>
+          <div style="padding:12px 16px 20px;border-top:1px solid #EEF0F4;display:flex;gap:10px"><div style="flex:1;height:48px;border-radius:10px;border:1px solid #DDE1E8;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#374151">Cancel</div><div style="flex:1;height:48px;border-radius:10px;background:#B42318;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:600;color:#fff">Merge…</div></div>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:4300,&quot;height&quot;:980}}">
+class Component extends DCLogic {
+  renderVals() {
+    const chip = (label, n, on, badge) => ({ isChip: true, isLabel: false, label, n, badge: !!badge, plain: !badge, bg: on ? '#fff' : 'transparent', border: on ? '#DDE1E8' : 'transparent', bar: on ? '#F0287A' : 'transparent', w: on ? 700 : 500, c: on ? '#0B1840' : '#4B5563' });
+    const lab = (label, pl) => ({ isLabel: true, isChip: false, label, pl });
+    const chips = sel => [lab('Lists', '0'), chip('Brand', 4, sel === 'Brand'), chip('Market', 5, sel === 'Market'), chip('Service Type', 5, sel === 'Service Type'), chip('Therapeutic Area', 4, sel === 'Therapeutic Area'), chip('Channel', 4, sel === 'Channel'), lab('Topics', '10px'), chip('Proposed', 6, sel === 'Proposed', true), chip('Approved', 12, sel === 'Approved'), chip('Rejected', 3, sel === 'Rejected')];
+    const items = [['France', 0], ['Germany', 1], ['Global', 1], ['Italy', 1], ['Spain', 1], ['United Kingdom', 1]].map(([label, a]) => ({ label, st: a ? 'active' : 'inactive', c: a ? '#0B1840' : '#4B5563', bg: a ? '#E7F5EC' : '#F0F1F4', fc: a ? '#146C3A' : '#4B5563', dot: a ? '#1F9D55' : '#9AA0AC' }));
+    const queue = [['Pharmacovigilance', '4 descriptions'], ['KOL engagement', '2 descriptions'], ['Hospital rankings', '2 descriptions'], ['Pharmacovigilance reporting', '1 description'], ['Launch planning', '1 description'], ['UX research', '1 description']].map(([name, used]) => ({ name, used }));
+    const pi = (label, n, on, badge) => ({ label, n, badge: !!badge, plain: !badge, bg: on ? '#F3F4F6' : 'transparent', bar: on ? 'inset 3px 0 0 #F0287A' : 'none', w: on ? 700 : 500 });
+    const base = { isList: false, isPicker: false, isQueue: false, isSheet: false, isMerge: false, pickBadge: false, pickB: '#DDE1E8' };
+    const L = { group: 'List', section: 'Brand', btn: 'New list' }, T = { group: 'Topics', section: 'Proposed', btn: 'New topic', pickBadge: true };
+    return {
+      tablets: [
+        { title: 'Tablet 1024 · lista selezionata (Market), filtro All', note: 'Rail a icone. La sotto-navigazione diventa una riga di chip, come Master Data su tablet; la riga scorre in orizzontale se non ci sta. Target 40–44px.', btn: '+ New list', chips: chips('Market'), isList: true, isTopics: false },
+        { title: 'Tablet 1024 · Topics proposti dopo Approve', note: 'Stessa riga di chip, Proposed selezionato. Colonne strette; banner e contatore come su desktop.', btn: '+ New topic', chips: chips('Proposed'), isList: false, isTopics: true }
+      ],
+      phones: [
+        { ...base, ...L, title: 'Smartphone · lista (Brand)', note: 'Navbar in alto. La sotto-navigazione diventa un selettore di sezione, come Master Data su smartphone. Filtri come segmented a tutta larghezza.', isList: true },
+        { ...base, ...L, title: 'Smartphone · selettore di sezione aperto', note: 'Bottom sheet con i due gruppi e i contatori; il numero dei proposti resta in magenta.', isList: true, isPicker: true, pickB: '#0B1840' },
+        { ...base, ...T, title: 'Smartphone · Topics, coda', note: 'Approve resta visibile su ogni card, il resto è nel ⋯.', isQueue: true },
+        { ...base, ...T, title: 'Smartphone · ⋯ come bottom sheet', note: 'Stesso menu del desktop: Merge separato in rosso con tag Irreversible.', isQueue: true, isSheet: true },
+        { ...base, ...T, title: 'Smartphone · Merge a tutto schermo', note: 'Ricerca inline; Merge… apre poi la stessa conferma del desktop, a tutta larghezza.', isQueue: true, isMerge: true }
+      ],
+      items, activeItems: [['Akantior'], ['Aurora'], ['Bermits'], ['Karomy']].map(([label]) => ({ label })), queue,
+      picker: [
+        { label: 'Attribute lists', items: [pi('Brand', 4, true), pi('Market', 5), pi('Service Type', 5), pi('Therapeutic Area', 4), pi('Channel', 4)] },
+        { label: 'Topics', items: [pi('Proposed', 6, false, true), pi('Approved', 12), pi('Rejected', 3)] }
+      ],
+      sheet: [
+        { label: 'Approve', sub: 'Shows in experience profiles in Team.', c: '#0B1840' },
+        { label: 'Rename', sub: 'Profiles show the new name at once.', c: '#0B1840' },
+        { label: 'Reject', sub: 'Hidden and never proposed again. You can restore it.', c: '#0B1840', hasTag: true, tag: 'Reversible', tagBg: '#E8EBF3', tagC: '#0B1840' },
+        { sep: true, label: 'Merge into…', sub: 'Its descriptions move to another topic; this one disappears.', c: '#B42318', hasTag: true, tag: 'Irreversible', tagBg: '#FDEFF0', tagC: '#B42318' }
+      ].map(s => ({ sep: false, hasTag: false, tag: '', tagBg: '', tagC: '', ...s }))
+    };
+  }
+}
+</script>
+</body>
+</html>
