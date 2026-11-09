@@ -40,6 +40,17 @@ describe('attribute-lists.html — structure and states', () => {
   ])('contains %s', s => expect(html).toContain(s));
 });
 
+describe('attribute-lists.html — list content', () => {
+  it.each([
+    'ATTRIBUTE LIST', 'set at creation, never changes', 'href="team.html"', 'Search values…', 'pd-row-menu',
+    'aria-haspopup="menu"', 'INSTEAD OF DELETE', 'pd-status-pill--busy', 'Updating…', 'Undo',
+    "Items can't be deleted", 'Show all items', 'Tags already applied show the new label.',
+    'No longer offered when tagging. Existing tags and profiles keep it.', 'Offered again when tagging.',
+  ])('contains %s', s => expect(html).toContain(s));
+  it('has a segmented status radiogroup', () => expect(html).toMatch(/class="md-seg"[^>]*role="radiogroup"/));
+  it('has no Show inactive checkbox', () => expect(html).not.toContain('Show inactive'));
+});
+
 describe('attribute-lists.html — later tasks', () => {
   it.todo('uses pd-drawer for every form');
   it.todo('uses pd-confirm for the merge confirmation');

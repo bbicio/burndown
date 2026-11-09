@@ -109,7 +109,104 @@
 
         <!-- A list -->
         <div v-else-if="currentList" class="al-card">
-          <div class="al-card-head"><div class="al-eyebrow">ATTRIBUTE LIST</div><h2 class="al-title">{{ currentList.name }}</h2></div>
+          <div class="al-card-head al-list-head">
+            <div class="al-list-head-text">
+              <div class="al-eyebrow">ATTRIBUTE LIST</div>
+              <h2 class="al-title">{{ currentList.name }}</h2>
+              <div class="al-slug-row al-slug-row--head"><code class="al-slug">{{ currentList.slug }}</code><span>Slug · set at creation, never changes</span></div>
+              <p class="al-list-desc">Offered as Tags in Cost Grid and Project config, and a dimension of experience profiles in <a href="team.html">Team</a>.</p>
+            </div>
+            <button type="button" class="al-btn-outline al-rename" @click="openListDrawer('rename', $event)"><ph-icon name="pencil" :size="14"></ph-icon>Rename</button>
+          </div>
+
+          <div class="al-toolbar">
+            <div class="md-seg" role="radiogroup" aria-label="Filter by status">
+              <button v-for="f in itemFilters" :key="f.val" type="button" class="md-seg-btn" role="radio"
+                      :class="{ active: itemStatus === f.val }" :aria-checked="itemStatus === f.val" @click="itemStatus = f.val">
+                {{ f.label }}<span class="al-count">{{ itemCountsNow[f.val] }}</span>
+              </button>
+            </div>
+            <div class="al-search">
+              <ph-icon name="search" :size="14"></ph-icon>
+              <input v-model="itemText" type="search" placeholder="Search values…" aria-label="Search values">
+            </div>
+            <button type="button" class="ph-btn-primary al-new-item" @click="openItemDrawer('new', null, $event)"><ph-icon name="plus" :size="14"></ph-icon>New item</button>
+          </div>
+
+          <div v-if="cardBanner" class="al-banner-wrap">
+            <div v-if="cardBanner.kind === 'success'" class="pd-banner pd-banner--success mb-0" role="status">
+              <ph-icon name="check" :size="16"></ph-icon>
+              <div class="pd-banner-body"><strong v-if="cardBanner.strong">{{ cardBanner.strong }}</strong> {{ cardBanner.text }}</div>
+              <button v-if="cardBanner.undo" type="button" class="al-banner-action" :disabled="undoing" @click="runUndo">Undo</button>
+              <button v-if="cardBanner.viewRejected" type="button" class="al-banner-action" @click="select({ kind: 'topics', status: 'rejected' })">View rejected</button>
+              <button type="button" class="pd-banner-close" aria-label="Dismiss" @click="clearCardBanner"><ph-icon name="close" :size="14"></ph-icon></button>
+            </div>
+            <div v-else class="pd-banner pd-banner--error mb-0" role="alert">
+              <ph-icon name="warning" :size="16"></ph-icon>
+              <div class="pd-banner-body">{{ cardBanner.text }}</div>
+              <button type="button" class="pd-banner-close" aria-label="Dismiss" @click="clearCardBanner"><ph-icon name="close" :size="14"></ph-icon></button>
+            </div>
+          </div>
+
+          <div v-if="itemsLoading" class="pd-state">
+            <div class="spinner-border" role="presentation"></div>
+            <p class="pd-state-text">Loading values…</p>
+          </div>
+          <table v-else-if="visibleItems.length" class="al-table">
+            <thead>
+              <tr><th>Label</th><th class="al-col-status">Status</th><th class="al-col-actions"><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="it in visibleItems" :key="it.id" :class="{ 'al-row--inactive': it.status !== 'active' }">
+                <td class="al-cell-label">{{ it.label }}</td>
+                <td class="al-col-status" aria-live="polite">
+                  <span v-if="it._loading" class="pd-status-pill pd-status-pill--busy"><span class="spinner-border" role="presentation"></span>Updating…</span>
+                  <span v-else class="pd-status-pill" :class="'pd-status-pill--' + it.status">{{ it.status }}</span>
+                </td>
+                <td class="al-col-actions">
+                  <div class="pd-row-menu-wrap">
+                    <button type="button" class="pd-row-menu-trigger" aria-haspopup="menu" :aria-expanded="menuFor === 'item:' + it.id"
+                            :aria-label="'Actions for ' + it.label" :disabled="it._loading" @click="openMenu('item:' + it.id, $event)">
+                      <ph-icon name="more" :size="16"></ph-icon>
+                    </button>
+                    <div v-if="menuFor === 'item:' + it.id" class="pd-row-menu" :class="{ 'pd-row-menu--up': menuUp }" role="menu"
+                         :aria-label="'Actions for ' + it.label" @keydown="onMenuKey">
+                      <button type="button" class="pd-row-menu-item" role="menuitem" @click="runItemMenu(it, 'edit')">
+                        <ph-icon name="pencil" :size="16"></ph-icon>
+                        <span class="pd-row-menu-item-text">
+                          <span class="pd-row-menu-item-title">Edit label</span>
+                          <span class="pd-row-menu-item-hint">Tags already applied show the new label.</span>
+                        </span>
+                      </button>
+                      <button v-if="it.status === 'active'" type="button" class="pd-row-menu-item" role="menuitem" @click="runItemMenu(it, 'status')">
+                        <al-icon name="power" :size="16"></al-icon>
+                        <span class="pd-row-menu-item-text">
+                          <span class="pd-row-menu-item-title">Deactivate<span class="pd-tag pd-tag--navy">INSTEAD OF DELETE</span></span>
+                          <span class="pd-row-menu-item-hint">No longer offered when tagging. Existing tags and profiles keep it.</span>
+                        </span>
+                      </button>
+                      <button v-else type="button" class="pd-row-menu-item" role="menuitem" @click="runItemMenu(it, 'status')">
+                        <al-icon name="power" :size="16"></al-icon>
+                        <span class="pd-row-menu-item-text">
+                          <span class="pd-row-menu-item-title">Activate</span>
+                          <span class="pd-row-menu-item-hint">Offered again when tagging.</span>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-else class="pd-state">
+            <span class="pd-state-icon"><ph-icon name="search" :size="24"></ph-icon></span>
+            <h2 class="pd-state-title">No items match the current filter.</h2>
+            <p class="pd-state-text">{{ emptyItemsText }}</p>
+            <button type="button" class="al-btn-outline mt-2" @click="showAllItems">Show all items</button>
+          </div>
+
+          <div class="al-slug-row al-slug-row--foot"><code class="al-slug">{{ currentList.slug }}</code><span>Slug · set at creation, never changes</span></div>
+          <p class="al-note"><ph-icon name="info" :size="14"></ph-icon><span>Items can't be deleted: they may already be tagged on proposals and projects. <strong>Deactivate</strong> a value to stop offering it when tagging; existing tags and experience profiles keep it.</span></p>
         </div>
 
         <!-- Topics -->
@@ -233,6 +330,25 @@
       { status: 'rejected', label: 'Rejected' },
     ];
 
+    // Icons missing from js/lib/icons.js, drawn in the same 16×16 style.
+    const AL_ICONS = {
+      power: '<path d="M8 2v5.5M4.7 4.6a5 5 0 1 0 6.6 0" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+      ban: '<circle cx="8" cy="8" r="5.5" stroke="currentColor" stroke-width="1.4"/><path d="M4.1 11.9L11.9 4.1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>',
+      'rotate-ccw': '<path d="M3 8a5 5 0 1 0 1.5-3.6M3 2.5V5h2.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+      merge: '<path d="M4 2.5v3.5a3 3 0 0 0 3 3h5M12 9.1l-2.2-2.2M12 9.1l-2.2 2.2M4 13.5V9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+    };
+    const AlIcon = {
+      props: { name: { type: String, required: true }, size: { type: Number, default: 16 } },
+      template: '<svg class="pd-icon" :width="size" :height="size" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false" v-html="paths"></svg>',
+      computed: { paths() { return AL_ICONS[this.name] || ''; } },
+    };
+    const ITEM_FILTERS = [
+      { val: 'active', label: 'Active' },
+      { val: 'inactive', label: 'Inactive' },
+      { val: 'all', label: 'All' },
+    ];
+    let menuTrigger = null;   // the ⋯ button of the open row menu (focus returns to it)
+
     Vue.createApp({
       data() {
         return {
@@ -244,6 +360,16 @@
           me: {},
           lists: [],
           items: [],
+          itemsLoading: false,
+          itemFilters: ITEM_FILTERS,
+          itemStatus: 'active',
+          itemText: '',
+          topicText: '',
+          // { kind: 'success'|'error', strong?, text, undo?: { listId, itemId, status }, viewRejected? }
+          cardBanner: null,
+          undoing: false,
+          menuFor: null,            // 'item:<id>' | 'topic:<id>' of the open row menu
+          menuUp: false,
           topics: [],
           topicStates: TOPIC_STATES,
           selection: { kind: 'none' },   // { kind: 'list', id } | { kind: 'topics', status } | { kind: 'none' }
@@ -256,6 +382,9 @@
       computed: {
         counts() { return window.topicCounts(this.topics); },
         currentList() { return this.selection.kind === 'list' ? this.lists.find(l => l.id === this.selection.id) || null : null; },
+        itemCountsNow() { return window.itemCounts(this.items, this.itemText); },
+        visibleItems() { return window.filterItems(this.items, { status: this.itemStatus, text: this.itemText }); },
+        emptyItemsText() { return window.emptyItemsLine(this.itemStatus, this.itemText); },
         isTopics() { return this.selection.kind === 'topics'; },
         primaryLabel() { return this.isTopics ? 'New topic' : 'New list'; },
         selectionKey() {
@@ -290,6 +419,13 @@
         this._mergeModal = new bootstrap.Modal(document.getElementById('mergeModal'));
         this._listModal = new bootstrap.Modal(document.getElementById('listModal'));
         this._itemModal = new bootstrap.Modal(document.getElementById('itemModal'));
+        // Row menu: Esc closes it (focus back to ⋯) before any drawer sees it; a press outside closes it.
+        document.addEventListener('keydown', ev => {
+          if (ev.key === 'Escape' && this.menuFor) { ev.stopImmediatePropagation(); this.closeMenu(true); }
+        }, true);
+        document.addEventListener('mousedown', ev => {
+          if (this.menuFor && !ev.target.closest('.pd-row-menu-wrap')) this.closeMenu(false);
+        });
       },
       methods: {
         // The one way this page talks to the API. Never throws; `data` is the parsed body (or null).
@@ -337,9 +473,12 @@
         async loadItems() {
           const list = this.currentList;
           if (!list) return;
+          this.itemsLoading = !this.items.length;
           const r = await this.request('GET', `/api/attribute-lists/${list.id}/items`);
           if (this.currentList !== list) return;
+          this.itemsLoading = false;
           if (r.ok) this.items = r.data.map(it => ({ ...it, _loading: false }));
+          else this.setCardBanner({ kind: 'error', text: this.errorText(r) });
           return r;
         },
 
@@ -347,14 +486,103 @@
           const s = this.selection;
           return s.kind === sel.kind && (sel.kind === 'list' ? s.id === sel.id : s.status === sel.status);
         },
+        // A new selection starts clean: search cleared, Active filter, no banner, no open menu.
         select(sel) {
           this.selection = sel;
+          this.itemText = '';
+          this.itemStatus = 'active';
+          this.topicText = '';
+          this.clearCardBanner();
+          this.menuFor = null;
           if (sel.kind === 'list') { this.items = []; this.loadItems(); }
         },
         onSelectKey(key) {
           const [kind, val] = key.split(':');
           this.select(kind === 'list' ? { kind, id: val } : { kind, status: val });
         },
+        setCardBanner(b) { this.cardBanner = b; },
+        clearCardBanner() { this.cardBanner = null; },
+        showAllItems() { this.itemStatus = 'all'; this.itemText = ''; },
+
+        // ── Row menu (items and topics) ──
+        // The popover opens upwards when it would not fit between the button and the viewport bottom.
+        openMenu(key, ev) {
+          if (this.menuFor === key) { this.closeMenu(true); return; }
+          menuTrigger = ev.currentTarget;
+          this.menuUp = menuTrigger.getBoundingClientRect().bottom + 240 > window.innerHeight;
+          this.menuFor = key;
+          this.$nextTick(() => {
+            const first = document.querySelector('.pd-row-menu [role="menuitem"]');
+            if (first) first.focus();
+          });
+        },
+        closeMenu(returnFocus) {
+          this.menuFor = null;
+          if (returnFocus && menuTrigger) menuTrigger.focus();
+        },
+        onMenuKey(ev) {
+          if (ev.key !== 'ArrowDown' && ev.key !== 'ArrowUp') return;
+          ev.preventDefault();
+          const items = [...ev.currentTarget.querySelectorAll('[role="menuitem"]')];
+          const at = items.indexOf(document.activeElement);
+          const step = ev.key === 'ArrowDown' ? 1 : -1;
+          items[(at + step + items.length) % items.length].focus();
+        },
+        // The menu closes before the action starts; focus goes back to ⋯, and a drawer returns it there.
+        runItemMenu(it, action) {
+          const opener = menuTrigger;
+          this.closeMenu(true);
+          if (action === 'edit') this.openItemDrawer('edit', it, { currentTarget: opener });
+          else this.setItemStatus(it, it.status === 'active' ? 'inactive' : 'active');
+        },
+
+        // PATCH an item's status. The ids are captured now, so an Undo started later always targets this item of
+        // this list, whatever is selected by then; the row and the counts are updated only where they still exist.
+        async setItemStatus(it, status) {
+          const listId = this.currentList.id;
+          const itemId = it.id;
+          const label = it.label;
+          it._loading = true;
+          const r = await this.request('PATCH', '/api/attribute-lists/' + listId + '/items/' + itemId, { status });
+          it._loading = false;
+          const here = this.selection.kind === 'list' && this.selection.id === listId;
+          if (!r.ok) {
+            if (here) this.setCardBanner({ kind: 'error', text: this.errorText(r) });
+            return;
+          }
+          this.applyItemStatus(listId, itemId, r.data.status);
+          if (!here) return;
+          this.setCardBanner(status === 'inactive'
+            ? { kind: 'success', strong: 'Deactivated "' + label + '".', text: "It's no longer offered when tagging. Existing tags stay.", undo: { listId, itemId, status: 'active' } }
+            : { kind: 'success', strong: 'Activated "' + label + '".', text: "It's offered again when tagging.", undo: { listId, itemId, status: 'inactive' } });
+        },
+        // Applies a confirmed status to the row (if its list is still shown) and to the list's active count.
+        applyItemStatus(listId, itemId, status) {
+          const list = this.lists.find(l => l.id === listId);
+          const row = this.selection.kind === 'list' && this.selection.id === listId ? this.items.find(x => x.id === itemId) : null;
+          const was = row ? row.status : (status === 'active' ? 'inactive' : 'active');
+          if (row) row.status = status;
+          if (list && was !== status) list.active_item_count = (list.active_item_count || 0) + (status === 'active' ? 1 : -1);
+        },
+        // The opposite PATCH, on the ids captured by the action; a successful Undo closes its banner.
+        async runUndo() {
+          const u = this.cardBanner && this.cardBanner.undo;
+          if (!u) return;
+          const row = this.items.find(x => x.id === u.itemId);
+          this.undoing = true;
+          if (row) row._loading = true;
+          const r = await this.request('PATCH', '/api/attribute-lists/' + u.listId + '/items/' + u.itemId, { status: u.status });
+          if (row) row._loading = false;
+          this.undoing = false;
+          const here = this.selection.kind === 'list' && this.selection.id === u.listId;
+          if (!r.ok) { if (here) this.setCardBanner({ kind: 'error', text: this.errorText(r) }); return; }
+          this.applyItemStatus(u.listId, u.itemId, r.data.status);
+          if (this.cardBanner && this.cardBanner.undo === u) this.clearCardBanner();
+        },
+
+        openListDrawer(mode) { if (mode === 'rename') this.openRenameList(this.currentList); else this.openNewList(); },
+        openItemDrawer(mode, it) { if (mode === 'edit') this.openEditItem(it); else this.openNewItem(); },
+
         onPrimary() { if (this.isTopics) this.openNewTopic(); else this.openNewList(); },
 
         openNewTopic() { this.topicForm = { id: null, name: '', loading: false, error: null }; this._topicModal.show(); },
@@ -424,7 +652,7 @@
           if (!id) list.active_item_count = (list.active_item_count || 0) + 1;
         },
       },
-    }).component('ph-icon', window.PhIcon).mount('#app');
+    }).component('ph-icon', window.PhIcon).component('al-icon', AlIcon).mount('#app');
   </script>
 </body>
 </html>
