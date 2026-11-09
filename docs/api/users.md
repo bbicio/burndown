@@ -8,9 +8,9 @@ The three pieces that create and mutate accounts. `CLAUDE.md`'s File structure e
 
 `PATCH /:id`'s role field additionally runs `roleChangeError()` (`api/src/lib/role-transition.js`) for two-step promotion/demotion.
 
-`PATCH /:id` also takes `firstName`, `lastName`, `email` (2026-11, My profile page): a user's details are admin-managed, the user only sends a rectification request (`POST /api/auth/rectification-request`). The details go through `normalizeDetails`/`detailsError` (`api/src/lib/user-details.js`) after the existing guards; an invalid field answers 400 `{ error, field }` and nothing is written, an email used by another user (case-insensitive) 409 `{ error: 'Email already in use', field: 'email' }`, an anonymized target (`anon_…@deleted.local`) 400. Role, status and details are written by one `UPDATE`.
+`PATCH /:id` also takes `firstName`, `lastName`, `email` (2026-11, My profile page): a user's details are admin-managed, the user only sends a rectification request (`POST /api/auth/rectification-request`). The details go through `normalizeDetails`/`detailsError` (`api/src/lib/user-details.js`) after the existing guards; an invalid field answers 400 `{ error, field }` and nothing is written, an email used by another user (case-insensitive) 409 `{ error: 'Email already in use', field: 'email' }`, an anonymized target (`anon_…@deleted.local`) 400, and an actor whose live role (`liveRole`) is no longer admin or sysadmin 403 — a stale JWT must not be able to change an email. Role, status and details are written by one `UPDATE`.
 
-`POST /:id/anonymize` deletes the user's `rectification_requests` rows before anonymizing (their message is free text with personal data).
+`POST /:id/anonymize` deletes the user's `rectification_requests` rows before anonymizing (their message is free text with personal data); the admins' notifications of those requests cascade with them.
 
 Self-modification is blocked unconditionally on all three routes.
 

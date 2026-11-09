@@ -1366,6 +1366,41 @@ async function testUsers() {
     const e9 = await api('PATCH', U(tid), { firstName: 'Back' }, sysadminCookie);
     ok(e9.status === 400, `AD-ED-09 an anonymized user's details cannot be edited → 400 (got ${e9.status})`);
   }
+
+  // A requester that can sign in (SQL user with a bcrypt hash): the admins' notifications of its
+  // request go with the anonymization too.
+  let bcrypt = null;
+  try { bcrypt = require('/tmp/node_modules/bcryptjs'); } catch (e) { fail(`bcryptjs unavailable (${e.message})`); }
+  const reqEmail = `__test_req_${Date.now()}@pdash.local`;
+  const reqRow = bcrypt && await sql(
+    `INSERT INTO users (email, first_name, last_name, role, status, password_hash)
+     VALUES ($1, 'Req', 'Uester', 'user', 'active', $2) RETURNING id`, [reqEmail, bcrypt.hashSync('ReqPass123!', 4)]);
+  if (reqRow) {
+    const rid = reqRow[0].id;
+    const login = await api('POST', '/api/auth/login', { email: reqEmail, password: 'ReqPass123!' });
+    const reqCookie = extractCookie(login.headers);
+    const msg = `__test_rr_anon_${Date.now()}__`;
+    const sent = await api('POST', '/api/auth/rectification-request', { message: msg }, reqCookie);
+    const before = await sql('SELECT count(*)::int AS n FROM notifications WHERE body = $1', [msg]);
+
+    // A demoted admin whose JWT still says admin cannot edit details (account takeover via email).
+    const down = await api('PATCH', U(admin.id), { role: 'user' }, sysadminCookie);
+    try {
+      const stale = await api('PATCH', U(rid), { email: 'stale-admin-takeover@pdash.local' }, adminCookie);
+      const row = await sql('SELECT email FROM users WHERE id = $1', [rid]);
+      ok(down.status === 200 && stale.status === 403 && row?.[0]?.email === reqEmail,
+        `AD-ED-11 a demoted admin with a stale token cannot edit details → 403 (got ${stale.status})`);
+    } finally {
+      const back = await api('PATCH', U(admin.id), { role: 'admin' }, sysadminCookie);
+      ok(back.status === 200, 'AD-ED-11 the test admin is restored to role admin');
+    }
+
+    await sql(`UPDATE users SET status = 'disabled' WHERE id = $1`, [rid]);
+    const an = await api('POST', `${U(rid)}/anonymize`, null, sysadminCookie);
+    const after = await sql('SELECT count(*)::int AS n FROM notifications WHERE body = $1', [msg]);
+    ok(sent.status === 201 && before?.[0]?.n > 0 && an.status === 200 && after?.[0]?.n === 0,
+      `AD-ED-10 anonymize deletes the admins' notifications of the user's requests (got ${before?.[0]?.n} → ${after?.[0]?.n})`);
+  }
 }
 
 // ── Programs ───────────────────────────────────────────────────────────────────

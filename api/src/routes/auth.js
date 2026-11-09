@@ -53,7 +53,8 @@ router.post('/rectification-request', requireAuth, async (req, res, next) => {
 
     const me = (await query('SELECT first_name, last_name FROM users WHERE id = $1', [req.user.id])).rows[0];
     if (!me) return res.status(404).json({ error: 'User not found' });
-    await query('INSERT INTO rectification_requests (user_id, message) VALUES ($1, $2)', [req.user.id, text]);
+    const { rows: [request] } = await query(
+      'INSERT INTO rectification_requests (user_id, message) VALUES ($1, $2) RETURNING id', [req.user.id, text]);
 
     const title = `Profile change requested by ${me.first_name} ${me.last_name}`;
     const { rows: admins } = await query(
@@ -62,7 +63,9 @@ router.post('/rectification-request', requireAuth, async (req, res, next) => {
       [req.user.id]
     );
     for (const a of admins) {
-      await createNotification(a.id, { title, body: text, url: '/admin.html', urlLabel: 'Open User Admin' });
+      const n = await createNotification(a.id, { title, body: text, url: '/admin.html', urlLabel: 'Open User Admin' });
+      // Linked to the request so that anonymizing the requester deletes it (ON DELETE CASCADE).
+      await query('UPDATE notifications SET rectification_request_id = $1 WHERE id = $2', [request.id, n.id]);
       // The email body is HTML: what the user typed is escaped here, the in-app notification stays text.
       sendAdminNotificationEmail({
         to: a.email,

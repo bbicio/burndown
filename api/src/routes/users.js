@@ -127,6 +127,8 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
 
     let details = {};
     if (wantsDetails) {
+      // Live role: a demoted admin's JWT still says admin, and an email change is an account takeover.
+      if (!['admin', 'sysadmin'].includes(actorRole)) return res.status(403).json({ error: 'Admin rights required' });
       if (ANON_EMAIL_RE.test(target.email)) return res.status(400).json({ error: 'This user has been anonymized' });
       details = normalizeDetails({ firstName, lastName, email });
       const detErr = detailsError(details);
@@ -170,7 +172,8 @@ router.post('/:id/anonymize', requireAdmin, async (req, res, next) => {
     const protErr = sysAdminTargetError(actorRole, existing.role);
     if (protErr) return res.status(403).json({ error: protErr });
 
-    // The rectification requests are free text with personal data: they go with the rest.
+    // The rectification requests are free text with personal data: they go with the rest, and the
+    // admins' notifications of them with them (notifications.rectification_request_id ON DELETE CASCADE).
     await query('DELETE FROM rectification_requests WHERE user_id = $1', [req.params.id]);
     const { rows: [updated] } = await query(
       `UPDATE users SET
