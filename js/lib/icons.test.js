@@ -56,7 +56,7 @@ describe('PhIcon', () => {
 
 describe('page wiring', () => {
   const pages = readdirSync(root).filter((f) => f.endsWith('.html')).filter((f) => read(f).includes('initNav('));
-  it('finds the 18 initNav pages', () => { expect(pages.length).toBe(18); });
+  it('finds the 19 initNav pages', () => { expect(pages.length).toBe(19); });
   it.each(pages)('%s loads icons.js before nav.js', (p) => {
     const html = read(p);
     const i = html.indexOf('js/lib/icons.js');

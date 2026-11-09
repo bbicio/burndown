@@ -638,7 +638,7 @@ timesheets (
 | POST | /api/auth/forgot-password | — | Request password reset |
 | GET | /api/auth/reset-password/:token | — | Validate reset token |
 | POST | /api/auth/reset-password | — | Set new password |
-| POST | /api/auth/change-password | ✅ | Change password (authenticated) |
+| POST | /api/auth/change-password | ✅ | Change password (authenticated); writes `password_changed_at`. A wrong current password is `400 { error, field: 'currentPassword' }`, not 401 (the client would treat it as an expired session) |
 | POST | /api/auth/rectification-request | ✅ | `{ message }` (1–2000 characters after trim): records a `rectification_requests` row and notifies every other active admin/sysadmin (in-app + email); `201 { ok: true }`. The user's own details are not editable by the user |
 | POST | /api/auth/accept-terms | ✅ | Record current T&C version acceptance (writes `terms_version` + `terms_accepted_at`) |
 

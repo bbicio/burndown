@@ -264,7 +264,8 @@ router.post('/change-password', requireAuth, async (req, res, next) => {
 
     const { rows } = await query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
     const valid = await bcrypt.compare(currentPassword, rows[0].password_hash);
-    if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
+    // 400, not 401: the shared client treats a 401 as an expired session and redirects to login.
+    if (!valid) return res.status(400).json({ error: 'Current password is incorrect', field: 'currentPassword' });
 
     const hash = await bcrypt.hash(newPassword, 12);
     await query('UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2', [hash, req.user.id]);

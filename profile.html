@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>try{if(localStorage.getItem('PDash_sidebarCollapsed')==='1')document.documentElement.setAttribute('data-sidebar','collapsed')}catch(e){}</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — My profile</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css?v=14">
+  <link rel="stylesheet" href="css/style.css?v=38">
+  <link rel="stylesheet" href="css/profile.css?v=1">
+</head>
+<body>
+
+<div id="app-shell">
+<div id="nav-container"></div>
+<div id="app-main">
+
+<div id="app" v-cloak>
+
+<div class="ph">
+  <div class="ph-main mp-head">
+    <span class="mp-avatar" aria-hidden="true">{{ initials }}</span>
+    <div class="mp-head-text">
+      <div class="ph-title-row"><h1 class="ph-title">My profile</h1></div>
+      <div v-if="user" class="ph-sub">{{ subtitle }}</div>
+    </div>
+  </div>
+</div>
+<div class="md-layout">
+<nav v-pre class="md-subnav" id="profileSubnav" data-subnav-set="profile" data-md-active="details" aria-label="My profile sections"></nav>
+<div class="md-content">
+
+  <div v-if="!user" class="pd-state"><div class="spinner-border" role="status"><span class="visually-hidden">Loading…</span></div></div>
+
+  <template v-else>
+
+  <!-- ── DETAILS ─────────────────────────────────────────── -->
+  <section v-if="section === 'details'" aria-labelledby="mpDetailsTitle">
+    <div v-if="detailsBanner" class="pd-banner pd-banner--success mp-card" role="status">
+      <ph-icon name="check" :size="16"></ph-icon>
+      <div class="pd-banner-body">{{ detailsBanner }}</div>
+      <button type="button" class="pd-banner-close" aria-label="Dismiss" @click="detailsBanner = ''"><ph-icon name="close" :size="14"></ph-icon></button>
+    </div>
+    <div class="md-card mp-card">
+      <div class="md-card-head mp-card-head">
+        <h2 class="md-card-title" id="mpDetailsTitle">Personal details</h2>
+        <p class="md-card-desc">Your name appears on proposals, cost grids and shares.</p>
+      </div>
+      <dl class="mp-card-body mp-fields">
+        <div>
+          <dt class="mp-label">First name</dt>
+          <dd class="mp-value">{{ user.first_name }}</dd>
+        </div>
+        <div>
+          <dt class="mp-label">Last name</dt>
+          <dd class="mp-value">{{ user.last_name }}</dd>
+        </div>
+        <div class="mp-field--full">
+          <dt class="mp-label">Email</dt>
+          <dd class="mp-value"><ph-icon name="lock" :size="14"></ph-icon><span>{{ user.email }}</span></dd>
+        </div>
+        <div>
+          <dt class="mp-label">Role</dt>
+          <dd class="mp-value mp-value--plain"><span class="mp-chip">{{ user.role }}</span></dd>
+        </div>
+        <div>
+          <dt class="mp-label">Member since</dt>
+          <dd class="mp-value mp-value--plain">{{ memberSince || '—' }}</dd>
+        </div>
+      </dl>
+      <div class="mp-card-foot">
+        <p class="mp-foot-note">Your details are managed by an admin.</p>
+        <button type="button" class="ph-btn" id="mpRequestBtn" @click="openRequest">Request a change</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── PASSWORD ────────────────────────────────────────── -->
+  <section v-if="section === 'password'" aria-labelledby="mpPasswordTitle">
+    <form class="md-card mp-card" @submit.prevent="submitPassword" novalidate>
+      <div class="md-card-head mp-card-head">
+        <h2 class="md-card-title" id="mpPasswordTitle">Password</h2>
+        <p v-if="lastChanged" class="md-card-desc">Last changed on {{ lastChanged }}.</p>
+      </div>
+      <div class="mp-card-body">
+        <div v-if="pw.done" class="pd-banner pd-banner--success" role="status">
+          <ph-icon name="check" :size="16"></ph-icon>
+          <div class="pd-banner-body">Password updated.</div>
+        </div>
+        <div v-if="pw.error" class="pd-banner pd-banner--error" role="alert">
+          <ph-icon name="warning" :size="16"></ph-icon>
+          <div class="pd-banner-body">{{ pw.error }}</div>
+        </div>
+        <div class="mp-pw">
+          <div>
+            <label class="mp-label" for="mpPwCurrent">Current password</label>
+            <input id="mpPwCurrent" v-model="pw.current" type="password" class="form-control" autocomplete="current-password"
+                   :class="{ 'is-invalid': pw.currentError }" :aria-invalid="pw.currentError ? 'true' : null"
+                   :aria-describedby="pw.currentError ? 'mpPwCurrentErr' : null" @input="pw.currentError = ''; pw.done = false">
+            <div v-if="pw.currentError" id="mpPwCurrentErr" class="mp-field-error" role="alert">{{ pw.currentError }}</div>
+          </div>
+          <div>
+            <label class="mp-label" for="mpPwNew">New password</label>
+            <input id="mpPwNew" v-model="pw.next" type="password" class="form-control" autocomplete="new-password"
+                   placeholder="At least 8 characters" aria-describedby="mpPwHint" @input="pw.done = false">
+          </div>
+          <div>
+            <label class="mp-label" for="mpPwConfirm">Confirm new password</label>
+            <input id="mpPwConfirm" v-model="pw.confirm" type="password" class="form-control" autocomplete="new-password"
+                   :class="{ 'is-invalid': pwState.mismatch }" :aria-invalid="pwState.mismatch ? 'true' : null"
+                   :aria-describedby="pwState.mismatch ? 'mpPwMismatch' : null" @input="pw.done = false">
+            <div v-if="pwState.mismatch" id="mpPwMismatch" class="mp-field-error" role="alert">Passwords don't match.</div>
+          </div>
+          <div>
+            <div class="mp-strength" :data-level="strength" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+            <p class="mp-hint" id="mpPwHint">At least 8 characters. Longer, with numbers and capitals, is stronger.</p>
+          </div>
+        </div>
+      </div>
+      <div class="mp-card-foot mp-card-foot--end">
+        <button type="submit" class="ph-btn-primary" :disabled="!pwState.canSubmit || pw.saving">
+          <span v-if="pw.saving" class="spinner-border spinner-border-sm" role="presentation"></span>{{ pw.saving ? 'Updating…' : 'Update password' }}
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <!-- ── PRIVACY & DATA ──────────────────────────────────── -->
+  <section v-if="section === 'privacy'" aria-labelledby="mpPrivacyTitle">
+    <div class="md-card mp-card">
+      <div class="md-card-head mp-card-head">
+        <h2 class="md-card-title" id="mpPrivacyTitle">Your data in PDash</h2>
+        <p class="md-card-desc">What we keep about you, and the documents you agreed to.</p>
+      </div>
+      <dl class="mp-card-body mp-rows">
+        <div class="mp-row"><dt>Profile</dt><dd>Name, email, role</dd></div>
+        <div class="mp-row"><dt>Your work</dt><dd>Proposals, cost grids and shares you created</dd></div>
+        <div class="mp-row">
+          <dt>Agreements</dt>
+          <dd>
+            <template v-if="termsAccepted">Terms &amp; Conditions accepted on {{ termsAccepted }} · <a href="/privacy-notice.html">View</a></template>
+            <a v-else href="/privacy-notice.html">Terms &amp; Conditions</a>
+            &nbsp;<a href="/privacy-notice.html">Privacy notice</a>
+          </dd>
+        </div>
+      </dl>
+    </div>
+    <div v-if="contact && contact.email" class="md-card mp-card">
+      <div class="mp-contact">
+        <span class="mp-contact-icon" aria-hidden="true"><mp-icon name="mail" :size="16"></mp-icon></span>
+        <div class="mp-contact-body">
+          <h2 class="md-card-title">Questions about your data?</h2>
+          <p class="mp-contact-text">To access, correct or delete your personal data, or to close your account, contact
+            <template v-if="contact.name"><strong>{{ contact.name }}</strong> at </template><a :href="'mailto:' + contact.email">{{ contact.email }}</a>.</p>
+        </div>
+        <a class="ph-btn" :href="'mailto:' + contact.email">Write an email</a>
+      </div>
+    </div>
+  </section>
+
+  </template>
+
+  <!-- ── REQUEST A CHANGE DRAWER ─────────────────────────── -->
+  <div class="offcanvas offcanvas-end pd-drawer" tabindex="-1" id="rectificationDrawer" aria-labelledby="rectificationDrawerTitle">
+    <div class="pd-drawer-head">
+      <div>
+        <div class="pd-drawer-eyebrow">MY PROFILE</div>
+        <h2 class="pd-drawer-title" id="rectificationDrawerTitle">Request a change</h2>
+        <p class="pd-drawer-sub">Tell the admins what is wrong or out of date. They will update your details.</p>
+      </div>
+      <button type="button" class="pd-drawer-close" data-bs-dismiss="offcanvas" aria-label="Close"><ph-icon name="close" :size="16"></ph-icon></button>
+    </div>
+    <form class="pd-drawer-form" @submit.prevent="sendRequest" novalidate>
+      <div class="pd-drawer-body">
+        <div v-if="req.error" class="pd-banner pd-banner--error mb-0" role="alert">
+          <ph-icon name="warning" :size="16"></ph-icon>
+          <div class="pd-banner-body">{{ req.error }}</div>
+        </div>
+        <div>
+          <label class="mp-label" for="mpReqMessage">What needs to change</label>
+          <textarea id="mpReqMessage" v-model="req.message" class="form-control" rows="6" maxlength="2000" required
+                    aria-describedby="mpReqCount"></textarea>
+          <div class="mp-count" id="mpReqCount">{{ req.message.length }} / 2000</div>
+        </div>
+      </div>
+      <div class="pd-drawer-foot">
+        <button type="button" class="ph-btn" data-bs-dismiss="offcanvas">Cancel</button>
+        <button type="submit" class="ph-btn-primary" :disabled="!req.message.trim() || req.sending">
+          <span v-if="req.sending" class="spinner-border spinner-border-sm" role="presentation"></span>{{ req.sending ? 'Sending…' : 'Send request' }}
+        </button>
+      </div>
+    </form>
+  </div>
+
+</div><!-- /.md-content -->
+</div><!-- /.md-layout -->
+
+</div><!-- /#app -->
+
+</div><!-- /#app-main -->
+</div><!-- /#app-shell -->
+
+<script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script defer src="js/api.js?v=14"></script>
+<script defer src="js/core.js?v=16"></script>
+<script type="module" src="js/lib/notif-browser.js?v=2"></script>
+<script defer src="js/notifications.js?v=4"></script>
+<script type="module" src="js/lib/icons.js?v=7"></script>
+<script type="module" src="js/lib/dates.js?v=4"></script>
+<script type="module" src="js/lib/md-subnav.js?v=6"></script>
+<script type="module" src="js/lib/profile-ui.js?v=1"></script>
+<script defer src="js/nav.js?v=23"></script>
+<script type="module">
+  // The only drawing the shared icon set does not have.
+  const MP_ICONS = {
+    mail: '<rect x="2" y="3.5" width="12" height="9" rx="1.5" stroke="currentColor" stroke-width="1.4"/><path d="M2.5 4.5L8 8.5l5.5-4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>',
+  };
+  const MpIcon = {
+    props: { name: { type: String, required: true }, size: { type: Number, default: 16 } },
+    template: `<svg class="pd-icon" :width="size" :height="size" viewBox="0 0 16 16" fill="none" aria-hidden="true" focusable="false" v-html="paths"></svg>`,
+    computed: { paths() { return MP_ICONS[this.name] || ''; } },
+  };
+  // API timestamps are ISO/UTC; formatDayText takes 'YYYY-MM-DD'.
+  const day = ts => (ts ? formatDayText(String(ts).slice(0, 10)) : '');
+
+  Vue.createApp({
+    data() {
+      return {
+        user: null,
+        section: sectionFromHash(location.hash),
+        contact: null,
+        detailsBanner: '',
+        req: { message: '', sending: false, error: '' },
+        pw: { current: '', next: '', confirm: '', saving: false, error: '', currentError: '', done: false },
+      };
+    },
+    computed: {
+      initials() { return this.user ? maskInitials(this.user) : ''; },
+      memberSince() { return day(this.user?.created_at); },
+      subtitle() {
+        const u = this.user;
+        return `${u.first_name} ${u.last_name} · ${u.role}` + (this.memberSince ? ` · member since ${this.memberSince}` : '');
+      },
+      lastChanged() { return day(this.user?.password_changed_at); },
+      termsAccepted() { return day(this.user?.terms_accepted_at); },
+      strength() { return passwordStrength(this.pw.next); },
+      pwState() { return passwordFormState(this.pw); },
+    },
+    watch: {
+      section(id) {
+        const nav = document.getElementById('profileSubnav');
+        nav.setAttribute('data-md-active', id);
+        mountMdSubnav(nav.parentElement);
+      },
+    },
+    async created() {
+      window.addEventListener('hashchange', () => { this.section = sectionFromHash(location.hash); });
+      const user = await initNav('profile', { breadcrumbs: [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'My profile' },
+      ]});
+      if (!user) return;
+      this.user = user;
+      Api.appSettings.privacyContact().then(c => { this.contact = c; }).catch(() => { this.contact = null; });
+    },
+    mounted() {
+      const nav = document.getElementById('profileSubnav');
+      nav.setAttribute('data-md-active', this.section);
+      mountMdSubnav(nav.parentElement);
+      const drawer = document.getElementById('rectificationDrawer');
+      drawer.addEventListener('hidden.bs.offcanvas', () => {
+        this.req.error = '';
+        document.getElementById('mpRequestBtn')?.focus();
+      });
+      drawer.addEventListener('shown.bs.offcanvas', () => document.getElementById('mpReqMessage')?.focus());
+    },
+    methods: {
+      openRequest() {
+        this.req.error = '';
+        this.detailsBanner = '';
+        bootstrap.Offcanvas.getOrCreateInstance(document.getElementById('rectificationDrawer')).show();
+      },
+      async sendRequest() {
+        if (!this.req.message.trim() || this.req.sending) return;
+        this.req.sending = true;
+        this.req.error = '';
+        try {
+          await Api.auth.rectificationRequest(this.req.message);
+          this.req.message = '';
+          this.detailsBanner = 'Request sent to the admins.';
+          bootstrap.Offcanvas.getInstance(document.getElementById('rectificationDrawer'))?.hide();
+        } catch (e) {
+          this.req.error = e.data?.error || (e.data ? e.message : 'Network error. Please try again.');
+        } finally {
+          this.req.sending = false;
+        }
+      },
+      async submitPassword() {
+        if (!this.pwState.canSubmit || this.pw.saving) return;
+        this.pw.saving = true;
+        this.pw.error = '';
+        this.pw.currentError = '';
+        this.pw.done = false;
+        try {
+          await Api.auth.changePassword({ currentPassword: this.pw.current, newPassword: this.pw.next, newPasswordConfirm: this.pw.confirm });
+          this.pw.current = this.pw.next = this.pw.confirm = '';
+          this.pw.done = true;
+          this.user.password_changed_at = new Date().toISOString();
+        } catch (e) {
+          const msg = e.data?.error || (e.data ? e.message : 'Network error. Please try again.');
+          if (e.data?.field === 'currentPassword') this.pw.currentError = msg;
+          else this.pw.error = msg;
+        } finally {
+          this.pw.saving = false;
+        }
+      },
+    },
+  }).component('ph-icon', window.PhIcon).component('mp-icon', MpIcon).mount('#app');
+</script>
+</body>
+</html>

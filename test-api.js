@@ -215,6 +215,13 @@ async function testProfile() {
   ok(w1.status === 200 && w2.status === 200, `PW-01 change-password and back → 200, 200 (got ${w1.status}, ${w2.status})`);
   const pw = (await api('GET', '/api/auth/me', null, adminCookie)).data;
   ok(!!pw?.password_changed_at, 'PW-01 /me.password_changed_at is set');
+
+  // A wrong current password is a refused field, not an expired session: a 401 would make the
+  // shared client (js/api.js) redirect to the login page.
+  const w3 = await api('POST', CP, { currentPassword: 'wrong-' + PASS, newPassword: PASS + 'y', newPasswordConfirm: PASS + 'y' }, adminCookie);
+  ok(w3.status === 400 && w3.data?.field === 'currentPassword' && w3.data?.error === 'Current password is incorrect',
+    `PW-02 wrong current password → 400 field currentPassword (got ${w3.status})`);
+  ok((await api('POST', '/api/auth/login', { email: EMAIL, password: PASS })).status === 200, 'PW-02 the password is unchanged');
 }
 
 // ── Security ─────────────────────────────────────────────────────────────────
