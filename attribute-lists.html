@@ -450,25 +450,92 @@
       </form>
     </div>
 
-    <div class="modal fade" id="mergeModal" tabindex="-1">
-      <div class="modal-dialog"><div class="modal-content">
-        <form @submit.prevent="submitMerge">
-          <div class="modal-header border-0"><h5 class="modal-title">Merge “{{ mergeForm.source?.name }}” into…</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-          <div class="modal-body">
-            <div v-if="mergeForm.error" class="alert alert-danger alert-sm">{{ mergeForm.error }}</div>
-            <p class="text-muted small">All descriptions using this topic will use the target instead; this topic disappears.</p>
-            <select v-model="mergeForm.targetId" class="form-select" required>
-              <option value="" disabled>Choose the topic to keep…</option>
-              <option v-for="t in mergeTargets" :key="t.id" :value="t.id">{{ t.name }}{{ t.status === 'proposed' ? ' (proposed)' : '' }}</option>
-            </select>
+    <!-- ── MERGE DRAWER ────────────────────────────────────── -->
+    <div class="offcanvas offcanvas-end pd-drawer" tabindex="-1" id="mergeDrawer" aria-labelledby="mergeDrawerTitle">
+      <div class="pd-drawer-head">
+        <div>
+          <div class="pd-drawer-eyebrow">TOPICS</div>
+          <h2 class="pd-drawer-title" id="mergeDrawerTitle" tabindex="-1">Merge topic</h2>
+          <p class="pd-drawer-sub">Use this when two topics describe the same competence.</p>
+        </div>
+        <button type="button" class="pd-drawer-close" data-bs-dismiss="offcanvas" aria-label="Close"><ph-icon name="close" :size="16"></ph-icon></button>
+      </div>
+      <div class="pd-drawer-form">
+        <div class="pd-drawer-body" v-if="mergeForm.source">
+          <div class="al-merge-source">
+            <div class="al-merge-source-text">
+              <div class="al-eyebrow">TOPIC TO MERGE</div>
+              <div class="al-merge-source-name">{{ mergeForm.source.name }}</div>
+              <div class="al-merge-source-used">Used in {{ descriptionsText(mergeForm.source.usage_count) }}</div>
+            </div>
+            <span class="pd-status-pill" :class="mergeForm.source.status === 'approved' ? 'pd-status-pill--active' : 'al-pill--proposed'">{{ mergeForm.source.status }}</span>
           </div>
-          <div class="modal-footer border-0 pt-0">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-            <button type="submit" class="btn btn-primary" :disabled="mergeForm.loading || !mergeForm.targetId">Merge</button>
+          <div>
+            <label class="form-label" id="mergeTargetLabel">Merge into <span class="al-req" aria-hidden="true">*</span></label>
+            <combo-select v-model="mergeForm.targetId" :options="mergeOptions" placeholder="Choose the topic to keep…"
+                          aria-label="Merge into"></combo-select>
+            <p class="pd-drawer-hint mt-1">{{ mergeForm.source.status === 'approved'
+              ? "An approved topic can only merge into another approved topic, so the approval isn't lost."
+              : 'You can merge into an approved or a proposed topic.' }}</p>
           </div>
-        </form>
-      </div></div>
+          <div v-if="mergeTarget" class="al-info-box">
+            <div class="al-info-box-title">What happens</div>
+            <p>The {{ descriptionsText(mergeForm.source.usage_count) }} using "{{ mergeForm.source.name }}" will use "{{ mergeTarget.name }}".</p>
+            <p>"{{ mergeForm.source.name }}" disappears from the vocabulary and from experience profiles.</p>
+            <p class="mb-0"><strong class="al-danger-text">Can't be undone.</strong> To hide a topic without losing it, reject it instead.</p>
+          </div>
+        </div>
+        <div class="pd-drawer-foot">
+          <button type="button" class="al-btn-outline" data-bs-dismiss="offcanvas">Cancel</button>
+          <button type="button" class="btn btn-danger" :disabled="!mergeTarget" @click="openMergeConfirm($event)">Merge…</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── MERGE CONFIRMATION (above the drawer) ────────────── -->
+    <div class="modal fade pd-confirm-modal" id="mergeConfirmModal" tabindex="-1" aria-labelledby="mergeConfirmTitle">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="pd-confirm" v-if="mergeForm.source && mergeTarget">
+            <div class="pd-confirm-head">
+              <span class="pd-confirm-icon pd-confirm-icon--danger"><al-icon name="merge" :size="16"></al-icon></span>
+              <h2 class="pd-confirm-title" id="mergeConfirmTitle" tabindex="-1">Merge "{{ mergeForm.source.name }}" into "{{ mergeTarget.name }}"?</h2>
+              <span class="pd-tag pd-tag--danger">IRREVERSIBLE</span>
+            </div>
+            <p class="pd-confirm-text">This can't be undone. Profiles in Team update immediately.</p>
+            <div v-if="mergeForm.error" class="pd-banner pd-banner--error mb-0" role="alert">
+              <ph-icon name="warning" :size="16"></ph-icon>
+              <div class="pd-banner-body">{{ mergeForm.error }}</div>
+            </div>
+            <div class="pd-confirm-boxes">
+              <div class="pd-confirm-box">
+                <div class="pd-confirm-box-title pd-confirm-box-title--danger">Disappears</div>
+                <div class="al-confirm-strong">{{ mergeForm.source.name }}</div>
+                <div>{{ mergeForm.source.status === 'approved' ? 'Approved · removed from profiles' : 'Proposed · removed from the queue' }}</div>
+              </div>
+              <div class="pd-confirm-box">
+                <div class="pd-confirm-box-title pd-confirm-box-title--ok">Moves to {{ mergeTarget.name }}</div>
+                <div>{{ descriptionsText(mergeForm.source.usage_count) }} move over</div>
+              </div>
+            </div>
+            <div class="pd-confirm-note">
+              <ph-icon name="info" :size="16"></ph-icon>
+              <div class="pd-confirm-note-body"><strong>Just want it gone?</strong> Reject hides it and stops new proposals. You can restore it later.</div>
+              <button type="button" class="pd-confirm-note-action" :disabled="mergeForm.saving" @click="rejectInstead">Reject instead</button>
+            </div>
+            <label class="pd-confirm-ack">
+              <input type="checkbox" class="form-check-input mt-0" v-model="mergeForm.ack">
+              I understand this can't be undone.
+            </label>
+            <div class="pd-confirm-foot">
+              <button type="button" class="al-link-btn" @click="backToMergeDrawer">Back</button>
+              <button type="button" class="btn btn-danger" :disabled="!mergeForm.ack || mergeForm.saving" @click="submitMerge">
+                <span v-if="mergeForm.saving" class="spinner-border spinner-border-sm me-2" role="presentation"></span>Merge topics
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
   </div><!-- #app -->
@@ -481,6 +548,7 @@
   <script type="module" src="js/lib/attribute-lists-ui.js?v=1"></script>
   <script type="module" src="js/lib/slugify.js?v=1"></script>
   <script type="module" src="js/lib/team-ui.js?v=8"></script>
+  <script defer src="js/combo-select.js?v=1"></script>
   <script defer src="js/api.js?v=13"></script>
   <script defer src="js/core.js?v=16"></script>
   <script type="module" src="js/lib/notif-browser.js?v=2"></script>
@@ -541,7 +609,7 @@
           itemForm: { mode: 'new', id: null, listId: null, listName: '', label: '', error: null, saving: false },
           topicForm: { mode: 'new', id: null, status: 'approved', name: '', error: null, saving: false },
           reviewedThisSession: 0,   // Approve / Reject / Merge of a proposed topic since the page loaded
-          mergeForm: { source: null, targetId: '', loading: false, error: null },
+          mergeForm: { source: null, targetId: undefined, ack: false, error: null, saving: false },
         };
       },
       computed: {
@@ -576,10 +644,8 @@
           if (this.isTopics) return TOPIC_STATES.find(s => s.status === this.selection.status).label;
           return '';
         },
-        mergeTargets() {
-          const src = this.mergeForm.source;
-          return this.topics.filter(t => src && t.id !== src.id && t.status !== 'rejected' && (src.status !== 'approved' || t.status === 'approved'));
-        },
+        mergeOptions() { return this.mergeForm.source ? window.mergeTargetOptions(this.topics, this.mergeForm.source) : []; },
+        mergeTarget() { return this.topics.find(t => t.id === this.mergeForm.targetId) || null; },
       },
       async created() {
         const user = await initNav('attributelists', { breadcrumbs: [
@@ -595,7 +661,18 @@
       },
       mounted() {
         this._topicDrawer = this.drawer('topicDrawer', 'topicName');
-        this._mergeModal = new bootstrap.Modal(document.getElementById('mergeModal'));
+        // The merge drawer focuses its title, not the combo: focusing the combo would open its list at once.
+        this._mergeDrawer = this.drawer('mergeDrawer', 'mergeDrawerTitle');
+        // Esc in the confirmation closes only the confirmation: Bootstrap's modal handles the key on its own element,
+        // and focus is inside the modal, so the drawer's offcanvas (which listens on its element) never sees it.
+        const confirmEl = document.getElementById('mergeConfirmModal');
+        this._mergeConfirm = new bootstrap.Modal(confirmEl);
+        confirmEl.addEventListener('shown.bs.modal', () => document.getElementById('mergeConfirmTitle')?.focus());
+        confirmEl.addEventListener('hidden.bs.modal', () => {
+          const back = this._mergeConfirm.opener;
+          this._mergeConfirm.opener = null;
+          if (back && document.contains(back) && document.getElementById('mergeDrawer').classList.contains('show')) back.focus();
+        });
         this._listDrawer = this.drawer('listDrawer', 'listName');
         this._itemDrawer = this.drawer('itemDrawer', 'itemLabel');
         // Row menu: Esc closes it (focus back to ⋯) before any drawer sees it; a press outside closes it.
@@ -828,7 +905,7 @@
           this.closeMenu(true);
           if (action === 'rename') this.openTopicDrawer('rename', t, { currentTarget: opener });
           else if (action === 'reject') this.topicAction(t, 'reject');
-          else this.openMergeTopic(t);
+          else this.openMerge(t, { currentTarget: opener });
         },
         // Approve / Reject / Restore. The list is reloaded whatever the outcome (as before the redesign); a proposed
         // topic that leaves the queue counts as reviewed. Returns whether the server accepted it.
@@ -874,18 +951,51 @@
             this.setCardBanner({ kind: 'success', strong: 'Renamed to "' + name + '".', text: '' });
           }
         },
-        openMergeTopic(t) { this.mergeForm = { source: t, targetId: '', loading: false, error: null }; this._mergeModal.show(); },
-        async submitMerge() {
-          this.mergeForm.loading = true; this.mergeForm.error = null;
-          const r = await this.request('POST', `/api/topics/${this.mergeForm.source.id}/merge`, { targetId: this.mergeForm.targetId });
-          this.mergeForm.loading = false;
-          if (!r.ok) { this.mergeForm.error = this.errorText(r); return; }
-          this._mergeModal.hide();
-          await this.loadTopics();
+        openMerge(t, ev) {
+          this.mergeForm = { source: t, targetId: undefined, ack: false, error: null, saving: false };
+          this.openDrawer(this._mergeDrawer, ev);
         },
-
+        openMergeConfirm(ev) {
+          this.mergeForm.ack = false;
+          this.mergeForm.error = null;
+          this._mergeConfirm.opener = ev.currentTarget;
+          this._mergeConfirm.show();
+        },
+        backToMergeDrawer() { this._mergeConfirm.hide(); },
+        closeMerge() {
+          this._mergeConfirm.opener = null;
+          this._mergeConfirm.hide();
+          this._mergeDrawer.hide();
+        },
+        rejectInstead() {
+          const source = this.mergeForm.source;
+          this.closeMerge();
+          this.topicAction(source, 'reject');
+        },
+        // A refused merge keeps the confirmation (and the drawer) open with the server's message; only a merge the
+        // server accepted counts a proposed source as reviewed. The banner reads the target's count after the reload.
+        async submitMerge() {
+          const form = this.mergeForm;
+          if (form.saving) return;
+          const source = form.source;
+          const targetId = form.targetId;
+          const targetName = this.mergeTarget.name;
+          const wasProposed = source.status === 'proposed';
+          form.saving = true;
+          form.error = null;
+          const r = await this.request('POST', '/api/topics/' + source.id + '/merge', { targetId });
+          form.saving = false;
+          if (!r.ok) { form.error = this.errorText(r); return; }
+          this.closeMerge();
+          await this.loadTopics();
+          if (wasProposed) this.markReviewed();
+          if (!this.isTopics) return;
+          const target = this.topics.find(t => t.id === targetId);
+          const n = target ? target.usage_count : 0;
+          this.setCardBanner({ kind: 'success', strong: 'Merged "' + source.name + '" into "' + targetName + '".', text: '"' + targetName + '" is now used in ' + window.descriptionsText(n) + '.' });
+        },
       },
-    }).component('ph-icon', window.PhIcon).component('al-icon', AlIcon).mount('#app');
+    }).component('ph-icon', window.PhIcon).component('al-icon', AlIcon).component('combo-select', window.ComboSelect).mount('#app');
   </script>
 </body>
 </html>

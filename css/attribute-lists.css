@@ -147,3 +147,18 @@ button.md-subnav-item:focus-visible { outline: 2px solid var(--brand-navy); outl
 .al-info-box ul:last-child { margin-bottom: 0; }
 .al-info-box li + li { margin-top: var(--space-1); }
 .al-info-box a { color: var(--brand-navy); font-weight: var(--weight-semibold); }
+
+/* ── Merge ── */
+.al-merge-source {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4); border: 1px solid var(--border-light); border-radius: var(--radius-md);
+}
+.al-merge-source-text { min-width: 0; }
+.al-merge-source-name { margin-top: 2px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+.al-merge-source-used { font-size: 12px; color: var(--text-muted); }
+.pd-status-pill.al-pill--proposed { background: var(--status-on-hold-soft-bg); color: var(--status-on-hold-soft-text); }
+.pd-status-pill.al-pill--proposed::before { background: var(--brand-gold); }
+.al-info-box p { margin: 0 0 var(--space-2); }
+.al-danger-text { color: var(--color-danger-text); }
+.al-confirm-strong { font-weight: var(--weight-semibold); color: var(--brand-navy); }
+#mergeDrawer .pd-combo { width: 100%; }

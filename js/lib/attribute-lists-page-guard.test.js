@@ -80,10 +80,46 @@ describe('attribute-lists.html — topics', () => {
   it('has no topic modal', () => expect(html).not.toContain('id="topicModal"'));
 });
 
-describe('attribute-lists.html — later tasks', () => {
-  it.todo('uses pd-drawer for every form');
-  it.todo('uses pd-confirm for the merge confirmation');
-  it.todo('uses combo-select for the merge target');
-  it.todo('has no Bootstrap modal other than #mergeConfirmModal');
-  it.todo('has no <select> outside md-subnav-select');
+describe('attribute-lists.html — merge', () => {
+  // The phone section picker is the one native <select> the page may have (md-subnav pattern).
+  const subnavSelect = html.indexOf('<div class="md-subnav-select">');
+  const subnavEnd = html.indexOf('</nav>', subnavSelect);
+  const outsideSubnav = html.slice(0, subnavSelect) + html.slice(subnavEnd);
+
+  it.each([
+    'id="mergeDrawer"', '<combo-select', 'Choose the topic to keep…', 'TOPIC TO MERGE', 'What happens', "Can't be undone.",
+    'btn-danger', 'id="mergeConfirmModal"', 'pd-confirm', 'Just want it gone?', 'Reject instead',
+    "I understand this can't be undone.", 'Merge topics', 'Back', 'Use this when two topics describe the same competence.',
+    "An approved topic can only merge into another approved topic, so the approval isn't lost.",
+    'You can merge into an approved or a proposed topic.', "This can't be undone. Profiles in Team update immediately.",
+    'js/combo-select.js?v=', ".component('combo-select', window.ComboSelect)",
+  ])('contains %s', s => expect(html).toContain(s));
+  it('has no merge modal', () => expect(html).not.toContain('id="mergeModal"'));
+  it('uses pd-drawer for every form', () => {
+    for (const id of ['listDrawer', 'itemDrawer', 'topicDrawer', 'mergeDrawer']) {
+      expect(html).toMatch(new RegExp('class="offcanvas offcanvas-end pd-drawer"[^>]*id="' + id + '"'));
+    }
+  });
+  it('has no Bootstrap modal other than #mergeConfirmModal', () => {
+    const modals = html.match(/class="modal fade[^"]*"[^>]*>/g) || [];
+    expect(modals).toHaveLength(1);
+    expect(modals[0]).toContain('id="mergeConfirmModal"');
+    expect(modals[0]).toContain('pd-confirm-modal');
+  });
+  it('has no <select> or <option> outside the phone section picker', () => {
+    expect(subnavSelect).toBeGreaterThan(-1);
+    expect(outsideSubnav).not.toContain('<select');
+    expect(outsideSubnav).not.toContain('<option');
+  });
+  it('documents that Esc in the confirmation leaves the drawer open', () => {
+    expect(html).toContain('Esc in the confirmation closes only the confirmation');
+  });
+  it('a failed merge stays in the confirmation and does not count as reviewed', () => {
+    const at = html.indexOf('async submitMerge(');
+    const body = html.slice(at, html.indexOf('\n        },', at));
+    const fail = body.indexOf('if (!r.ok)');
+    expect(fail).toBeGreaterThan(-1);
+    expect(body.indexOf('markReviewed()')).toBeGreaterThan(fail);
+    expect(body.slice(fail, body.indexOf('\n', fail))).toMatch(/form\.error = .*return;/);
+  });
 });
