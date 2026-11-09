@@ -43,7 +43,7 @@ describe('buildProfileTree', () => {
     expect(market.values.map(v => v.label)).toEqual(['Italy', 'Spain']);
     expect(market.values[0]).toMatchObject({ label: 'Italy', hours: 10, share: 0.7692, projectCount: 1, last: '2026-02' });
     expect(market.values[0].projects).toEqual([
-      { code: 'P1', name: 'Alpha', hours: 10, last: '2026-02', tasks: [{ name: 'Analysis', hours: 10 }] },
+      { code: 'P1', name: 'Alpha', hours: 10, last: '2026-02', tasks: [{ name: 'Analysis', hours: 10, topics: [] }] },
     ]);
   });
 
@@ -57,6 +57,28 @@ describe('buildProfileTree', () => {
     expect(t.roles.map(r => [r.code, r.label])).toEqual([['DEV', 'Developer'], ['ODD', 'ODD']]);
     expect(t.roles[0].projects.map(p => p.code)).toEqual(['P1', 'P2']);       // 10 h before 3 h
     expect(t.roles[0].projectCount).toBe(2);
+  });
+
+  it('v3: role → project uses the role hours and tasks with topics', () => {
+    const v3 = { ...profile, version: 3,
+      projects: { ...profile.projects, P1: { ...profile.projects.P1, tasks: [{ name: 'Analysis', hours: 10, topics: [{ id: 't1', name: 'Medical writing' }] }] } },
+      roles: [{ ...profile.roles[0], byProject: {
+        P1: { hours: 9, tasks: [{ name: 'Analysis', hours: 9, topics: [{ id: 't1', name: 'Medical writing' }] }] },
+        P2: { hours: 3, tasks: [] },                                   // contribution from before v3
+      } }, profile.roles[1]] };
+    const t = buildProfileTree(v3, roles);
+    const dev = t.roles[0];
+    expect(dev.projects.map(p => [p.code, p.hours])).toEqual([['P1', 9], ['P2', 3]]);
+    expect(dev.projects[0].tasks).toEqual([{ name: 'Analysis', hours: 9, topics: [{ id: 't1', name: 'Medical writing' }] }]);
+    expect(dev.projects[1].tasks).toEqual([]);
+    const italy = t.dimensions.find(d => d.slug === 'market').values.find(v => v.label === 'Italy');
+    expect(italy.projects[0].tasks[0].topics).toEqual([{ id: 't1', name: 'Medical writing' }]);
+  });
+
+  it('v2: role → project keeps the project total and has no tasks; dimension tasks get topics []', () => {
+    const t = buildProfileTree(profile, roles);
+    expect(t.roles[0].projects.map(p => [p.code, p.hours, p.tasks.length])).toEqual([['P1', 10, 0], ['P2', 3, 0]]);
+    expect(t.dimensions.find(d => d.slug === 'market').values[0].projects[0].tasks[0].topics).toEqual([]);
   });
 
   it('a project code missing from the index still produces a node', () => {

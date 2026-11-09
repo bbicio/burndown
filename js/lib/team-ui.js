@@ -81,7 +81,7 @@ export function buildProfileTree(profile, roles = []) {
   const node = (code) => {
     const p = projects[code];
     return p
-      ? { code, name: p.name, hours: p.hours, last: p.last, tasks: (p.tasks || []).map(t => ({ ...t })) }
+      ? { code, name: p.name, hours: p.hours, last: p.last, tasks: (p.tasks || []).map(t => ({ ...t, topics: t.topics || [] })) }
       : { code, name: code, hours: 0, last: null, tasks: [] };
   };
   const children = (codes) => (codes || []).map(node)
@@ -101,9 +101,18 @@ export function buildProfileTree(profile, roles = []) {
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
+  // Under a role the project shows the person's hours and tasks in THAT role (v3 byProject); a profile
+  // without byProject (v2) keeps the project total and no tasks.
+  const roleProjects = (r) => (r.projectCodes || []).map(code => {
+    const base = node(code);
+    const bp = (r.byProject || {})[code];
+    if (!bp) return { ...base, tasks: [] };
+    return { ...base, hours: bp.hours, tasks: (bp.tasks || []).map(t => ({ ...t, topics: t.topics || [] })) };
+  }).sort((a, b) => b.hours - a.hours || a.name.localeCompare(b.name));
+
   const roleNodes = (profile.roles || []).map(r => ({
     code: r.code, label: labelByCode.get(r.code) || r.code, hours: r.hours, share: r.share, last: r.last,
-    projectCount: r.projects, projects: children(r.projectCodes),
+    projectCount: r.projects, projects: roleProjects(r),
   }));
 
   const topicNodes = (profile.topics || [])
