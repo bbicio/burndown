@@ -976,7 +976,7 @@ burndown/
     cg-controls.js        ← three custom Vue controls, loaded by costgrid.html, project-config.html, portfolio.html and planning.html; pure helpers in js/lib/cg-controls-calc.js. Detail: docs/js/cg-controls.md
     portfolio.js          ← two exports still reachable, both consumed by planning.html. Detail: docs/js/shared-libs.md
     lib/                  ← pure functions for unit testing (vitest + jsdom), ES modules, most with a `window.<name>` bridge for classic-script callers. Module index: docs/js/lib.md
-    shares.js, share-list-component.js, clients.js, roles.js, programs.js, ratecards.js, upload.js, tags.js
+    shares.js, share-list-component.js, combo-select.js, clients.js, roles.js, programs.js, ratecards.js, upload.js, tags.js
                           ← the other shared classic scripts loaded as globals by the Vue pages. Detail: docs/js/shared-libs.md
   index.html              ← redirect → pipeline.html
   pipeline.html           ← kanban pipeline board. Detail: docs/pages/pipeline.md
@@ -998,7 +998,7 @@ burndown/
   _terms-editor.html      ← sysadmin-exclusive hidden page, T&C editor (see §5's App Settings). Detail: docs/pages/terms-editor.md
   privacy-notice.html     ← Privacy Notice page: read-only latest Terms & Conditions with version and publication date. Detail: docs/pages/privacy-notice.md
   team.html               ← resource registry CRUD, admin or sysadmin; own stylesheet css/team.css. Detail: docs/pages/team.md
-  attribute-lists.html    ← generic tag/taxonomy admin console (lists + items, no physical delete); its items feed the Tags sections via js/tags.js. Detail: docs/pages/attribute-lists.md
+  attribute-lists.html    ← generic tag/taxonomy admin console (lists + items, no physical delete); its items feed the Tags sections via js/tags.js; own stylesheet css/attribute-lists.css. Detail: docs/pages/attribute-lists.md
   profile-jobs.html       ← profile-engine job console, hidden (reached from the Timesheets sub-menu of timesheets.html); adds js/lib/profile-jobs-ui.js. Detail: docs/pages/profile-jobs.md
   test-cases.html         ← dev-only manual test checklist; fetches TEST_CASES.md and renders it via js/lib/test-cases-parse.js, which is why that file counts as code. Detail: docs/js/lib.md
   nginx.conf              ← denies dev-only toolchain artifacts even though it bind-mounts the repo root
