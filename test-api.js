@@ -1344,6 +1344,21 @@ async function testUsers() {
 
   const e7 = await api('PATCH', U(admin.id), { firstName: 'Ok', email: 'not-an-email' }, sysadminCookie);
   ok(e7.status === 400 && e7.data?.field === 'email' && (await same()), `AD-ED-07 one invalid field refuses the whole request (got ${e7.status})`);
+
+  // A throw-away user built by SQL (an invite needs SMTP): anonymizing it deletes its rectification
+  // requests, and an anonymized user's details can no longer be edited.
+  const tmp = await sql(
+    `INSERT INTO users (email, first_name, last_name, role, status)
+     VALUES ($1, 'Temp', 'Person', 'user', 'disabled') RETURNING id`, [`__test_anon_${Date.now()}@pdash.local`]);
+  if (tmp) {
+    const tid = tmp[0].id;
+    await sql(`INSERT INTO rectification_requests (user_id, message) VALUES ($1, 'my name is Temp Person')`, [tid]);
+    const an = await api('POST', `${U(tid)}/anonymize`, null, sysadminCookie);
+    const left = await sql('SELECT count(*)::int AS n FROM rectification_requests WHERE user_id = $1', [tid]);
+    ok(an.status === 200 && left && left[0].n === 0, `AD-ED-08 anonymize deletes the user's rectification requests (got ${an.status}, ${left?.[0]?.n} left)`);
+    const e9 = await api('PATCH', U(tid), { firstName: 'Back' }, sysadminCookie);
+    ok(e9.status === 400, `AD-ED-09 an anonymized user's details cannot be edited → 400 (got ${e9.status})`);
+  }
 }
 
 // ── Programs ───────────────────────────────────────────────────────────────────
