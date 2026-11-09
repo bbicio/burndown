@@ -4,7 +4,7 @@ const { normalizeTask } = require('./resource-profile');
 const {
   MIN_TEXT_CHARS, MAX_TOPICS_PER_TEXT, normalizeTopicName, cleanTopicName, taskKey, hashText, isExtractable,
   descriptionsSignature, buildItems, chunk, buildVocabulary, buildPrompt, parseExtraction, finalTopic,
-  resolveCandidates, resolveProfileTopics, topicNameError,
+  resolveCandidates, resolveProfileTopics, resolveTaskTopics, resolveProfileTaskTopics, topicNameError,
 } = require('./topic-extract');
 
 const T = (id, name, status = 'approved', merged_into = null) =>
@@ -175,4 +175,28 @@ test('resolveProfileTopics: provenance is carried only when present, merged topi
     id: 't1', name: 'Medical writing', projectCodes: ['A', 'B'],
     direct: { hours: 6, projectCodes: ['A'] }, context: { projectCodes: ['B'] },
   }]);
+});
+
+// a local vocabulary: t5 is merged into a rejected topic
+const { topicsById: taskVocab } = buildVocabulary([T('t1', 'Medical writing'), T('t2', 'Data visualization', 'proposed'),
+  T('t3', 'Copy editing', 'rejected'), T('t4', 'Old name', 'approved', 't1'), T('t5', 'Stale', 'approved', 't3')], []);
+
+test('resolveTaskTopics: approved only, merges followed, merged-into-rejected hidden, one chip per final topic', () => {
+  assert.deepEqual(resolveTaskTopics(['t4', 't1', 't2', 't3', 't5', 'gone'], taskVocab), [{ id: 't1', name: 'Medical writing' }]);
+  assert.deepEqual(resolveTaskTopics(undefined, taskVocab), []);
+});
+
+test('resolveProfileTaskTopics: v3 tasks get topics, v2 tasks get [], input untouched', () => {
+  const stored = {
+    version: 3,
+    projects: { P1: { tasks: [{ name: 'A', hours: 1, topicIds: ['t4'] }] } },
+    roles: [{ code: 'DEV', byProject: { P1: { hours: 1, tasks: [{ name: 'A', hours: 1, topicIds: ['t2'] }] } } }, { code: 'PM' }],
+  };
+  const out = resolveProfileTaskTopics(stored, taskVocab);
+  assert.deepEqual(out.projects.P1.tasks, [{ name: 'A', hours: 1, topics: [{ id: 't1', name: 'Medical writing' }] }]);
+  assert.deepEqual(out.roles[0].byProject.P1.tasks, [{ name: 'A', hours: 1, topics: [] }]);
+  assert.equal(out.roles[1].byProject, undefined);
+  assert.deepEqual(stored.projects.P1.tasks[0].topicIds, ['t4']);
+  const v2 = resolveProfileTaskTopics({ version: 2, projects: { P1: { tasks: [{ name: 'A', hours: 1 }] } }, roles: [] }, taskVocab);
+  assert.deepEqual(v2.projects.P1.tasks, [{ name: 'A', hours: 1, topics: [] }]);
 });
