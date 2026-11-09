@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>PDash — Sign in · two-step verification</title><style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0B1840}
+a{color:#0B1840}a:hover{color:#F0287A}
+input::placeholder{color:#9AA0AC}
+@keyframes ts-spin{to{transform:rotate(360deg)}}
+</style></helmet>
+<div style="position:absolute;inset:0;box-sizing:border-box;background:#0B1840;display:flex;align-items:center;justify-content:center;padding:{{ outerPad }};overflow:auto">
+  <div style="display:flex;flex-direction:column;align-items:center;gap:22px;width:100%;max-width:{{ cardMax }}">
+    <div style="background:#fff;border-radius:16px;box-shadow:0 20px 50px rgba(0,0,0,.30);padding:{{ cardPad }};width:100%;box-sizing:border-box;display:flex;flex-direction:column">
+
+      <div style="display:flex;flex-direction:column;align-items:center;gap:6px;margin-bottom:22px">
+        <div style="display:flex;align-items:center;gap:2px">
+          <div style="width:34px;height:34px;border-radius:9px;background:#0B1840;display:flex;align-items:center;justify-content:center;border-bottom:3px solid #F0287A;box-sizing:border-box"><span style="color:#F0287A;font-weight:800;font-size:17px">P</span></div>
+          <span style="font-size:24px;font-weight:800;color:#0B1840;margin-left:8px">Dash</span>
+        </div>
+        <div style="font-size:10.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9AA0AC">Project Dashboard</div>
+      </div>
+
+      <sc-if value="{{ showSteps }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:18px;font-size:11.5px">
+          <span style="display:flex;align-items:center;gap:5px;color:#146C3A;font-weight:600"><span style="width:16px;height:16px;border-radius:999px;background:#146C3A;color:#fff;display:flex;align-items:center;justify-content:center"><svg width="9" height="9" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.4l3 3L12.5 5"></path></svg></span>Password</span>
+          <span style="width:22px;height:1px;background:#C9CDD3"></span>
+          <span style="display:flex;align-items:center;gap:5px;color:#0B1840;font-weight:700"><span style="width:16px;height:16px;border-radius:999px;border:1.5px solid #F0287A;box-sizing:border-box;color:#A3134F;font-size:9.5px;display:flex;align-items:center;justify-content:center">2</span>Verification</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isLocked }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center">
+          <div style="width:48px;height:48px;border-radius:999px;background:#FDEFF0;color:#B42318;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg></div>
+          <span style="font-size:20px;font-weight:700;color:#0B1840">Too many attempts</span>
+          <span style="font-size:13px;color:#4B5563;line-height:1.55;text-wrap:pretty">For your security we stopped this sign-in. Sign in again with your password to get a new code.</span>
+          <div onClick="{{ backToSignIn }}" style="margin-top:12px;width:100%;box-sizing:border-box;border-radius:8px;background:#F0287A;color:#fff;font-size:13.5px;font-weight:700;padding:12px 14px;cursor:pointer;text-align:center" style-hover="background:#D81E6A">Back to sign in</div>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isDone }}" hint-placeholder-val="{{ false }}">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;padding:10px 0">
+          <div style="width:48px;height:48px;border-radius:999px;background:#146C3A;color:#fff;display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.4l2.6 2.6L12 5.4"></path></svg></div>
+          <span style="font-size:20px;font-weight:700;color:#0B1840">You're verified</span>
+          <span style="display:flex;align-items:center;gap:8px;font-size:13px;color:#4B5563">{{ spinDark }}Opening PDash…</span>
+          <span onClick="{{ restart }}" style="margin-top:8px;font-size:12px;font-weight:600;color:#6B7280;cursor:pointer">Replay this state</span>
+        </div>
+      </sc-if>
+
+      <sc-if value="{{ isForm }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;margin-bottom:18px">
+          <div style="width:44px;height:44px;border-radius:999px;background:#F1F3F8;color:#0B1840;display:flex;align-items:center;justify-content:center">
+            <sc-if value="{{ icMail }}"><svg width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="2" y="3.5" width="12" height="9" rx="1.4"></rect><path d="M2.5 4.5L8 9l5.5-4.5"></path></svg></sc-if>
+            <sc-if value="{{ icPhone }}"><svg width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="4.5" y="1.5" width="7" height="13" rx="1.6"></rect><path d="M7 12.2h2"></path></svg></sc-if>
+            <sc-if value="{{ icKey }}"><svg width="19" height="19" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="10.5" r="3"></circle><path d="M7.7 8.3L13.5 2.5M11.5 4.5l1.5 1.5M10 6l1.2 1.2"></path></svg></sc-if>
+          </div>
+          <span style="font-size:20px;font-weight:700;color:#0B1840">{{ title }}</span>
+          <span style="font-size:13px;color:#4B5563;line-height:1.5;text-wrap:pretty">{{ lead }}<strong style="color:#0B1840">{{ leadStrong }}</strong>{{ leadTail }}</span>
+        </div>
+
+        <sc-if value="{{ hasMsg }}">
+          <div role="alert" style="display:flex;gap:8px;align-items:flex-start;padding:9px 12px;border-radius:8px;margin-bottom:14px;font-size:12.5px;line-height:1.45;background:{{ msg.bg }};border:1px solid {{ msg.b }};color:{{ msg.c }}">
+            <sc-if value="{{ msg.ok }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="6.2"></circle><path d="M5.3 8.2l1.8 1.8 3.6-3.8"></path></svg></sc-if>
+            <sc-if value="{{ msg.err }}"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 4.8v3.8M8 11v.2"></path></svg></sc-if>
+            <span style="text-align:left">{{ msg.text }}</span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isOtp }}">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <span id="otp-label" style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#6B7280">{{ otpLabel }}</span>
+            <div role="group" aria-labelledby="otp-label" style="display:flex;justify-content:space-between;gap:{{ boxGap }}">
+              <sc-for list="{{ boxes }}" as="b" hint-placeholder-count="6">
+                <input ref="{{ b.ref }}" value="{{ b.v }}" onChange="{{ b.onChange }}" onKeyDown="{{ b.onKey }}" onPaste="{{ onPaste }}" onFocus="{{ b.onFocus }}" disabled="{{ b.dis }}" inputMode="numeric" autoComplete="{{ b.ac }}" aria-label="{{ b.aria }}" maxLength="6" style="width:100%;min-width:0;height:{{ boxH }};box-sizing:border-box;border:1.5px solid {{ b.bc }};border-radius:9px;text-align:center;font-size:22px;font-weight:700;font-family:inherit;color:{{ b.c }};background:{{ b.bg }};outline:none;font-variant-numeric:tabular-nums;margin-left:{{ b.ml }}" style-focus="border-color:#F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.15)">
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isRecovery }}">
+          <div style="display:flex;flex-direction:column;gap:6px">
+            <label for="rc" style="font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#6B7280">Recovery code</label>
+            <input id="rc" value="{{ rc }}" onChange="{{ onRc }}" placeholder="XXXX-XXXX" autoComplete="off" autoCapitalize="characters" spellCheck="false" style="width:100%;height:{{ boxH }};box-sizing:border-box;border:1.5px solid {{ rcB }};border-radius:9px;padding:0 14px;font-size:18px;font-weight:600;letter-spacing:.12em;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#0B1840;outline:none;text-align:center" style-focus="border-color:#F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.15)">
+            <span style="font-size:11.5px;color:#6B7280;line-height:1.45">Each recovery code works once. After signing in, check how many you have left in My profile.</span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ showTrust }}">
+          <div onClick="{{ toggleTrust }}" role="checkbox" aria-checked="{{ trust }}" tabIndex="0" style="display:flex;align-items:center;gap:9px;margin-top:14px;cursor:pointer;font-size:12.5px;color:#374151;align-self:flex-start">
+            <div style="width:16px;height:16px;border-radius:4px;border:1.5px solid {{ trustB }};background:{{ trustBg }};box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.4l3 3L12.5 5"></path></svg></div>
+            Trust this device for 30 days
+          </div>
+        </sc-if>
+
+        <div onClick="{{ primary }}" style="margin-top:18px;width:100%;box-sizing:border-box;border-radius:8px;background:{{ pBg }};color:#fff;font-size:13.5px;font-weight:700;height:44px;cursor:{{ pCur }};display:flex;align-items:center;justify-content:center;gap:8px">{{ pSpin }}{{ pLabel }}</div>
+
+        <sc-if value="{{ isEmail }}">
+          <div style="display:flex;justify-content:center;margin-top:12px;font-size:12.5px">
+            <sc-if value="{{ canResend }}"><span onClick="{{ resend }}" style="font-weight:600;color:#0B1840;cursor:pointer;padding:6px 8px;text-decoration:underline;text-underline-offset:3px" style-hover="color:#F0287A">{{ resendLabel }}</span></sc-if>
+            <sc-if value="{{ cooling }}"><span aria-live="polite" style="color:#6B7280;padding:6px 8px">Resend in {{ cd }} s</span></sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasEscapes }}">
+          <div style="margin-top:18px;padding-top:14px;border-top:1px solid #EEF0F4;display:flex;flex-direction:column;align-items:center;gap:2px;font-size:12px">
+            <span style="color:#6B7280;margin-bottom:2px">{{ escHint }}</span>
+            <sc-for list="{{ escapes }}" as="x"><span onClick="{{ x.run }}" style="font-weight:600;color:#374151;cursor:pointer;padding:5px 8px" style-hover="color:#F0287A">{{ x.label }}</span></sc-for>
+          </div>
+        </sc-if>
+
+        <div style="display:flex;justify-content:center;margin-top:{{ backMt }}"><span onClick="{{ backToSignIn }}" style="font-size:12px;font-weight:600;color:#6B7280;cursor:pointer;padding:6px 8px;display:flex;align-items:center;gap:5px" style-hover="color:#F0287A"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13 8H4M7.5 4.5L4 8l3.5 3.5"></path></svg>Back to sign in</span></div>
+      </sc-if>
+    </div>
+    <div style="font-size:11px;color:rgba(255,255,255,.6)">© 2026 PDash</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1000,&quot;height&quot;:800},&quot;state&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;emailInitial&quot;,&quot;emailResent&quot;,&quot;emailError&quot;,&quot;emailExpired&quot;,&quot;emailLocked&quot;,&quot;emailVerifying&quot;,&quot;emailSendFail&quot;,&quot;appInitial&quot;,&quot;appNoFallback&quot;,&quot;appError&quot;,&quot;recovery&quot;,&quot;recoveryError&quot;],&quot;default&quot;:&quot;emailInitial&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;device&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;desktop&quot;,&quot;phone&quot;],&quot;default&quot;:&quot;desktop&quot;,&quot;tsType&quot;:&quot;'desktop'|'phone'&quot;},&quot;emailFallback&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Policy&quot;}}">
+const PRESETS = {
+  emailInitial: { mode: 'email', cd: 42 },
+  emailResent: { mode: 'email', cd: 60, info: 'A new code has been sent. Use the latest one: earlier codes no longer work.' },
+  emailError: { mode: 'email', cd: 0, digits: '381920', wrong: true, attempts: 3, err: 'Incorrect code. 3 attempts left.' },
+  emailExpired: { mode: 'email', cd: 0, expired: true },
+  emailLocked: { mode: 'locked' },
+  emailVerifying: { mode: 'email', cd: 18, digits: '482913', verifying: true, freeze: true },
+  emailSendFail: { mode: 'email', cd: 0, sendFail: true },
+  appInitial: { mode: 'app', fallback: true },
+  appNoFallback: { mode: 'app', fallback: false },
+  appError: { mode: 'app', fallback: true, digits: '550127', wrong: true, attempts: 4, err: 'Incorrect code. 4 attempts left. Use the code currently shown in the app: it changes every 30 seconds.' },
+  recovery: { mode: 'recovery', fallback: true },
+  recoveryError: { mode: 'recovery', fallback: true, rc: 'K7QF-2M9A', err: 'That recovery code isn\'t valid or was already used.' }
+};
+const spin = (c, t) => React.createElement('span', { style: { width: 14, height: 14, boxSizing: 'border-box', border: '2px solid ' + t, borderTopColor: c, borderRadius: 999, display: 'inline-block', animation: 'ts-spin .8s linear infinite' } });
+class Component extends DCLogic {
+  state = {};
+  refs6 = [0, 1, 2, 3, 4, 5].map(() => React.createRef());
+  componentDidMount() {
+    this.t = setInterval(() => { const v = this.cur; if (v && v.cd > 0 && !v.freeze && !this.props.frozen) this.set({ cd: v.cd - 1 }); }, 1000);
+  }
+  componentWillUnmount() { clearInterval(this.t); }
+  set(p) { const k = this.props.state ?? 'emailInitial'; this.setState(s => ({ oFor: k, o: { ...(s.oFor === k ? s.o : {}), ...p } })); }
+  focus(i) { const r = this.refs6[i]; if (r && r.current) { r.current.focus(); r.current.select && r.current.select(); } }
+  verify(code) {
+    this.set({ verifying: true, err: null, info: null, wrong: false });
+    setTimeout(() => {
+      const v = this.cur;
+      if (code === '123456' || code === 'K7QF-2M9X') return this.set({ verifying: false, done: true });
+      if (v.mode === 'recovery') return this.set({ verifying: false, err: 'That recovery code isn\'t valid or was already used.' });
+      const a = (v.attempts ?? 5) - 1;
+      if (a <= 0) return this.set({ mode: 'locked', verifying: false });
+      const tail = v.mode === 'app' ? ' Use the code currently shown in the app: it changes every 30 seconds.' : '';
+      this.set({ verifying: false, wrong: true, attempts: a, err: 'Incorrect code. ' + a + ' attempt' + (a > 1 ? 's' : '') + ' left.' + tail });
+      setTimeout(() => this.focus(0), 0);
+    }, 900);
+  }
+  renderVals() {
+    const P = this.props, S = this.state, key = P.state ?? 'emailInitial';
+    const v = { attempts: 5, cd: 0, digits: '', trust: false, rc: '', ...PRESETS[key], ...(S.oFor === key ? S.o : {}) };
+    this.cur = v;
+    const phone = (P.device ?? 'desktop') === 'phone';
+    const fallback = v.fallback !== false && P.emailFallback !== false;
+    const digits = (v.digits + '      ').slice(0, 6).split('');
+    const filled = v.digits.length === 6;
+    const isOtp = v.mode === 'email' || v.mode === 'app';
+    const setDigits = d => this.set({ digits: d, wrong: false, err: null });
+    const onPaste = e => {
+      const t = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+      if (!t) return; e.preventDefault(); setDigits(t);
+      if (t.length === 6) this.verify(t); else setTimeout(() => this.focus(t.length), 0);
+    };
+    const boxes = digits.map((d, i) => ({
+      ref: this.refs6[i], v: d.trim(), ac: i === 0 ? 'one-time-code' : 'off', aria: 'Digit ' + (i + 1) + ' of 6',
+      dis: v.verifying || v.expired || v.sendFail,
+      bc: v.wrong ? '#D9534F' : d.trim() ? '#0B1840' : '#DDE1E8', c: v.wrong ? '#B42318' : '#0B1840',
+      bg: v.expired || v.sendFail ? '#F7F8FA' : v.wrong ? '#FFF8F8' : '#fff',
+      ml: i === 3 ? (phone ? '6px' : '10px') : '0',
+      onFocus: e => e.target.select(),
+      onChange: e => {
+        const raw = e.target.value.replace(/\D/g, '');
+        let cur = v.wrong ? [' ', ' ', ' ', ' ', ' ', ' '] : digits.slice();
+        if (raw.length > 1) { raw.slice(0, 6 - i).split('').forEach((c, j) => { cur[i + j] = c; }); }
+        else cur[i] = raw || ' ';
+        const s = cur.join('').replace(/\s+$/, '');
+        const clean = cur.join('');
+        setDigits(clean.trimEnd());
+        if (raw && i < 5) setTimeout(() => this.focus(Math.min(5, i + raw.length)), 0);
+        if (!/\s/.test(clean) && clean.length === 6) this.verify(clean);
+      },
+      onKey: e => {
+        if (e.key === 'Backspace' && !d.trim() && i > 0) { const cur = digits.slice(); cur[i - 1] = ' '; setDigits(cur.join('').trimEnd()); this.focus(i - 1); e.preventDefault(); }
+        if (e.key === 'ArrowLeft' && i > 0) this.focus(i - 1);
+        if (e.key === 'ArrowRight' && i < 5) this.focus(i + 1);
+      }
+    }));
+    const masked = 'f•••@eversana.com';
+    const M = {
+      email: ['Check your email', 'We sent a 6-digit code to ', masked, '. It expires in 10 minutes.'],
+      app: ['Enter your app code', 'Open your authenticator app and enter the 6-digit code for ', 'PDash', '.'],
+      recovery: ['Use a recovery code', 'Enter one of the recovery codes you saved when you set up the authenticator app.', '', '']
+    }[v.mode] || ['', '', '', ''];
+    let msg = null;
+    if (v.err) msg = { err: true, text: v.err };
+    else if (v.expired) msg = { err: true, text: 'This code has expired. Send a new one to continue.' };
+    else if (v.sendFail) msg = { err: true, text: 'We couldn\'t send the email. Check your connection and try again.' };
+    else if (v.info) msg = { ok: true, text: v.info };
+    if (msg) Object.assign(msg, msg.ok ? { bg: '#F3FAF5', b: '#CDE9D6', c: '#146C3A' } : { bg: '#FDEFF0', b: '#F5C7CB', c: '#B42318' });
+    const resend = () => {
+      this.set({ sendingCode: true, err: null, info: null });
+      setTimeout(() => this.set({ sendingCode: false, cd: 60, expired: false, sendFail: false, digits: '', wrong: false, attempts: 5, info: 'A new code has been sent. Use the latest one: earlier codes no longer work.' }), 700);
+    };
+    const rcOk = /^[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(v.rc);
+    let pLabel = 'Verify', pAct = () => filled && this.verify(v.digits), pOn = filled;
+    if (v.expired || v.sendFail) { pLabel = v.sendingCode ? 'Sending…' : 'Send a new code'; pAct = resend; pOn = true; }
+    if (v.mode === 'recovery') { pAct = () => rcOk && this.verify(v.rc); pOn = rcOk; }
+    if (v.verifying) pLabel = 'Verifying…';
+    const escapes = [];
+    if (v.mode === 'app') {
+      escapes.push({ label: 'Use a recovery code', run: () => this.set({ mode: 'recovery', err: null, wrong: false }) });
+      if (fallback) escapes.push({ label: 'Send a code to my email instead', run: () => this.set({ mode: 'email', cd: 60, digits: '', err: null, wrong: false, info: 'We sent a code to ' + masked + '.' }) });
+    }
+    if (v.mode === 'recovery') escapes.push({ label: 'Use the authenticator app instead', run: () => this.set({ mode: 'app', err: null, rc: '' }) });
+    return {
+      outerPad: phone ? '16px' : '24px', cardMax: phone ? '420px' : '400px', cardPad: phone ? '28px 20px 22px' : '36px 38px 26px',
+      boxGap: phone ? '6px' : '8px', boxH: phone ? '54px' : '52px',
+      isLocked: v.mode === 'locked', isDone: !!v.done && v.mode !== 'locked', isForm: !v.done && v.mode !== 'locked', showSteps: !v.done,
+      icMail: v.mode === 'email', icPhone: v.mode === 'app', icKey: v.mode === 'recovery',
+      title: M[0], lead: M[1], leadStrong: M[2], leadTail: M[3],
+      hasMsg: !!msg, msg: msg || {},
+      isOtp, isRecovery: v.mode === 'recovery', isEmail: v.mode === 'email' && !v.expired && !v.sendFail,
+      otpLabel: v.mode === 'email' ? 'Code from email' : 'Code from app',
+      boxes, onPaste,
+      rc: v.rc, rcB: v.err ? '#D9534F' : '#DDE1E8',
+      onRc: e => { let t = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 8); if (t.length > 4) t = t.slice(0, 4) + '-' + t.slice(4); this.set({ rc: t, err: null }); },
+      showTrust: isOtp || v.mode === 'recovery', trust: v.trust, trustB: v.trust ? '#0B1840' : '#C9CDD3', trustBg: v.trust ? '#0B1840' : '#fff', toggleTrust: () => this.set({ trust: !v.trust }),
+      primary: () => !v.verifying && pOn && pAct(), pLabel, pSpin: v.verifying || v.sendingCode ? spin('#fff', 'rgba(255,255,255,.4)') : null,
+      pBg: pOn && !v.verifying ? '#F0287A' : v.verifying ? '#D81E6A' : '#F4A6C6', pCur: pOn && !v.verifying ? 'pointer' : 'default',
+      canResend: v.cd <= 0, cooling: v.cd > 0, cd: v.cd, resend, resendLabel: v.sendingCode ? 'Sending…' : 'Resend code',
+      hasEscapes: escapes.length > 0, escapes, escHint: v.mode === 'recovery' ? 'Have your phone?' : 'Can\'t use the app?',
+      backMt: escapes.length ? '4px' : '14px',
+      backToSignIn: () => this.setState({ o: null }),
+      restart: () => this.setState({ o: null }),
+      spinDark: spin('#F0287A', 'rgba(155,160,172,.35)')
+    };
+  }
+}
+</script>
+</body>
+</html>

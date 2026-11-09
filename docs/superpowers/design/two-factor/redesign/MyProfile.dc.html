@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>PDash — My profile</title><style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#F3F4F6}
+a{color:#0B1840}a:hover{color:#F0287A}
+input::placeholder{color:#9AA0AC}
+@keyframes mp-spin{to{transform:rotate(360deg)}}
+.pb-navitem{height:40px;padding:0 10px;display:flex;align-items:center;gap:10px;border-radius:8px;text-decoration:none}
+.pb-navitem span{color:rgba(255,255,255,.75);font-size:13px;font-weight:500}
+.pb-subitem{height:32px;padding:0 10px 0 14px;display:flex;align-items:center;gap:9px;border-radius:8px;text-decoration:none}
+.pb-subitem span{color:rgba(255,255,255,.58);font-size:12px}
+.pb-sublabel{padding:10px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.38)}
+</style></helmet>
+<div style="width:1400px;height:1000px;box-sizing:border-box;display:flex;background:#F3F4F6;overflow:hidden;position:relative">
+
+  <div style="width:220px;flex-shrink:0;background:#0B1840;display:flex;flex-direction:column;box-sizing:border-box">
+    <div style="height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 16px;border-bottom:3px solid #F0287A">
+      <span style="color:#FFFFFF;font-weight:700;font-size:22px;letter-spacing:-0.02em"><span style="color:#F0287A">P</span>Dash</span>
+      <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="rgba(255,255,255,.6)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+    </div>
+    <div style="padding:10px 8px 0;display:flex;flex-direction:column;gap:2px">
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.65)" stroke-width="1.6" stroke-linecap="round"></path></svg><span>Pipeline</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect></svg><span>Portfolio</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linecap="round"></path></svg><span>Planning</span></a>
+    </div>
+    <div style="flex:1"></div>
+    <div style="border-top:1px solid rgba(255,255,255,.12);padding:8px">
+      <div title="My profile" style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:8px;background:rgba(255,255,255,.1);box-shadow:inset 3px 0 0 #F0287A">
+        <div style="width:26px;height:26px;border-radius:999px;background:#fff;display:flex;align-items:center;justify-content:center;color:#0B1840;font-size:10.5px;font-weight:700;flex-shrink:0">FF</div>
+        <span style="color:#fff;font-size:12px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">fabrizio.fortini@eversana.com</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="flex-shrink:0;height:44px;box-sizing:border-box;background:#FFFFFF;border-bottom:1px solid #DDE1E8;padding:0 24px;display:flex;align-items:center">
+      <div style="font-size:12px;color:#6B7280;display:flex;align-items:center;gap:6px">Home <span style="color:#C7CCD9">/</span> <span style="color:#374151;font-weight:600">My profile</span></div>
+    </div>
+    <div style="flex-shrink:0;padding:16px 24px 0;display:flex;align-items:center;gap:14px">
+      <div style="width:48px;height:48px;border-radius:999px;background:#0B1840;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;flex-shrink:0">FF</div>
+      <div style="flex:1;display:flex;flex-direction:column;gap:2px">
+        <span style="font-size:26px;font-weight:700;color:#0B1840;line-height:1.15">My profile</span>
+        <span style="font-size:12.5px;color:#6B7280">{{ fullName }} · user · member since 17 Sep 2026</span>
+      </div>
+    </div>
+
+    <div style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:16px 24px 32px;display:flex;gap:20px;align-items:flex-start">
+      <div style="width:212px;flex-shrink:0;background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:6px 6px 10px;display:flex;flex-direction:column">
+        <sc-for list="{{ subnav }}" as="g" hint-placeholder-count="4">
+          <span style="padding:12px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">{{ g.label }}</span>
+          <sc-for list="{{ g.items }}" as="i">
+            <div onClick="{{ i.pick }}" tabIndex="0" style="display:flex;align-items:center;gap:8px;height:34px;padding:0 10px;border-radius:8px;cursor:pointer;background:{{ i.bg }};box-shadow:{{ i.bar }};outline:none" style-hover="background:#F3F4F6" style-focus="box-shadow:inset 0 0 0 2px #F0287A">
+              <span style="flex:1;font-size:12.5px;font-weight:{{ i.w }};color:{{ i.c }};white-space:nowrap">{{ i.label }}</span>
+              <sc-if value="{{ i.hasTag }}"><span style="font-size:10px;font-weight:700;border-radius:999px;padding:2px 7px;background:{{ i.tagBg }};color:{{ i.tagC }}">{{ i.tag }}</span></sc-if>
+              <sc-if value="{{ i.hasN }}"><span style="font-size:11px;color:#6B7280">{{ i.n }}</span></sc-if>
+            </div>
+          </sc-for>
+        </sc-for>
+      </div>
+
+      <div style="flex:1;min-width:0;max-width:780px;display:flex;flex-direction:column;gap:14px">
+        <sc-if value="{{ hasBanner }}" hint-placeholder-val="{{ false }}">
+          <div role="status" style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid {{ bn.border }};background:{{ bn.bg }};color:{{ bn.c }};font-size:12.5px">
+            <sc-if value="{{ bn.ok }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6.2"></circle><path d="M5.3 8.2l1.8 1.8 3.6-3.8"></path></svg></sc-if>
+            <sc-if value="{{ bn.err }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 4.8v3.8M8 11v.2"></path></svg></sc-if>
+            <span style="flex:1;line-height:1.45"><strong>{{ bn.title }}</strong> {{ bn.text }}</span>
+            <div onClick="{{ closeBanner }}" title="Dismiss" style="width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:rgba(0,0,0,.05)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isDetails }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+            <div style="padding:16px 20px 14px;border-bottom:1px solid #EEF0F4;display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:700;color:#0B1840">Personal details</span><span style="font-size:12px;color:#6B7280">Your name appears on proposals, cost grids and shares.</span></div>
+            <div style="padding:18px 20px;display:flex;flex-direction:column;gap:16px">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px">
+                <label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:11.5px;font-weight:600;color:#374151">First name</span><input value="{{ first }}" onChange="{{ onFirst }}" style="height:38px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 11px;font-size:13px;font-family:inherit;outline:none;color:#0B1840" style-focus="border-color:#F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.12)"></label>
+                <label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:11.5px;font-weight:600;color:#374151">Last name</span><input value="{{ last }}" onChange="{{ onLast }}" style="height:38px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 11px;font-size:13px;font-family:inherit;outline:none;color:#0B1840" style-focus="border-color:#F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.12)"></label>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:5px">
+                <span style="font-size:11.5px;font-weight:600;color:#374151">Email</span>
+                <div style="height:38px;box-sizing:border-box;border:1px solid #E5E7EB;border-radius:8px;padding:0 11px;display:flex;align-items:center;gap:8px;background:#F7F8FA;font-size:13px;color:#374151"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg>fabrizio.fortini@eversana.com</div>
+                <span style="font-size:11.5px;color:#6B7280;line-height:1.45">Managed by an admin. Sign-in codes are sent to this address, so only an admin can change it.</span>
+              </div>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px">
+                <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11.5px;font-weight:600;color:#374151">Role</span><span style="display:inline-flex;align-self:flex-start;align-items:center;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:#EEF0F4;color:#374151">user</span></div>
+                <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:11.5px;font-weight:600;color:#374151">Member since</span><span style="font-size:13px;color:#374151">17 Sep 2026</span></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EEF0F4">
+              <span style="flex:1;font-size:12px;color:{{ dtMsgC }}">{{ dtMsg }}</span>
+              <sc-if value="{{ dirty }}"><span onClick="{{ discard }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:8px 6px">Discard</span></sc-if>
+              <div onClick="{{ saveDetails }}" style="height:36px;box-sizing:border-box;padding:0 16px;border-radius:8px;background:{{ saveBg }};color:#fff;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:{{ saveCur }}">{{ saveSpin }}{{ saveLabel }}</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isPassword }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+            <div style="padding:16px 20px 14px;border-bottom:1px solid #EEF0F4;display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:700;color:#0B1840">Password</span><span style="font-size:12px;color:#6B7280">Last changed on 12 Oct 2026.</span></div>
+            <div style="padding:18px 20px;display:flex;flex-direction:column;gap:14px;max-width:420px">
+              <sc-for list="{{ pwFields }}" as="f" hint-placeholder-count="3">
+                <label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:11.5px;font-weight:600;color:#374151">{{ f.label }}</span><input type="password" value="{{ f.v }}" onChange="{{ f.on }}" autoComplete="{{ f.ac }}" placeholder="{{ f.ph }}" style="height:38px;box-sizing:border-box;border:1px solid {{ f.b }};border-radius:8px;padding:0 11px;font-size:13px;font-family:inherit;outline:none;color:#0B1840" style-focus="border-color:#F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.12)"><sc-if value="{{ f.hasHelp }}"><span style="font-size:11.5px;color:{{ f.helpC }}">{{ f.help }}</span></sc-if></label>
+              </sc-for>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;gap:4px"><sc-for list="{{ pwBars }}" as="b"><div style="flex:1;height:4px;border-radius:999px;background:{{ b }}"></div></sc-for></div>
+                <span style="font-size:11.5px;color:#6B7280">{{ pwStrength }}</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EEF0F4">
+              <span style="flex:1;font-size:12px;color:#6B7280;display:flex;align-items:center;gap:7px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 7.2v4M8 4.8v.2"></path></svg>Updating your password signs you out of other sessions and removes trusted devices.</span>
+              <div onClick="{{ savePw }}" style="height:36px;box-sizing:border-box;padding:0 16px;border-radius:8px;background:{{ pwBg }};color:#fff;font-size:12.5px;font-weight:600;display:flex;align-items:center;cursor:{{ pwCur }}">Update password</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isTwoStep }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+            <div style="padding:16px 20px 14px;border-bottom:1px solid #EEF0F4;display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:700;color:#0B1840">Two-step verification</span><span style="font-size:12px;color:#6B7280;text-wrap:pretty">After your password, PDash asks for a 6-digit code. Choose how you get it.</span></div>
+            <sc-if value="{{ tsLoading }}">
+              <div style="height:240px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#6B7280;font-size:12.5px">{{ bigSpin }}<span>Loading your sign-in methods…</span></div>
+            </sc-if>
+            <sc-if value="{{ tsReady }}">
+              <sc-for list="{{ methods }}" as="m" hint-placeholder-count="2">
+                <div style="display:flex;align-items:flex-start;gap:14px;padding:16px 20px;border-bottom:1px solid #F0F1F4;background:{{ m.bg }}">
+                  <div style="width:36px;height:36px;border-radius:10px;background:{{ m.icBg }};color:{{ m.icC }};display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                    <sc-if value="{{ m.iMail }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="2" y="3.5" width="12" height="9" rx="1.4"></rect><path d="M2.5 4.5L8 9l5.5-4.5"></path></svg></sc-if>
+                    <sc-if value="{{ m.iPhone }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="4.5" y="1.5" width="7" height="13" rx="1.6"></rect><path d="M7 12.2h2"></path></svg></sc-if>
+                    <sc-if value="{{ m.iKey }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="10.5" r="3"></circle><path d="M7.7 8.3L13.5 2.5M11.5 4.5l1.5 1.5M10 6l1.2 1.2"></path></svg></sc-if>
+                  </div>
+                  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+                    <div style="display:flex;align-items:center;gap:8px"><span style="font-size:13.5px;font-weight:700;color:#0B1840">{{ m.title }}</span><sc-if value="{{ m.hasChip }}"><span style="display:inline-flex;align-items:center;gap:5px;height:20px;padding:0 8px;border-radius:999px;font-size:11px;font-weight:700;background:{{ m.chipBg }};color:{{ m.chipC }}"><sc-if value="{{ m.chipDot }}"><span style="width:6px;height:6px;border-radius:999px;background:#1F9D55"></span></sc-if>{{ m.chip }}</span></sc-if></div>
+                    <span style="font-size:12.5px;color:#4B5563;line-height:1.5;text-wrap:pretty">{{ m.sub }}</span>
+                    <sc-if value="{{ m.hasDots }}"><div style="display:flex;gap:4px;margin-top:4px" title="{{ m.dotsTip }}"><sc-for list="{{ m.dots }}" as="d"><span style="width:14px;height:6px;border-radius:999px;background:{{ d }}"></span></sc-for></div></sc-if>
+                  </div>
+                  <sc-if value="{{ m.hasPrimary }}"><div onClick="{{ m.primary }}" style="height:36px;box-sizing:border-box;padding:0 16px;border-radius:8px;background:#F0287A;color:#fff;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap;flex-shrink:0" style-hover="background:#D81E6A">{{ m.primaryLabel }}</div></sc-if>
+                  <sc-if value="{{ m.hasSecondary }}"><div onClick="{{ m.secondary }}" style="height:34px;box-sizing:border-box;padding:0 13px;border-radius:8px;border:1px solid #DDE1E8;background:#fff;color:#0B1840;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap;flex-shrink:0" style-hover="border-color:#0B1840">{{ m.secondaryLabel }}</div></sc-if>
+                </div>
+              </sc-for>
+              <sc-if value="{{ hasDowngrade }}">
+                <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;background:#FCFCFD;border-radius:0 0 12px 12px">
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="#8A4B08" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M8 1.8l5 2v4c0 3.2-2.2 5.3-5 6.4-2.8-1.1-5-3.2-5-6.4v-4l5-2Z"></path><path d="M8 5.5v3M8 10.6v.2"></path></svg>
+                  <span style="flex:1;font-size:12px;color:#4B5563;line-height:1.45">Going back to email codes removes the app and your recovery codes. It's less secure: anyone with access to your mailbox could sign in.</span>
+                  <span onClick="{{ openSwitch }}" style="font-size:12.5px;font-weight:600;color:#8A4B08;cursor:pointer;white-space:nowrap;padding:8px 4px;text-decoration:underline;text-underline-offset:3px">Switch back to email code…</span>
+                </div>
+              </sc-if>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isSessions }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+            <div style="padding:16px 20px 14px;border-bottom:1px solid #EEF0F4;display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:700;color:#0B1840">Active sessions</span><span style="font-size:12px;color:#6B7280">Where you're signed in to PDash. If you don't recognise a session, sign it out and change your password.</span></div>
+            <sc-for list="{{ sessions }}" as="s" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid #F0F1F4">
+                <div style="width:36px;height:36px;border-radius:10px;background:#F1F3F8;color:#0B1840;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                  <sc-if value="{{ s.laptop }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="10" height="7.5" rx="1"></rect><path d="M1.5 13h13"></path></svg></sc-if>
+                  <sc-if value="{{ s.phone }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="4.5" y="1.5" width="7" height="13" rx="1.6"></rect><path d="M7 12.2h2"></path></svg></sc-if>
+                </div>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                  <div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;font-weight:700;color:#0B1840">{{ s.name }}</span><sc-if value="{{ s.current }}"><span style="font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#0B1840;background:#FDE7F0;border-radius:4px;padding:1px 6px">This device</span></sc-if></div>
+                  <span style="font-size:12px;color:#6B7280">{{ s.meta }}</span>
+                </div>
+                <sc-if value="{{ s.busy }}"><span style="display:flex;align-items:center;gap:7px;font-size:12px;color:#6B7280">{{ spin }}Signing out…</span></sc-if>
+                <sc-if value="{{ s.canOut }}"><div onClick="{{ s.out }}" style="height:32px;box-sizing:border-box;padding:0 12px;border-radius:7px;border:1px solid #DDE1E8;background:#fff;color:#0B1840;font-size:12.5px;font-weight:600;display:flex;align-items:center;cursor:pointer" style-hover="border-color:#0B1840">Sign out</div></sc-if>
+              </div>
+            </sc-for>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 20px">
+              <span style="flex:1;font-size:12px;color:#6B7280">Locations are approximate, based on the IP address.</span>
+              <sc-if value="{{ hasOthers }}"><div onClick="{{ outAll }}" style="height:34px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;color:#fff;font-size:12.5px;font-weight:600;display:flex;align-items:center;cursor:pointer">Sign out of all other sessions</div></sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isDevices }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+            <div style="padding:16px 20px 14px;border-bottom:1px solid #EEF0F4;display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:700;color:#0B1840">Trusted devices</span><span style="font-size:12px;color:#6B7280;text-wrap:pretty">These devices skip the verification code until trust expires. Remove any device you no longer use.</span></div>
+            <sc-if value="{{ devEmpty }}">
+              <div style="padding:36px 20px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+                <div style="width:44px;height:44px;border-radius:999px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;color:#0B1840"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M8 1.8l5 2v4c0 3.2-2.2 5.3-5 6.4-2.8-1.1-5-3.2-5-6.4v-4l5-2Z"></path></svg></div>
+                <span style="font-size:14px;font-weight:700;color:#0B1840">No trusted devices</span>
+                <span style="font-size:12px;color:#6B7280;max-width:380px;line-height:1.5">Check "Trust this device for 30 days" when you sign in to skip the code on that device.</span>
+              </div>
+            </sc-if>
+            <sc-for list="{{ devices }}" as="d" hint-placeholder-count="2">
+              <div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid #F0F1F4">
+                <div style="width:36px;height:36px;border-radius:10px;background:#F1F3F8;color:#0B1840;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                  <sc-if value="{{ d.laptop }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="10" height="7.5" rx="1"></rect><path d="M1.5 13h13"></path></svg></sc-if>
+                  <sc-if value="{{ d.phone }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="4.5" y="1.5" width="7" height="13" rx="1.6"></rect><path d="M7 12.2h2"></path></svg></sc-if>
+                </div>
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+                  <div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;font-weight:700;color:#0B1840">{{ d.name }}</span><sc-if value="{{ d.current }}"><span style="font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#0B1840;background:#FDE7F0;border-radius:4px;padding:1px 6px">This device</span></sc-if></div>
+                  <span style="font-size:12px;color:{{ d.metaC }}">{{ d.meta }}</span>
+                </div>
+                <div onClick="{{ d.remove }}" style="height:32px;box-sizing:border-box;padding:0 12px;border-radius:7px;border:1px solid #DDE1E8;background:#fff;color:#0B1840;font-size:12.5px;font-weight:600;display:flex;align-items:center;cursor:pointer" style-hover="border-color:#0B1840">Remove</div>
+              </div>
+            </sc-for>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 20px">
+              <span style="flex:1;font-size:12px;color:#6B7280">Changing your password or verification method removes all trusted devices.</span>
+              <sc-if value="{{ devMany }}"><span onClick="{{ removeAll }}" style="font-size:12.5px;font-weight:600;color:#0B1840;cursor:pointer;padding:8px 6px;text-decoration:underline;text-underline-offset:3px">Remove all</span></sc-if>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isNotif }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+            <div style="padding:16px 20px 14px;border-bottom:1px solid #EEF0F4;display:flex;align-items:flex-end;gap:12px"><div style="flex:1;display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:700;color:#0B1840">Email notifications</span><span style="font-size:12px;color:#6B7280">Choose what PDash sends to your inbox. Notifications in the bell are always on.</span></div><sc-if value="{{ nSaved }}"><span style="font-size:12px;color:#146C3A;display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.4l3 3L12.5 5"></path></svg>Saved</span></sc-if></div>
+            <sc-for list="{{ notifs }}" as="n" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:14px;padding:14px 20px;border-bottom:1px solid #F0F1F4">
+                <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;font-weight:700;color:#0B1840">{{ n.title }}</span><span style="font-size:12px;color:#6B7280;line-height:1.45">{{ n.sub }}</span></div>
+                <sc-if value="{{ n.locked }}"><span title="Security emails can't be turned off" style="font-size:11.5px;color:#6B7280;display:flex;align-items:center;gap:5px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg>Always on</span></sc-if>
+                <sc-if value="{{ n.toggle }}"><div onClick="{{ n.flip }}" role="switch" aria-checked="{{ n.on }}" aria-label="{{ n.title }}" tabIndex="0" style="width:38px;height:22px;border-radius:999px;background:{{ n.trk }};position:relative;cursor:pointer;flex-shrink:0;transition:background .15s"><div style="position:absolute;top:2px;left:{{ n.kx }};width:18px;height:18px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:left .15s"></div></div></sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isPrivacy }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+            <div style="padding:16px 20px 14px;border-bottom:1px solid #EEF0F4;display:flex;flex-direction:column;gap:3px"><span style="font-size:15px;font-weight:700;color:#0B1840">Your data in PDash</span><span style="font-size:12px;color:#6B7280">What we keep about you, and the documents you agreed to.</span></div>
+            <div style="padding:6px 20px">
+              <div style="display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:1px solid #F0F1F4;font-size:12.5px"><span style="font-weight:600;color:#0B1840">Profile</span><span style="color:#4B5563">Name, email, role</span></div>
+              <div style="display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:1px solid #F0F1F4;font-size:12.5px"><span style="font-weight:600;color:#0B1840">Sign-in activity</span><span style="color:#4B5563">Sessions, trusted devices, security events</span></div>
+              <div style="display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;padding:10px 0;border-bottom:1px solid #F0F1F4;font-size:12.5px"><span style="font-weight:600;color:#0B1840">Your work</span><span style="color:#4B5563">Proposals, cost grids and shares you created</span></div>
+              <div style="display:grid;grid-template-columns:170px minmax(0,1fr);gap:12px;padding:10px 0;font-size:12.5px;align-items:center"><span style="font-weight:600;color:#0B1840">Agreements</span><span style="color:#4B5563;display:flex;gap:14px;flex-wrap:wrap"><span>Terms &amp; Conditions accepted on 17 Sep 2026 · <a href="#" style="font-weight:600">View</a></span><a href="#" style="font-weight:600">Privacy notice</a></span></div>
+            </div>
+          </div>
+
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;align-items:center;gap:16px;padding:16px 20px">
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+              <span style="font-size:15px;font-weight:700;color:#0B1840">Download my data</span>
+              <span style="font-size:12px;color:#6B7280;line-height:1.5;text-wrap:pretty">{{ exSub }}</span>
+            </div>
+            <sc-if value="{{ exIdle }}"><div onClick="{{ requestExport }}" style="height:36px;box-sizing:border-box;padding:0 14px;border-radius:8px;border:1px solid #DDE1E8;background:#fff;color:#0B1840;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap" style-hover="border-color:#0B1840"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10"></path></svg>Request export</div></sc-if>
+            <sc-if value="{{ exPrep }}"><span style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#6B7280;white-space:nowrap">{{ spin }}Preparing…</span></sc-if>
+            <sc-if value="{{ exReady }}"><div style="height:36px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;color:#fff;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:7px;cursor:pointer;white-space:nowrap"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2.5v8M4.5 7L8 10.5 11.5 7M3 13.5h10"></path></svg>Download ZIP · 2.4 MB</div></sc-if>
+          </div>
+
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;align-items:center;gap:16px;padding:16px 20px">
+            <div style="width:36px;height:36px;border-radius:10px;background:#F1F3F8;color:#0B1840;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="2" y="3.5" width="12" height="9" rx="1.4"></rect><path d="M2.5 4.5L8 9l5.5-4.5"></path></svg></div>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:4px">
+              <span style="font-size:15px;font-weight:700;color:#0B1840">Questions about your data?</span>
+              <span style="font-size:12px;color:#4B5563;line-height:1.5;text-wrap:pretty">To access, correct or delete your personal data, or to close your account, contact <strong style="color:#0B1840">{{ pcName }}</strong> at <a href="#" style="font-weight:600">{{ pcEmail }}</a>.</span>
+            </div>
+            <div style="height:36px;box-sizing:border-box;padding:0 14px;border-radius:8px;border:1px solid #DDE1E8;background:#fff;color:#0B1840;font-size:12.5px;font-weight:600;display:flex;align-items:center;cursor:pointer;white-space:nowrap" style-hover="border-color:#0B1840">Write an email</div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </div>
+
+  <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(11,24,64,.28);z-index:40"></div>
+    <div role="dialog" aria-label="{{ dr.title }}" style="position:absolute;top:0;right:0;bottom:0;width:480px;background:#fff;z-index:41;box-shadow:-12px 0 32px rgba(11,24,64,.18);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid #EEF0F4">
+        <div style="flex:1;display:flex;flex-direction:column;gap:4px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">Two-step verification</span><span style="font-size:19px;font-weight:700;color:#0B1840">{{ dr.title }}</span></div>
+        <sc-if value="{{ dr.canClose }}"><div onClick="{{ closeFlow }}" title="Close" style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#F3F4F6"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div></sc-if>
+      </div>
+      <sc-if value="{{ dr.stepper }}">
+        <div style="display:flex;align-items:center;gap:8px;padding:14px 20px;border-bottom:1px solid #EEF0F4">
+          <sc-for list="{{ steps }}" as="st">
+            <sc-if value="{{ st.line }}"><span style="flex:1;height:1px;background:{{ st.lc }}"></span></sc-if>
+            <span style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:{{ st.w }};color:{{ st.c }};white-space:nowrap"><span style="width:20px;height:20px;border-radius:999px;box-sizing:border-box;border:1.5px solid {{ st.bc }};background:{{ st.bg }};color:{{ st.nc }};font-size:10.5px;font-weight:700;display:flex;align-items:center;justify-content:center">{{ st.n }}</span>{{ st.label }}</span>
+          </sc-for>
+        </div>
+      </sc-if>
+      <div style="flex:1;overflow-y:auto;overflow-x:hidden;padding:18px 20px;display:flex;flex-direction:column;gap:16px">
+        <sc-if value="{{ dr.scan }}">
+          <span style="font-size:12.5px;color:#374151;line-height:1.55;text-wrap:pretty">Open an authenticator app on your phone, like Microsoft Authenticator, Google Authenticator or 1Password, and scan this code.</span>
+          <div style="align-self:center;width:196px;height:196px;border-radius:12px;border:1px solid #DDE1E8;background:#fff;padding:10px;box-sizing:border-box"><div style="width:100%;height:100%;border-radius:6px;background:repeating-linear-gradient(45deg,#F1F3F8 0 8px,#E6E9EF 8px 16px);display:flex;align-items:center;justify-content:center;text-align:center;font-size:11px;color:#4B5563;line-height:1.4;font-family:ui-monospace,Menlo,monospace">QR code<br>image from server</div></div>
+          <div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:10px;background:#F7F8FA">
+            <span style="font-size:11.5px;font-weight:600;color:#374151">Can't scan? Enter this key in the app</span>
+            <div style="display:flex;align-items:center;gap:10px"><span style="flex:1;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;letter-spacing:.08em;color:#0B1840;font-weight:600">JBSW Y3DP EHPK 3PXP</span><div onClick="{{ copyKey }}" style="height:30px;box-sizing:border-box;padding:0 11px;border-radius:7px;border:1px solid #DDE1E8;background:#fff;color:#0B1840;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer">{{ copyKeyLabel }}</div></div>
+            <span style="font-size:11px;color:#6B7280">Account: PDash · fabrizio.fortini@eversana.com · time-based</span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ dr.verify }}">
+          <span style="font-size:12.5px;color:#374151;line-height:1.55;text-wrap:pretty">Enter the 6-digit code shown in the app for PDash. It changes every 30 seconds.</span>
+          <sc-if value="{{ dr.hasErr }}"><div role="alert" style="display:flex;gap:8px;padding:10px 12px;border-radius:8px;background:#FDEFF0;border:1px solid #F5C7CB;color:#B42318;font-size:12.5px;line-height:1.45"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 4.8v3.8M8 11v.2"></path></svg><span>Code doesn't match. Check that the time on your phone is set automatically, then enter the current code.</span></div></sc-if>
+          <div role="group" aria-label="Code from app" style="display:flex;gap:8px">
+            <sc-for list="{{ vboxes }}" as="b" hint-placeholder-count="6">
+              <input ref="{{ b.ref }}" value="{{ b.v }}" onChange="{{ b.onChange }}" onKeyDown="{{ b.onKey }}" onPaste="{{ vPaste }}" inputMode="numeric" autoComplete="{{ b.ac }}" aria-label="{{ b.aria }}" maxLength="6" style="flex:1;min-width:0;height:52px;box-sizing:border-box;border:1.5px solid {{ b.bc }};border-radius:9px;text-align:center;font-size:22px;font-weight:700;font-family:inherit;color:{{ b.c }};outline:none;margin-left:{{ b.ml }}" style-focus="border-color:#F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.15)">
+            </sc-for>
+          </div>
+        </sc-if>
+        <sc-if value="{{ dr.codes }}">
+          <div style="display:flex;gap:10px;padding:12px 14px;border-radius:10px;background:#FFF8EC;border:1px solid #F2D3A6;color:#8A4B08;font-size:12.5px;line-height:1.5"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px"><path d="M8 2L1.8 13h12.4L8 2Z"></path><path d="M8 6.5v3M8 11.4v.2"></path></svg><span><strong>Save these codes now. You won't see them again.</strong> If you lose your phone, each code lets you sign in once.</span></div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:14px;border:1px solid #DDE1E8;border-radius:10px">
+            <sc-for list="{{ codes }}" as="c" hint-placeholder-count="10"><span style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:14px;font-weight:600;letter-spacing:.06em;color:#0B1840;padding:6px 10px;background:#F7F8FA;border-radius:6px;text-align:center">{{ c }}</span></sc-for>
+          </div>
+          <div style="display:flex;gap:8px">
+            <sc-for list="{{ codeActs }}" as="a"><div onClick="{{ a.run }}" style="flex:1;height:36px;box-sizing:border-box;border-radius:8px;border:1px solid #DDE1E8;background:#fff;color:#0B1840;font-size:12.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer" style-hover="border-color:#0B1840">{{ a.label }}</div></sc-for>
+          </div>
+          <div onClick="{{ toggleSaved }}" role="checkbox" aria-checked="{{ savedOk }}" tabIndex="0" style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:13px;font-weight:600;color:#0B1840;padding:12px 14px;border-radius:10px;border:1px solid {{ savedB }};background:{{ savedBg }}">
+            <div style="width:18px;height:18px;border-radius:4px;border:1.5px solid {{ chkB }};background:{{ chkBg }};box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:#fff;flex-shrink:0"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.4l3 3L12.5 5"></path></svg></div>
+            I have saved these codes in a safe place
+          </div>
+        </sc-if>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid #EEF0F4">
+        <span style="flex:1;font-size:11.5px;color:#6B7280">{{ dr.foot }}</span>
+        <sc-if value="{{ dr.hasBack }}"><span onClick="{{ dr.back }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:8px 6px">{{ dr.backLabel }}</span></sc-if>
+        <div onClick="{{ dr.next }}" style="height:36px;box-sizing:border-box;padding:0 16px;border-radius:8px;background:{{ dr.nextBg }};color:#fff;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:{{ dr.nextCur }}">{{ dr.spin }}{{ dr.nextLabel }}</div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ modalOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(11,24,64,.42);z-index:50;display:flex;align-items:center;justify-content:center">
+      <div role="dialog" aria-label="{{ md.title }}" style="width:460px;background:#fff;border-radius:12px;box-shadow:0 24px 64px rgba(11,24,64,.28);padding:20px 22px;display:flex;flex-direction:column;gap:14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:{{ md.icBg }};color:{{ md.icC }}">
+            <sc-if value="{{ md.isSwitch }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 1.8l5 2v4c0 3.2-2.2 5.3-5 6.4-2.8-1.1-5-3.2-5-6.4v-4l5-2Z"></path><path d="M8 5.5v3M8 10.6v.2"></path></svg></sc-if>
+            <sc-if value="{{ md.isRegen }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="10.5" r="3"></circle><path d="M7.7 8.3L13.5 2.5M11.5 4.5l1.5 1.5M10 6l1.2 1.2"></path></svg></sc-if>
+          </div>
+          <span style="flex:1;font-size:16px;font-weight:700;color:#0B1840">{{ md.title }}</span>
+        </div>
+        <span style="font-size:12.5px;color:#374151;line-height:1.55;text-wrap:pretty">{{ md.body }}</span>
+        <sc-if value="{{ md.isSwitch }}">
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px">
+            <div style="display:flex;flex-direction:column;gap:5px;background:#F7F8FA;border-radius:8px;padding:10px 12px;font-size:12px;color:#374151;line-height:1.45"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8A4B08">Removed</span><span>Authenticator app</span><span>7 unused recovery codes</span><span>Trusted devices</span></div>
+            <div style="display:flex;flex-direction:column;gap:5px;background:#F7F8FA;border-radius:8px;padding:10px 12px;font-size:12px;color:#374151;line-height:1.45"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#0B1840">Next sign-in</span><span>Code sent to f•••@eversana.com</span></div>
+          </div>
+        </sc-if>
+        <div style="display:flex;flex-direction:column;gap:6px;padding-top:12px;border-top:1px solid #EEF0F4">
+          <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:12.5px;font-weight:700;color:#0B1840">Confirm it's you</span><span onClick="{{ md.toggleMode }}" style="font-size:12px;font-weight:600;color:#374151;cursor:pointer;padding:4px 0" style-hover="color:#F0287A">{{ md.altLabel }}</span></div>
+          <label style="display:flex;flex-direction:column;gap:5px"><span style="font-size:11.5px;font-weight:600;color:#374151">{{ md.fieldLabel }}</span><input type="{{ md.type }}" value="{{ md.v }}" onChange="{{ md.onV }}" inputMode="{{ md.im }}" autoComplete="{{ md.ac }}" placeholder="{{ md.ph }}" style="height:38px;box-sizing:border-box;border:1px solid {{ md.b }};border-radius:8px;padding:0 11px;font-size:13px;font-family:inherit;outline:none;color:#0B1840;letter-spacing:{{ md.ls }}" style-focus="border-color:#F0287A;box-shadow:0 0 0 3px rgba(240,40,122,.12)"></label>
+          <sc-if value="{{ md.hasErr }}"><span role="alert" style="font-size:12px;color:#B42318">{{ md.err }}</span></sc-if>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:2px"><span onClick="{{ closeFlow }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:8px 6px">Cancel</span><div onClick="{{ md.go }}" style="height:36px;box-sizing:border-box;font-size:12.5px;font-weight:600;color:#fff;background:{{ md.btnBg }};border-radius:8px;padding:0 16px;display:flex;align-items:center;gap:8px;cursor:{{ md.btnCur }}">{{ md.spin }}{{ md.btn }}</div></div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1000},&quot;section&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;details&quot;,&quot;password&quot;,&quot;twostep&quot;,&quot;sessions&quot;,&quot;devices&quot;,&quot;notifications&quot;,&quot;privacy&quot;],&quot;default&quot;:&quot;details&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;method&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;email&quot;,&quot;app&quot;],&quot;default&quot;:&quot;email&quot;,&quot;tsType&quot;:&quot;'email'|'app'&quot;},&quot;flow&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;scan&quot;,&quot;verify&quot;,&quot;verifyError&quot;,&quot;codes&quot;,&quot;switch&quot;,&quot;switchError&quot;,&quot;regen&quot;,&quot;regenCodes&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;banner&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;enabled&quot;,&quot;switched&quot;,&quot;regenerated&quot;,&quot;error&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;loading&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;exportState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;preparing&quot;,&quot;ready&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;emailFallback&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Policy&quot;},&quot;privacyName&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;Privacy team&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Privacy contact (env)&quot;},&quot;privacyEmail&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;privacy@company.com&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Privacy contact (env)&quot;}}">
+const CODES = ['4F7K-9QWM', 'T2HX-6PZD', 'B8NC-3RVA', 'M5JE-7LQS', 'W9GT-2KFY', 'R3PD-8HXN', 'Z6QA-4MCE', 'H1VL-5TJB', 'C7YS-9NDW', 'K4EF-2GPR'];
+const CODES2 = ['P9DM-3XKA', 'L2WT-8FQC', 'V6HN-4RJE', 'E3QB-7YSM', 'S8KC-1ZPD', 'G5TA-9MWL', 'N7RX-2HVF', 'D4JY-6CQT', 'Q1ME-5BKS', 'Y8FW-3GNA'];
+const SECTIONS = [['Account', [['details', 'Details'], ['password', 'Password']]], ['Security', [['twostep', 'Two-step verification'], ['sessions', 'Sessions'], ['devices', 'Trusted devices']]], ['Preferences', [['notifications', 'Notifications']]], ['Privacy', [['privacy', 'Privacy & data']]]];
+const SESS = [{ id: 1, phone: false, name: 'Chrome on Windows', meta: 'Milan, Italy · Active now', current: true }, { id: 2, phone: true, name: 'Safari on iPhone', meta: 'Milan, Italy · 2 hours ago' }, { id: 3, phone: false, name: 'Edge on Windows', meta: 'Rome, Italy · 3 days ago' }];
+const DEVS = [{ id: 1, phone: false, name: 'Chrome on Windows', meta: 'Trusted on 2 Nov 2026 · expires 2 Dec 2026', current: true }, { id: 2, phone: true, name: 'Safari on iPhone', meta: 'Trusted on 20 Oct 2026 · expires in 10 days', soon: true }];
+const spinEl = (s, w, c, t) => React.createElement('span', { style: { width: s, height: s, boxSizing: 'border-box', border: w + 'px solid ' + (t || 'rgba(155,160,172,.35)'), borderTopColor: c || '#F0287A', borderRadius: 999, display: 'inline-block', animation: 'mp-spin .8s linear infinite', flexShrink: 0 } });
+class Component extends DCLogic {
+  state = {};
+  vrefs = [0, 1, 2, 3, 4, 5].map(() => React.createRef());
+  componentDidUpdate(prev) {
+    const keys = ['section', 'method', 'flow', 'banner', 'loading', 'exportState'];
+    if (keys.some(k => prev[k] !== this.props[k])) this.setState({ o: {} });
+  }
+  set(p) { this.setState(s => ({ o: { ...(s.o || {}), ...p } })); }
+  focusV(i) { const r = this.vrefs[i]; if (r && r.current) r.current.focus(); }
+  renderVals() {
+    const P = this.props, O = this.state.o || {};
+    const g = (k, d) => (O[k] !== undefined ? O[k] : d);
+    const section = g('section', P.section ?? 'details');
+    const method = g('method', P.method ?? 'email');
+    const fallback = P.emailFallback !== false;
+    const flowP = P.flow ?? 'none';
+    const flow = g('flow', flowP === 'none' ? null : flowP);
+    const bannerK = g('banner', (P.banner ?? 'none') === 'none' ? null : P.banner);
+    const loading = g('loading', !!P.loading);
+    const left = g('left', bannerK === 'enabled' ? 10 : 7);
+    const first = g('first', 'Fabrizio'), last = g('last', 'Fortini');
+    const dirty = first !== 'Fabrizio' || last !== 'Fortini';
+    const saving = g('saving', false), saved = g('saved', false);
+    const sessions = g('sessions', SESS), devices = g('devices', DEVS);
+    const nf = g('nf', { share: true, status: true, digest: false });
+    const exportState = g('exportState', P.exportState ?? 'none');
+
+    const subnav = SECTIONS.map(([label, items]) => ({ label, items: items.map(([k, l]) => {
+      const on = section === k;
+      const tag = k === 'twostep' ? (method === 'app' ? ['App', '#E7F5EC', '#146C3A'] : ['Email', '#EEF0F4', '#374151']) : null;
+      const n = k === 'sessions' ? sessions.length : k === 'devices' ? devices.length : null;
+      return { label: l, pick: () => this.set({ section: k, banner: null }), bg: on ? '#F3F4F6' : 'transparent', bar: on ? 'inset 3px 0 0 #F0287A' : 'none', w: on ? 700 : 500, c: on ? '#0B1840' : '#374151',
+        hasTag: !!tag, tag: tag ? tag[0] : '', tagBg: tag ? tag[1] : '', tagC: tag ? tag[2] : '', hasN: n != null, n };
+    }) }));
+
+    const B = {
+      enabled: { ok: true, title: 'Authenticator app enabled.', text: 'From your next sign-in, PDash asks for the code from the app.' },
+      switched: { ok: true, title: 'Switched to email code.', text: 'The app and recovery codes were removed. We sent a security notice to your email.' },
+      regenerated: { ok: true, title: 'New recovery codes created.', text: 'Your previous codes no longer work.' },
+      error: { err: true, title: 'Couldn\'t save your changes.', text: 'The server didn\'t respond. Your sign-in method hasn\'t changed. Try again.' }
+    }[bannerK];
+    const bn = B ? { ...B, bg: B.ok ? '#F3FAF5' : '#FDEFF0', border: B.ok ? '#CDE9D6' : '#F5C7CB', c: B.ok ? '#146C3A' : '#B42318' } : {};
+
+    const startSetup = () => this.set({ flow: 'scan', v: '', vErr: false, savedOk: false, banner: null });
+    const methods = [];
+    if (method === 'email') {
+      methods.push({ iMail: true, title: 'Email code', hasChip: true, chip: 'Active', chipDot: true, chipBg: '#E7F5EC', chipC: '#146C3A', icBg: '#F1F3F8', icC: '#0B1840', bg: '#fff',
+        sub: 'Codes are sent to f•••@eversana.com and expire after 10 minutes.' });
+      methods.push({ iPhone: true, title: 'Authenticator app', hasChip: true, chip: 'Recommended', chipBg: '#FDE7F0', chipC: '#A3134F', icBg: '#FDE7F0', icC: '#A3134F', bg: '#FFFBFD',
+        sub: 'More secure, and works offline: codes come from an app on your phone instead of your inbox.', hasPrimary: true, primaryLabel: 'Set up authenticator app', primary: startSetup });
+    } else {
+      const dots = Array.from({ length: 10 }, (_, i) => (i < left ? '#1F9D55' : '#E3E6EC'));
+      methods.push({ iPhone: true, title: 'Authenticator app', hasChip: true, chip: 'Active', chipDot: true, chipBg: '#E7F5EC', chipC: '#146C3A', icBg: '#E7F5EC', icC: '#146C3A', bg: '#fff',
+        sub: 'Enabled on 9 Nov 2026. PDash asks for the code from the app after your password.' });
+      methods.push({ iKey: true, title: 'Recovery codes', hasChip: true, chip: left + ' of 10 left', chipBg: left <= 3 ? '#FFF1DC' : '#EEF0F4', chipC: left <= 3 ? '#8A4B08' : '#374151', icBg: '#F1F3F8', icC: '#0B1840', bg: '#fff',
+        sub: left <= 3 ? 'You\'re running low. Regenerate them so you\'re not locked out if you lose your phone.' : 'Use one if you lose your phone. Each code works once.',
+        hasDots: true, dots, dotsTip: left + ' unused codes',
+        hasSecondary: true, secondaryLabel: 'Regenerate codes', secondary: () => this.set({ flow: 'regen', pw: '', pwErr: false, mMode: 'pw' }) });
+      if (fallback) methods.push({ iMail: true, title: 'Email code', hasChip: true, chip: 'Backup', chipBg: '#EEF0F4', chipC: '#374151', icBg: '#F1F3F8', icC: '#6B7280', bg: '#fff',
+        sub: 'If you can\'t use the app, you can ask for a code at f•••@eversana.com when you sign in.' });
+    }
+
+    const pw = g('pwf', { cur: '', n1: '', n2: '' });
+    const setPw = k => e => this.set({ pwf: { ...pw, [k]: e.target.value }, pwDone: false });
+    const mismatch = pw.n2 && pw.n1 !== pw.n2;
+    const score = !pw.n1 ? 0 : pw.n1.length < 8 ? 1 : (/[A-Z]/.test(pw.n1) && /\d/.test(pw.n1) ? (pw.n1.length >= 12 ? 4 : 3) : 2);
+    const pwOk = pw.cur && pw.n1.length >= 8 && pw.n1 === pw.n2;
+    const barC = ['#E3E6EC', '#D9534F', '#D98A1C', '#1F9D55', '#146C3A'][score];
+    const pwFields = [
+      { label: 'Current password', v: pw.cur, on: setPw('cur'), ac: 'current-password', ph: '', b: '#DDE1E8', hasHelp: false },
+      { label: 'New password', v: pw.n1, on: setPw('n1'), ac: 'new-password', ph: 'At least 8 characters', b: '#DDE1E8', hasHelp: false },
+      { label: 'Confirm new password', v: pw.n2, on: setPw('n2'), ac: 'new-password', ph: '', b: mismatch ? '#D9534F' : '#DDE1E8', hasHelp: !!mismatch, help: 'Passwords don\'t match.', helpC: '#B42318' }
+    ];
+
+    const outSess = id => { this.set({ busySess: id }); setTimeout(() => this.set({ busySess: null, sessions: (this.state.o.sessions || SESS).filter(s => s.id !== id) }), 700); };
+    const busySess = g('busySess', null);
+
+    const nRows = [
+      { title: 'Security alerts', sub: 'New sign-ins, and changes to your password or two-step verification.', locked: true, toggle: false },
+      { k: 'share', title: 'Shared with you', sub: 'Someone shares a project, program or cost grid with you.' },
+      { k: 'status', title: 'Proposal status', sub: 'A proposal you own changes status in Pipeline.' },
+      { k: 'digest', title: 'Weekly summary', sub: 'Every Monday: your proposals and projects that changed last week.' }
+    ].map(r => r.locked ? r : { ...r, locked: false, toggle: true, on: nf[r.k], trk: nf[r.k] ? '#0B1840' : '#C9CDD3', kx: nf[r.k] ? '18px' : '2px', flip: () => this.set({ nf: { ...nf, [r.k]: !nf[r.k] }, nSaved: true }) });
+
+    const steps = [['scan', 'Scan'], ['verify', 'Verify'], ['codes', 'Save codes']];
+    const fk = flow === 'verifyError' ? 'verify' : flow;
+    const si = steps.findIndex(s => s[0] === fk);
+    const isDrawer = ['scan', 'verify', 'verifyError', 'codes', 'regenCodes'].includes(flow);
+    const isModal = ['switch', 'switchError', 'regen'].includes(flow);
+    const v = g('v', flowP === 'verifyError' ? '550127' : '');
+    const vErr = g('vErr', flowP === 'verifyError');
+    const verifying = g('verifying', false);
+    const savedOk = g('savedOk', false);
+    const vd = (v + '      ').slice(0, 6).split('');
+    const doVerify = code => { this.set({ verifying: true, vErr: false }); setTimeout(() => { if (code === '000000' || code === '550127') this.set({ verifying: false, vErr: true, v: '' }); else this.set({ verifying: false, flow: 'codes', v: '' }); }, 900); };
+    const vboxes = vd.map((d, i) => ({
+      ref: this.vrefs[i], v: d.trim(), ac: i === 0 ? 'one-time-code' : 'off', aria: 'Digit ' + (i + 1) + ' of 6', ml: i === 3 ? '8px' : '0',
+      bc: vErr ? '#D9534F' : d.trim() ? '#0B1840' : '#DDE1E8', c: vErr ? '#B42318' : '#0B1840',
+      onChange: e => { const raw = e.target.value.replace(/\D/g, ''); const cur = vErr ? [' ', ' ', ' ', ' ', ' ', ' '] : vd.slice(); if (raw.length > 1) raw.slice(0, 6 - i).split('').forEach((c, j) => { cur[i + j] = c; }); else cur[i] = raw || ' '; const s = cur.join(''); this.set({ v: s.trimEnd(), vErr: false }); if (raw && i < 5) setTimeout(() => this.focusV(Math.min(5, i + raw.length)), 0); },
+      onKey: e => { if (e.key === 'Backspace' && !d.trim() && i > 0) { const cur = vd.slice(); cur[i - 1] = ' '; this.set({ v: cur.join('').trimEnd() }); this.focusV(i - 1); } }
+    }));
+    const vFull = /^\d{6}$/.test(v);
+    const codes = flow === 'regenCodes' ? CODES2 : CODES;
+    const copied = g('copied', null);
+    const codeActs = [['copy', 'Copy'], ['dl', 'Download .txt'], ['print', 'Print']].map(([k, l]) => ({ label: copied === k ? (k === 'copy' ? 'Copied' : k === 'dl' ? 'Downloaded' : 'Sent to printer') : l, run: () => this.set({ copied: k }) }));
+    let dr = {};
+    if (isDrawer) {
+      const regen = flow === 'regenCodes';
+      const nextOn = fk === 'scan' ? true : fk === 'verify' ? vFull && !verifying : savedOk;
+      dr = { title: regen ? 'New recovery codes' : 'Set up authenticator app', stepper: !regen, canClose: fk !== 'codes' && !regen,
+        scan: fk === 'scan', verify: fk === 'verify', codes: fk === 'codes' || regen, hasErr: vErr,
+        foot: fk === 'scan' ? 'Step 1 of 3' : fk === 'verify' ? 'Step 2 of 3' : regen ? 'Old codes stopped working.' : 'The app is now active.',
+        hasBack: fk === 'scan' || fk === 'verify', backLabel: fk === 'scan' ? 'Cancel' : 'Back', back: fk === 'scan' ? () => this.set({ flow: null }) : () => this.set({ flow: 'scan', vErr: false }),
+        nextLabel: fk === 'scan' ? 'Continue' : fk === 'verify' ? (verifying ? 'Verifying…' : 'Verify') : 'Done', spin: verifying ? spinEl(13, 2, '#fff', 'rgba(255,255,255,.4)') : null,
+        nextBg: nextOn ? '#F0287A' : '#F4A6C6', nextCur: nextOn ? 'pointer' : 'not-allowed',
+        next: () => { if (!nextOn) return; if (fk === 'scan') { this.set({ flow: 'verify' }); setTimeout(() => this.focusV(0), 50); } else if (fk === 'verify') doVerify(v); else this.set({ flow: null, method: 'app', left: 10, banner: regen ? 'regenerated' : 'enabled', savedOk: false, copied: null }); } };
+    }
+    const stepsV = steps.map((s, i) => { const done = i < si, on = i === si; return { line: i > 0, lc: i <= si ? '#0B1840' : '#DDE1E8', n: done ? '✓' : i + 1, label: s[1], w: on ? 700 : 500, c: on || done ? '#0B1840' : '#6B7280', bc: on || done ? '#0B1840' : '#C9CDD3', bg: done ? '#0B1840' : '#fff', nc: done ? '#fff' : on ? '#0B1840' : '#6B7280' }; });
+
+    let md = {};
+    if (isModal) {
+      const sw = flow !== 'regen';
+      const mMode = g('mMode', 'pw');
+      const val = g('pw', flowP === 'switchError' ? 'wrongpass' : '');
+      const err = g('pwErr', flowP === 'switchError');
+      const busy = g('mBusy', false);
+      const ok = mMode === 'pw' ? val.length > 0 : /^\d{6}$/.test(val);
+      md = { isSwitch: sw, isRegen: !sw, title: sw ? 'Switch back to email code?' : 'Regenerate recovery codes?',
+        body: sw ? 'Sign-in codes will go to your inbox again. Email is less secure than an app: anyone with access to your mailbox could sign in to PDash.' : 'Your ' + left + ' unused codes stop working right away, and you\'ll get 10 new ones to save.',
+        icBg: sw ? '#FFF1DC' : '#F1F3F8', icC: sw ? '#8A4B08' : '#0B1840',
+        altLabel: mMode === 'pw' ? 'Use a code from your app instead' : 'Use your password instead',
+        toggleMode: () => this.set({ mMode: mMode === 'pw' ? 'code' : 'pw', pw: '', pwErr: false }),
+        fieldLabel: mMode === 'pw' ? 'Current password' : 'Code from your authenticator app', type: mMode === 'pw' ? 'password' : 'text', im: mMode === 'pw' ? 'text' : 'numeric', ac: mMode === 'pw' ? 'current-password' : 'one-time-code', ph: mMode === 'pw' ? '' : '6 digits', ls: mMode === 'pw' ? 'normal' : '.2em',
+        v: val, onV: e => this.set({ pw: mMode === 'pw' ? e.target.value : e.target.value.replace(/\D/g, '').slice(0, 6), pwErr: false }),
+        b: err ? '#D9534F' : '#DDE1E8', hasErr: err, err: mMode === 'pw' ? 'That password isn\'t right. Try again.' : 'That code doesn\'t match. Use the current one from the app.',
+        btn: busy ? 'Confirming…' : sw ? 'Switch to email code' : 'Regenerate codes', spin: busy ? spinEl(13, 2, '#fff', 'rgba(255,255,255,.4)') : null,
+        btnBg: ok && !busy ? '#0B1840' : '#8E95AB', btnCur: ok && !busy ? 'pointer' : 'not-allowed',
+        go: () => { if (!ok || busy) return; this.set({ mBusy: true }); setTimeout(() => { if (val === 'wrongpass') return this.set({ mBusy: false, pwErr: true }); if (sw) this.set({ mBusy: false, flow: null, method: 'email', banner: 'switched', devices: [] }); else this.set({ mBusy: false, flow: 'regenCodes', savedOk: false, copied: null }); }, 800); } };
+    }
+    const closeFlow = () => this.set({ flow: null, v: '', vErr: false, pw: '', pwErr: false });
+
+    return {
+      fullName: first + ' ' + last, subnav,
+      hasBanner: !!B, bn, closeBanner: () => this.set({ banner: null }),
+      isDetails: section === 'details', isPassword: section === 'password', isTwoStep: section === 'twostep', isSessions: section === 'sessions', isDevices: section === 'devices', isNotif: section === 'notifications', isPrivacy: section === 'privacy',
+      first, last, onFirst: e => this.set({ first: e.target.value, saved: false }), onLast: e => this.set({ last: e.target.value, saved: false }), dirty,
+      discard: () => this.set({ first: 'Fabrizio', last: 'Fortini' }),
+      dtMsg: saved ? 'Changes saved.' : dirty ? 'You have unsaved changes.' : '', dtMsgC: saved ? '#146C3A' : '#6B7280',
+      saveLabel: saving ? 'Saving…' : 'Save changes', saveSpin: saving ? spinEl(13, 2, '#fff', 'rgba(255,255,255,.4)') : null,
+      saveBg: dirty || saving ? '#F0287A' : '#F4A6C6', saveCur: dirty ? 'pointer' : 'not-allowed',
+      saveDetails: () => { if (!dirty) return; this.set({ saving: true }); setTimeout(() => this.setState(s => ({ o: { ...s.o, saving: false, saved: true } })), 800); },
+      pwFields, pwBars: [1, 2, 3, 4].map(i => (i <= score ? barC : '#E3E6EC')), pwStrength: ['At least 8 characters. Longer, with numbers and capitals, is stronger.', 'Too short', 'Fair', 'Good', 'Strong'][score],
+      pwBg: pwOk ? '#F0287A' : '#F4A6C6', pwCur: pwOk ? 'pointer' : 'not-allowed', savePw: () => pwOk && this.set({ pwf: { cur: '', n1: '', n2: '' }, banner: null }),
+      tsLoading: loading, tsReady: !loading, methods, hasDowngrade: method === 'app' && !loading, openSwitch: () => this.set({ flow: 'switch', pw: '', pwErr: false, mMode: 'pw' }),
+      sessions: sessions.map(s => ({ ...s, laptop: !s.phone, busy: busySess === s.id, canOut: !s.current && busySess !== s.id, out: () => outSess(s.id) })),
+      hasOthers: sessions.some(s => !s.current), outAll: () => this.set({ sessions: sessions.filter(s => s.current) }),
+      devices: devices.map(d => ({ ...d, laptop: !d.phone, metaC: d.soon ? '#8A4B08' : '#6B7280', remove: () => this.set({ devices: devices.filter(x => x.id !== d.id) }) })),
+      devEmpty: devices.length === 0, devMany: devices.length > 1, removeAll: () => this.set({ devices: [] }),
+      notifs: nRows, nSaved: g('nSaved', false),
+      exIdle: exportState === 'none', exPrep: exportState === 'preparing', exReady: exportState === 'ready',
+      exSub: exportState === 'preparing' ? 'We\'re preparing a ZIP with your profile, sign-in activity and the items you created. We\'ll email f•••@eversana.com when it\'s ready.' : exportState === 'ready' ? 'Your export is ready. The link works until 16 Nov 2026.' : 'A ZIP with your profile, sign-in activity and the items you created, as JSON and CSV. We email you when it\'s ready.',
+      requestExport: () => { this.set({ exportState: 'preparing' }); setTimeout(() => this.set({ exportState: 'ready' }), 2500); },
+      pcName: P.privacyName ?? 'Privacy team', pcEmail: P.privacyEmail ?? 'privacy@company.com',
+      drawerOpen: isDrawer, dr, steps: stepsV, closeFlow, vboxes,
+      vPaste: e => { const t = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6); if (!t) return; e.preventDefault(); this.set({ v: t, vErr: false }); },
+      copyKey: () => this.set({ keyCopied: true }), copyKeyLabel: g('keyCopied', false) ? 'Copied' : 'Copy',
+      codes, codeActs, savedOk, toggleSaved: () => this.set({ savedOk: !savedOk }),
+      savedB: savedOk ? '#0B1840' : '#DDE1E8', savedBg: savedOk ? '#F7F8FC' : '#fff', chkB: savedOk ? '#0B1840' : '#C9CDD3', chkBg: savedOk ? '#0B1840' : '#fff',
+      modalOpen: isModal, md,
+      spin: spinEl(14, 2), bigSpin: spinEl(28, 3)
+    };
+  }
+}
+</script>
+</body>
+</html>

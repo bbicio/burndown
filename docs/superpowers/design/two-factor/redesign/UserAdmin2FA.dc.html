@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>2FA · PDash — User Admin</title><style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#F3F4F6}
+a{color:#0B1840}a:hover{color:#F0287A}
+input::placeholder{color:#9AA0AC}
+@keyframes ua-spin{to{transform:rotate(360deg)}}
+.pb-navitem{height:40px;padding:0 10px;display:flex;align-items:center;gap:10px;border-radius:8px;text-decoration:none}
+.pb-navitem span{color:rgba(255,255,255,.75);font-size:13px;font-weight:500}
+.pb-subitem{height:32px;padding:0 10px 0 14px;display:flex;align-items:center;gap:9px;border-radius:8px;text-decoration:none}
+.pb-subitem span{color:rgba(255,255,255,.58);font-size:12px}
+.pb-subitem.active{background:rgba(255,255,255,.1);box-shadow:inset 3px 0 0 #F0287A}
+.pb-subitem.active span{color:#fff;font-weight:600}
+.pb-sublabel{padding:10px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.38)}
+</style></helmet>
+<div style="width:1400px;height:1000px;box-sizing:border-box;display:flex;background:#F3F4F6;overflow:hidden;position:relative">
+
+  <div style="width:220px;flex-shrink:0;background:#0B1840;display:flex;flex-direction:column;box-sizing:border-box">
+    <div style="height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 16px;border-bottom:3px solid #F0287A">
+      <span style="color:#FFFFFF;font-weight:700;font-size:22px;letter-spacing:-0.02em"><span style="color:#F0287A">P</span>Dash</span>
+      <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="rgba(255,255,255,.6)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+    </div>
+    <div style="padding:10px 8px 0;display:flex;flex-direction:column;gap:2px">
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.65)" stroke-width="1.6" stroke-linecap="round"></path></svg><span>Pipeline</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect></svg><span>Portfolio</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linecap="round"></path></svg><span>Planning</span></a>
+      <sc-if value="{{ navAdmin }}" hint-placeholder-val="{{ true }}">
+        <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+        <div class="pb-sublabel">Admin</div>
+        <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.4" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></circle><path d="M8 2v1.6M8 12.4V14M14 8h-1.6M3.6 8H2" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Master Data</span></a>
+        <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="1.2" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></rect><path d="M2 4l1.6-2h8.8L14 4" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg><span>Timesheets</span></a>
+        <a class="pb-subitem active" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.3" stroke="#fff" stroke-width="1.3"></circle><path d="M3 14c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" stroke="#fff" stroke-width="1.3"></path></svg><span>User Admin</span></a>
+        <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5.5" r="2" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></circle><circle cx="11" cy="6.5" r="1.6" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></circle><path d="M2 14c0-2.3 1.7-3.8 3.9-3.8 1.6 0 2.9.8 3.5 2M9.6 10.3c1.6 0 3 1.1 3 3" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Team</span></a>
+        <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5L14 8.5 7.5 15 2 9.5V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Attribute Lists</span></a>
+      </sc-if>
+      <sc-if value="{{ navSys }}" hint-placeholder-val="{{ true }}">
+        <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+        <div class="pb-sublabel">Sysadmin</div>
+        <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><ellipse cx="8" cy="3.5" rx="5.2" ry="1.8" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></ellipse><path d="M2.8 3.5v9c0 1 2.3 1.8 5.2 1.8s5.2-.8 5.2-1.8v-9" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></path></svg><span>DB Reset</span></a>
+        <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 2h5.5L13 5.5V14H4V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Terms &amp; Conditions</span></a>
+      </sc-if>
+    </div>
+    <div style="flex:1"></div>
+    <div style="border-top:1px solid rgba(255,255,255,.12);padding:12px 12px 14px;display:flex;align-items:center;gap:10px">
+      <div style="width:26px;height:26px;border-radius:999px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:700;flex-shrink:0">{{ meInitials }}</div>
+      <span style="color:#fff;font-size:12px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ meEmail }}</span>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="flex-shrink:0;height:44px;box-sizing:border-box;background:#FFFFFF;border-bottom:1px solid #DDE1E8;padding:0 24px;display:flex;align-items:center">
+      <div style="font-size:12px;color:#6B7280;display:flex;align-items:center;gap:6px">Home <span style="color:#C7CCD9">/</span> <span style="color:#374151;font-weight:600">User Admin</span></div>
+    </div>
+
+    <sc-if value="{{ denied }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:24px">
+        <div style="width:420px;background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:32px 28px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center">
+          <div style="width:48px;height:48px;border-radius:999px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;color:#0B1840"><svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg></div>
+          <span style="font-size:17px;font-weight:700;color:#0B1840">Admin access required</span>
+          <span style="font-size:12.5px;color:#6B7280;line-height:1.55;text-wrap:pretty">User management is available to admins and sysadmins. Ask an admin if you need access.</span>
+          <span style="margin-top:8px;font-size:12.5px;font-weight:600;color:#fff;background:#0B1840;border-radius:8px;padding:9px 16px;cursor:pointer">Go to app</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ allowed }}" hint-placeholder-val="{{ true }}">
+      <div style="flex-shrink:0;padding:16px 24px 0;display:flex;align-items:flex-end;gap:16px">
+        <div style="flex:1;display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:26px;font-weight:700;color:#0B1840">Users</span>
+          <span style="font-size:12.5px;color:#6B7280">{{ subtitle }}</span>
+        </div>
+        <div onClick="{{ openInvite }}" style="display:flex;align-items:center;gap:7px;height:36px;box-sizing:border-box;padding:0 16px;border-radius:8px;background:#F0287A;font-size:13px;font-weight:600;color:#fff;cursor:pointer" style-hover="background:#D81E6A"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg>Invite user</div>
+      </div>
+
+      <div style="flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:16px 24px 24px;display:flex;flex-direction:column;gap:12px">
+        <sc-if value="{{ hasBanner }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid {{ bn.border }};background:{{ bn.bg }};color:{{ bn.c }};font-size:12.5px">
+            <sc-if value="{{ bn.ok }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"></circle><path d="M5.3 8.2l1.8 1.8 3.6-3.8"></path></svg></sc-if>
+            <sc-if value="{{ bn.err }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 4.8v3.8M8 11v.2"></path></svg></sc-if>
+            <span style="flex:1;line-height:1.45"><strong>{{ bn.title }}</strong> {{ bn.text }}</span>
+            <div onClick="{{ closeBanner }}" title="Dismiss" style="width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:rgba(0,0,0,.05)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+          </div>
+        </sc-if>
+
+        <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+          <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #EEF0F4;flex-wrap:wrap">
+            <div style="display:flex;background:#F1F2F5;border-radius:8px;padding:3px;gap:2px">
+              <sc-for list="{{ filters }}" as="f" hint-placeholder-count="4">
+                <div onClick="{{ f.pick }}" style="height:28px;padding:0 11px;border-radius:6px;display:flex;align-items:center;gap:6px;cursor:pointer;background:{{ f.bg }};box-shadow:{{ f.sh }};font-size:12.5px;font-weight:{{ f.w }};color:{{ f.c }}">{{ f.label }}<span style="font-size:11px;font-weight:600;color:{{ f.nc }}">{{ f.n }}</span></div>
+              </sc-for>
+            </div>
+            <div style="position:relative;display:flex;align-items:center;height:34px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 28px 0 10px;font-size:12.5px;color:#374151;gap:6px"><span style="color:#9AA0AC">Role</span><select value="{{ roleF }}" onChange="{{ onRole }}" style="border:0;outline:none;background:transparent;font:inherit;font-weight:600;color:#0B1840;appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:4px"><option value="all">All</option><option value="user">User</option><option value="admin">Admin</option><option value="sysadmin">Sysadmin</option></select><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;right:10px;pointer-events:none"><path d="M4 6l4 4 4-4"></path></svg></div>
+            <div style="flex:1"></div>
+            <div style="display:flex;align-items:center;gap:8px;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;width:240px"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg><input value="{{ q }}" onChange="{{ onQ }}" placeholder="Search name or email…" style="flex:1;min-width:0;border:0;outline:none;font-size:12.5px;font-family:inherit;background:transparent;color:#0B1840"></div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 104px 150px 130px 108px 168px;gap:12px;padding:9px 16px;background:#F7F8FA;border-bottom:1px solid #EEF0F4;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC;align-items:center">
+            <sc-for list="{{ heads }}" as="h" hint-placeholder-count="6">
+              <div onClick="{{ h.sort }}" style="display:flex;align-items:center;gap:4px;cursor:{{ h.cur }};color:{{ h.c }};justify-content:{{ h.jc }}">{{ h.label }}<sc-if value="{{ h.sortable }}"><span style="font-size:10px;color:{{ h.ac }}">{{ h.arrow }}</span></sc-if></div>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+            <div style="height:420px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#6B7280;font-size:12.5px">{{ bigSpin }}<span>Loading users…</span></div>
+          </sc-if>
+          <sc-if value="{{ isEmpty }}" hint-placeholder-val="{{ false }}">
+            <div style="height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center">
+              <div style="width:40px;height:40px;border-radius:999px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;color:#6B7280"><svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="6" cy="6" r="4.5"></circle><path d="M9.5 9.5L13 13"></path></svg></div>
+              <span style="font-size:14px;font-weight:700;color:#0B1840">No users match the selected filter.</span>
+              <span style="font-size:12px;color:#6B7280">{{ emptyHint }}</span>
+              <span onClick="{{ clearFilters }}" style="margin-top:6px;font-size:12.5px;font-weight:600;color:#0B1840;border:1px solid #DDE1E8;border-radius:8px;padding:7px 14px;cursor:pointer" style-hover="background:#F7F8FA">Clear filters</span>
+            </div>
+          </sc-if>
+
+          <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 104px 150px 130px 108px 168px;gap:12px;padding:0 16px;min-height:58px;align-items:center;border-bottom:1px solid #F0F1F4;background:{{ r.bg }};box-shadow:{{ r.bar }};opacity:{{ r.op }}">
+              <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                <div style="width:30px;height:30px;border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:{{ r.avBg }};color:{{ r.avC }};border:1px {{ r.avB }} #C9CDD3;box-sizing:border-box">{{ r.ini }}</div>
+                <div style="display:flex;flex-direction:column;gap:1px;min-width:0">
+                  <div style="display:flex;align-items:center;gap:6px;min-width:0"><span style="font-size:13px;font-weight:600;color:{{ r.nameC }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:{{ r.fs }}">{{ r.name }}</span><sc-if value="{{ r.isSelf }}"><span style="font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#0B1840;background:#FDE7F0;border-radius:4px;padding:1px 6px">You</span></sc-if><sc-if value="{{ r.hasTfa }}"><span title="{{ r.tfaTip }}" style="display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 6px;border-radius:4px;font-size:10.5px;font-weight:600;background:{{ r.tfaBg }};color:{{ r.tfaC }};flex-shrink:0;cursor:help"><sc-if value="{{ r.tfaApp }}"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><rect x="4.5" y="1.5" width="7" height="13" rx="1.6"></rect><path d="M7 12.2h2"></path></svg></sc-if><sc-if value="{{ r.tfaMail }}"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="2" y="3.5" width="12" height="9" rx="1.4"></rect><path d="M2.5 4.5L8 9l5.5-4.5"></path></svg></sc-if>{{ r.tfaLabel }}</span></sc-if></div>
+                  <span style="font-size:11.5px;color:#6B7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.email }}</span>
+                </div>
+              </div>
+              <div><span style="display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:{{ r.roleBg }};color:{{ r.roleC }}"><sc-if value="{{ r.isSysRole }}"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M8 1.8l5 2v4c0 3.2-2.2 5.3-5 6.4-2.8-1.1-5-3.2-5-6.4v-4l5-2Z"></path></svg></sc-if>{{ r.role }}</span></div>
+              <div style="display:flex;flex-direction:column;gap:3px;align-items:flex-start">
+                <div style="display:flex;gap:5px;flex-wrap:wrap"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:{{ r.stBg }};color:{{ r.stC }}"><span style="width:6px;height:6px;border-radius:999px;background:{{ r.stDot }}"></span>{{ r.status }}</span><sc-if value="{{ r.anon }}"><span style="display:inline-flex;align-items:center;height:20px;padding:0 7px;border-radius:999px;border:1px dashed #9AA0AC;font-size:11px;font-weight:600;color:#4B5563">anonymized</span></sc-if></div>
+                <sc-if value="{{ r.hasExp }}"><span style="font-size:11px;font-weight:600;color:{{ r.expC }}">{{ r.exp }}</span></sc-if>
+              </div>
+              <span style="font-size:12.5px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.by }}</span>
+              <span style="font-size:12.5px;color:#374151">{{ r.joined }}</span>
+              <div style="position:relative;display:flex;align-items:center;justify-content:flex-end;gap:6px">
+                <sc-if value="{{ r.busy }}"><div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#6B7280">{{ spin }}{{ r.busyText }}</div></sc-if>
+                <sc-if value="{{ r.hasPrimary }}"><div onClick="{{ r.primary }}" style="height:30px;box-sizing:border-box;padding:0 11px;border:1px solid #DDE1E8;border-radius:7px;display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#0B1840;cursor:pointer;background:#fff;white-space:nowrap" style-hover="border-color:#0B1840">{{ r.primaryLabel }}</div></sc-if>
+                <sc-if value="{{ r.hasMenu }}"><div onClick="{{ r.toggleMenu }}" title="More actions" style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#374151;background:{{ r.mBg }};border:1px solid {{ r.mB }};box-sizing:border-box" style-hover="background:#F3F4F6"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></div></sc-if>
+                <sc-if value="{{ r.hasNote }}"><div title="{{ r.tip }}" style="display:flex;align-items:center;gap:6px;font-size:11.5px;color:#6B7280;cursor:help;text-align:right;line-height:1.3"><sc-if value="{{ r.noteLock }}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex-shrink:0"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg></sc-if><sc-if value="{{ r.noteInfo }}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 7.2v4M8 4.8v.2"></path></svg></sc-if>{{ r.note }}</div></sc-if>
+                <sc-if value="{{ r.menuOpen }}">
+                  <div style="position:absolute;right:0;top:{{ r.mTop }};bottom:{{ r.mBot }};width:268px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;box-shadow:0 12px 32px rgba(11,24,64,.16);z-index:30;padding:6px;display:flex;flex-direction:column;text-align:left">
+                    <sc-for list="{{ r.groups }}" as="g">
+                      <sc-if value="{{ g.sep }}"><div style="height:1px;background:#EEF0F4;margin:5px 4px"></div></sc-if>
+                      <span style="padding:6px 8px 3px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">{{ g.label }}</span>
+                      <sc-for list="{{ g.items }}" as="it">
+                        <div onClick="{{ it.run }}" title="{{ it.tip }}" style="display:flex;align-items:flex-start;gap:10px;padding:7px 8px;border-radius:7px;cursor:{{ it.cur }};color:{{ it.c }}" style-hover="background:{{ it.hov }}">
+                          <div style="width:16px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                            <sc-if value="{{ it.iRole }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="6.5" cy="5.5" r="2.3"></circle><path d="M2 14c0-2.6 2-4.2 4.5-4.2 1.2 0 2.2.3 3 .9M12 9v5M9.5 11.5h5"></path></svg></sc-if>
+                            <sc-if value="{{ it.iShield }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M8 1.8l5 2v4c0 3.2-2.2 5.3-5 6.4-2.8-1.1-5-3.2-5-6.4v-4l5-2Z"></path></svg></sc-if>
+                            <sc-if value="{{ it.iMail }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><rect x="2" y="3.5" width="12" height="9" rx="1.4"></rect><path d="M2.5 4.5L8 9l5.5-4.5"></path></svg></sc-if>
+                            <sc-if value="{{ it.iPower }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v5.5M4.6 4.2a5 5 0 1 0 6.8 0"></path></svg></sc-if>
+                            <sc-if value="{{ it.iKey }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="10.5" r="3"></circle><path d="M7.7 8.3L13.5 2.5M11.5 4.5l1.5 1.5M10 6l1.2 1.2"></path></svg></sc-if>
+                            <sc-if value="{{ it.iTrash }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"></path></svg></sc-if>
+                          </div>
+                          <div style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0">
+                            <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12.5px;font-weight:600">{{ it.label }}</span><sc-if value="{{ it.hasTag }}"><span style="font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:4px;padding:1px 5px;background:{{ it.tagBg }};color:{{ it.tagC }}">{{ it.tag }}</span></sc-if></div>
+                            <span style="font-size:11px;color:{{ it.subC }};line-height:1.35">{{ it.sub }}</span>
+                          </div>
+                        </div>
+                      </sc-for>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+          <div style="padding:11px 16px;font-size:11.5px;color:#6B7280;display:flex;gap:16px;flex-wrap:wrap">
+            <span>{{ footer }}</span>
+            <span style="flex:1"></span>
+            <span style="display:flex;align-items:center;gap:6px"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M8 1.8l5 2v4c0 3.2-2.2 5.3-5 6.4-2.8-1.1-5-3.2-5-6.4v-4l5-2Z"></path></svg>{{ ruleNote }}</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ menuBackdrop }}" hint-placeholder-val="{{ false }}"><div onClick="{{ closeMenu }}" style="position:absolute;inset:0;z-index:20"></div></sc-if>
+
+  <sc-if value="{{ inviteOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeInvite }}" style="position:absolute;inset:0;background:rgba(11,24,64,.28);z-index:40"></div>
+      <div style="position:absolute;top:0;right:0;bottom:0;width:480px;background:#fff;z-index:41;box-shadow:-12px 0 32px rgba(11,24,64,.18);display:flex;flex-direction:column">
+        <div style="display:flex;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid #EEF0F4">
+          <div style="flex:1;display:flex;flex-direction:column;gap:4px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9AA0AC">User Admin</span><span style="font-size:19px;font-weight:700;color:#0B1840">Invite user</span><span style="font-size:12px;color:#6B7280">They'll get an email with an activation link, valid for 48 hours.</span></div>
+          <div onClick="{{ closeInvite }}" title="Close" style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#F3F4F6"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+        </div>
+        <sc-if value="{{ iv.done }}">
+          <div style="flex:1;overflow-y:auto;overflow-x:hidden;box-sizing:border-box;padding:16px 20px"><div style="padding:22px 18px;border-radius:10px;background:#F3FAF5;border:1px solid #CDE9D6;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+            <div style="width:40px;height:40px;border-radius:999px;background:#146C3A;color:#fff;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.4l2.6 2.6L12 5.4"></path></svg></div>
+            <span style="font-size:14px;font-weight:700;color:#0B1840">Invite sent to {{ iv.email }}</span>
+            <span style="font-size:12px;color:#374151;line-height:1.5">{{ iv.name }} appears in the list as <strong>pending</strong> until they activate the account. You can resend the invite from their row.</span>
+          </div></div>
+        </sc-if>
+        <sc-if value="{{ iv.form }}">
+          <div style="flex:1;overflow-y:auto;overflow-x:hidden;padding:16px 20px;display:flex;flex-direction:column;gap:16px">
+            <sc-if value="{{ iv.hasErr }}"><div style="display:flex;gap:9px;padding:10px 12px;border-radius:8px;background:#FDEFF0;border:1px solid #F5C7CB;color:#B42318;font-size:12.5px;line-height:1.45"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 4.8v3.8M8 11v.2"></path></svg><span>{{ iv.err }}</span></div></sc-if>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px">
+              <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:11.5px;font-weight:600;color:#374151">First name</span><input value="{{ iv.first }}" onChange="{{ iv.onFirst }}" placeholder="e.g. Luca" style="height:36px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;outline:none;color:#0B1840;width:100%"></div>
+              <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:11.5px;font-weight:600;color:#374151">Last name</span><input value="{{ iv.last }}" onChange="{{ iv.onLast }}" placeholder="e.g. Neri" style="height:36px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;outline:none;color:#0B1840;width:100%"></div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:11.5px;font-weight:600;color:#374151">Email</span><input value="{{ iv.email }}" onChange="{{ iv.onEmail }}" placeholder="name@company.com" style="height:36px;box-sizing:border-box;border:1px solid {{ iv.emailB }};border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;outline:none;color:#0B1840;width:100%"></div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <span style="font-size:11.5px;font-weight:600;color:#374151">Role</span>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px">
+                <sc-for list="{{ iv.roles }}" as="o">
+                  <div onClick="{{ o.pick }}" style="display:flex;gap:9px;padding:10px 12px;border-radius:9px;border:1px solid {{ o.b }};background:{{ o.bg }};cursor:pointer">
+                    <div style="width:16px;height:16px;border-radius:999px;border:1.5px solid {{ o.rb }};box-sizing:border-box;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px"><div style="width:8px;height:8px;border-radius:999px;background:{{ o.dot }}"></div></div>
+                    <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:12.5px;font-weight:700;color:#0B1840">{{ o.label }}</span><span style="font-size:11px;color:#6B7280;line-height:1.35">{{ o.sub }}</span></div>
+                  </div>
+                </sc-for>
+              </div>
+              <span style="font-size:11px;color:#6B7280">Sysadmin can't be assigned with an invite. Promote an admin once they're active.</span>
+            </div>
+          </div>
+        </sc-if>
+        <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:12px 20px;border-top:1px solid #EEF0F4">
+          <sc-if value="{{ iv.form }}"><span onClick="{{ closeInvite }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:8px 6px">Cancel</span><div onClick="{{ iv.send }}" style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:#fff;background:{{ iv.sendBg }};border-radius:8px;padding:0 16px;height:36px;cursor:pointer">{{ iv.sendSpin }}{{ iv.sendLabel }}</div></sc-if>
+          <sc-if value="{{ iv.done }}"><span onClick="{{ inviteAnother }}" style="font-size:12.5px;font-weight:600;color:#0B1840;cursor:pointer;padding:8px 6px">Invite another</span><div onClick="{{ closeInvite }}" style="display:flex;align-items:center;font-size:12.5px;font-weight:600;color:#fff;background:#0B1840;border-radius:8px;padding:0 18px;height:36px;cursor:pointer">Close</div></sc-if>
+        </div>
+      </div>
+  </sc-if>
+
+  <sc-if value="{{ cfOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(11,24,64,.42);z-index:50;display:flex;align-items:center;justify-content:center">
+      <div style="width:460px;background:#fff;border-radius:12px;box-shadow:0 24px 64px rgba(11,24,64,.28);padding:20px 22px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:{{ cf.icBg }};color:{{ cf.icC }}">
+            <sc-if value="{{ cf.isAnon }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"></path></svg></sc-if>
+            <sc-if value="{{ cf.isTfa }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="5.5" cy="10.5" r="3"></circle><path d="M7.7 8.3L13.5 2.5M11.5 4.5l1.5 1.5M10 6l1.2 1.2"></path></svg></sc-if>
+            <sc-if value="{{ cf.isDis }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M8 2v5.5M4.6 4.2a5 5 0 1 0 6.8 0"></path></svg></sc-if>
+          </div>
+          <span style="flex:1;font-size:16px;font-weight:700;color:#0B1840">{{ cf.title }}</span>
+          <sc-if value="{{ cf.isAnon }}"><span style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#B42318;background:#FDEFF0;border-radius:4px;padding:2px 7px">Irreversible</span></sc-if>
+        </div>
+        <span style="font-size:12.5px;color:#374151;line-height:1.55;text-wrap:pretty">{{ cf.body }}</span>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px">
+          <div style="display:flex;flex-direction:column;gap:5px;background:#F7F8FA;border-radius:8px;padding:10px 12px;font-size:12px;color:#374151;line-height:1.45"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:{{ cf.aC }}">{{ cf.aLabel }}</span><sc-for list="{{ cf.a }}" as="x"><span>{{ x }}</span></sc-for></div>
+          <div style="display:flex;flex-direction:column;gap:5px;background:#F7F8FA;border-radius:8px;padding:10px 12px;font-size:12px;color:#374151;line-height:1.45"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#146C3A">{{ cf.bLabel }}</span><sc-for list="{{ cf.b }}" as="x"><span>{{ x }}</span></sc-for></div>
+        </div>
+        <sc-if value="{{ cf.isAnon }}"><div onClick="{{ cf.toggleAck }}" style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:12.5px;color:#0B1840;padding:2px 0"><div style="width:16px;height:16px;border-radius:4px;border:1.5px solid {{ cf.ackB }};background:{{ cf.ackBg }};box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.4l3 3L12.5 5"></path></svg></div>I understand this can't be undone.</div></sc-if>
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:4px"><span onClick="{{ cf.cancel }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:8px 6px">Cancel</span><span onClick="{{ cf.go }}" style="font-size:12.5px;font-weight:600;color:#fff;background:{{ cf.btnBg }};border-radius:8px;padding:9px 16px;cursor:{{ cf.btnCur }}">{{ cf.btn }}</span></div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1000},&quot;viewer&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;sysadmin&quot;,&quot;admin&quot;],&quot;default&quot;:&quot;sysadmin&quot;,&quot;tsType&quot;:&quot;'sysadmin'|'admin'&quot;},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;table&quot;,&quot;loading&quot;,&quot;empty&quot;,&quot;denied&quot;],&quot;default&quot;:&quot;table&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;menu&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;pending&quot;,&quot;admin&quot;,&quot;disabled&quot;,&quot;sysadmin&quot;,&quot;tfa&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;modal&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;invite&quot;,&quot;inviteError&quot;,&quot;inviteSuccess&quot;,&quot;anonymize&quot;,&quot;disable&quot;,&quot;reset2fa&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;banner&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;success&quot;,&quot;error&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;busy&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;}}">
+const USERS = [
+  { id: 1, first: 'Admin', last: 'PDash', email: 'bbicio@gmail.com', role: 'sysadmin', status: 'active', by: '—', d: '2026-06-09', tfa: 'app' },
+  { id: 2, first: 'Marta', last: 'Ricci', email: 'marta.ricci@eversana.com', role: 'sysadmin', status: 'active', by: 'Admin PDash', d: '2026-06-10', tfa: 'app' },
+  { id: 3, first: 'Test', last: 'Admin', email: 'test-admin@pdash.local', role: 'admin', status: 'active', by: '—', d: '2026-06-13' },
+  { id: 4, first: 'Fulvio', last: 'Fortini', email: 'fulvio.fortini@eversana.com', role: 'admin', status: 'pending', by: 'Admin PDash', d: '2026-11-05', exp: 'Link expires in 31 h' },
+  { id: 5, first: 'Giulia', last: 'Bianchi', email: 'giulia.bianchi@eversana.com', role: 'user', status: 'pending', by: 'Test Admin', d: '2026-11-01', exp: 'Link expired 3 days ago', expired: true },
+  { id: 6, first: 'PDash', last: 'Admin', email: 'pda1@mailinator.com', role: 'user', status: 'active', by: 'Admin PDash', d: '2026-06-12', tfa: 'app' },
+  { id: 7, first: 'Pdash Test', last: 'User 1', email: 'pdt1@mailinator.com', role: 'user', status: 'active', by: 'Admin PDash', d: '2026-06-12' },
+  { id: 8, first: 'Fabrizio', last: 'Fortini', email: 'fabrizio.fortini@eversana.com', role: 'user', status: 'disabled', by: 'Admin PDash', d: '2026-09-17', tfa: 'app' },
+  { id: 9, first: 'Anonymized', last: 'user', email: 'anon_7f3a9c@pdash.invalid', role: 'user', status: 'disabled', by: 'Admin PDash', d: '2026-07-02' }
+];
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const fmt = d => { const [y, m, dd] = d.split('-'); return dd + ' ' + MON[+m - 1] + ' ' + y; };
+const ROLE = { user: ['#EEF0F4', '#374151'], admin: ['#E3E8F6', '#1E2F6B'], sysadmin: ['#0B1840', '#FFFFFF'] };
+const ST = { active: ['#E7F5EC', '#146C3A', '#1F9D55'], pending: ['#FFF1DC', '#8A4B08', '#D98A1C'], disabled: ['#F0F1F4', '#4B5563', '#9AA0AC'] };
+const ORDER = { user: 0, admin: 1, sysadmin: 2 }, SORD = { active: 0, pending: 1, disabled: 2 };
+const spinEl = (s, w) => React.createElement('span', { style: { width: s, height: s, boxSizing: 'border-box', border: w + 'px solid rgba(155,160,172,.35)', borderTopColor: '#F0287A', borderRadius: 999, display: 'inline-block', animation: 'ua-spin .8s linear infinite', flexShrink: 0 } });
+const spinW = () => React.createElement('span', { style: { width: 13, height: 13, boxSizing: 'border-box', border: '2px solid rgba(255,255,255,.4)', borderTopColor: '#fff', borderRadius: 999, display: 'inline-block', animation: 'ua-spin .8s linear infinite' } });
+const IC = k => ({ iRole: k === 'role', iShield: k === 'shield', iMail: k === 'mail', iPower: k === 'power', iTrash: k === 'trash', iKey: k === 'key' });
+const MENU_ID = { pending: 4, admin: 3, disabled: 8, sysadmin: 2, tfa: 6 };
+class Component extends DCLogic {
+  state = {};
+  renderVals() {
+    const S = this.state, P = this.props;
+    const viewer = P.viewer ?? 'sysadmin', isSys = viewer === 'sysadmin';
+    const view = P.view ?? 'table';
+    const users = S.users ?? USERS;
+    const selfId = isSys ? 1 : 3;
+    const me = users.find(u => u.id === selfId);
+    const filter = S.filter ?? (view === 'empty' ? 'pending' : 'all');
+    const roleF = S.roleF ?? 'all';
+    const q = S.q ?? (view === 'empty' ? 'marco' : '');
+    const sort = S.sort ?? null;
+    let menu = S.menu !== undefined ? S.menu : (MENU_ID[P.menu] ?? null);
+    if (menu && !isSys && menu === 3) menu = 4;
+    const busy = S.busy !== undefined ? S.busy : (P.busy ? { id: 7, text: 'Updating…' } : null);
+    const bannerP = { success: { kind: 'ok', title: 'Invite resent.', text: 'A new activation link was sent to fulvio.fortini@eversana.com. It\'s valid for 48 hours.' }, error: { kind: 'err', title: 'Couldn\'t update Test Admin.', text: 'The server didn\'t respond. Check your connection and try again.' } }[P.banner];
+    const banner = S.banner !== undefined ? S.banner : (bannerP ?? null);
+    const modalP = P.modal ?? 'none';
+    const invite = S.invite !== undefined ? S.invite : (modalP.startsWith('invite') ? {
+      invite: { first: '', last: '', email: '', role: 'user' },
+      inviteError: { first: 'Marta', last: 'Ricci', email: 'marta.ricci@eversana.com', role: 'admin', err: 'A user with this email already exists. Look for Marta Ricci in the list.' },
+      inviteSuccess: { first: 'Luca', last: 'Neri', email: 'luca.neri@eversana.com', role: 'user', done: true }
+    }[modalP] : null);
+    const confirm = S.confirm !== undefined ? S.confirm : (modalP === 'anonymize' ? { kind: 'anon', id: 8 } : modalP === 'disable' ? { kind: 'dis', id: 6 } : modalP === 'reset2fa' ? { kind: 'tfa', id: 6 } : null);
+    const name = u => u.first + ' ' + u.last;
+    const isAnon = u => u.email.startsWith('anon_');
+
+    const act = (u, patch, title, text) => {
+      this.setState({ menu: null, banner: null, busy: { id: u.id, text: 'Updating…' } });
+      setTimeout(() => this.setState(s => ({ busy: null, users: (s.users ?? USERS).map(x => x.id === u.id ? { ...x, ...patch } : x), banner: { kind: 'ok', title, text } })), 900);
+    };
+    const resend = u => {
+      this.setState({ menu: null, banner: null, busy: { id: u.id, text: 'Sending…' } });
+      setTimeout(() => this.setState(s => ({ busy: null, users: (s.users ?? USERS).map(x => x.id === u.id ? { ...x, exp: 'Link expires in 48 h', expired: false } : x), banner: { kind: 'ok', title: 'Invite resent.', text: 'A new activation link was sent to ' + u.email + '. It\'s valid for 48 hours.' } })), 900);
+    };
+    const item = (o) => {
+      const dis = !!o.reason, danger = o.tone === 'danger';
+      return { ...IC(o.icon), label: o.label, sub: o.reason || o.sub, subC: dis ? '#6B7280' : danger ? '#B42318' : '#6B7280', tip: o.reason || '',
+        c: dis ? '#9AA0AC' : danger ? '#B42318' : '#0B1840', cur: dis ? 'not-allowed' : 'pointer', hov: dis ? 'transparent' : danger ? '#FDEFF0' : '#F3F4F6',
+        hasTag: !!o.tag, tag: o.tag, tagBg: o.tone === 'danger' ? '#FDEFF0' : '#0B1840', tagC: o.tone === 'danger' ? '#B42318' : '#fff',
+        run: dis ? () => {} : o.run };
+    };
+    const groupsFor = u => {
+      const role = [], access = [];
+      if (u.role !== 'sysadmin') role.push(item({ icon: 'role', label: u.role === 'user' ? 'Make admin' : 'Make user', sub: u.role === 'user' ? 'Can invite and manage users' : 'Removes admin rights',
+        run: () => act(u, { role: u.role === 'user' ? 'admin' : 'user' }, name(u) + ' is now ' + (u.role === 'user' ? 'an admin.' : 'a user.'), '') }));
+      else role.push(item({ icon: 'role', label: 'Make user', reason: 'Revoke sysadmin first: roles change one step at a time.' }));
+      if (isSys) {
+        if (u.role === 'admin') role.push(item({ icon: 'shield', label: 'Grant sysadmin', tag: 'Sensitive', sub: 'Full control, including other sysadmins', run: () => act(u, { role: 'sysadmin' }, name(u) + ' is now a sysadmin.', '') }));
+        else if (u.role === 'sysadmin') role.push(item({ icon: 'shield', label: 'Revoke sysadmin', tag: 'Sensitive', sub: 'Back to admin', run: () => act(u, { role: 'admin' }, name(u) + ' is now an admin.', 'Sysadmin rights were revoked.') }));
+        else role.push(item({ icon: 'shield', label: 'Grant sysadmin', reason: 'Make admin first: roles change one step at a time.' }));
+      } else if (u.role === 'admin') role.push(item({ icon: 'shield', label: 'Grant sysadmin', reason: 'Only a sysadmin can grant this role.' }));
+      if (u.status === 'pending') access.push(item({ icon: 'mail', label: 'Resend invite', sub: 'New activation link, valid 48 hours', run: () => resend(u) }));
+      if (u.status !== 'disabled') access.push(item({ icon: 'power', label: 'Disable…', sub: 'Blocks sign-in. You can re-enable later.', run: () => this.setState({ menu: null, confirm: { kind: 'dis', id: u.id } }) }));
+      else access.push(item({ icon: 'power', label: 'Enable', sub: 'Restores sign-in', run: () => act(u, { status: 'active' }, name(u) + ' was enabled.', 'They can sign in again.') }));
+      const sec = u.tfa === 'app' ? [item({ icon: 'key', label: 'Reset two-step verification…', sub: 'Removes their authenticator app. Next sign-in uses an email code.', run: () => this.setState({ menu: null, confirm: { kind: 'tfa', id: u.id } }) })] : [];
+      const danger = [u.status === 'disabled'
+        ? item({ icon: 'trash', label: 'Anonymize…', tag: 'Irreversible', tone: 'danger', sub: 'Removes name and email for good', run: () => this.setState({ menu: null, confirm: { kind: 'anon', id: u.id } }) })
+        : item({ icon: 'trash', label: 'Anonymize…', reason: 'Disable the account first.' })];
+      return [{ label: 'Role', items: role, sep: false }, { label: 'Access', items: access, sep: true }].concat(sec.length ? [{ label: 'Security', items: sec, sep: true }] : []).concat([{ label: 'Data', items: danger, sep: true }]);
+    };
+
+    const base = users.filter(u => (roleF === 'all' || u.role === roleF) && (!q || (name(u) + ' ' + u.email).toLowerCase().includes(q.toLowerCase())));
+    const count = k => base.filter(u => k === 'all' || u.status === k).length;
+    let list = base.filter(u => filter === 'all' || u.status === filter);
+    if (sort) {
+      const key = { name: u => name(u).toLowerCase(), role: u => ORDER[u.role], status: u => SORD[u.status], joined: u => u.d }[sort.k];
+      list = [...list].sort((a, b) => (key(a) > key(b) ? 1 : key(a) < key(b) ? -1 : 0) * (sort.dir));
+    }
+    const n = list.length;
+    const rows = view === 'loading' ? [] : list.map((u, i) => {
+      const self = u.id === selfId, locked = !isSys && u.role === 'sysadmin', anon = isAnon(u);
+      const b = busy && busy.id === u.id;
+      const canAct = !self && !locked && !anon && !b;
+      const open = canAct && menu === u.id;
+      const primary = canAct && u.status === 'pending' ? ['Resend invite', () => resend(u)] : canAct && u.status === 'disabled' ? ['Enable', () => act(u, { status: 'active' }, name(u) + ' was enabled.', 'They can sign in again.')] : null;
+      const note = self ? ['Your account', 'You can\'t change your own role or access. Ask another admin.', false]
+        : locked ? ['Sysadmin only', 'Only a sysadmin can change a sysadmin account.', true]
+        : anon ? ['No actions', 'Personal data was removed. The account can\'t be restored.', false] : null;
+      const up = i >= n - 3 && n > 4;
+      return {
+        name: anon ? 'Anonymized user' : name(u), email: u.email, nameC: anon ? '#6B7280' : '#0B1840', fs: anon ? 'italic' : 'normal',
+        ini: anon ? '—' : (u.first[0] + u.last[0]).toUpperCase(), avBg: anon ? '#fff' : self ? '#0B1840' : '#EEF0F4', avC: anon ? '#9AA0AC' : self ? '#fff' : '#374151', avB: anon ? 'dashed' : 'solid',
+        hasTfa: !anon && u.status !== 'pending', tfaApp: u.tfa === 'app', tfaMail: u.tfa !== 'app', tfaLabel: u.tfa === 'app' ? 'App' : 'Email', tfaBg: u.tfa === 'app' ? '#E7F5EC' : '#F1F2F5', tfaC: u.tfa === 'app' ? '#146C3A' : '#4B5563', tfaTip: u.tfa === 'app' ? 'Two-step verification: authenticator app' : 'Two-step verification: email code',
+        isSelf: self, bg: self ? '#FBFCFE' : open ? '#FAFBFC' : '#fff', bar: self ? 'inset 3px 0 0 #F0287A' : 'none', op: b ? 0.7 : 1,
+        role: u.role, roleBg: ROLE[u.role][0], roleC: ROLE[u.role][1], isSysRole: u.role === 'sysadmin',
+        status: u.status, stBg: ST[u.status][0], stC: ST[u.status][1], stDot: ST[u.status][2], anon,
+        hasExp: u.status === 'pending' && !!u.exp, exp: u.exp, expC: u.expired ? '#B42318' : '#8A4B08',
+        by: u.by, joined: fmt(u.d),
+        busy: b, busyText: b ? busy.text : '',
+        hasPrimary: !!primary, primaryLabel: primary ? primary[0] : '', primary: primary ? primary[1] : null,
+        hasMenu: canAct, toggleMenu: () => this.setState({ menu: open ? null : u.id }), mBg: open ? '#F3F4F6' : '#fff', mB: open ? '#C9CDD3' : '#DDE1E8',
+        hasNote: !!note && !b, note: note ? note[0] : '', tip: note ? note[1] : '', noteLock: !!(note && note[2]), noteInfo: !!(note && !note[2]),
+        menuOpen: open, mTop: up ? 'auto' : '36px', mBot: up ? '36px' : 'auto', groups: open ? groupsFor(u) : []
+      };
+    });
+    const heads = [['Name', 'name'], ['Role', 'role'], ['Status', 'status'], ['Invited by'], ['Joined', 'joined'], ['']].map(([label, k], i) => {
+      const on = sort && sort.k === k;
+      return { label, sortable: !!k, arrow: on ? (sort.dir > 0 ? '↑' : '↓') : '↕', ac: on ? '#0B1840' : '#C9CDD3', c: on ? '#0B1840' : '#9AA0AC', cur: k ? 'pointer' : 'default', jc: i === 5 ? 'flex-end' : 'flex-start',
+        sort: k ? () => this.setState({ sort: on ? (sort.dir > 0 ? { k, dir: -1 } : null) : { k, dir: 1 } }) : () => {} };
+    });
+    const nPending = users.filter(u => u.status === 'pending').length;
+
+    let iv = {};
+    if (invite) {
+      const set = p => this.setState({ invite: { ...invite, err: null, ...p } });
+      const ok = invite.first.trim() && invite.last.trim() && /.+@.+\..+/.test(invite.email);
+      iv = { form: !invite.done, done: !!invite.done, hasErr: !!invite.err, err: invite.err, first: invite.first, last: invite.last, email: invite.email, name: invite.first + ' ' + invite.last,
+        emailB: invite.err ? '#D9534F' : '#DDE1E8',
+        onFirst: e => set({ first: e.target.value }), onLast: e => set({ last: e.target.value }), onEmail: e => set({ email: e.target.value }),
+        roles: [['user', 'User', 'Works on pipeline, portfolio and planning'], ['admin', 'Admin', 'Also manages users and master data']].map(([k, label, sub]) => { const on = invite.role === k; return { label, sub, b: on ? '#0B1840' : '#DDE1E8', bg: on ? '#F7F8FC' : '#fff', rb: on ? '#0B1840' : '#C9CDD3', dot: on ? '#0B1840' : 'transparent', pick: () => set({ role: k }) }; }),
+        sendBg: ok && !invite.sending ? '#F0287A' : '#E9A3C0', sendLabel: invite.sending ? 'Sending…' : 'Send invite', sendSpin: invite.sending ? spinW() : null,
+        send: () => {
+          if (!ok || invite.sending) return;
+          if (users.some(u => u.email.toLowerCase() === invite.email.toLowerCase())) return set({ err: 'A user with this email already exists. Look for them in the list.' });
+          set({ sending: true });
+          setTimeout(() => this.setState(s => ({ invite: { ...s.invite, sending: false, done: true }, users: [...(s.users ?? USERS), { id: Date.now(), first: invite.first, last: invite.last, email: invite.email, role: invite.role, status: 'pending', by: name(me), d: '2026-11-06', exp: 'Link expires in 48 h' }] })), 1000);
+        } };
+    }
+    let cf = {};
+    const cu = confirm ? users.find(u => u.id === confirm.id) : null;
+    if (cu) {
+      const anon = confirm.kind === 'anon', ack = !!confirm.ack;
+      cf = confirm.kind === 'tfa' ? { isAnon: false, isDis: false, isTfa: true, title: 'Reset two-step verification for ' + name(cu) + '?', icBg: '#F1F3F8', icC: '#0B1840',
+        body: name(cu) + ' will sign in with an email code next time. Their authenticator app and recovery codes will be removed. Use this only if they lost access to both.',
+        aLabel: 'Removed', aC: '#8A4B08', a: ['Authenticator app', 'Unused recovery codes', 'Trusted devices'], bLabel: 'Stays as it is', b: ['Password', 'Role and access'],
+        btn: 'Reset two-step verification', btnBg: '#0B1840', btnCur: 'pointer',
+        go: () => { this.setState({ confirm: null }); act(cu, { tfa: 'email' }, 'Two-step verification reset for ' + name(cu) + '.', 'They\'ll get an email code at the next sign-in. We sent them a security notice.'); } }
+      : anon ? { isAnon: true, isDis: false, title: 'Anonymize ' + name(cu) + '?', icBg: '#FDEFF0', icC: '#B42318',
+        body: 'Their name and email are replaced with anonymous values. The account stays disabled and can\'t be restored.',
+        aLabel: 'Removed for good', aC: '#B42318', a: [name(cu), cu.email], bLabel: 'Kept', b: ['Proposals and projects', 'Cost grids they created'],
+        ackB: ack ? '#B42318' : '#C9CDD3', ackBg: ack ? '#B42318' : '#fff', toggleAck: () => this.setState({ confirm: { ...confirm, ack: !ack } }),
+        btn: 'Anonymize user', btnBg: ack ? '#B42318' : '#E7A8A2', btnCur: ack ? 'pointer' : 'not-allowed',
+        go: () => { if (!ack) return; this.setState({ confirm: null }); act(cu, { email: 'anon_' + Math.random().toString(16).slice(2, 8) + '@pdash.invalid', first: 'Anonymized', last: 'user' }, 'User anonymized.', 'Their proposals, projects and cost grids were kept.'); } }
+      : { isAnon: false, isDis: true, title: 'Disable ' + name(cu) + '?', icBg: '#F0F1F4', icC: '#0B1840',
+        body: 'They\'re signed out and can\'t sign in until an admin enables the account again.',
+        aLabel: 'Stops', aC: '#8A4B08', a: ['Sign-in and active sessions', cu.status === 'pending' ? 'The pending invite link' : 'Notifications by email'], bLabel: 'Stays as it is', b: ['Role (' + cu.role + ')', 'All data they created'],
+        btn: 'Disable user', btnBg: '#0B1840', btnCur: 'pointer',
+        go: () => { this.setState({ confirm: null }); act(cu, { status: 'disabled' }, name(cu) + ' was disabled.', 'You can enable the account again at any time.'); } };
+      cf.cancel = () => this.setState({ confirm: null });
+    }
+    const bn = banner ? { ok: banner.kind === 'ok', err: banner.kind === 'err', title: banner.title, text: banner.text,
+      bg: banner.kind === 'ok' ? '#F3FAF5' : '#FDEFF0', border: banner.kind === 'ok' ? '#CDE9D6' : '#F5C7CB', c: banner.kind === 'ok' ? '#146C3A' : '#B42318' } : {};
+    const denied = view === 'denied';
+    return {
+      navAdmin: !denied, navSys: isSys && !denied, meInitials: denied ? 'LN' : (me.first[0] + me.last[0]).toUpperCase(), meEmail: denied ? 'luca.neri@eversana.com' : me.email,
+      denied, allowed: !denied,
+      subtitle: view === 'loading' ? 'Loading…' : users.length + ' users · ' + nPending + ' pending invites',
+      openInvite: () => this.setState({ invite: { first: '', last: '', email: '', role: 'user' }, banner: null }),
+      hasBanner: !!banner, bn, closeBanner: () => this.setState({ banner: null }),
+      filters: [['all', 'All'], ['active', 'Active'], ['pending', 'Pending'], ['disabled', 'Disabled']].map(([k, label]) => { const on = filter === k; return { label, n: view === 'loading' ? '' : count(k), bg: on ? '#fff' : 'transparent', sh: on ? '0 1px 2px rgba(11,24,64,.12)' : 'none', w: on ? 700 : 500, c: on ? '#0B1840' : '#4B5563', nc: on ? '#F0287A' : '#6B7280', pick: () => this.setState({ filter: k }) }; }),
+      roleF, onRole: e => this.setState({ roleF: e.target.value }), q, onQ: e => this.setState({ q: e.target.value }),
+      heads, rows, loading: view === 'loading', isEmpty: view !== 'loading' && n === 0,
+      emptyHint: 'Showing ' + (filter === 'all' ? 'all statuses' : filter + ' users') + (roleF !== 'all' ? ' · role ' + roleF : '') + (q ? ' · "' + q + '"' : ''),
+      clearFilters: () => this.setState({ filter: 'all', roleF: 'all', q: '' }),
+      spin: spinEl(14, 2), bigSpin: spinEl(28, 3),
+      footer: view === 'loading' ? '' : 'Showing ' + n + ' of ' + users.length,
+      ruleNote: isSys ? 'Roles change one step at a time: user → admin → sysadmin.' : 'Sysadmin accounts can only be changed by a sysadmin.',
+      menuBackdrop: menu != null && !!S.menu, closeMenu: () => this.setState({ menu: null }),
+      inviteOpen: !!invite, iv, closeInvite: () => this.setState({ invite: null }), inviteAnother: () => this.setState({ invite: { first: '', last: '', email: '', role: invite ? invite.role : 'user' } }),
+      cfOpen: !!cu, cf
+    };
+  }
+}
+</script>
+</body>
+</html>
