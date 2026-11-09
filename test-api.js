@@ -1306,6 +1306,44 @@ async function testUsers() {
   const r1 = await api('GET', '/api/users', null, adminCookie);
   ok(r1.status === 200 && Array.isArray(r1.data), 'AD-01 GET /users → 200 array');
   ok(Array.isArray(r1.data) && r1.data.some(u => u.email === EMAIL), 'AD-01 test admin in user list');
+
+  // Edit details (name / email) — admin-managed since the My profile page.
+  const users = async () => (await api('GET', '/api/users', null, sysadminCookie)).data || [];
+  const byEmail = async e => (await users()).find(u => u.email === e);
+  const admin = await byEmail(EMAIL);
+  const sys = await byEmail(SYSADMIN_EMAIL);
+  if (!ok(admin && sys, 'AD-ED setup: test admin and sysadmin found')) return;
+  const U = id => `/api/users/${id}`;
+  const same = async () => {
+    const now = await byEmail(EMAIL);
+    return now && now.first_name === admin.first_name && now.last_name === admin.last_name;
+  };
+
+  const e1 = await api('PATCH', U(admin.id), { firstName: 'Tested' }, sysadminCookie);
+  ok(e1.status === 200 && e1.data?.first_name === 'Tested', `AD-ED-01 sysadmin renames the admin → 200 (got ${e1.status})`);
+  const e1b = await api('PATCH', U(admin.id), { firstName: admin.first_name }, sysadminCookie);
+  ok(e1b.status === 200 && (await same()), 'AD-ED-01 and back → 200');
+
+  const e2 = await api('PATCH', U(admin.id), { email: 'test-admin-ed@pdash.local' }, sysadminCookie);
+  const e2b = await api('PATCH', U(admin.id), { email: EMAIL }, sysadminCookie);
+  ok(e2.status === 200 && e2.data?.email === 'test-admin-ed@pdash.local' && e2b.status === 200 && !!(await byEmail(EMAIL)),
+    `AD-ED-02 sysadmin changes the admin's email and back → 200, 200 (got ${e2.status}, ${e2b.status})`);
+
+  const e3 = await api('PATCH', U(admin.id), { lastName: '  ' }, sysadminCookie);
+  ok(e3.status === 400 && e3.data?.field === 'lastName' && (await same()), `AD-ED-03 blank last name → 400 field lastName (got ${e3.status})`);
+
+  const e4 = await api('PATCH', U(admin.id), { email: ` ${SYSADMIN_EMAIL.toUpperCase()} ` }, sysadminCookie);
+  ok(e4.status === 409 && e4.data?.field === 'email' && !!(await byEmail(EMAIL)), `AD-ED-04 duplicate email (case, spaces) → 409 field email (got ${e4.status})`);
+
+  const e5 = await api('PATCH', U(admin.id), { firstName: 'Self' }, adminCookie);
+  ok(e5.status === 400 && (await same()), `AD-ED-05 admin edits own details → 400 (got ${e5.status})`);
+
+  const sysBefore = sys.first_name;
+  const e6 = await api('PATCH', U(sys.id), { firstName: 'Nope' }, adminCookie);
+  ok(e6.status === 403 && (await byEmail(SYSADMIN_EMAIL))?.first_name === sysBefore, `AD-ED-06 admin edits a sysadmin → 403 (got ${e6.status})`);
+
+  const e7 = await api('PATCH', U(admin.id), { firstName: 'Ok', email: 'not-an-email' }, sysadminCookie);
+  ok(e7.status === 400 && e7.data?.field === 'email' && (await same()), `AD-ED-07 one invalid field refuses the whole request (got ${e7.status})`);
 }
 
 // ── Programs ───────────────────────────────────────────────────────────────────

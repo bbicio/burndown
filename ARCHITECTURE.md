@@ -53,6 +53,7 @@ Backend authorization has two middleware tiers (`api/src/middleware/auth.js`): `
 | Invite users | ✅ | ✅ | ❌ |
 | Disable / re-enable users | ✅ | ✅ (not on a sysadmin account — see below) | ❌ |
 | Anonymize users | ✅ | ✅ (not on a sysadmin account) | ❌ |
+| Edit user name / email | ✅ | ✅ (not on a sysadmin account, not on oneself) | ❌ (rectification request only) |
 | Modify a sysadmin's role/status, or anonymize/disable them | ✅ | ❌ | ❌ |
 | Manage clients | ✅ | ✅ | read-only |
 | Manage programs | ✅ | ✅ | read-only |
@@ -649,7 +650,7 @@ timesheets (
 | GET | /api/users/active-list | ✅ | List of all active users (id/email/firstName/lastName/role) — used by share modal and notification target picker; returns `role` so frontend can filter out admins |
 | GET | /api/users | admin | List all users |
 | GET | /api/users/:id | admin | Get user detail |
-| PATCH | /api/users/:id | admin* | Update role or status. `role` accepts `admin`/`user`/`sysadmin` (2026-09) subject to `roleChangeError()`'s two-step promotion/demotion rules. *Mutating a target already `role='sysadmin'` — any field — additionally requires the actor to be sysadmin (`sysAdminTargetError()`, live DB role) |
+| PATCH | /api/users/:id | admin* | Update role, status, or `firstName`/`lastName`/`email` (trimmed, email lower-cased; 400 `{ error, field }` on an invalid field, 409 `{ error, field: 'email' }` on a duplicate, 400 on an anonymized user; one invalid field refuses the whole request). `role` accepts `admin`/`user`/`sysadmin` (2026-09) subject to `roleChangeError()`'s two-step promotion/demotion rules. *Mutating a target already `role='sysadmin'` — any field — additionally requires the actor to be sysadmin (`sysAdminTargetError()`, live DB role) |
 | DELETE | /api/users/:id | admin* | Disable user (soft delete). *Same sysadmin-target protection as PATCH above |
 | POST | /api/users/:id/anonymize | admin* | Permanently replace personal data with anonymous values (name → "[Deleted] User", email → `anon_<uuid>@deleted.local`); clears password hash and tokens; preserves operational records. *Same sysadmin-target protection as PATCH above |
 
