@@ -178,6 +178,30 @@ describe('attribute-lists.html — Gate 3 round 1 fixes', () => {
   });
   it('an empty list has its own empty state', () => {
     expect(html).toContain('No values in this list yet.');
-    expect(html).toContain('v-else-if="!items.length"');
+    expect(html).toContain('v-else-if="!items.length && !itemsError"');
+  });
+});
+
+describe('attribute-lists.html — Gate 3 round 2 fixes', () => {
+  it('a topic action whose reload fails clears the row spinner and says the reload failed', () => {
+    const body = methodBody('topicAction');
+    expect(body).toContain('const reloaded = await this.loadTopics();');
+    expect(body).toContain('if (!reloaded) t._busy = null;');
+    expect(body).toContain("The list couldn't be reloaded. Server: ");
+  });
+  it('a created list is selected only when the lists reloaded', () => {
+    const body = methodBody('submitListForm');
+    expect(body).toContain('const reloaded = await this.loadLists();');
+    expect(body).toMatch(/if \(form\.mode === 'new' && reloaded\)/);
+  });
+  it('a failed item load never shows the empty-list state', () => {
+    expect(methodBody('loadItems')).toContain('this.itemsError = !r.ok;');
+  });
+  it('"No attribute lists yet." needs lists that actually loaded', () => {
+    expect(html).toContain('v-else-if="selection.kind === \'none\' && listsLoaded"');
+    expect(methodBody('loadLists')).toContain('this.listsLoaded = true;');
+  });
+  it('a topic action falls back to the topics search when its row is gone', () => {
+    expect(methodBody('topicAction')).toContain("document.querySelector('.al-search--topics input')");
   });
 });

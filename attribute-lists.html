@@ -97,7 +97,7 @@
         </div>
 
         <!-- No lists -->
-        <div v-else-if="selection.kind === 'none' && !loadError" class="al-card">
+        <div v-else-if="selection.kind === 'none' && listsLoaded" class="al-card">
           <div class="pd-state">
             <span class="pd-state-icon"><ph-icon name="tag" :size="24"></ph-icon></span>
             <h2 class="pd-state-title">No attribute lists yet.</h2>
@@ -198,12 +198,12 @@
               </tr>
             </tbody>
           </table>
-          <div v-else-if="!items.length" class="pd-state">
+          <div v-else-if="!items.length && !itemsError" class="pd-state">
             <span class="pd-state-icon"><ph-icon name="tag" :size="24"></ph-icon></span>
             <h2 class="pd-state-title">No values in this list yet.</h2>
             <p class="pd-state-text">Add the first value with New item. It is offered as a tag as soon as you add it.</p>
           </div>
-          <div v-else class="pd-state">
+          <div v-else-if="items.length" class="pd-state">
             <span class="pd-state-icon"><ph-icon name="search" :size="24"></ph-icon></span>
             <h2 class="pd-state-title">No items match the current filter.</h2>
             <p class="pd-state-text">{{ emptyItemsText }}</p>
@@ -598,6 +598,8 @@
           lists: [],
           items: [],
           itemsLoading: false,
+          itemsError: false,        // the shown list's items failed to load (its banner says so; no empty state)
+          listsLoaded: false,       // GET /api/attribute-lists has succeeded at least once
           itemFilters: ITEM_FILTERS,
           itemStatus: 'active',
           itemText: '',
@@ -724,7 +726,7 @@
         },
         async loadLists() {
           const r = await this.request('GET', '/api/attribute-lists');
-          if (r.ok) this.lists = r.data;
+          if (r.ok) { this.lists = r.data; this.listsLoaded = true; }
           return r.ok;
         },
         async loadTopics() {
@@ -742,6 +744,7 @@
           // The flag belongs to the list on screen: cleared for this list, or when no list is shown any more.
           if (this.selection.kind !== 'list' || this.selection.id === listId) this.itemsLoading = false;
           if (this.selection.kind !== 'list' || this.selection.id !== listId) return;
+          this.itemsError = !r.ok;
           if (r.ok) this.items = r.data.map(it => ({ ...it, _loading: false }));
           else this.setCardBanner({ kind: 'error', text: this.errorText(r) });
           return r;
@@ -759,7 +762,7 @@
           this.topicText = '';
           this.clearCardBanner();
           this.menuFor = null;
-          if (sel.kind === 'list') { this.items = []; this.loadItems(); }
+          if (sel.kind === 'list') { this.items = []; this.itemsError = false; this.loadItems(); }
         },
         onSelectKey(key) {
           const [kind, val] = key.split(':');
@@ -876,10 +879,13 @@
           form.saving = false;
           if (!r.ok) { form.error = this.errorText(r); return; }
           this._listDrawer.hide();
-          await this.loadLists();
+          // A list created on the server but missing from a failed reload cannot be selected: the page shows the
+          // load error (with Try again) instead of an empty content area.
+          const reloaded = await this.loadLists();
+          if (!reloaded) this.loadError = true;
           const name = r.data.name;
-          if (form.mode === 'new') this.select({ kind: 'list', id: r.data.id });
-          this.setCardBanner({ kind: 'success', strong: form.mode === 'new' ? 'Created "' + name + '".' : 'Renamed to "' + name + '".', text: '' });
+          if (form.mode === 'new' && reloaded) this.select({ kind: 'list', id: r.data.id });
+          if (reloaded) this.setCardBanner({ kind: 'success', strong: form.mode === 'new' ? 'Created "' + name + '".' : 'Renamed to "' + name + '".', text: '' });
         },
 
         openItemDrawer(mode, it, ev) {
@@ -925,10 +931,18 @@
           const wasProposed = t.status === 'proposed';
           t._busy = action;
           const r = await this.request('POST', '/api/topics/' + t.id + '/' + action);
-          await this.loadTopics();
+          // A successful reload replaces the row objects (spinner gone); a failed one leaves this row, so clear it.
+          const reloaded = await this.loadTopics();
+          if (!reloaded) t._busy = null;
           const show = this.isTopics;
+          // The row usually leaves the table: focus that was on it (or on a closed drawer) goes to the topics search.
+          this.$nextTick(() => {
+            const at = document.activeElement;
+            if (!at || at === document.body) document.querySelector('.al-search--topics input')?.focus();
+          });
           if (!r.ok) {
-            if (show) this.setCardBanner({ kind: 'error', strong: "Couldn't " + action + ' "' + name + '".', text: 'The list was reloaded. Server: ' + this.errorText(r) });
+            const reloadText = reloaded ? 'The list was reloaded. Server: ' : "The list couldn't be reloaded. Server: ";
+            if (show) this.setCardBanner({ kind: 'error', strong: "Couldn't " + action + ' "' + name + '".', text: reloadText + this.errorText(r) });
             return false;
           }
           if (wasProposed && action !== 'restore') this.markReviewed();
