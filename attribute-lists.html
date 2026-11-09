@@ -46,7 +46,7 @@
     <div class="md-layout">
       <nav v-if="ready" class="md-subnav" aria-label="Attribute lists and topics">
         <div class="md-subnav-list">
-          <div class="md-subnav-group">Attribute lists</div>
+          <div class="md-subnav-group"><span class="al-group-long">Attribute lists</span><span class="al-group-short">Lists</span></div>
           <button v-for="l in lists" :key="l.id" type="button" class="md-subnav-item"
                   :class="{ active: isSelected({ kind: 'list', id: l.id }) }"
                   :aria-current="isSelected({ kind: 'list', id: l.id }) ? 'page' : null"

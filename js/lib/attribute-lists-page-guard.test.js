@@ -123,3 +123,16 @@ describe('attribute-lists.html — merge', () => {
     expect(body.slice(fail, body.indexOf('\n', fail))).toMatch(/form\.error = .*return;/);
   });
 });
+
+describe('css/attribute-lists.css — responsive', () => {
+  const css = read('css/attribute-lists.css');
+  const phoneAt = css.indexOf('@media (max-width: 767.98px)');
+  it('has a tablet block', () => expect(css).toContain('@media (max-width: 1023.98px)'));
+  it('has a phone block with 44px targets', () => {
+    expect(phoneAt).toBeGreaterThan(-1);
+    const phone = css.slice(phoneAt);
+    expect(phone).toContain('44px');
+    for (const sel of ['.md-seg-btn', '.al-search input', '.al-btn-navy', '.pd-row-menu-trigger']) expect(phone).toContain(sel);
+  });
+  it('the tablet chips show the short group labels', () => expect(html).toContain('al-group-short'));
+});

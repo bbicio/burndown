@@ -162,3 +162,42 @@ button.md-subnav-item:focus-visible { outline: 2px solid var(--brand-navy); outl
 .al-danger-text { color: var(--color-danger-text); }
 .al-confirm-strong { font-weight: var(--weight-semibold); color: var(--brand-navy); }
 #mergeDrawer .pd-combo { width: 100%; }
+
+/* ── Responsive ── */
+.al-group-short { display: none; }
+@media (max-width: 1023.98px) {
+  /* tablet chips: the group labels come back, short, inline in the row */
+  .md-subnav .md-subnav-group { display: inline-flex; align-items: center; padding: 0 var(--space-2) 0 var(--space-3); white-space: nowrap; }
+  .md-subnav-list > .md-subnav-group:first-child { padding-left: 0; }
+  .al-group-long { display: none; }
+  .al-group-short { display: inline; }
+  .al-btn-navy, .al-btn-outline, .al-link-btn, .md-seg-btn, .al-search input, .ph-btn-primary { height: 40px; }
+  .pd-row-menu-trigger { width: 40px; height: 40px; }
+  .al-list-desc { display: none; }
+  .al-table th, .al-table td { padding-left: var(--space-4); padding-right: var(--space-4); }
+  .al-col-status { width: 120px; }
+  .al-col-used { width: 22%; }
+  .al-strip-help { display: none; }
+}
+@media (max-width: 767.98px) {
+  .al-primary { width: 44px; min-width: 44px; padding: 0; justify-content: center; position: absolute; top: var(--space-3); right: var(--space-4); }
+  .al-primary-text { display: none; }
+  .md-seg { display: flex; width: 100%; }
+  .md-seg-btn { flex: 1 1 0; }
+  .al-btn-navy, .al-btn-outline, .al-link-btn, .md-seg-btn, .al-search input, .ph-btn-primary, .pd-combo-input { height: 44px; }
+  .pd-row-menu-trigger { width: 44px; height: 44px; }
+  .al-card-head, .al-toolbar, .al-topics-head, .al-strip, .al-note { padding-left: var(--space-4); padding-right: var(--space-4); }
+  .al-banner-wrap { padding: 0 var(--space-4) var(--space-3); }
+  .al-list-head { flex-wrap: wrap; }
+  .al-slug-row--head { display: none; }
+  .al-slug-row--foot { display: flex; margin: 0; padding: var(--space-3) var(--space-4) 0; }
+  .al-search { flex: 1 1 0; }
+  .al-search--topics { flex: 1 1 100%; margin-left: 0; }
+  /* rows: label and ⋯ only; the filter already says which status is shown */
+  .al-table thead, .al-col-status, .al-col-used { display: none; }
+  .al-table td { height: auto; min-height: 56px; padding-top: var(--space-3); padding-bottom: var(--space-3); }
+  .al-used-inline { display: block; }
+  .al-col-topic-actions { width: auto; }
+  .al-strip { flex-wrap: nowrap; gap: var(--space-3); }
+  .al-strip-progress { flex: 1 1 auto; max-width: none; }
+}
