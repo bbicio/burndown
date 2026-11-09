@@ -136,3 +136,9 @@ describe('css/attribute-lists.css — responsive', () => {
   });
   it('the tablet chips show the short group labels', () => expect(html).toContain('al-group-short'));
 });
+
+describe('css/attribute-lists.css — focus', () => {
+  it('a title focused by script (tabindex -1) draws no outline', () => {
+    expect(read('css/attribute-lists.css')).toContain('.pd-confirm-title[tabindex="-1"]:focus');
+  });
+});

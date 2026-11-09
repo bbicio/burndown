@@ -201,3 +201,6 @@ button.md-subnav-item:focus-visible { outline: 2px solid var(--brand-navy); outl
   .al-strip { flex-wrap: nowrap; gap: var(--space-3); }
   .al-strip-progress { flex: 1 1 auto; max-width: none; }
 }
+
+/* titles that receive focus on open (confirm, merge drawer) are not interactive: no focus ring */
+.pd-confirm-title[tabindex="-1"]:focus, .pd-drawer-title[tabindex="-1"]:focus { outline: none; }
