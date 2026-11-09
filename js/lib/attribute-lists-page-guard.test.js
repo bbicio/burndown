@@ -142,3 +142,42 @@ describe('css/attribute-lists.css — focus', () => {
     expect(read('css/attribute-lists.css')).toContain('.pd-confirm-title[tabindex="-1"]:focus');
   });
 });
+
+// Body of a Vue method written as `name(args) {` / `async name(args) {`.
+const methodBody = name => {
+  const m = new RegExp('\\n\\s+(?:async\\s+)?' + name + '\\([^)]*\\)\\s*\\{').exec(html);
+  if (!m) return null;
+  let depth = 0;
+  for (let i = m.index + m[0].length - 1; i < html.length; i++) {
+    if (html[i] === '{') depth++;
+    else if (html[i] === '}' && --depth === 0) return html.slice(m.index, i + 1);
+  }
+  return null;
+};
+
+describe('attribute-lists.html — Gate 3 round 1 fixes', () => {
+  it('loadItems judges a stale response by list id, not by object identity', () => {
+    const body = methodBody('loadItems');
+    expect(body).not.toContain('this.currentList !== list');
+    expect(body).toMatch(/this\.selection\.id !== listId/);
+  });
+  it('loadItems clears the loading flag before dropping a stale response', () => {
+    const body = methodBody('loadItems');
+    const stale = body.indexOf('this.selection.id !== listId');
+    expect(body.lastIndexOf('this.itemsLoading = false', stale)).toBeGreaterThan(-1);
+  });
+  it('the status count adjustment uses the status captured before the PATCH', () => {
+    expect(methodBody('applyItemStatus')).toMatch(/^\s*\n?\s*applyItemStatus\(listId, itemId, status, was\)/);
+    expect(methodBody('setItemStatus')).toContain('const was = it.status;');
+  });
+  it('Try again loads the items once (select() already does)', () => {
+    expect(methodBody('retryLoad')).not.toContain('loadItems');
+  });
+  it('a successful merge gives focus to the topics search, not to a removed row', () => {
+    expect(methodBody('submitMerge')).toContain('this._mergeDrawer.opener = ');
+  });
+  it('an empty list has its own empty state', () => {
+    expect(html).toContain('No values in this list yet.');
+    expect(html).toContain('v-else-if="!items.length"');
+  });
+});

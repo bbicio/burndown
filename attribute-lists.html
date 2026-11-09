@@ -198,6 +198,11 @@
               </tr>
             </tbody>
           </table>
+          <div v-else-if="!items.length" class="pd-state">
+            <span class="pd-state-icon"><ph-icon name="tag" :size="24"></ph-icon></span>
+            <h2 class="pd-state-title">No values in this list yet.</h2>
+            <p class="pd-state-text">Add the first value with New item. It is offered as a tag as soon as you add it.</p>
+          </div>
           <div v-else class="pd-state">
             <span class="pd-state-icon"><ph-icon name="search" :size="24"></ph-icon></span>
             <h2 class="pd-state-title">No items match the current filter.</h2>
@@ -708,12 +713,13 @@
           if (!keep) {
             if (this.lists.length) this.select({ kind: 'list', id: this.lists[0].id });
             else this.selection = { kind: 'none' };
+          } else if (this.currentList) {
+            await this.loadItems();   // select() was not called: reload the shown list's items once
           }
         },
         async retryLoad() {
           this.retrying = true;
           await this.loadAll();
-          if (this.currentList) await this.loadItems();
           this.retrying = false;
         },
         async loadLists() {
@@ -726,13 +732,16 @@
           if (r.ok) this.topics = r.data.map(t => ({ ...t, _busy: null }));
           return r.ok;
         },
+        // A response is stale when another list (by id) has been selected meanwhile; reloading the lists replaces
+        // their objects, so identity would drop a valid response.
         async loadItems() {
-          const list = this.currentList;
-          if (!list) return;
+          if (!this.currentList) return;
+          const listId = this.currentList.id;
           this.itemsLoading = !this.items.length;
-          const r = await this.request('GET', `/api/attribute-lists/${list.id}/items`);
-          if (this.currentList !== list) return;
-          this.itemsLoading = false;
+          const r = await this.request('GET', `/api/attribute-lists/${listId}/items`);
+          // The flag belongs to the list on screen: cleared for this list, or when no list is shown any more.
+          if (this.selection.kind !== 'list' || this.selection.id === listId) this.itemsLoading = false;
+          if (this.selection.kind !== 'list' || this.selection.id !== listId) return;
           if (r.ok) this.items = r.data.map(it => ({ ...it, _loading: false }));
           else this.setCardBanner({ kind: 'error', text: this.errorText(r) });
           return r;
@@ -798,6 +807,7 @@
           const listId = this.currentList.id;
           const itemId = it.id;
           const label = it.label;
+          const was = it.status;
           it._loading = true;
           const r = await this.request('PATCH', '/api/attribute-lists/' + listId + '/items/' + itemId, { status });
           it._loading = false;
@@ -806,17 +816,17 @@
             if (here) this.setCardBanner({ kind: 'error', text: this.errorText(r) });
             return;
           }
-          this.applyItemStatus(listId, itemId, r.data.status);
+          this.applyItemStatus(listId, itemId, r.data.status, was);
           if (!here) return;
           this.setCardBanner(status === 'inactive'
             ? { kind: 'success', strong: 'Deactivated "' + label + '".', text: "It's no longer offered when tagging. Existing tags stay.", undo: { listId, itemId, status: 'active' } }
             : { kind: 'success', strong: 'Activated "' + label + '".', text: "It's offered again when tagging.", undo: { listId, itemId, status: 'inactive' } });
         },
-        // Applies a confirmed status to the row (if its list is still shown) and to the list's active count.
-        applyItemStatus(listId, itemId, status) {
+        // Applies a confirmed status to the row (if its list is still shown) and to the list's active count. `was` is
+        // the status captured before the PATCH: the row may have been reloaded with the new status meanwhile.
+        applyItemStatus(listId, itemId, status, was) {
           const list = this.lists.find(l => l.id === listId);
           const row = this.selection.kind === 'list' && this.selection.id === listId ? this.items.find(x => x.id === itemId) : null;
-          const was = row ? row.status : (status === 'active' ? 'inactive' : 'active');
           if (row) row.status = status;
           if (list && was !== status) list.active_item_count = (list.active_item_count || 0) + (status === 'active' ? 1 : -1);
         },
@@ -825,6 +835,7 @@
           const u = this.cardBanner && this.cardBanner.undo;
           if (!u) return;
           const row = this.items.find(x => x.id === u.itemId);
+          const was = u.status === 'active' ? 'inactive' : 'active';
           this.undoing = true;
           if (row) row._loading = true;
           const r = await this.request('PATCH', '/api/attribute-lists/' + u.listId + '/items/' + u.itemId, { status: u.status });
@@ -832,7 +843,7 @@
           this.undoing = false;
           const here = this.selection.kind === 'list' && this.selection.id === u.listId;
           if (!r.ok) { if (here) this.setCardBanner({ kind: 'error', text: this.errorText(r) }); return; }
-          this.applyItemStatus(u.listId, u.itemId, r.data.status);
+          this.applyItemStatus(u.listId, u.itemId, r.data.status, was);
           if (this.cardBanner && this.cardBanner.undo === u) this.clearCardBanner();
         },
 
@@ -986,6 +997,8 @@
           const r = await this.request('POST', '/api/topics/' + source.id + '/merge', { targetId });
           form.saving = false;
           if (!r.ok) { form.error = this.errorText(r); return; }
+          // The source row (and its ⋯ opener) disappears with the reload: focus goes to the topics search instead.
+          this._mergeDrawer.opener = document.querySelector('.al-search--topics input');
           this.closeMerge();
           await this.loadTopics();
           if (wasProposed) this.markReviewed();
