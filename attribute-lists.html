@@ -908,7 +908,9 @@
           const list = this.lists.find(l => l.id === form.listId);
           if (form.mode === 'new' && list) list.active_item_count = (list.active_item_count || 0) + 1;
           if (!(this.selection.kind === 'list' && this.selection.id === form.listId)) return;
-          await this.loadItems();
+          // A failed reload has already put its error in the card: no success banner over a stale table.
+          const reloaded = await this.loadItems();
+          if (!reloaded || !reloaded.ok) return;
           this.setCardBanner({ kind: 'success', strong: (form.mode === 'new' ? 'Added "' : 'Saved "') + r.data.label + '".', text: '' });
         },
 
@@ -967,8 +969,13 @@
           form.saving = false;
           if (!r.ok) { form.error = this.errorText(r); return; }
           this._topicDrawer.hide();
-          await this.loadTopics();
+          const reloaded = await this.loadTopics();
           const name = r.data && r.data.name ? r.data.name : form.name.trim();
+          if (!reloaded) {
+            const done = form.mode === 'new' ? 'Created "' + name + '"' : 'Renamed to "' + name + '"';
+            if (this.isTopics) this.setCardBanner({ kind: 'error', strong: done + ", but the topics couldn't be reloaded.", text: 'Reload the page to see the change.' });
+            return;
+          }
           if (form.mode === 'new') {
             this.select({ kind: 'topics', status: 'approved' });
             this.setCardBanner({ kind: 'success', strong: 'Created "' + name + '".', text: "It's approved and in the agent's vocabulary." });
@@ -1014,9 +1021,14 @@
           // The source row (and its ⋯ opener) disappears with the reload: focus goes to the topics search instead.
           this._mergeDrawer.opener = document.querySelector('.al-search--topics input');
           this.closeMerge();
-          await this.loadTopics();
+          const reloaded = await this.loadTopics();
           if (wasProposed) this.markReviewed();
           if (!this.isTopics) return;
+          // The merge happened, but the table and the target's count are stale: say so rather than quote them.
+          if (!reloaded) {
+            this.setCardBanner({ kind: 'error', strong: 'Merged "' + source.name + '" into "' + targetName + '", but the topics couldn\'t be reloaded.', text: 'Reload the page to see the change.' });
+            return;
+          }
           const target = this.topics.find(t => t.id === targetId);
           const n = target ? target.usage_count : 0;
           this.setCardBanner({ kind: 'success', strong: 'Merged "' + source.name + '" into "' + targetName + '".', text: '"' + targetName + '" is now used in ' + window.descriptionsText(n) + '.' });

@@ -201,6 +201,21 @@ describe('attribute-lists.html — Gate 3 round 2 fixes', () => {
     expect(html).toContain('v-else-if="selection.kind === \'none\' && listsLoaded"');
     expect(methodBody('loadLists')).toContain('this.listsLoaded = true;');
   });
+  it('a merge whose reload fails reports it instead of a stale success banner', () => {
+    const body = methodBody('submitMerge');
+    expect(body).toContain('const reloaded = await this.loadTopics();');
+    expect(body).toMatch(/if \(!reloaded\) \{[^}]*setCardBanner\(\{ kind: 'error'/);
+  });
+  it('a topic form whose reload fails reports it instead of a success banner', () => {
+    const body = methodBody('submitTopicForm');
+    expect(body).toContain('const reloaded = await this.loadTopics();');
+    expect(body).toMatch(/if \(!reloaded\) \{[^}]*setCardBanner\(\{ kind: 'error'/);
+  });
+  it('an item form whose reload fails keeps the load error instead of a success banner', () => {
+    const body = methodBody('submitItemForm');
+    expect(body).toContain('const reloaded = await this.loadItems();');
+    expect(body).toMatch(/if \(!reloaded \|\| !reloaded\.ok\) return;/);
+  });
   it('a topic action falls back to the topics search when its row is gone', () => {
     expect(methodBody('topicAction')).toContain("document.querySelector('.al-search--topics input')");
   });
