@@ -124,7 +124,7 @@ HTML pages               — the Pages table above is the page index: route, one
                             js/lib/test-cases-parse.js. Hence TEST_CASES.md counts as code for
                             scripts/classify-cycle.mjs.
 css/                     — stylesheets: tokens.css (design tokens, also `[v-cloak]`), style.css (components
-                            + navigation), controls.css, admin-crud.css, auth.css, pipeline.css, costgrid.css, portfolio.css, project-config.css, planning.css, attribute-lists.css. Detail:
+                            + navigation), controls.css, admin-crud.css, auth.css, pipeline.css, costgrid.css, portfolio.css, project-config.css, planning.css, team.css, attribute-lists.css. Detail:
                             [docs/css/stylesheets.md](docs/css/stylesheets.md). App-wide rules stay in "Design
                             tokens" and "Cache-busting" below.
 js/api.js                — Api.* namespace + apiFetch wrapper (401 → login redirect; parsed error body attached
