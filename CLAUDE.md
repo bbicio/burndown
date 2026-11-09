@@ -227,10 +227,10 @@ Navigation is URL-based — clicking a nav tab changes `window.location.href`. E
 
 Each page calls `initNav(activeTab)` from `nav.js` which:
 1. Injects the shared navigation (one `<aside class="pd-nav">`: a left sidebar at ≥ 1024px, a two-row icon navbar below; no footer — see [docs/js/nav.md](docs/js/nav.md) → "Current state")
-2. Injects the change-password modal, send-notification modal, and "My Profile" modal HTML (centralised — do NOT duplicate in page HTML)
+2. Injects the send-notification modal HTML (centralised — do NOT duplicate in page HTML); My Profile and Change password are links to `/profile.html`
 3. Calls `GET /api/auth/me` — redirects to `/login.html` on 401; redirects to `/terms.html` if `user.terms_version < user.current_terms_version`
 4. Stores the user object in `window.__navUser`
-5. Wires all navbar events (account dropdown, Privacy Notice link to `/privacy-notice.html`, change password, notifications)
+5. Wires all navbar events (account dropdown, Privacy Notice link to `/privacy-notice.html`, notifications)
 6. Calls `initNotifications(user)` from `notifications.js`
 7. Returns the user object
 
