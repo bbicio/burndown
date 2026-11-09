@@ -1,0 +1,63 @@
+/* attribute-lists.html only (Attribute Lists redesign, 2026-11-09). Shared components live in style.css (pd-, md-).
+   Tokens only. */
+
+.offcanvas-backdrop, .modal-backdrop { --bs-backdrop-bg: var(--overlay-scrim); --bs-backdrop-opacity: 1; }
+.ph-actions .ph-btn-primary { gap: var(--space-2); }
+
+/* ── Buttons ── */
+.al-btn-navy {
+  display: inline-flex; align-items: center; gap: var(--space-2); height: 36px; padding: 0 var(--space-4); border: 0;
+  border-radius: var(--radius-md); background: var(--brand-navy); color: var(--text-inverse);
+  font-size: var(--text-sm); font-weight: var(--weight-semibold); text-decoration: none; white-space: nowrap; cursor: pointer;
+}
+.al-btn-navy:hover:not(:disabled) { color: var(--text-inverse); opacity: .9; }
+.al-btn-navy:disabled { background: var(--surface-subtle); color: var(--text-muted); cursor: not-allowed; }
+.al-btn-navy:focus-visible { outline: 2px solid var(--brand-magenta); outline-offset: 2px; }
+.al-btn-outline {
+  display: inline-flex; align-items: center; gap: var(--space-2); height: 36px; padding: 0 var(--space-4);
+  border: 1px solid var(--border-dark); border-radius: var(--radius-md); background: var(--surface-white);
+  color: var(--brand-navy); font-size: var(--text-sm); font-weight: var(--weight-semibold); white-space: nowrap; cursor: pointer;
+}
+.al-btn-outline:hover:not(:disabled) { border-color: var(--brand-navy); }
+.al-btn-outline:disabled { color: var(--text-disabled); border-color: var(--border-light); cursor: not-allowed; }
+.al-btn-outline:focus-visible { outline: 2px solid var(--brand-navy); outline-offset: 1px; }
+.al-link-btn {
+  border: 0; background: transparent; padding: 0 var(--space-2); height: 36px; color: var(--brand-navy);
+  font-size: var(--text-sm); font-weight: var(--weight-semibold); cursor: pointer;
+}
+.al-link-btn:hover { text-decoration: underline; }
+.al-link-btn:focus-visible { outline: 2px solid var(--brand-navy); outline-offset: 1px; border-radius: var(--radius-sm); }
+/* the action inside a banner (Try again, Undo, View rejected) */
+.al-banner-action {
+  flex: none; border: 0; background: transparent; padding: 0; color: inherit;
+  font-weight: var(--weight-bold); text-decoration: underline; cursor: pointer;
+}
+.al-banner-action:disabled { opacity: .6; cursor: progress; }
+.al-banner-action:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: var(--radius-sm); }
+
+/* ── Sub-navigation (Vue-rendered, Master Data markup with buttons instead of links) ── */
+button.md-subnav-item { width: 100%; background: transparent; text-align: left; cursor: pointer; }
+button.md-subnav-item:focus-visible { outline: 2px solid var(--brand-navy); outline-offset: -2px; }
+.al-subnav-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.al-subnav-count { flex: none; margin-left: var(--space-2); font-size: 11px; font-weight: var(--weight-medium); color: var(--text-muted); }
+.al-subnav-badge {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 20px; height: 20px;
+  margin-left: var(--space-2); padding: 0 6px; border-radius: var(--radius-full);
+  background: var(--brand-magenta-tint); color: var(--brand-magenta-active);
+  font-size: 11px; font-weight: var(--weight-bold);
+}
+.md-subnav-select .al-subnav-badge { margin-left: auto; }
+.md-subnav-select .al-subnav-badge + .md-subnav-select-chevron { margin-left: var(--space-2); }
+
+/* ── Content card ── */
+.al-card { background: var(--surface-white); border: 1px solid var(--border-light); border-radius: var(--radius-lg); }
+.al-denied { max-width: 440px; margin: 80px auto; }
+.al-card-head { padding: var(--space-4) var(--space-5); }
+.al-eyebrow { font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
+.al-title { margin: var(--space-1) 0 0; font-size: 19px; font-weight: var(--weight-bold); color: var(--brand-navy); }
+.al-note {
+  display: flex; align-items: flex-start; gap: var(--space-2); margin: 0; padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--border-light); font-size: 12px; color: var(--text-muted);
+}
+.al-note > .pd-icon { flex: none; margin-top: 2px; }
+.al-note strong { color: var(--brand-navy); }

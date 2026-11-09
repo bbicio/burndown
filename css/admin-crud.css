@@ -11,8 +11,6 @@
 .table tbody td { padding: 0.85rem 1rem; vertical-align: middle; border-bottom: 1px solid var(--border-light); }
 .table tbody tr:last-child td { border-bottom: none; }
 .table tbody tr:hover td { background: var(--surface-light); }
-.badge-st-active   { background: var(--status-started-soft-bg); color: var(--status-started-soft-text); font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
-.badge-st-inactive { background: var(--status-not-started-soft-bg); color: var(--status-not-started-soft-text); font-size: 0.75rem; padding: 0.25rem 0.6rem; border-radius: 999px; font-weight: 600; }
 .btn-primary { background: var(--brand-magenta); border: none; color: var(--text-inverse); font-weight: 600; font-size: 0.875rem; }
 .btn-primary:hover:not(:disabled) { background: var(--brand-magenta-hover); color: var(--text-inverse); }
 .btn-primary:disabled { opacity: 0.65; color: var(--text-inverse); }

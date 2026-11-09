@@ -8,11 +8,8 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="css/tokens.css?v=14">
   <link rel="stylesheet" href="css/style.css?v=37">
-  <link rel="stylesheet" href="css/admin-crud.css?v=5">
-  <style>
-    #attrListsTable tbody tr:hover td { cursor: pointer; }
-    .slug-code { font-size: .78rem; color: #9ca3af; }
-  </style>
+  <link rel="stylesheet" href="css/admin-crud.css?v=6">
+  <link rel="stylesheet" href="css/attribute-lists.css?v=1">
 </head>
 <body>
 
@@ -22,184 +19,106 @@
 
   <div id="app" v-cloak>
 
-    <template v-if="ready">
+    <!-- ── ACCESS DENIED ───────────────────────────────────── -->
+    <div v-if="accessDenied" class="al-card al-denied">
+      <div class="pd-state">
+        <span class="pd-state-icon"><ph-icon name="lock" :size="24"></ph-icon></span>
+        <h2 class="pd-state-title">Admin access required</h2>
+        <p class="pd-state-text">Attribute lists and topics are managed by admins and sysadmins. Ask an admin if you need access.</p>
+        <a href="/" class="al-btn-navy mt-2">Go to app</a>
+      </div>
+    </div>
 
-    <div class="ph" v-if="!currentList && pageTab === 'lists'">
+    <!-- ── PAGE ──────────────────────────────────────────── -->
+    <template v-else-if="authed">
+    <div class="ph">
       <div class="ph-main">
         <div class="ph-title-row"><h1 class="ph-title">Attribute Lists</h1></div>
-        <div class="ph-sub">{{ lists.length }} {{ lists.length === 1 ? 'list' : 'lists' }}</div>
+        <div class="ph-sub">Values to tag proposals and projects, and topics for experience profiles</div>
       </div>
       <div class="ph-side"><div class="ph-actions">
-        <button class="ph-btn-primary" @click="openNewList">+ New list</button>
-      </div></div>
-    </div>
-    <div class="ph" v-if="!currentList && pageTab === 'topics'">
-      <div class="ph-main">
-        <div class="ph-title-row"><h1 class="ph-title">Topics</h1></div>
-        <div class="ph-sub">Competences extracted from project descriptions</div>
-      </div>
-      <div class="ph-side"><div class="ph-actions">
-        <button class="ph-btn-primary" @click="openNewTopic">+ New topic</button>
-      </div></div>
-    </div>
-    <div class="ph" v-if="currentList">
-      <div class="ph-main">
-        <a href="#" class="ph-back" @click.prevent="backToLists"><ph-icon name="chevron-left" :size="12"></ph-icon><span>All lists</span></a>
-        <div class="ph-title-row"><h1 class="ph-title">{{ currentList.name }}</h1></div>
-        <div class="ph-sub">{{ currentList.slug }}</div>
-      </div>
-      <div class="ph-side"><div class="ph-actions">
-        <button class="ph-btn-primary" @click="openNewItem">+ New item</button>
+        <button class="ph-btn-primary al-primary" :aria-label="primaryLabel" @click="onPrimary">
+          <ph-icon name="plus" :size="14"></ph-icon><span class="al-primary-text">{{ primaryLabel }}</span>
+        </button>
       </div></div>
     </div>
 
-    <div class="page app-container">
-
-      <ul class="nav nav-tabs mb-3" v-if="!currentList">
-        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: pageTab === 'lists' }" @click="pageTab = 'lists'">Lists</button></li>
-        <li class="nav-item"><button type="button" class="nav-link" :class="{ active: pageTab === 'topics' }" @click="openTopicsTab">
-          Topics <span v-if="proposedTopics.length" class="badge text-bg-warning ms-1">{{ proposedTopics.length }}</span></button></li>
-      </ul>
-
-      <!-- ── LIST-OF-LISTS VIEW ────────────────────────────── -->
-      <template v-if="!currentList && pageTab === 'lists'">
-        <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
-
-        <div class="card">
-          <div class="card-body">
-            <table id="attrListsTable" class="table table-hover" v-if="lists.length">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Slug</th>
-                  <th>Active items</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="l in lists" :key="l.id" @click="openList(l)">
-                  <td class="fw-semibold">{{ l.name }}</td>
-                  <td class="slug-code">{{ l.slug }}</td>
-                  <td>{{ l.active_item_count }}</td>
-                  <td class="text-end" @click.stop>
-                    <button class="btn btn-outline-secondary btn-action" @click="openRenameList(l)">Rename</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <div class="empty" v-else>No attribute lists yet.</div>
-          </div>
+    <div class="md-layout">
+      <nav v-if="ready" class="md-subnav" aria-label="Attribute lists and topics">
+        <div class="md-subnav-list">
+          <div class="md-subnav-group">Attribute lists</div>
+          <button v-for="l in lists" :key="l.id" type="button" class="md-subnav-item"
+                  :class="{ active: isSelected({ kind: 'list', id: l.id }) }"
+                  :aria-current="isSelected({ kind: 'list', id: l.id }) ? 'page' : null"
+                  @click="select({ kind: 'list', id: l.id })">
+            <span class="al-subnav-label">{{ l.name }}</span><span class="al-subnav-count">{{ l.active_item_count }}</span>
+          </button>
+          <div class="md-subnav-group">Topics</div>
+          <button v-for="s in topicStates" :key="s.status" type="button" class="md-subnav-item"
+                  :class="{ active: isSelected({ kind: 'topics', status: s.status }) }"
+                  :aria-current="isSelected({ kind: 'topics', status: s.status }) ? 'page' : null"
+                  @click="select({ kind: 'topics', status: s.status })">
+            <span class="al-subnav-label">{{ s.label }}</span>
+            <span v-if="s.status === 'proposed' && counts.proposed > 0" class="al-subnav-badge">{{ counts.proposed }}</span>
+            <span v-else class="al-subnav-count">{{ counts[s.status] }}</span>
+          </button>
         </div>
-      </template>
+        <div class="md-subnav-select">
+          <span class="md-subnav-select-group">{{ isTopics ? 'Topics' : 'List' }}</span>
+          <span class="md-subnav-select-label">{{ selectionLabel }}</span>
+          <span v-if="isTopics && selection.status === 'proposed' && counts.proposed > 0" class="al-subnav-badge">{{ counts.proposed }}</span>
+          <ph-icon class="md-subnav-select-chevron" name="chevron-down" :size="16"></ph-icon>
+          <select class="md-subnav-select-input" aria-label="Attribute lists and topics section" :value="selectionKey" @change="onSelectKey($event.target.value)">
+            <optgroup label="Attribute lists">
+              <option v-for="l in lists" :key="l.id" :value="'list:' + l.id">{{ l.name }} ({{ l.active_item_count }})</option>
+            </optgroup>
+            <optgroup label="Topics">
+              <option v-for="s in topicStates" :key="s.status" :value="'topics:' + s.status">{{ s.label }} ({{ counts[s.status] }})</option>
+            </optgroup>
+          </select>
+        </div>
+      </nav>
 
-      <!-- ── TOPICS TAB ────────────────────────────────────── -->
-      <template v-if="!currentList && pageTab === 'topics'">
-        <div v-if="topicsError" class="alert alert-danger alert-sm mb-3">{{ topicsError }}</div>
+      <div class="md-content">
+        <!-- Page load error -->
+        <div v-if="loadError" class="pd-banner pd-banner--error" role="alert">
+          <ph-icon name="warning" :size="16"></ph-icon>
+          <div class="pd-banner-body"><strong>Couldn't load attribute lists.</strong> The server didn't respond. Your data is safe.</div>
+          <button type="button" class="al-banner-action" :disabled="retrying" @click="retryLoad">Try again</button>
+          <button type="button" class="pd-banner-close" aria-label="Dismiss" @click="loadError = false"><ph-icon name="close" :size="14"></ph-icon></button>
+        </div>
 
-        <div class="card mb-3" v-if="proposedTopics.length">
-          <div class="card-body">
-            <h6 class="mb-2">Proposed <span class="text-muted fw-normal">— not shown in profiles until approved</span></h6>
-            <table class="table table-hover">
-              <thead><tr><th>Name</th><th class="text-end">Used in</th><th></th></tr></thead>
-              <tbody>
-                <tr v-for="t in proposedTopics" :key="t.id">
-                  <td class="fw-semibold">{{ t.name }}</td>
-                  <td class="text-end text-muted">{{ t.usage_count }} description{{ t.usage_count === 1 ? '' : 's' }}</td>
-                  <td class="text-end" style="white-space:nowrap">
-                    <button class="btn btn-outline-primary btn-action me-1" :disabled="t._loading" @click="topicAction(t, 'approve')">Approve</button>
-                    <button class="btn btn-outline-secondary btn-action me-1" :disabled="t._loading" @click="openRenameTopic(t)">Rename</button>
-                    <button class="btn btn-outline-secondary btn-action me-1" :disabled="t._loading" @click="openMergeTopic(t)">Merge into…</button>
-                    <button class="btn btn-outline-danger btn-action" :disabled="t._loading" @click="topicAction(t, 'reject')">Reject</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+        <!-- Loading -->
+        <div v-if="!ready" class="al-card">
+          <div class="pd-state">
+            <div class="spinner-border" role="presentation"></div>
+            <p class="pd-state-text">Loading attribute lists…</p>
           </div>
         </div>
 
-        <div class="card mb-3">
-          <div class="card-body">
-            <h6 class="mb-2">Approved</h6>
-            <table class="table table-hover" v-if="approvedTopics.length">
-              <thead><tr><th>Name</th><th class="text-end">Used in</th><th></th></tr></thead>
-              <tbody>
-                <tr v-for="t in approvedTopics" :key="t.id">
-                  <td class="fw-semibold">{{ t.name }}</td>
-                  <td class="text-end text-muted">{{ t.usage_count }} description{{ t.usage_count === 1 ? '' : 's' }}</td>
-                  <td class="text-end" style="white-space:nowrap">
-                    <button class="btn btn-outline-secondary btn-action me-1" :disabled="t._loading" @click="openRenameTopic(t)">Rename</button>
-                    <button class="btn btn-outline-secondary btn-action me-1" :disabled="t._loading" @click="openMergeTopic(t)">Merge into…</button>
-                    <button class="btn btn-outline-danger btn-action" :disabled="t._loading" @click="topicAction(t, 'reject')">Reject</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <div class="empty" v-else>No approved topics yet.</div>
+        <!-- No lists -->
+        <div v-else-if="selection.kind === 'none' && !loadError" class="al-card">
+          <div class="pd-state">
+            <span class="pd-state-icon"><ph-icon name="tag" :size="24"></ph-icon></span>
+            <h2 class="pd-state-title">No attribute lists yet.</h2>
+            <p class="pd-state-text">A list is a set of values, like Market or Brand, used to tag proposals and projects.</p>
+            <button type="button" class="al-btn-outline mt-2" @click="openNewList">Create the first list</button>
           </div>
+          <p class="al-note"><ph-icon name="info" :size="14"></ph-icon><span>Values are offered as Tags in Cost Grid and Project config, and each list is a dimension of experience profiles in Team.</span></p>
         </div>
 
-        <details class="mb-4" v-if="rejectedTopics.length">
-          <summary class="text-muted">Rejected ({{ rejectedTopics.length }}) — never proposed again</summary>
-          <table class="table table-sm mt-2">
-            <tbody>
-              <tr v-for="t in rejectedTopics" :key="t.id">
-                <td>{{ t.name }}</td>
-                <td class="text-end"><button class="btn btn-outline-secondary btn-action" :disabled="t._loading" @click="topicAction(t, 'restore')">Restore</button></td>
-              </tr>
-            </tbody>
-          </table>
-        </details>
-      </template>
-
-      <!-- ── LIST DRILL-IN VIEW ───────────────────────────── -->
-      <template v-else-if="currentList">
-        <div v-if="globalError" class="alert alert-danger alert-sm mb-3">{{ globalError }}</div>
-
-        <div class="form-check mb-3">
-          <input class="form-check-input" type="checkbox" id="showInactiveItems" v-model="showInactiveItems">
-          <label class="form-check-label" for="showInactiveItems" style="font-size:.85rem">Show inactive</label>
+        <!-- A list -->
+        <div v-else-if="currentList" class="al-card">
+          <div class="al-card-head"><div class="al-eyebrow">ATTRIBUTE LIST</div><h2 class="al-title">{{ currentList.name }}</h2></div>
         </div>
 
-        <div class="card">
-          <div class="card-body">
-            <table class="table table-hover" v-if="filteredItems.length">
-              <thead>
-                <tr>
-                  <th>Label</th>
-                  <th>Status</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="it in filteredItems" :key="it.id">
-                  <td>{{ it.label }}</td>
-                  <td><span :class="'badge-st-' + it.status">{{ it.status }}</span></td>
-                  <td class="text-end" style="white-space:nowrap">
-                    <button class="btn btn-outline-secondary btn-action me-1" :disabled="!!it._loading" @click="openEditItem(it)">Edit</button>
-                    <button class="btn btn-outline-secondary btn-action" :disabled="!!it._loading" @click="toggleItemStatus(it)">
-                      {{ it.status === 'active' ? 'Deactivate' : 'Activate' }}
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-            <div class="empty" v-else>No items match the current filter.</div>
-          </div>
+        <!-- Topics -->
+        <div v-else-if="isTopics" class="al-card">
+          <div class="al-card-head"><h2 class="al-title">{{ selectionLabel }} topics</h2></div>
         </div>
-      </template>
+      </div>
     </div>
     </template>
-
-    <div v-else-if="!accessDenied" class="d-flex align-items-center justify-content-center" style="height:60vh">
-      <div class="spinner-border text-secondary"></div>
-    </div>
-    <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
-      <div class="text-center text-muted">
-        <div style="font-size:2rem">🔒</div>
-        <p class="mt-2">Admin access required.</p>
-        <a href="/" class="btn btn-outline-secondary btn-sm">Go to app</a>
-      </div>
-    </div>
 
     <!-- ── NEW/RENAME LIST MODAL ────────────────────────────── -->
     <div class="modal fade" id="listModal" tabindex="-1">
@@ -300,6 +219,7 @@
 
   <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script type="module" src="js/lib/attribute-lists-ui.js?v=1"></script>
   <script defer src="js/api.js?v=13"></script>
   <script defer src="js/core.js?v=16"></script>
   <script type="module" src="js/lib/notif-browser.js?v=2"></script>
@@ -307,37 +227,50 @@
   <script type="module" src="js/lib/icons.js?v=7"></script>
   <script defer src="js/nav.js?v=22"></script>
   <script type="module">
+    const TOPIC_STATES = [
+      { status: 'proposed', label: 'Proposed' },
+      { status: 'approved', label: 'Approved' },
+      { status: 'rejected', label: 'Rejected' },
+    ];
+
     Vue.createApp({
       data() {
         return {
+          authed: false,
           ready: false,
           accessDenied: false,
+          loadError: false,
+          retrying: false,
           me: {},
           lists: [],
-          currentList: null,
           items: [],
-          showInactiveItems: false,
-          globalError: null,
+          topics: [],
+          topicStates: TOPIC_STATES,
+          selection: { kind: 'none' },   // { kind: 'list', id } | { kind: 'topics', status } | { kind: 'none' }
           listForm: { id: null, name: '', loading: false, error: null },
           itemForm: { id: null, label: '', loading: false, error: null },
-          _listModal: null,
-          _itemModal: null,
-          pageTab: 'lists', topics: [], topicsError: null,
           topicForm: { id: null, name: '', loading: false, error: null },
           mergeForm: { source: null, targetId: '', loading: false, error: null },
-          _topicModal: null, _mergeModal: null,
         };
       },
       computed: {
-        proposedTopics() { return this.topics.filter(t => t.status === 'proposed'); },
-        approvedTopics() { return this.topics.filter(t => t.status === 'approved'); },
-        rejectedTopics() { return this.topics.filter(t => t.status === 'rejected'); },
+        counts() { return window.topicCounts(this.topics); },
+        currentList() { return this.selection.kind === 'list' ? this.lists.find(l => l.id === this.selection.id) || null : null; },
+        isTopics() { return this.selection.kind === 'topics'; },
+        primaryLabel() { return this.isTopics ? 'New topic' : 'New list'; },
+        selectionKey() {
+          if (this.selection.kind === 'list') return 'list:' + this.selection.id;
+          if (this.selection.kind === 'topics') return 'topics:' + this.selection.status;
+          return '';
+        },
+        selectionLabel() {
+          if (this.currentList) return this.currentList.name;
+          if (this.isTopics) return TOPIC_STATES.find(s => s.status === this.selection.status).label;
+          return '';
+        },
         mergeTargets() {
           const src = this.mergeForm.source;
           return this.topics.filter(t => src && t.id !== src.id && t.status !== 'rejected' && (src.status !== 'approved' || t.status === 'approved'));
-        },
-        filteredItems() {
-          return this.showInactiveItems ? this.items : this.items.filter(it => it.status === 'active');
         },
       },
       async created() {
@@ -348,8 +281,8 @@
         if (!user) return;
         this.me = user;
         if (!['admin', 'sysadmin'].includes(user.role)) { this.accessDenied = true; return; }
-        await this.loadLists();
-        await this.loadTopics();
+        this.authed = true;
+        await this.loadAll();
         this.ready = true;
       },
       mounted() {
@@ -359,7 +292,8 @@
         this._itemModal = new bootstrap.Modal(document.getElementById('itemModal'));
       },
       methods: {
-        async topicsRequest(method, url, body) {
+        // The one way this page talks to the API. Never throws; `data` is the parsed body (or null).
+        async request(method, url, body) {
           try {
             const res = await fetch(url, {
               method, credentials: 'same-origin',
@@ -367,74 +301,82 @@
               body: body ? JSON.stringify(body) : undefined,
             });
             const data = await res.json().catch(() => null);
-            return { ok: res.ok, data };
+            return { ok: res.ok, status: res.status, data };
           } catch {
-            return { ok: false, data: { error: 'Network error.' } };
+            return { ok: false, status: 0, data: { error: 'Network error. Please try again.' } };
           }
         },
-        async loadTopics() {
-          const r = await this.topicsRequest('GET', '/api/topics');
-          if (!r.ok) { this.topicsError = (r.data && r.data.error) || 'Failed to load topics.'; return; }
-          this.topicsError = null;
-          this.topics = r.data.map(t => ({ ...t, _loading: false }));
+        errorText(r) { return (r.data && r.data.error) || 'Network error. Please try again.'; },
+
+        // Lists and topics together; the first list is selected unless the current selection still exists.
+        async loadAll() {
+          const [okLists, okTopics] = await Promise.all([this.loadLists(), this.loadTopics()]);
+          this.loadError = !(okLists && okTopics);
+          const keep = (this.selection.kind === 'list' && this.lists.some(l => l.id === this.selection.id)) || this.isTopics;
+          if (!keep) {
+            if (this.lists.length) this.select({ kind: 'list', id: this.lists[0].id });
+            else this.selection = { kind: 'none' };
+          }
         },
-        async openTopicsTab() { this.pageTab = 'topics'; await this.loadTopics(); },
+        async retryLoad() {
+          this.retrying = true;
+          await this.loadAll();
+          if (this.currentList) await this.loadItems();
+          this.retrying = false;
+        },
+        async loadLists() {
+          const r = await this.request('GET', '/api/attribute-lists');
+          if (r.ok) this.lists = r.data;
+          return r.ok;
+        },
+        async loadTopics() {
+          const r = await this.request('GET', '/api/topics');
+          if (r.ok) this.topics = r.data.map(t => ({ ...t, _busy: null }));
+          return r.ok;
+        },
+        async loadItems() {
+          const list = this.currentList;
+          if (!list) return;
+          const r = await this.request('GET', `/api/attribute-lists/${list.id}/items`);
+          if (this.currentList !== list) return;
+          if (r.ok) this.items = r.data.map(it => ({ ...it, _loading: false }));
+          return r;
+        },
+
+        isSelected(sel) {
+          const s = this.selection;
+          return s.kind === sel.kind && (sel.kind === 'list' ? s.id === sel.id : s.status === sel.status);
+        },
+        select(sel) {
+          this.selection = sel;
+          if (sel.kind === 'list') { this.items = []; this.loadItems(); }
+        },
+        onSelectKey(key) {
+          const [kind, val] = key.split(':');
+          this.select(kind === 'list' ? { kind, id: val } : { kind, status: val });
+        },
+        onPrimary() { if (this.isTopics) this.openNewTopic(); else this.openNewList(); },
+
         openNewTopic() { this.topicForm = { id: null, name: '', loading: false, error: null }; this._topicModal.show(); },
         openRenameTopic(t) { this.topicForm = { id: t.id, name: t.name, loading: false, error: null }; this._topicModal.show(); },
         async submitTopicForm() {
           this.topicForm.loading = true; this.topicForm.error = null;
           const r = this.topicForm.id
-            ? await this.topicsRequest('PATCH', `/api/topics/${this.topicForm.id}`, { name: this.topicForm.name })
-            : await this.topicsRequest('POST', '/api/topics', { name: this.topicForm.name });
+            ? await this.request('PATCH', `/api/topics/${this.topicForm.id}`, { name: this.topicForm.name })
+            : await this.request('POST', '/api/topics', { name: this.topicForm.name });
           this.topicForm.loading = false;
-          if (!r.ok) { this.topicForm.error = (r.data && r.data.error) || 'Save failed'; return; }
+          if (!r.ok) { this.topicForm.error = this.errorText(r); return; }
           this._topicModal.hide();
           await this.loadTopics();
-        },
-        async topicAction(t, action) {
-          t._loading = true; this.topicsError = null;
-          const r = await this.topicsRequest('POST', `/api/topics/${t.id}/${action}`);
-          await this.loadTopics();
-          if (!r.ok) this.topicsError = (r.data && r.data.error) || 'The action failed.';
         },
         openMergeTopic(t) { this.mergeForm = { source: t, targetId: '', loading: false, error: null }; this._mergeModal.show(); },
         async submitMerge() {
           this.mergeForm.loading = true; this.mergeForm.error = null;
-          const r = await this.topicsRequest('POST', `/api/topics/${this.mergeForm.source.id}/merge`, { targetId: this.mergeForm.targetId });
+          const r = await this.request('POST', `/api/topics/${this.mergeForm.source.id}/merge`, { targetId: this.mergeForm.targetId });
           this.mergeForm.loading = false;
-          if (!r.ok) { this.mergeForm.error = (r.data && r.data.error) || 'Merge failed'; return; }
+          if (!r.ok) { this.mergeForm.error = this.errorText(r); return; }
           this._mergeModal.hide();
           await this.loadTopics();
-        },
-
-        async loadLists() {
-          this.globalError = null;
-          try {
-            const res = await fetch('/api/attribute-lists', { credentials: 'same-origin' });
-            const data = await res.json();
-            if (!res.ok) { this.globalError = data.error || 'Failed to load lists.'; return; }
-            this.lists = data;
-          } catch {
-            this.globalError = 'Network error.';
-          }
-        },
-        async openList(l) {
-          this.globalError = null;
-          this.currentList = l;
-          this.items = [];
-          try {
-            const res = await fetch(`/api/attribute-lists/${l.id}/items`, { credentials: 'same-origin' });
-            const data = await res.json();
-            if (!res.ok) { this.globalError = data.error || 'Failed to load items.'; return; }
-            this.items = data;
-          } catch {
-            this.globalError = 'Network error.';
-          }
-        },
-        backToLists() {
-          this.currentList = null;
-          this.items = [];
-          this.loadLists();
         },
 
         openNewList() {
@@ -448,22 +390,15 @@
         async submitListForm() {
           this.listForm.loading = true;
           this.listForm.error = null;
-          try {
-            const url = this.listForm.id ? `/api/attribute-lists/${this.listForm.id}` : '/api/attribute-lists';
-            const method = this.listForm.id ? 'PATCH' : 'POST';
-            const res = await fetch(url, {
-              method, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-              body: JSON.stringify({ name: this.listForm.name }),
-            });
-            const data = await res.json();
-            if (!res.ok) { this.listForm.error = data.error || 'Save failed'; return; }
-            this._listModal.hide();
-            await this.loadLists();
-          } catch {
-            this.listForm.error = 'Network error. Please try again.';
-          } finally {
-            this.listForm.loading = false;
-          }
+          const id = this.listForm.id;
+          const r = id
+            ? await this.request('PATCH', `/api/attribute-lists/${id}`, { name: this.listForm.name })
+            : await this.request('POST', '/api/attribute-lists', { name: this.listForm.name });
+          this.listForm.loading = false;
+          if (!r.ok) { this.listForm.error = this.errorText(r); return; }
+          this._listModal.hide();
+          await this.loadLists();
+          if (!id && r.data && r.data.id) this.select({ kind: 'list', id: r.data.id });
         },
 
         openNewItem() {
@@ -475,48 +410,18 @@
           this._itemModal.show();
         },
         async submitItemForm() {
+          const list = this.currentList;
           this.itemForm.loading = true;
           this.itemForm.error = null;
-          try {
-            const url = this.itemForm.id
-              ? `/api/attribute-lists/${this.currentList.id}/items/${this.itemForm.id}`
-              : `/api/attribute-lists/${this.currentList.id}/items`;
-            const method = this.itemForm.id ? 'PATCH' : 'POST';
-            const res = await fetch(url, {
-              method, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-              body: JSON.stringify({ label: this.itemForm.label }),
-            });
-            const data = await res.json();
-            if (!res.ok) { this.itemForm.error = data.error || 'Save failed'; return; }
-            this._itemModal.hide();
-            const isNewItem = !this.itemForm.id;
-            await this.openList(this.currentList);
-            if (isNewItem) this.currentList.active_item_count = (this.currentList.active_item_count || 0) + 1;
-          } catch {
-            this.itemForm.error = 'Network error. Please try again.';
-          } finally {
-            this.itemForm.loading = false;
-          }
-        },
-
-        async toggleItemStatus(it) {
-          it._loading = true;
-          this.globalError = null;
-          try {
-            const newStatus = it.status === 'active' ? 'inactive' : 'active';
-            const res = await fetch(`/api/attribute-lists/${this.currentList.id}/items/${it.id}`, {
-              method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-              body: JSON.stringify({ status: newStatus }),
-            });
-            const data = await res.json();
-            if (!res.ok) { this.globalError = data.error; return; }
-            it.status = data.status;
-            this.currentList.active_item_count = (this.currentList.active_item_count || 0) + (newStatus === 'active' ? 1 : -1);
-          } catch {
-            this.globalError = 'Network error.';
-          } finally {
-            it._loading = false;
-          }
+          const id = this.itemForm.id;
+          const r = id
+            ? await this.request('PATCH', `/api/attribute-lists/${list.id}/items/${id}`, { label: this.itemForm.label })
+            : await this.request('POST', `/api/attribute-lists/${list.id}/items`, { label: this.itemForm.label });
+          this.itemForm.loading = false;
+          if (!r.ok) { this.itemForm.error = this.errorText(r); return; }
+          this._itemModal.hide();
+          await this.loadItems();
+          if (!id) list.active_item_count = (list.active_item_count || 0) + 1;
         },
       },
     }).component('ph-icon', window.PhIcon).mount('#app');
