@@ -103,3 +103,13 @@ button.md-subnav-item:focus-visible { outline: 2px solid var(--brand-navy); outl
 .al-row--inactive .al-cell-label { color: var(--text-muted); font-weight: var(--weight-medium); }
 .al-col-status { width: 160px; white-space: nowrap; }
 .al-col-actions { width: 72px; text-align: right; white-space: nowrap; }
+
+/* ── Form drawers ── */
+.al-req { color: var(--color-danger-text); }
+.al-slug-box { display: flex; border: 1px solid var(--border-light); border-radius: var(--radius-md); overflow: hidden; }
+.al-slug-box-label {
+  flex: 0 0 110px; padding: var(--space-3) var(--space-4); background: var(--surface-light);
+  font-size: var(--text-sm); color: var(--text-secondary);
+}
+.al-slug-box-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2); padding: var(--space-3) var(--space-4); }
+.pd-drawer-foot .ph-btn-primary { gap: var(--space-2); }

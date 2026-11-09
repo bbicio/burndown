@@ -51,6 +51,19 @@ describe('attribute-lists.html — list content', () => {
   it('has no Show inactive checkbox', () => expect(html).not.toContain('Show inactive'));
 });
 
+describe('attribute-lists.html — list and item drawers', () => {
+  it.each([
+    'id="listDrawer"', 'id="itemDrawer"', 'pd-drawer', 'Create list', 'Add item',
+    'Generated from the name when you create the list', 'Stays the same after renaming.',
+    'regardless of upper or lower case',
+    'Create a set of values to tag proposals and projects. It also becomes a dimension of experience profiles.',
+    "Tags already applied keep working: they refer to the slug, not the name.",
+    'Offered as a tag in Cost Grid and Project config as soon as you add it.',
+    'Proposals and projects already tagged with this value show the new label.',
+  ])('contains %s', s => expect(html).toContain(s));
+  it.each(['id="listModal"', 'id="itemModal"'])('has no %s', s => expect(html).not.toContain(s));
+});
+
 describe('attribute-lists.html — later tasks', () => {
   it.todo('uses pd-drawer for every form');
   it.todo('uses pd-confirm for the merge confirmation');

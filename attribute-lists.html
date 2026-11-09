@@ -102,7 +102,7 @@
             <span class="pd-state-icon"><ph-icon name="tag" :size="24"></ph-icon></span>
             <h2 class="pd-state-title">No attribute lists yet.</h2>
             <p class="pd-state-text">A list is a set of values, like Market or Brand, used to tag proposals and projects.</p>
-            <button type="button" class="al-btn-outline mt-2" @click="openNewList">Create the first list</button>
+            <button type="button" class="al-btn-outline mt-2" @click="openListDrawer('new', $event)">Create the first list</button>
           </div>
           <p class="al-note"><ph-icon name="info" :size="14"></ph-icon><span>Values are offered as Tags in Cost Grid and Project config, and each list is a dimension of experience profiles in Team.</span></p>
         </div>
@@ -217,56 +217,80 @@
     </div>
     </template>
 
-    <!-- ── NEW/RENAME LIST MODAL ────────────────────────────── -->
-    <div class="modal fade" id="listModal" tabindex="-1">
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header border-0 pb-0">
-            <h5 class="modal-title fw-bold">{{ listForm.id ? 'Rename list' : 'New list' }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <form @submit.prevent="submitListForm" novalidate>
-            <div class="modal-body">
-              <div v-if="listForm.error" class="alert alert-danger alert-sm mb-3">{{ listForm.error }}</div>
-              <label class="form-label">Name</label>
-              <input v-model="listForm.name" type="text" class="form-control" required>
-            </div>
-            <div class="modal-footer border-0 pt-0">
-              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-              <button type="submit" class="btn btn-primary" :disabled="listForm.loading">
-                <span v-if="listForm.loading" class="spinner-border spinner-border-sm me-2"></span>
-                {{ listForm.id ? 'Save' : 'Create' }}
-              </button>
-            </div>
-          </form>
+    <!-- ── LIST DRAWER (New list / Rename list) ─────────────── -->
+    <div class="offcanvas offcanvas-end pd-drawer" tabindex="-1" id="listDrawer" aria-labelledby="listDrawerTitle">
+      <div class="pd-drawer-head">
+        <div>
+          <div class="pd-drawer-eyebrow">{{ listForm.mode === 'new' ? 'ATTRIBUTE LISTS' : 'ATTRIBUTE LIST' }}</div>
+          <h2 class="pd-drawer-title" id="listDrawerTitle">{{ listForm.mode === 'new' ? 'New list' : 'Rename list' }}</h2>
+          <p class="pd-drawer-sub">{{ listForm.mode === 'new'
+            ? 'Create a set of values to tag proposals and projects. It also becomes a dimension of experience profiles.'
+            : "Tags already applied keep working: they refer to the slug, not the name." }}</p>
         </div>
+        <button type="button" class="pd-drawer-close" data-bs-dismiss="offcanvas" aria-label="Close"><ph-icon name="close" :size="16"></ph-icon></button>
       </div>
+      <form class="pd-drawer-form" @submit.prevent="submitListForm" novalidate>
+        <div class="pd-drawer-body">
+          <div v-if="listForm.error" class="pd-banner pd-banner--error mb-0" role="alert">
+            <ph-icon name="warning" :size="16"></ph-icon>
+            <div class="pd-banner-body">{{ listForm.error }}</div>
+          </div>
+          <div>
+            <label class="form-label" for="listName">Name <span class="al-req" aria-hidden="true">*</span></label>
+            <input id="listName" v-model="listForm.name" type="text" class="form-control" :class="{ 'is-invalid': listForm.error }"
+                   placeholder="e.g. Channel" required autocomplete="off">
+          </div>
+          <div class="al-slug-box">
+            <div class="al-slug-box-label">Slug</div>
+            <div class="al-slug-box-body">
+              <code class="al-slug">{{ listForm.mode === 'new' ? slugPreview : listForm.slug }}</code>
+              <p class="pd-drawer-hint">{{ listForm.mode === 'new'
+                ? 'Generated from the name when you create the list. It never changes, even if you rename the list later.'
+                : 'Stays the same after renaming.' }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="pd-drawer-foot">
+          <button type="button" class="al-btn-outline" data-bs-dismiss="offcanvas">Cancel</button>
+          <button type="submit" class="ph-btn-primary" :disabled="listForm.saving">
+            <span v-if="listForm.saving" class="spinner-border spinner-border-sm" role="presentation"></span>{{ listForm.mode === 'new' ? 'Create list' : 'Save' }}
+          </button>
+        </div>
+      </form>
     </div>
 
-    <!-- ── NEW/EDIT ITEM MODAL ─────────────────────────────── -->
-    <div class="modal fade" id="itemModal" tabindex="-1">
-      <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-          <div class="modal-header border-0 pb-0">
-            <h5 class="modal-title fw-bold">{{ itemForm.id ? 'Edit item' : 'New item' }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-          </div>
-          <form @submit.prevent="submitItemForm" novalidate>
-            <div class="modal-body">
-              <div v-if="itemForm.error" class="alert alert-danger alert-sm mb-3">{{ itemForm.error }}</div>
-              <label class="form-label">Label</label>
-              <input v-model="itemForm.label" type="text" class="form-control" required>
-            </div>
-            <div class="modal-footer border-0 pt-0">
-              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-              <button type="submit" class="btn btn-primary" :disabled="itemForm.loading">
-                <span v-if="itemForm.loading" class="spinner-border spinner-border-sm me-2"></span>
-                {{ itemForm.id ? 'Save' : 'Create' }}
-              </button>
-            </div>
-          </form>
+    <!-- ── ITEM DRAWER (New item / Edit item) ───────────────── -->
+    <div class="offcanvas offcanvas-end pd-drawer" tabindex="-1" id="itemDrawer" aria-labelledby="itemDrawerTitle">
+      <div class="pd-drawer-head">
+        <div>
+          <div class="pd-drawer-eyebrow">{{ itemForm.listName.toUpperCase() }}</div>
+          <h2 class="pd-drawer-title" id="itemDrawerTitle">{{ itemForm.mode === 'new' ? 'New item' : 'Edit item' }}</h2>
+          <p class="pd-drawer-sub">{{ itemForm.mode === 'new'
+            ? 'Offered as a tag in Cost Grid and Project config as soon as you add it.'
+            : 'Proposals and projects already tagged with this value show the new label.' }}</p>
         </div>
+        <button type="button" class="pd-drawer-close" data-bs-dismiss="offcanvas" aria-label="Close"><ph-icon name="close" :size="16"></ph-icon></button>
       </div>
+      <form class="pd-drawer-form" @submit.prevent="submitItemForm" novalidate>
+        <div class="pd-drawer-body">
+          <div v-if="itemForm.error" class="pd-banner pd-banner--error mb-0" role="alert">
+            <ph-icon name="warning" :size="16"></ph-icon>
+            <div class="pd-banner-body">{{ itemForm.error }}</div>
+          </div>
+          <div>
+            <label class="form-label" for="itemLabel">Label <span class="al-req" aria-hidden="true">*</span></label>
+            <input id="itemLabel" v-model="itemForm.label" type="text" class="form-control" :class="{ 'is-invalid': itemForm.error }"
+                   required autocomplete="off" aria-describedby="itemLabelHelp">
+            <p class="pd-drawer-hint mt-1" id="itemLabelHelp">Must be unique in {{ itemForm.listName }}, regardless of upper or lower case.</p>
+          </div>
+        </div>
+        <div class="pd-drawer-foot">
+          <button type="button" class="al-btn-outline" data-bs-dismiss="offcanvas">Cancel</button>
+          <button type="submit" class="ph-btn-primary" :disabled="itemForm.saving">
+            <span v-if="itemForm.saving" class="spinner-border spinner-border-sm" role="presentation"></span>{{ itemForm.mode === 'new' ? 'Add item' : 'Save' }}
+          </button>
+        </div>
+      </form>
     </div>
 
     <div class="modal fade" id="topicModal" tabindex="-1">
@@ -317,6 +341,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script type="module" src="js/lib/attribute-lists-ui.js?v=1"></script>
+  <script type="module" src="js/lib/slugify.js?v=1"></script>
   <script defer src="js/api.js?v=13"></script>
   <script defer src="js/core.js?v=16"></script>
   <script type="module" src="js/lib/notif-browser.js?v=2"></script>
@@ -373,8 +398,8 @@
           topics: [],
           topicStates: TOPIC_STATES,
           selection: { kind: 'none' },   // { kind: 'list', id } | { kind: 'topics', status } | { kind: 'none' }
-          listForm: { id: null, name: '', loading: false, error: null },
-          itemForm: { id: null, label: '', loading: false, error: null },
+          listForm: { mode: 'new', id: null, name: '', slug: '', error: null, saving: false },
+          itemForm: { mode: 'new', id: null, listId: null, listName: '', label: '', error: null, saving: false },
           topicForm: { id: null, name: '', loading: false, error: null },
           mergeForm: { source: null, targetId: '', loading: false, error: null },
         };
@@ -385,6 +410,7 @@
         itemCountsNow() { return window.itemCounts(this.items, this.itemText); },
         visibleItems() { return window.filterItems(this.items, { status: this.itemStatus, text: this.itemText }); },
         emptyItemsText() { return window.emptyItemsLine(this.itemStatus, this.itemText); },
+        slugPreview() { return window.slugify(this.listForm.name) || '—'; },
         isTopics() { return this.selection.kind === 'topics'; },
         primaryLabel() { return this.isTopics ? 'New topic' : 'New list'; },
         selectionKey() {
@@ -417,8 +443,8 @@
       mounted() {
         this._topicModal = new bootstrap.Modal(document.getElementById('topicModal'));
         this._mergeModal = new bootstrap.Modal(document.getElementById('mergeModal'));
-        this._listModal = new bootstrap.Modal(document.getElementById('listModal'));
-        this._itemModal = new bootstrap.Modal(document.getElementById('itemModal'));
+        this._listDrawer = this.drawer('listDrawer', 'listName');
+        this._itemDrawer = this.drawer('itemDrawer', 'itemLabel');
         // Row menu: Esc closes it (focus back to ⋯) before any drawer sees it; a press outside closes it.
         document.addEventListener('keydown', ev => {
           if (ev.key === 'Escape' && this.menuFor) { ev.stopImmediatePropagation(); this.closeMenu(true); }
@@ -580,10 +606,66 @@
           if (this.cardBanner && this.cardBanner.undo === u) this.clearCardBanner();
         },
 
-        openListDrawer(mode) { if (mode === 'rename') this.openRenameList(this.currentList); else this.openNewList(); },
-        openItemDrawer(mode, it) { if (mode === 'edit') this.openEditItem(it); else this.openNewItem(); },
+        // An offcanvas that focuses its field when shown and gives focus back to its opener when hidden.
+        drawer(id, fieldId) {
+          const el = document.getElementById(id);
+          const d = new bootstrap.Offcanvas(el);
+          el.addEventListener('shown.bs.offcanvas', () => document.getElementById(fieldId)?.focus());
+          el.addEventListener('hidden.bs.offcanvas', () => {
+            if (d.opener && document.contains(d.opener)) d.opener.focus();
+            d.opener = null;
+          });
+          return d;
+        },
+        openDrawer(d, ev) { d.opener = (ev && ev.currentTarget) || document.activeElement; d.show(); },
 
-        onPrimary() { if (this.isTopics) this.openNewTopic(); else this.openNewList(); },
+        openListDrawer(mode, ev) {
+          const l = mode === 'rename' ? this.currentList : null;
+          this.listForm = { mode, id: l ? l.id : null, name: l ? l.name : '', slug: l ? l.slug : '', error: null, saving: false };
+          this.openDrawer(this._listDrawer, ev);
+        },
+        async submitListForm() {
+          const form = this.listForm;
+          if (form.saving) return;
+          form.saving = true;
+          form.error = null;
+          const r = form.mode === 'rename'
+            ? await this.request('PATCH', '/api/attribute-lists/' + form.id, { name: form.name })
+            : await this.request('POST', '/api/attribute-lists', { name: form.name });
+          form.saving = false;
+          if (!r.ok) { form.error = this.errorText(r); return; }
+          this._listDrawer.hide();
+          await this.loadLists();
+          const name = r.data.name;
+          if (form.mode === 'new') this.select({ kind: 'list', id: r.data.id });
+          this.setCardBanner({ kind: 'success', strong: form.mode === 'new' ? 'Created "' + name + '".' : 'Renamed to "' + name + '".', text: '' });
+        },
+
+        openItemDrawer(mode, it, ev) {
+          const l = this.currentList;
+          this.itemForm = { mode, id: it ? it.id : null, listId: l.id, listName: l.name, label: it ? it.label : '', error: null, saving: false };
+          this.openDrawer(this._itemDrawer, ev);
+        },
+        async submitItemForm() {
+          const form = this.itemForm;
+          if (form.saving) return;
+          form.saving = true;
+          form.error = null;
+          const base = '/api/attribute-lists/' + form.listId + '/items';
+          const r = form.mode === 'edit'
+            ? await this.request('PATCH', base + '/' + form.id, { label: form.label })
+            : await this.request('POST', base, { label: form.label });
+          form.saving = false;
+          if (!r.ok) { form.error = this.errorText(r); return; }
+          this._itemDrawer.hide();
+          const list = this.lists.find(l => l.id === form.listId);
+          if (form.mode === 'new' && list) list.active_item_count = (list.active_item_count || 0) + 1;
+          if (!(this.selection.kind === 'list' && this.selection.id === form.listId)) return;
+          await this.loadItems();
+          this.setCardBanner({ kind: 'success', strong: (form.mode === 'new' ? 'Added "' : 'Saved "') + r.data.label + '".', text: '' });
+        },
+
+        onPrimary(ev) { if (this.isTopics) this.openNewTopic(); else this.openListDrawer('new', ev); },
 
         openNewTopic() { this.topicForm = { id: null, name: '', loading: false, error: null }; this._topicModal.show(); },
         openRenameTopic(t) { this.topicForm = { id: t.id, name: t.name, loading: false, error: null }; this._topicModal.show(); },
@@ -607,50 +689,6 @@
           await this.loadTopics();
         },
 
-        openNewList() {
-          this.listForm = { id: null, name: '', loading: false, error: null };
-          this._listModal.show();
-        },
-        openRenameList(l) {
-          this.listForm = { id: l.id, name: l.name, loading: false, error: null };
-          this._listModal.show();
-        },
-        async submitListForm() {
-          this.listForm.loading = true;
-          this.listForm.error = null;
-          const id = this.listForm.id;
-          const r = id
-            ? await this.request('PATCH', `/api/attribute-lists/${id}`, { name: this.listForm.name })
-            : await this.request('POST', '/api/attribute-lists', { name: this.listForm.name });
-          this.listForm.loading = false;
-          if (!r.ok) { this.listForm.error = this.errorText(r); return; }
-          this._listModal.hide();
-          await this.loadLists();
-          if (!id && r.data && r.data.id) this.select({ kind: 'list', id: r.data.id });
-        },
-
-        openNewItem() {
-          this.itemForm = { id: null, label: '', loading: false, error: null };
-          this._itemModal.show();
-        },
-        openEditItem(it) {
-          this.itemForm = { id: it.id, label: it.label, loading: false, error: null };
-          this._itemModal.show();
-        },
-        async submitItemForm() {
-          const list = this.currentList;
-          this.itemForm.loading = true;
-          this.itemForm.error = null;
-          const id = this.itemForm.id;
-          const r = id
-            ? await this.request('PATCH', `/api/attribute-lists/${list.id}/items/${id}`, { label: this.itemForm.label })
-            : await this.request('POST', `/api/attribute-lists/${list.id}/items`, { label: this.itemForm.label });
-          this.itemForm.loading = false;
-          if (!r.ok) { this.itemForm.error = this.errorText(r); return; }
-          this._itemModal.hide();
-          await this.loadItems();
-          if (!id) list.active_item_count = (list.active_item_count || 0) + 1;
-        },
       },
     }).component('ph-icon', window.PhIcon).component('al-icon', AlIcon).mount('#app');
   </script>
