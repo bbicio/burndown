@@ -163,6 +163,8 @@ async function testAuth() {
   const me = await api('GET', '/api/auth/me', null, adminCookie);
   ok(me.status === 200,           'A-me authenticated → 200');
   ok(me.data?.role === 'admin',   'A-me role = admin');
+  ok(['created_at', 'terms_accepted_at', 'password_changed_at'].every(k => me.data && k in me.data),
+    'A-me-2 /me carries created_at, terms_accepted_at, password_changed_at');
 
   // Sysadmin test account — needed for admin/reset/* (sysadmin-exclusive).
   const r2 = await api('POST', '/api/auth/login', { email: SYSADMIN_EMAIL, password: SYSADMIN_PASS });
@@ -173,6 +175,46 @@ async function testAuth() {
   ok(sysMe.data?.role === 'sysadmin', 'A-06 sysadmin role = sysadmin');
 
   return true;
+}
+
+// ── Profile ───────────────────────────────────────────────────────────────────
+
+async function testProfile() {
+  section('Profile');
+
+  const before = (await api('GET', '/api/auth/me', null, adminCookie)).data;
+  const p = await api('PATCH', '/api/auth/profile', { firstName: 'Hacked' }, adminCookie);
+  ok(p.status === 404, `PR-OF-01 PATCH /auth/profile no longer exists → 404 (got ${p.status})`);
+  const after = (await api('GET', '/api/auth/me', null, adminCookie)).data;
+  ok(after?.first_name === before?.first_name, 'PR-OF-01 first_name unchanged');
+
+  const RR = '/api/auth/rectification-request';
+  ok((await api('POST', RR, { message: 'x' })).status === 401, 'RR-01 without cookie → 401');
+  ok((await api('POST', RR, { message: '   ' }, adminCookie)).status === 400, 'RR-02 blank message → 400');
+  ok((await api('POST', RR, { message: 'x'.repeat(2001) }, adminCookie)).status === 400, 'RR-03 2001 characters → 400');
+
+  const msg = `__test_rr_${Date.now()}__ my last name is misspelt`;
+  const r4 = await api('POST', RR, { message: msg }, adminCookie);
+  ok(r4.status === 201 && r4.data?.ok === true, `RR-04 valid message → 201 (got ${r4.status})`);
+  const notifs = (await api('GET', '/api/notifications', null, sysadminCookie)).data;
+  const list = Array.isArray(notifs) ? notifs : (notifs?.notifications || []);
+  ok(list.some(n => n.title === `Profile change requested by ${before?.first_name} ${before?.last_name}` && n.body === msg),
+    'RR-04 the sysadmin receives the notification');
+  const rows = await sql('SELECT count(*)::int AS n FROM rectification_requests WHERE message = $1', [msg]);
+  if (rows) ok(rows[0].n === 1, 'RR-04 the request is recorded in rectification_requests');
+
+  ok((await api('POST', RR, { message: '<b>x</b>' }, adminCookie)).status === 201, 'RR-05 HTML message → 201');
+
+  ok((await api('GET', '/api/app-settings/privacy-contact')).status === 401, 'PC-01 privacy-contact without cookie → 401');
+  const pc = await api('GET', '/api/app-settings/privacy-contact', null, adminCookie);
+  ok(pc.status === 200 && pc.data && 'name' in pc.data && 'email' in pc.data, 'PC-01 privacy-contact → 200 { name, email }');
+
+  const CP = '/api/auth/change-password';
+  const w1 = await api('POST', CP, { currentPassword: PASS, newPassword: PASS + 'x', newPasswordConfirm: PASS + 'x' }, adminCookie);
+  const w2 = await api('POST', CP, { currentPassword: PASS + 'x', newPassword: PASS, newPasswordConfirm: PASS }, adminCookie);
+  ok(w1.status === 200 && w2.status === 200, `PW-01 change-password and back → 200, 200 (got ${w1.status}, ${w2.status})`);
+  const pw = (await api('GET', '/api/auth/me', null, adminCookie)).data;
+  ok(!!pw?.password_changed_at, 'PW-01 /me.password_changed_at is set');
 }
 
 // ── Security ─────────────────────────────────────────────────────────────────
@@ -3966,6 +4008,7 @@ async function main() {
       process.stdout.write(red('\nLogin failed — cannot continue. Run create-admin.js first.\n'));
       process.exit(1);
     }
+    await testProfile();
     await ensureTestCurrencies();
     await testSecurity();
     await testPipelineYears();
