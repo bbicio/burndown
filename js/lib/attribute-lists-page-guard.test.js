@@ -64,6 +64,22 @@ describe('attribute-lists.html — list and item drawers', () => {
   it.each(['id="listModal"', 'id="itemModal"'])('has no %s', s => expect(html).not.toContain(s));
 });
 
+describe('attribute-lists.html — topics', () => {
+  it.each([
+    'Proposed topics', 'Search topics…', 'to review', 'reviewed this session', 'None reviewed yet this session',
+    'role="progressbar"', 'REVERSIBLE', 'IRREVERSIBLE', 'pd-row-menu-item--danger', 'Approving…', 'View rejected',
+    'Not linked to any description yet', 'href="profile-jobs.html"', 'No topics to review.', 'No approved topics yet.',
+    'No rejected topics.', 'Clear search', 'It starts empty', 'Naming rules', 'id="topicDrawer"',
+    'Profiles show the new name at once.', 'Hidden from profiles and never proposed again. You can restore it.',
+    'Its descriptions move to another topic; this one disappears.',
+    "Approve keeps the agent's name. Rename first if the wording needs fixing; merge if the same competence already exists.",
+    'Approved topics appear in experience profiles in Team. Renames, rejections and merges show there immediately, without recalculation.',
+    'Rejected topics are hidden from profiles and the agent never proposes them again. Restore makes a topic approved.',
+    "Couldn't ", 'The list was reloaded. Server: ',
+  ])('contains %s', s => expect(html).toContain(s));
+  it('has no topic modal', () => expect(html).not.toContain('id="topicModal"'));
+});
+
 describe('attribute-lists.html — later tasks', () => {
   it.todo('uses pd-drawer for every form');
   it.todo('uses pd-confirm for the merge confirmation');

@@ -143,7 +143,7 @@
             </div>
             <div v-else class="pd-banner pd-banner--error mb-0" role="alert">
               <ph-icon name="warning" :size="16"></ph-icon>
-              <div class="pd-banner-body">{{ cardBanner.text }}</div>
+              <div class="pd-banner-body"><strong v-if="cardBanner.strong">{{ cardBanner.strong }}</strong> {{ cardBanner.text }}</div>
               <button type="button" class="pd-banner-close" aria-label="Dismiss" @click="clearCardBanner"><ph-icon name="close" :size="14"></ph-icon></button>
             </div>
           </div>
@@ -211,7 +211,116 @@
 
         <!-- Topics -->
         <div v-else-if="isTopics" class="al-card">
-          <div class="al-card-head"><h2 class="al-title">{{ selectionLabel }} topics</h2></div>
+          <div class="al-topics-head">
+            <h2 class="al-topics-title">{{ selectionLabel }} topics</h2>
+            <div class="al-search al-search--topics">
+              <ph-icon name="search" :size="14"></ph-icon>
+              <input v-model="topicText" type="search" placeholder="Search topics…" aria-label="Search topics">
+            </div>
+          </div>
+
+          <div v-if="selection.status === 'proposed'" class="al-strip">
+            <div class="al-strip-stat"><strong>{{ counts.proposed }}</strong><span>to review</span></div>
+            <div class="al-strip-progress">
+              <span>{{ progressText }}</span>
+              <div class="al-progress-track" role="progressbar" :aria-valuenow="progress.pct" aria-valuemin="0" aria-valuemax="100" :aria-label="progressText">
+                <div class="al-progress-fill" :style="{ width: progress.pct + '%' }"></div>
+              </div>
+            </div>
+            <p class="al-strip-help">Suggested by the agent from project and task descriptions. Proposed topics don't appear in experience profiles until you approve them.</p>
+          </div>
+
+          <div v-if="cardBanner" class="al-banner-wrap">
+            <div v-if="cardBanner.kind === 'success'" class="pd-banner pd-banner--success mb-0" role="status">
+              <ph-icon name="check" :size="16"></ph-icon>
+              <div class="pd-banner-body"><strong v-if="cardBanner.strong">{{ cardBanner.strong }}</strong> {{ cardBanner.text }}</div>
+              <button v-if="cardBanner.undo" type="button" class="al-banner-action" :disabled="undoing" @click="runUndo">Undo</button>
+              <button v-if="cardBanner.viewRejected" type="button" class="al-banner-action" @click="select({ kind: 'topics', status: 'rejected' })">View rejected</button>
+              <button type="button" class="pd-banner-close" aria-label="Dismiss" @click="clearCardBanner"><ph-icon name="close" :size="14"></ph-icon></button>
+            </div>
+            <div v-else class="pd-banner pd-banner--error mb-0" role="alert">
+              <ph-icon name="warning" :size="16"></ph-icon>
+              <div class="pd-banner-body"><strong v-if="cardBanner.strong">{{ cardBanner.strong }}</strong> {{ cardBanner.text }}</div>
+              <button type="button" class="pd-banner-close" aria-label="Dismiss" @click="clearCardBanner"><ph-icon name="close" :size="14"></ph-icon></button>
+            </div>
+          </div>
+
+          <table v-if="visibleTopics.length" class="al-table al-topics-table">
+            <thead>
+              <tr><th>Name</th><th class="al-col-used">Used in</th><th class="al-col-topic-actions"><span class="visually-hidden">Actions</span></th></tr>
+            </thead>
+            <tbody>
+              <tr v-for="t in visibleTopics" :key="t.id">
+                <td class="al-cell-topic">
+                  <div class="al-cell-label">{{ t.name }}</div>
+                  <div v-if="t.status === 'approved' && !t.usage_count" class="al-zero-line">Not linked to any description yet. The agent uses it on new or edited descriptions; to apply it to an existing project, run <a href="profile-jobs.html">Process in Profile processing</a>.</div>
+                  <div class="al-used-inline" :class="{ 'al-used--zero': t.status === 'approved' && !t.usage_count }">Used in {{ descriptionsText(t.usage_count) }}</div>
+                </td>
+                <td class="al-col-used" :class="{ 'al-used--zero': t.status === 'approved' && !t.usage_count }">{{ descriptionsText(t.usage_count) }}</td>
+                <td class="al-col-topic-actions" aria-live="polite">
+                  <span v-if="t._busy" class="al-busy"><span class="spinner-border" role="presentation"></span>{{ busyText(t._busy) }}</span>
+                  <template v-else>
+                    <button v-if="t.status === 'proposed'" type="button" class="al-btn-navy al-approve" @click="topicAction(t, 'approve')"><ph-icon name="check" :size="14"></ph-icon>Approve</button>
+                    <button v-if="t.status === 'rejected'" type="button" class="al-btn-outline al-restore" @click="topicAction(t, 'restore')"><al-icon name="rotate-ccw" :size="14"></al-icon>Restore</button>
+                    <div v-else class="pd-row-menu-wrap">
+                      <button type="button" class="pd-row-menu-trigger" aria-haspopup="menu" :aria-expanded="menuFor === 'topic:' + t.id"
+                              :aria-label="'Actions for ' + t.name" @click="openMenu('topic:' + t.id, $event)">
+                        <ph-icon name="more" :size="16"></ph-icon>
+                      </button>
+                      <div v-if="menuFor === 'topic:' + t.id" class="pd-row-menu" :class="{ 'pd-row-menu--up': menuUp }" role="menu"
+                           :aria-label="'Actions for ' + t.name" @keydown="onMenuKey">
+                        <button type="button" class="pd-row-menu-item" role="menuitem" @click="runTopicMenu(t, 'rename')">
+                          <ph-icon name="pencil" :size="16"></ph-icon>
+                          <span class="pd-row-menu-item-text">
+                            <span class="pd-row-menu-item-title">Rename</span>
+                            <span class="pd-row-menu-item-hint">Profiles show the new name at once.</span>
+                          </span>
+                        </button>
+                        <button type="button" class="pd-row-menu-item" role="menuitem" @click="runTopicMenu(t, 'reject')">
+                          <al-icon name="ban" :size="16"></al-icon>
+                          <span class="pd-row-menu-item-text">
+                            <span class="pd-row-menu-item-title">Reject<span class="pd-tag pd-tag--navy">REVERSIBLE</span></span>
+                            <span class="pd-row-menu-item-hint">Hidden from profiles and never proposed again. You can restore it.</span>
+                          </span>
+                        </button>
+                        <div class="pd-row-menu-divider" role="separator"></div>
+                        <button type="button" class="pd-row-menu-item pd-row-menu-item--danger" role="menuitem" @click="runTopicMenu(t, 'merge')">
+                          <al-icon name="merge" :size="16"></al-icon>
+                          <span class="pd-row-menu-item-text">
+                            <span class="pd-row-menu-item-title">Merge into…<span class="pd-tag pd-tag--danger">IRREVERSIBLE</span></span>
+                            <span class="pd-row-menu-item-hint pd-row-menu-item-hint--danger">Its descriptions move to another topic; this one disappears.</span>
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  </template>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <div v-else-if="topicText.trim()" class="pd-state">
+            <span class="pd-state-icon"><ph-icon name="search" :size="24"></ph-icon></span>
+            <h2 class="pd-state-title">No topics match "{{ topicText.trim() }}".</h2>
+            <button type="button" class="al-btn-outline mt-2" @click="topicText = ''">Clear search</button>
+          </div>
+          <div v-else-if="selection.status === 'proposed'" class="pd-state">
+            <span class="pd-state-icon pd-state-icon--ok"><ph-icon name="check" :size="24"></ph-icon></span>
+            <h2 class="pd-state-title">No topics to review.</h2>
+            <p class="pd-state-text">New proposals appear here after the agent processes new or edited project and task descriptions.</p>
+          </div>
+          <div v-else-if="selection.status === 'approved'" class="pd-state">
+            <span class="pd-state-icon"><ph-icon name="tag" :size="24"></ph-icon></span>
+            <h2 class="pd-state-title">No approved topics yet.</h2>
+            <p class="pd-state-text">Approve proposals from the queue, or create a topic with New topic.</p>
+            <button v-if="counts.proposed" type="button" class="al-btn-outline mt-2" @click="select({ kind: 'topics', status: 'proposed' })">Review proposed ({{ counts.proposed }})</button>
+          </div>
+          <div v-else class="pd-state">
+            <span class="pd-state-icon"><al-icon name="ban" :size="24"></al-icon></span>
+            <h2 class="pd-state-title">No rejected topics.</h2>
+            <p class="pd-state-text">Rejected topics are hidden from profiles and never proposed again.</p>
+          </div>
+
+          <p class="al-note al-note--plain">{{ topicNote }}</p>
         </div>
       </div>
     </div>
@@ -293,23 +402,52 @@
       </form>
     </div>
 
-    <div class="modal fade" id="topicModal" tabindex="-1">
-      <div class="modal-dialog"><div class="modal-content">
-        <form @submit.prevent="submitTopicForm">
-          <div class="modal-header border-0"><h5 class="modal-title">{{ topicForm.id ? 'Rename topic' : 'New topic' }}</h5>
-            <button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
-          <div class="modal-body">
-            <div v-if="topicForm.error" class="alert alert-danger alert-sm">{{ topicForm.error }}</div>
-            <label class="form-label">Name <span class="text-muted">(a competence, 1–4 words, English)</span></label>
-            <input v-model="topicForm.name" type="text" class="form-control" maxlength="60" required>
+    <!-- ── TOPIC DRAWER (New topic / Rename topic) ──────────── -->
+    <div class="offcanvas offcanvas-end pd-drawer" tabindex="-1" id="topicDrawer" aria-labelledby="topicDrawerTitle">
+      <div class="pd-drawer-head">
+        <div>
+          <div class="pd-drawer-eyebrow">{{ topicForm.mode === 'new' ? 'TOPICS' : 'TOPIC · ' + topicForm.status.toUpperCase() }}</div>
+          <h2 class="pd-drawer-title" id="topicDrawerTitle">{{ topicForm.mode === 'new' ? 'New topic' : 'Rename topic' }}</h2>
+          <p class="pd-drawer-sub">{{ topicForm.mode === 'new' ? 'Add a competence to the vocabulary the agent uses.' : 'Profiles in Team show the new name immediately.' }}</p>
+        </div>
+        <button type="button" class="pd-drawer-close" data-bs-dismiss="offcanvas" aria-label="Close"><ph-icon name="close" :size="16"></ph-icon></button>
+      </div>
+      <form class="pd-drawer-form" @submit.prevent="submitTopicForm" novalidate>
+        <div class="pd-drawer-body">
+          <div v-if="topicForm.error" class="pd-banner pd-banner--error mb-0" role="alert">
+            <ph-icon name="warning" :size="16"></ph-icon>
+            <div class="pd-banner-body">{{ topicForm.error }}</div>
           </div>
-          <div class="modal-footer border-0 pt-0">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-            <button type="submit" class="btn btn-primary" :disabled="topicForm.loading">
-              <span v-if="topicForm.loading" class="spinner-border spinner-border-sm me-2"></span>{{ topicForm.id ? 'Save' : 'Create' }}</button>
+          <div>
+            <label class="form-label" for="topicName">Name <span class="al-req" aria-hidden="true">*</span> <span class="al-label-help">(a competence, 1–4 words, English)</span></label>
+            <input id="topicName" v-model="topicForm.name" type="text" class="form-control" :class="{ 'is-invalid': topicForm.error }"
+                   maxlength="60" placeholder="e.g. Medical writing" required autocomplete="off">
           </div>
-        </form>
-      </div></div>
+          <div v-if="topicForm.mode === 'new'" class="al-info-box">
+            <div class="al-info-box-title">It starts empty</div>
+            <ul>
+              <li>The topic is approved at once and added to the vocabulary the agent receives on every extraction.</li>
+              <li>It doesn't classify anything retroactively: "Used in" stays at 0 until the agent picks it for a description.</li>
+              <li>The agent only rereads new or edited descriptions. To apply it to a project already processed, run Process on that project in Profile processing.</li>
+            </ul>
+            <a href="profile-jobs.html">Open Profile processing →</a>
+          </div>
+          <div v-else class="al-info-box">
+            <div class="al-info-box-title">Naming rules</div>
+            <ul>
+              <li>1–4 words, up to 60 characters, in English.</li>
+              <li>Can't match an attribute list name or an active value in any list.</li>
+              <li>If the name already exists as another topic, merge into it instead.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="pd-drawer-foot">
+          <button type="button" class="al-btn-outline" data-bs-dismiss="offcanvas">Cancel</button>
+          <button type="submit" class="ph-btn-primary" :disabled="topicForm.saving">
+            <span v-if="topicForm.saving" class="spinner-border spinner-border-sm" role="presentation"></span>{{ topicForm.mode === 'new' ? 'Create topic' : 'Save' }}
+          </button>
+        </div>
+      </form>
     </div>
 
     <div class="modal fade" id="mergeModal" tabindex="-1">
@@ -342,6 +480,7 @@
   <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
   <script type="module" src="js/lib/attribute-lists-ui.js?v=1"></script>
   <script type="module" src="js/lib/slugify.js?v=1"></script>
+  <script type="module" src="js/lib/team-ui.js?v=8"></script>
   <script defer src="js/api.js?v=13"></script>
   <script defer src="js/core.js?v=16"></script>
   <script type="module" src="js/lib/notif-browser.js?v=2"></script>
@@ -400,7 +539,8 @@
           selection: { kind: 'none' },   // { kind: 'list', id } | { kind: 'topics', status } | { kind: 'none' }
           listForm: { mode: 'new', id: null, name: '', slug: '', error: null, saving: false },
           itemForm: { mode: 'new', id: null, listId: null, listName: '', label: '', error: null, saving: false },
-          topicForm: { id: null, name: '', loading: false, error: null },
+          topicForm: { mode: 'new', id: null, status: 'approved', name: '', error: null, saving: false },
+          reviewedThisSession: 0,   // Approve / Reject / Merge of a proposed topic since the page loaded
           mergeForm: { source: null, targetId: '', loading: false, error: null },
         };
       },
@@ -411,6 +551,19 @@
         visibleItems() { return window.filterItems(this.items, { status: this.itemStatus, text: this.itemText }); },
         emptyItemsText() { return window.emptyItemsLine(this.itemStatus, this.itemText); },
         slugPreview() { return window.slugify(this.listForm.name) || '—'; },
+        visibleTopics() { return window.filterTopics(this.topics, { status: this.selection.status, text: this.topicText }); },
+        progress() { return window.sessionProgress(this.reviewedThisSession, this.counts.proposed); },
+        progressText() {
+          const p = this.progress;
+          return p.resolved ? p.resolved + ' of ' + p.total + ' reviewed this session' : 'None reviewed yet this session';
+        },
+        topicNote() {
+          return {
+            proposed: "Approve keeps the agent's name. Rename first if the wording needs fixing; merge if the same competence already exists.",
+            approved: 'Approved topics appear in experience profiles in Team. Renames, rejections and merges show there immediately, without recalculation.',
+            rejected: 'Rejected topics are hidden from profiles and the agent never proposes them again. Restore makes a topic approved.',
+          }[this.selection.status];
+        },
         isTopics() { return this.selection.kind === 'topics'; },
         primaryLabel() { return this.isTopics ? 'New topic' : 'New list'; },
         selectionKey() {
@@ -441,7 +594,7 @@
         this.ready = true;
       },
       mounted() {
-        this._topicModal = new bootstrap.Modal(document.getElementById('topicModal'));
+        this._topicDrawer = this.drawer('topicDrawer', 'topicName');
         this._mergeModal = new bootstrap.Modal(document.getElementById('mergeModal'));
         this._listDrawer = this.drawer('listDrawer', 'listName');
         this._itemDrawer = this.drawer('itemDrawer', 'itemLabel');
@@ -665,19 +818,61 @@
           this.setCardBanner({ kind: 'success', strong: (form.mode === 'new' ? 'Added "' : 'Saved "') + r.data.label + '".', text: '' });
         },
 
-        onPrimary(ev) { if (this.isTopics) this.openNewTopic(); else this.openListDrawer('new', ev); },
+        onPrimary(ev) { if (this.isTopics) this.openTopicDrawer('new', null, ev); else this.openListDrawer('new', ev); },
 
-        openNewTopic() { this.topicForm = { id: null, name: '', loading: false, error: null }; this._topicModal.show(); },
-        openRenameTopic(t) { this.topicForm = { id: t.id, name: t.name, loading: false, error: null }; this._topicModal.show(); },
-        async submitTopicForm() {
-          this.topicForm.loading = true; this.topicForm.error = null;
-          const r = this.topicForm.id
-            ? await this.request('PATCH', `/api/topics/${this.topicForm.id}`, { name: this.topicForm.name })
-            : await this.request('POST', '/api/topics', { name: this.topicForm.name });
-          this.topicForm.loading = false;
-          if (!r.ok) { this.topicForm.error = this.errorText(r); return; }
-          this._topicModal.hide();
+        descriptionsText(n) { return window.descriptionsText(n); },
+        busyText(action) { return { approve: 'Approving…', reject: 'Rejecting…', restore: 'Restoring…' }[action]; },
+        markReviewed() { this.reviewedThisSession++; },
+        runTopicMenu(t, action) {
+          const opener = menuTrigger;
+          this.closeMenu(true);
+          if (action === 'rename') this.openTopicDrawer('rename', t, { currentTarget: opener });
+          else if (action === 'reject') this.topicAction(t, 'reject');
+          else this.openMergeTopic(t);
+        },
+        // Approve / Reject / Restore. The list is reloaded whatever the outcome (as before the redesign); a proposed
+        // topic that leaves the queue counts as reviewed. Returns whether the server accepted it.
+        async topicAction(t, action) {
+          const name = t.name;
+          const wasProposed = t.status === 'proposed';
+          t._busy = action;
+          const r = await this.request('POST', '/api/topics/' + t.id + '/' + action);
           await this.loadTopics();
+          const show = this.isTopics;
+          if (!r.ok) {
+            if (show) this.setCardBanner({ kind: 'error', strong: "Couldn't " + action + ' "' + name + '".', text: 'The list was reloaded. Server: ' + this.errorText(r) });
+            return false;
+          }
+          if (wasProposed && action !== 'restore') this.markReviewed();
+          if (!show) return true;
+          if (action === 'approve') this.setCardBanner({ kind: 'success', strong: 'Approved "' + name + '".', text: 'It now shows in experience profiles in Team.' });
+          else if (action === 'reject') this.setCardBanner({ kind: 'success', strong: 'Rejected "' + name + '".', text: "It's hidden and won't be proposed again.", viewRejected: true });
+          else this.setCardBanner({ kind: 'success', strong: 'Restored "' + name + '".', text: "It's approved again and shows in experience profiles." });
+          return true;
+        },
+        openTopicDrawer(mode, t, ev) {
+          this.topicForm = { mode, id: t ? t.id : null, status: t ? t.status : 'approved', name: t ? t.name : '', error: null, saving: false };
+          this.openDrawer(this._topicDrawer, ev);
+        },
+        async submitTopicForm() {
+          const form = this.topicForm;
+          if (form.saving) return;
+          form.saving = true;
+          form.error = null;
+          const r = form.mode === 'rename'
+            ? await this.request('PATCH', '/api/topics/' + form.id, { name: form.name })
+            : await this.request('POST', '/api/topics', { name: form.name });
+          form.saving = false;
+          if (!r.ok) { form.error = this.errorText(r); return; }
+          this._topicDrawer.hide();
+          await this.loadTopics();
+          const name = r.data && r.data.name ? r.data.name : form.name.trim();
+          if (form.mode === 'new') {
+            this.select({ kind: 'topics', status: 'approved' });
+            this.setCardBanner({ kind: 'success', strong: 'Created "' + name + '".', text: "It's approved and in the agent's vocabulary." });
+          } else if (this.isTopics) {
+            this.setCardBanner({ kind: 'success', strong: 'Renamed to "' + name + '".', text: '' });
+          }
         },
         openMergeTopic(t) { this.mergeForm = { source: t, targetId: '', loading: false, error: null }; this._mergeModal.show(); },
         async submitMerge() {
