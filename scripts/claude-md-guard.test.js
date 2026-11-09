@@ -141,11 +141,12 @@ describe('CLAUDE.md size (it is loaded in full every session)', () => {
     // 13,148 on 2026-11-02: +14 B, css/ lists project-config.css and drops its count.
     // 13,162 on 2026-11-02: +14 B, css/ lists planning.css (planning redesign).
     // 13,172 on 2026-11-02: +10 B, js/cg-controls.js lists planning among its pages (same cycle's /sync-docs).
+    // 13,220 on 2026-11-09: +48 B, css/ lists team.css and attribute-lists.css, js/*.js lists combo-select.js (Attribute Lists redesign).
     const bytes = Buffer.byteLength(fileStructureBlock().join('\n'), 'utf8');
-    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 13,172. It is an INDEX:
+    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 13,220. It is an INDEX:
       one or two lines per entry, pointing at the docs/ file that holds the narrative.
       If you shrank it on purpose, lower this number in the same commit`)
-      .toBe(13_172);
+      .toBe(13_220);
   });
 
   it('keeps exactly 12 entries longer than two lines', () => {

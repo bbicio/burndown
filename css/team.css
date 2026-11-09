@@ -217,35 +217,6 @@
 .tm-chip--dashed { background: transparent; border: 1px dashed var(--border-dark); color: var(--text-secondary); }
 .tm-um-note { margin: 0; padding: var(--space-3) var(--space-5); font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border-light); }
 
-/* ── Assign to combo ── */
-.tm-combo { position: relative; min-width: 220px; }
-.tm-combo-input {
-  width: 100%; height: 36px; padding: 0 56px 0 var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-md);
-  background: var(--surface-white); color: var(--brand-navy); font-size: var(--text-sm); font-weight: var(--weight-medium);
-}
-.tm-combo-input::placeholder { color: var(--text-muted); font-weight: var(--weight-regular); }
-.tm-combo-input:focus, .tm-combo.is-open .tm-combo-input { outline: none; border-color: var(--brand-navy); box-shadow: 0 0 0 3px var(--focus-ring); }
-.tm-combo-input:disabled { background: var(--surface-light); color: var(--text-disabled); }
-.tm-combo-hint { position: absolute; right: 30px; top: 50%; transform: translateY(-50%); font-size: 11px; font-weight: var(--weight-semibold); color: var(--text-muted); pointer-events: none; }
-.tm-combo-chevron { position: absolute; right: var(--space-2); top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
-.tm-combo-menu {
-  position: absolute; top: calc(100% + 4px); left: 0; z-index: 40; width: max(100%, 320px);
-  background: var(--surface-white); border: 1px solid var(--border-light); border-radius: 10px; box-shadow: var(--shadow-xl);
-}
-.tm-combo-list { list-style: none; margin: 0; padding: var(--space-1); max-height: 260px; overflow-y: auto; }
-.tm-combo-opt {
-  display: flex; align-items: center; gap: var(--space-2); padding: 6px var(--space-2); border-radius: var(--radius-sm);
-  font-size: var(--text-sm); color: var(--brand-navy); cursor: pointer;
-}
-.tm-combo-opt.is-active { background: var(--surface-light); }
-.tm-combo-opt.is-selected { font-weight: var(--weight-semibold); }
-.tm-combo-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tm-combo-opt-hint { flex: none; font-size: 11px; color: var(--text-muted); }
-.tm-combo-none { color: var(--text-muted); }
-.tm-combo-group { padding: var(--space-2) var(--space-2) var(--space-1); font-size: 10px; font-weight: var(--weight-bold); letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); }
-.tm-combo-empty { padding: 6px var(--space-2); font-size: var(--text-sm); color: var(--text-muted); }
-.tm-combo-legend { display: flex; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-top: 1px solid var(--border-light); font-size: 11px; color: var(--text-muted); }
-
 /* ── Resource panel (fixed drawer, as Pipeline's; below Bootstrap's offcanvas and modals) ── */
 .tm-panel {
   position: fixed; top: 0; right: 0; bottom: 0; width: 860px; max-width: 100%; z-index: 1040;
@@ -360,7 +331,7 @@
   .tm-filter-wide, .tm-col-wide { display: none; }
   .tm-filter-compact { display: block; }
   .tm-compact-line { display: flex; }
-  .tm-btn-navy, .tm-btn-outline, .tm-link-btn, .tm-select, .tm-search input, .md-seg-btn, .tm-combo-input, .tm-um-projects-btn { height: 40px; }
+  .tm-btn-navy, .tm-btn-outline, .tm-link-btn, .tm-select, .tm-search input, .md-seg-btn, .pd-combo-input, .tm-um-projects-btn { height: 40px; }
   .tm-btn-sm { height: 40px; }
   .tm-callout { flex-wrap: wrap; padding: var(--space-2) var(--space-3); }
   .tm-callout-text { font-size: 12px; }
@@ -384,7 +355,7 @@
   .ph-main { flex: 1 1 0; }
   .ph-side { width: auto; }
   .ph-actions .ph-btn-primary { height: 44px; }
-  .tm-btn-navy, .tm-btn-outline, .tm-link-btn, .tm-select, .tm-search input, .md-seg-btn, .tm-combo-input, .tm-um-projects-btn, .tm-btn-sm { height: 44px; }
+  .tm-btn-navy, .tm-btn-outline, .tm-link-btn, .tm-select, .tm-search input, .md-seg-btn, .pd-combo-input, .tm-um-projects-btn, .tm-btn-sm { height: 44px; }
   .tm-um-ignore { width: 44px; }
   .tm-toolbar { padding: var(--space-3); }
   .tm-search { order: -1; flex: 1 1 100%; margin-left: 0; }

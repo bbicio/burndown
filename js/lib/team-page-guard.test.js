@@ -110,3 +110,9 @@ describe('team.html board decisions (Task 9)', () => {
   it('Last calculated is formatted by profileCalcText', () => expect(html).toContain('profileCalcText(profileData.profile_computed_at)'));
   it('Ignore uses the ban icon below 1280px', () => expect(html).toMatch(/tm-icon class="tm-um-ignore-icon" name="ban"/));
 });
+
+describe('team.html uses the shared combo-select', () => {
+  it('no longer defines it inline', () => expect(html).not.toContain("app.component('combo-select', {"));
+  it('loads js/combo-select.js', () => expect(html).toMatch(/js\/combo-select\.js\?v=\d+/));
+  it('registers window.ComboSelect', () => expect(html).toContain('window.ComboSelect'));
+});
