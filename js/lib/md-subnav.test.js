@@ -188,3 +188,21 @@ describe('setSubnavBadge', () => {
     expect(document.querySelector('.md-subnav-badge')).toBeNull();
   });
 });
+
+describe('the profile set', () => {
+  it('renders hash links, the active one current, and the PRIVACY group', () => {
+    const d = parse(mdSubnavHtml('password', 'profile'));
+    expect([...d.querySelectorAll('.md-subnav-group')].map(g => g.textContent)).toEqual(['ACCOUNT', 'PRIVACY']);
+    const cur = d.querySelector('[aria-current="page"]');
+    expect(cur.getAttribute('href')).toBe('#password');
+    expect(SUBNAV_SETS.profile.label).toBe('My profile');
+  });
+  it('does not render a group with no items', () => {
+    SUBNAV_SETS.__empty = { label: 'X', sections: [{ group: 'EMPTY', items: [] }, { group: 'FULL', items: [{ id: 'a', label: 'A', href: '#a' }] }] };
+    try {
+      const d = parse(mdSubnavHtml('a', '__empty'));
+      expect([...d.querySelectorAll('.md-subnav-group')].map(g => g.textContent)).toEqual(['FULL']);
+      expect(d.querySelectorAll('optgroup')).toHaveLength(1);
+    } finally { delete SUBNAV_SETS.__empty; }
+  });
+});

@@ -26,6 +26,16 @@ export const SUBNAV_SETS = {
       { id: 'profileJobs', label: 'Profile processing', href: '/profile-jobs.html' },
     ] },
   ] },
+  // profile.html: one page, sections by hash
+  profile: { label: 'My profile', sections: [
+    { group: 'ACCOUNT', items: [
+      { id: 'details', label: 'Details', href: '#details' },
+      { id: 'password', label: 'Password', href: '#password' },
+    ] },
+    { group: 'PRIVACY', items: [
+      { id: 'privacy', label: 'Privacy & data', href: '#privacy' },
+    ] },
+  ] },
 };
 
 const escHtml = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -36,6 +46,7 @@ export function mdSubnavHtml(activeId, setId = 'masterData') {
   let options = '';
   let current = null;
   for (const sec of set.sections) {
+    if (!sec.items.length) continue;
     list += `<div class="md-subnav-group">${escHtml(sec.group)}</div>`;
     options += `<optgroup label="${escHtml(sec.group)}">`;
     for (const it of sec.items) {
