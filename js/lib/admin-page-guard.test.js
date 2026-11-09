@@ -30,7 +30,7 @@ describe('admin.html — page rules', () => {
   });
 
   it('loads user-admin-rules.js as a module before the Vue script', () => {
-    const rules = html.indexOf('<script type="module" src="js/lib/user-admin-rules.js?v=1"></script>');
+    const rules = html.indexOf('<script type="module" src="js/lib/user-admin-rules.js?v=2"></script>');
     const vue = html.indexOf('Vue.createApp');
     expect(rules).toBeGreaterThan(-1);
     expect(vue).toBeGreaterThan(rules);

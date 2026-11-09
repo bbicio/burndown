@@ -78,7 +78,7 @@ export function menuGroups(user, me) {
     role.push(item('grant-sysadmin', 'Grant sysadmin', 'Full control, including other sysadmins', 'shield', { tag: 'SENSITIVE' }));
   }
 
-  const access = [];
+  const access = [item('edit-details', 'Edit details…', 'Name and email', 'user')];
   if (user.status === 'pending') {
     access.push(item('resend', 'Resend invite', 'New activation link, valid 48 hours', 'mail'));
   }

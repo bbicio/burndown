@@ -644,6 +644,10 @@
 | AD-15 | Anonymize — result | Confirm anonymization | Row reads "Anonymized user" with email `anon_<uuid>@deleted.local` and a "No actions" note; no button, no menu | |
 | AD-16 | Anonymize — operational data intact | Anonymize a user who owned cost grids | Cost grids still appear on pipeline board; proposals not deleted | |
 | AD-17 | Anonymize — cannot anonymize self | API call `POST /api/users/<own-id>/anonymize` | 400 "You cannot anonymize your own account" | |
+| AD-48 | Edit details (2026-11) | Row ⋯ → Edit details… on another user → change the first name → Save | Drawer closes; the row shows the new name; banner "Details updated for {name}."; Save stays disabled until a field changes and while a field is empty (`AD-ED-01`…`AD-ED-03`) | ✓ |
+| AD-49 | Edit details — duplicate email (2026-11) | Same drawer, enter another user's email in capitals with spaces → Save | "Email already in use" under Email, nothing saved (`AD-ED-04`) | ✓ |
+| AD-50 | Edit details — where it is offered (2026-11) | Look at the ⋯ menu of your own row, an anonymized row, and (as admin) a sysadmin row | No menu on any of them, so no Edit details; the API refuses the same edits (`AD-ED-05`, `AD-ED-06`, `AD-ED-09`) | ✓ |
+| AD-51 | Anonymize deletes rectification requests (2026-11) | User sends a request from `/profile.html` → admin disables and anonymizes that user → on the branch stack `SELECT count(*) FROM rectification_requests WHERE user_id = '<id>'` | 0 (`AD-ED-08`) | ✓ |
 | AD-18 | T&C editor removed from admin.html (2026-09) | Open admin.html | No Terms & Conditions section — moved to `_terms-editor.html` (sysadmin-exclusive, see §17a) | |
 
 ### 11a. Sysadmin role (2026-09)

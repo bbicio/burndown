@@ -12,6 +12,7 @@ function currentActions(u, me) {
   if (me.role === 'sysadmin' && u.role !== 'user') out.add(u.role === 'sysadmin' ? 'revoke-sysadmin' : 'grant-sysadmin');
   if (u.status === 'pending') out.add('resend');
   if (canModify) {
+    out.add('edit-details'); // added 2026-11 (My profile page): details are admin-managed
     out.add(u.status !== 'disabled' ? 'disable' : 'enable');
     if (u.status === 'disabled' && !u.email.startsWith('anon_')) out.add('anonymize');
   }
@@ -95,14 +96,24 @@ describe('menuGroups', () => {
     expect(gs.map(g => g.label)).toEqual(['Role', 'Access', 'Data']);
     expect(gs[0].items.map(i => i.id)).toEqual(['make-admin', 'grant-sysadmin']);
     expect(gs[0].items[1].tag).toBe('SENSITIVE');
-    expect(gs[1].items.map(i => i.id)).toEqual(['resend', 'disable']);
+    expect(gs[1].items.map(i => i.id)).toEqual(['edit-details', 'resend', 'disable']);
     expect(gs[2].items.map(i => i.id)).toEqual(['anonymize']);
     expect(gs[2].items[0]).toMatchObject({ tag: 'IRREVERSIBLE', danger: true });
     const all = gs.flatMap(g => g.items);
     expect(all.filter(i => i.danger)).toHaveLength(1);
     expect(menuGroups(mk('a', 'A', 'B', 'sysadmin', 'disabled'), sysMe)[0].items.map(i => i.id))
       .toEqual(['make-user', 'revoke-sysadmin']);
-    expect(menuGroups(mk('a', 'A', 'B', 'admin', 'disabled'), sysMe)[1].items.map(i => i.id)).toEqual(['enable']);
+    expect(menuGroups(mk('a', 'A', 'B', 'admin', 'disabled'), sysMe)[1].items.map(i => i.id)).toEqual(['edit-details', 'enable']);
+  });
+
+  it('opens Access with Edit details… on every normal row, never on self, anonymized or locked rows', () => {
+    const ed = mk('a', 'A', 'B', 'user', 'active');
+    const access = menuGroups(ed, admMe).find(g => g.group === 'access');
+    expect(access.items[0]).toMatchObject({ id: 'edit-details', label: 'Edit details…', desc: 'Name and email', icon: 'user', enabled: true });
+    expect(menuGroups(mk(ME_ID, 'M', 'E', 'admin', 'active'), admMe)).toEqual([]);
+    expect(menuGroups(mk('z', '[Deleted]', 'User', 'user', 'disabled', { email: 'anon_z@deleted.local' }), sysMe)).toEqual([]);
+    expect(menuGroups(mk('s', 'S', 'S', 'sysadmin', 'active'), admMe)).toEqual([]);
+    expect(item(mk('s', 'S', 'S', 'sysadmin', 'active'), sysMe, 'edit-details')?.enabled).toBe(true);
   });
 
   it('picks the primary action from the status', () => {

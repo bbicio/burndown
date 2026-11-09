@@ -207,6 +207,7 @@
     .ua-drawer-hint { margin: 0; font-size: 12.5px; color: var(--text-muted); }
     .ua-fields { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
     .ua-fields-wide { grid-column: 1 / -1; }
+    .ua-field-error { margin-top: var(--space-1); font-size: 12.5px; color: var(--color-danger-text); }
     .ua-roles { border: 0; padding: 0; margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
     .ua-roles legend { grid-column: 1 / -1; float: none; width: auto; }
     .ua-radio { display: flex; align-items: flex-start; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-md); cursor: pointer; }
@@ -667,6 +668,43 @@
       </form>
     </div>
 
+    <!-- ── EDIT DETAILS DRAWER ─────────────────────────────── -->
+    <div class="offcanvas offcanvas-end ua-drawer" tabindex="-1" id="editDetailsDrawer" aria-labelledby="editDetailsTitle">
+      <div class="ua-drawer-head">
+        <div>
+          <div class="ua-eyebrow">USER ADMIN</div>
+          <h2 class="ua-drawer-title" id="editDetailsTitle">Edit details</h2>
+          <p class="ua-drawer-sub">The user sees these on their profile and can't change them.</p>
+        </div>
+        <button type="button" class="ua-banner-close" data-bs-dismiss="offcanvas" aria-label="Close"><ph-icon name="close" :size="16"></ph-icon></button>
+      </div>
+      <form class="ua-drawer-form" @submit.prevent="submitDetails" novalidate>
+        <div class="ua-drawer-body">
+          <div v-if="details.error && !details.errorField" class="ua-banner ua-banner--error" role="alert">
+            <ph-icon name="warning" :size="16"></ph-icon>
+            <div class="ua-banner-body">{{ details.error }}</div>
+          </div>
+          <div class="ua-fields">
+            <div v-for="f in detailFields" :key="f.name" :class="{ 'ua-fields-wide': f.name === 'email' }">
+              <label class="form-label" :for="'details-' + f.name">{{ f.label }}</label>
+              <input :id="'details-' + f.name" v-model="details[f.name]" :type="f.name === 'email' ? 'email' : 'text'" class="form-control"
+                     :class="{ 'is-invalid': details.errorField === f.name }" required autocomplete="off"
+                     :aria-invalid="details.errorField === f.name ? 'true' : null"
+                     :aria-describedby="details.errorField === f.name ? 'details-' + f.name + '-err' : null"
+                     @input="details.errorField === f.name && (details.errorField = null, details.error = null)">
+              <div v-if="details.errorField === f.name" :id="'details-' + f.name + '-err'" class="ua-field-error" role="alert">{{ details.error }}</div>
+            </div>
+          </div>
+        </div>
+        <div class="ua-drawer-foot">
+          <button type="button" class="ua-btn-text" data-bs-dismiss="offcanvas">Cancel</button>
+          <button type="submit" class="ph-btn-primary" :disabled="details.loading || !detailsValid">
+            <span v-if="details.loading" class="spinner-border spinner-border-sm me-2" role="presentation"></span>{{ details.loading ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      </form>
+    </div>
+
   </div><!-- #app -->
 
 </div><!-- /#app-main -->
@@ -685,7 +723,7 @@
   <script type="module" src="js/lib/notif-browser.js?v=2"></script>
   <script defer src="js/notifications.js?v=4"></script>
   <script type="module" src="js/lib/icons.js?v=7"></script>
-  <script type="module" src="js/lib/user-admin-rules.js?v=1"></script>
+  <script type="module" src="js/lib/user-admin-rules.js?v=2"></script>
   <script defer src="js/nav.js?v=23"></script>
   <script type="module">
     const R = window.UserAdminRules;
@@ -695,6 +733,9 @@
     let anonymizeModal = null;
     let inviteDrawer = null;
     let inviteOpener = null; // what had focus when the drawer opened
+    let detailsDrawer = null;
+    let detailsOpener = null;
+    const blankDetails = () => ({ userId: null, firstName: '', lastName: '', email: '', orig: null, loading: false, error: null, errorField: null });
     const blankInvite = () => ({ firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, errorField: null, sentTo: null, sentName: null });
     const NETWORK_ERROR = "The server didn't respond. Check your connection and try again.";
 
@@ -746,6 +787,12 @@
           confirmTarget: null,
           anonAck: false,
           invite: blankInvite(),
+          details: blankDetails(),
+          detailFields: [
+            { name: 'firstName', label: 'First name' },
+            { name: 'lastName', label: 'Last name' },
+            { name: 'email', label: 'Email' },
+          ],
           inviteRoles: [
             { val: 'user',  label: 'User',  desc: 'Works on pipeline, portfolio and planning' },
             { val: 'admin', label: 'Admin', desc: 'Also manages users and master data' },
@@ -773,6 +820,14 @@
         inviteValid() {
           const i = this.invite;
           return !!(i.firstName.trim() && i.lastName.trim() && R.isValidEmail(i.email));
+        },
+        // Save needs a change and no empty field.
+        detailsValid() {
+          const d = this.details;
+          if (!d.orig) return false;
+          const now = { firstName: d.firstName.trim(), lastName: d.lastName.trim(), email: d.email.trim().toLowerCase() };
+          if (!now.firstName || !now.lastName || !now.email) return false;
+          return Object.keys(now).some(k => now[k] !== d.orig[k]);
         },
         menuUser() {
           return this.menu ? this.users.find(u => u.id === this.menu.userId) : null;
@@ -805,6 +860,13 @@
         el.addEventListener('hidden.bs.offcanvas', () => {
           this.resetInvite();
           if (inviteOpener) inviteOpener.focus();
+        });
+        const detEl = document.getElementById('editDetailsDrawer');
+        detailsDrawer = new bootstrap.Offcanvas(detEl);
+        detEl.addEventListener('shown.bs.offcanvas', () => document.getElementById('details-firstName')?.focus());
+        detEl.addEventListener('hidden.bs.offcanvas', () => {
+          this.details = blankDetails();
+          if (detailsOpener && detailsOpener.isConnected) detailsOpener.focus();
         });
         disableModal = new bootstrap.Modal(document.getElementById('disableModal'));
         const anonEl = document.getElementById('anonymizeModal');
@@ -871,6 +933,44 @@
           else if (id === 'enable') this.setStatus(user, 'active');
           else if (id === 'disable') this.askDisable(user);
           else if (id === 'anonymize') this.askAnonymize(user);
+          else if (id === 'edit-details') this.openDetails(user);
+        },
+        openDetails(user) {
+          const orig = { firstName: user.first_name || '', lastName: user.last_name || '', email: user.email || '' };
+          this.details = { ...blankDetails(), userId: user.id, ...orig, orig };
+          detailsOpener = menuTrigger;
+          detailsDrawer.show();
+        },
+        async submitDetails() {
+          const d = this.details;
+          if (!this.detailsValid || d.loading) return;
+          const body = {};
+          for (const k of ['firstName', 'lastName', 'email']) if (d[k].trim() !== d.orig[k]) body[k] = d[k];
+          d.loading = true;
+          d.error = null;
+          d.errorField = null;
+          try {
+            const res = await fetch(`/api/users/${d.userId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify(body),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              d.error = data.error || 'Update failed';
+              d.errorField = ['firstName', 'lastName', 'email'].includes(data.field) ? data.field : null;
+              return;
+            }
+            const user = this.users.find(u => u.id === d.userId);
+            if (user) Object.assign(user, { first_name: data.first_name, last_name: data.last_name, email: data.email });
+            this.setBanner('success', `Details updated for ${data.first_name} ${data.last_name}.`, '');
+            detailsDrawer.hide();
+          } catch {
+            d.error = 'Network error. Please try again.';
+          } finally {
+            d.loading = false;
+          }
         },
         askDisable(user) {
           this.confirmTarget = user;
