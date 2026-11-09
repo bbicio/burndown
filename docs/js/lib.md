@@ -156,7 +156,7 @@ Loaded via `<script type="module">` on every one of the 10 authenticated pages t
 
 ## team-ui.js (2026-09-25, Team UX cycle)
 
-Two pure helpers for `team.html` (only page that loads it, `<script type="module" src="js/lib/team-ui.js?v=1">`, bridged to `window.sortResources` / `window.filterComboOptions` and read only inside computeds/methods, never at parse time). Spec `docs/superpowers/specs/2026-09-25-team-ux-design.md`, plan `docs/superpowers/plans/2026-09-25-team-ux.md`; 17 vitest cases in `js/lib/team-ui.test.js`.
+Two pure helpers for `team.html` (also loaded by `attribute-lists.html` since 2026-11-09, for `filterComboOptions` and `sessionProgress`; `<script type="module" src="js/lib/team-ui.js?v=1">`, bridged to `window.sortResources` / `window.filterComboOptions` and read only inside computeds/methods, never at parse time). Spec `docs/superpowers/specs/2026-09-25-team-ux-design.md`, plan `docs/superpowers/plans/2026-09-25-team-ux.md`; 17 vitest cases in `js/lib/team-ui.test.js`.
 
 `sortResources(list, key, dir = 'asc')`: returns a **new** array (input untouched). Keys: `name` (last name, then first), `email`, `role` (label, then code), `status` (active before anything else); an unknown key falls back to `name`. Comparison is case/accent-insensitive and numeric-aware (`localeCompare` with `sensitivity:'base'`, `numeric:true`); `null`/`undefined` count as `''`. `dir` (`'asc'|'desc'`) flips only the primary comparator — ties always fall back to name ascending, then to the original position, so switching direction never shuffles rows that compare equal.
 
@@ -316,3 +316,11 @@ Server twin: `docs/api/lib.md`'s `dates.js`. Tests: `dates.test.js`, `dates-guar
 ## user-admin-rules.js (2026-11-06, User Admin redesign)
 
 Pure rules and list transforms behind `admin.html` (`<script type="module">`, bridged as `window.UserAdminRules`). Loaded by `admin.html` only. `rowKind(user, me)` (`self`, `anonymized`, `locked`, `normal`, in that precedence), `primaryAction` (`resend` / `enable` on normal rows), `menuGroups` (the Role / Access / Data items of the row menu, each with `enabled` and, when not, the `reason` shown in place of the description; `[]` unless the row is normal), `statusCounts`, `filterUsers`, `sortUsers` (stable, `dir: null` keeps the API order), `nextSort`, `filterSummary`, plus `displayName`, `initials`, `isAnonymized` (null-safe on missing names), `isValidEmail` (the invite drawer's check, trimmed). On normal rows the enabled items equal what the page offered before the redesign; self, locked and anonymized rows offer no menu. Tests: `user-admin-rules.test.js` (its `currentActions` oracle transcribes the former template), `admin-page-guard.test.js`.
+
+## slugify.js (2026-11-09, Attribute Lists redesign)
+
+Client twin of `api/src/lib/slugify.js`, used by `attribute-lists.html` for the New list slug preview (`window.slugify`). The two must stay identical: `js/lib/slugify.test.js` compares their output on accents, symbols, spaces, the empty string and a long name.
+
+## attribute-lists-ui.js (2026-11-09, Attribute Lists redesign)
+
+Pure helpers for `attribute-lists.html`, bridged to `window`: `itemCounts(items, text)` and `filterItems(items, { status, text })` (search trimmed, case- and accent-insensitive), `topicCounts`, `filterTopics(topics, { status, text })` (proposed by usage then name, the others by name), `descriptionsText(n)`, `mergeTargetOptions(topics, source)` (combo options: approved, then proposed only for a proposed source; never the source or a rejected topic), `emptyItemsLine(status, text)`. Tests: `js/lib/attribute-lists-ui.test.js`.

@@ -110,7 +110,7 @@ Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page i
 | `_terms-editor.html` | `/_terms-editor.html` | **Sysadmin-exclusive** hidden page — Terms & Conditions editor, linked from the sysadmin-only navbar menu (`initNav('termseditor', ...)`). Full narrative: [docs/pages/terms-editor.md](docs/pages/terms-editor.md) |
 | `privacy-notice.html` | `/privacy-notice.html` | Privacy Notice: opened from the account dropdown's "Privacy Notice"; read-only view of the latest published Terms & Conditions with their version and publication date in the footer, open to any authenticated user (replaced the blank `settings.html`). Full narrative: [docs/pages/privacy-notice.md](docs/pages/privacy-notice.md) |
 | `team.html` | `/team.html` | Resource registry CRUD (name/email/role by id/job description, optional link to a PDash user) plus an "Unmatched names" drawer that links the free-text owner names found in uploaded actuals to resources (aliases), a resource side panel with an "Experience profile" tab showing the per-person hours tree; own stylesheet `css/team.css`; admin **or sysadmin**, linked from the ⚙ Admin dropdown. Full narrative: [docs/pages/team.md](docs/pages/team.md) |
-| `attribute-lists.html` | `/attribute-lists.html` | Generic, agnostic tag/taxonomy admin console — create lists and their items (Market/Brand/Therapeutic Area/Service Type seeded, more addable without code changes), admin **or sysadmin**, linked from the ⚙ Admin dropdown. Its lists/items are consumed by `costgrid.html`/`project-config.html`'s "🏷 Tags" sections via the shared `js/tags.js` helper. Full narrative: [docs/pages/attribute-lists.md](docs/pages/attribute-lists.md) |
+| `attribute-lists.html` | `/attribute-lists.html` | Generic, agnostic tag/taxonomy admin console — create lists and their items (Market/Brand/Therapeutic Area/Service Type seeded, more addable without code changes), admin **or sysadmin**, linked from the ⚙ Admin dropdown. Its lists/items are consumed by `costgrid.html`/`project-config.html`'s "🏷 Tags" sections via the shared `js/tags.js` helper; own stylesheet `css/attribute-lists.css`. Full narrative: [docs/pages/attribute-lists.md](docs/pages/attribute-lists.md) |
 | `profile-jobs.html` | `/profile-jobs.html` | **Hidden page, no menu entry** — profile-engine job console (queue/status list, force recalculation, worker schedule, run history), reached from the Timesheets sub-nav ("Profile processing", next to "Actuals") of `timesheets.html` and from the Experience profile tab of `team.html`; admin **or** sysadmin. Full narrative: [docs/pages/profile-jobs.md](docs/pages/profile-jobs.md) |
 
 ### File structure
@@ -124,7 +124,7 @@ HTML pages               — the Pages table above is the page index: route, one
                             js/lib/test-cases-parse.js. Hence TEST_CASES.md counts as code for
                             scripts/classify-cycle.mjs.
 css/                     — stylesheets: tokens.css (design tokens, also `[v-cloak]`), style.css (components
-                            + navigation), controls.css, admin-crud.css, auth.css, pipeline.css, costgrid.css, portfolio.css, project-config.css, planning.css. Detail:
+                            + navigation), controls.css, admin-crud.css, auth.css, pipeline.css, costgrid.css, portfolio.css, project-config.css, planning.css, attribute-lists.css. Detail:
                             [docs/css/stylesheets.md](docs/css/stylesheets.md). App-wide rules stay in "Design
                             tokens" and "Cache-busting" below.
 js/api.js                — Api.* namespace + apiFetch wrapper (401 → login redirect; parsed error body attached
@@ -142,7 +142,7 @@ js/cg-controls.js        — three custom Vue controls (date picker, select, peo
                             project-config, portfolio and planning; CSS in css/controls.css. Detail:
                             [docs/js/cg-controls.md](docs/js/cg-controls.md).
 js/*.js (the rest)       — the other shared classic scripts loaded as globals by the Vue pages: shares.js,
-                            share-list-component.js, clients.js, roles.js, programs.js, ratecards.js,
+                            share-list-component.js, combo-select.js, clients.js, roles.js, programs.js, ratecards.js,
                             upload.js, tags.js, portfolio.js. Detail:
                             [docs/js/shared-libs.md](docs/js/shared-libs.md).
 js/lib/                  — pure functions extracted for unit testing (vitest + jsdom), each an ES module

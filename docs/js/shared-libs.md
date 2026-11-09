@@ -28,6 +28,10 @@ Reads `GET /api/{cost-grids|projects}/:id/shares`, removes via `DELETE .../:id/s
 
 Registered via `app.component('share-list', window.ShareListComponent)` on both `pipeline.html`'s and `costgrid.html`'s Vue apps.
 
+## js/combo-select.js
+
+`window.ComboSelect` (2026-11-09, extracted unchanged from `team.html`): a searchable select. Props `options` (`[{ id, label, hint? }]` plus non-selectable `{ group }` headers, order set by the caller), `modelValue`, `placeholder`, `disabled`, `ariaLabel`; emits `update:modelValue` with an id or `undefined`. Index 0 of the keyboard cursor is "— none —"; Esc closes only the list and stops propagation, so a drawer around it stays open. Needs `window.filterComboOptions` (`js/lib/team-ui.js`) and the page's `ph-icon` component; CSS `.pd-combo*` in `css/style.css`. Loaded by `team.html` and `attribute-lists.html`, each registering it with `app.component('combo-select', window.ComboSelect)`; guard `js/lib/combo-select-guard.test.js`.
+
 ## js/clients.js
 
 Client CRUD helpers. `saveClientFromModal()` guards `#clientSaveBtn` (the id was added in 2026-08; the button previously had none) against a fast repeat click — `if (saveBtn.disabled) return;` before the `await`, re-enabled in a `finally`. A double-click during the network round trip could previously create two clients from one submission.
