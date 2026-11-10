@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 // Seeds the Planning parity dataset through the public API. DEV TOOL — isolated stacks only.
-//   SEED_URL=http://localhost:8081 SEED_EMAIL=... SEED_PASSWORD=... node seed-planning-golden.js [--remove]
+//   SEED_URL=http://localhost:8081 SEED_EMAIL=... SEED_PASSWORD=... PDASH_DEVICE=... node seed-planning-golden.js [--remove]
+// PDASH_DEVICE is the value printed by `node src/trust-device.js <email>` on that stack: the login then needs no email code.
 // SEED_EMAIL must be a SYSADMIN account: creating a project without a proposal and deleting a project are
 // restricted to sysadmins (project currency lock, 2026-10-01).
 // Everything is created with the GOLD- prefix and removed again by --remove.
@@ -11,7 +12,8 @@ const u = new URL(url);
 if (!['localhost', '127.0.0.1'].includes(u.hostname)) { console.error('Refusing to seed: SEED_URL host must be localhost or 127.0.0.1.'); process.exit(2); }
 if (!u.port || u.port === '80') { console.error('Refusing to seed: SEED_URL must be an isolated stack with an explicit non-80 port (never the main stack).'); process.exit(2); }
 
-let cookie = '';
+const device = process.env.PDASH_DEVICE;
+let cookie = device ? `pdash_device=${device}` : '';
 async function api(method, path, body) {
   const res = await fetch(`${url}${path}`, { method, headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: body ? JSON.stringify(body) : undefined });
   const setCookie = res.headers.get('set-cookie'); if (setCookie) cookie = setCookie.split(';')[0];
@@ -36,6 +38,7 @@ const nextMonths = (k) => Array.from({ length: k }, (_, i) => ym(new Date(Date.U
 async function main() {
   const login = await api('POST', '/api/auth/login', { email, password });
   if (login.status !== 200) throw new Error(`login failed (${login.status})`);
+  if (login.data?.twoStep) throw new Error('login needs a trusted device: run node src/trust-device.js <email> on that stack and set PDASH_DEVICE');
 
   if (process.argv.includes('--remove')) {
     const projects = (await api('GET', '/api/projects')).data || [];

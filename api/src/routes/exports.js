@@ -8,6 +8,13 @@ let _createNotification;
 
 const router = express.Router();
 
+// The mail goes to the address on file, not to the one the session token was signed with (an admin may
+// have corrected it since).
+async function recipientOf(userId) {
+  const { rows } = await query('SELECT email, first_name FROM users WHERE id = $1', [userId]);
+  return rows[0] || null;
+}
+
 // ── CSV HELPERS ───────────────────────────────────────────────────────────────
 
 function csvCell(v) {
@@ -61,9 +68,11 @@ router.post('/portfolio', requireAuth, async (req, res, next) => {
     const content = buildCsv(headers, csvRows);
     const filename = `portfolio_${new Date().toISOString().slice(0, 10)}.csv`;
 
+    const me = await recipientOf(req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
     await sendExportEmail({
-      to: req.user.email,
-      firstName: req.user.first_name,
+      to: me.email,
+      firstName: me.first_name,
       exports: [{ filename, content, type: 'text/csv' }],
     });
 
@@ -74,7 +83,7 @@ router.post('/portfolio', requireAuth, async (req, res, next) => {
       body: `${filename} was emailed to you.`,
     }).catch(e => console.warn('[export] notification failed:', e.message));
 
-    res.json({ ok: true, email: req.user.email });
+    res.json({ ok: true, email: me.email });
   } catch (err) { next(err); }
 });
 
@@ -154,9 +163,11 @@ router.post('/cost-grids', requireAuth, async (req, res, next) => {
     const content = buildCsv(headers, csvRows);
     const filename = `cost_grids_${new Date().toISOString().slice(0, 10)}.csv`;
 
+    const me = await recipientOf(req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
     await sendExportEmail({
-      to: req.user.email,
-      firstName: req.user.first_name,
+      to: me.email,
+      firstName: me.first_name,
       exports: [{ filename, content, type: 'text/csv' }],
     });
 
@@ -167,7 +178,7 @@ router.post('/cost-grids', requireAuth, async (req, res, next) => {
       body: `${filename} was emailed to you.`,
     }).catch(e => console.warn('[export] notification failed:', e.message));
 
-    res.json({ ok: true, email: req.user.email });
+    res.json({ ok: true, email: me.email });
   } catch (err) { next(err); }
 });
 
@@ -224,9 +235,11 @@ router.post('/ratecards', requireAdmin, async (req, res, next) => {
     const content = buildCsv(headers, csvRows);
     const filename = `ratecards_${new Date().toISOString().slice(0, 10)}.csv`;
 
+    const me = await recipientOf(req.user.id);
+    if (!me) return res.status(404).json({ error: 'User not found' });
     await sendExportEmail({
-      to: req.user.email,
-      firstName: req.user.first_name,
+      to: me.email,
+      firstName: me.first_name,
       exports: [{ filename, content, type: 'text/csv' }],
     });
 
@@ -237,7 +250,7 @@ router.post('/ratecards', requireAdmin, async (req, res, next) => {
       body: `${filename} was emailed to you.`,
     }).catch(e => console.warn('[export] notification failed:', e.message));
 
-    res.json({ ok: true, email: req.user.email });
+    res.json({ ok: true, email: me.email });
   } catch (err) { next(err); }
 });
 

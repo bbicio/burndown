@@ -1,5 +1,6 @@
 const nodemailer = require('nodemailer');
 const { renderEmailHtml } = require('../lib/email-template');
+const { escapeHtml } = require('../lib/user-details');
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -9,6 +10,10 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  // The login answers only after the code mail is handed over: an unreachable SMTP must fail fast.
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
 });
 
 const FROM = `PDash <${process.env.SMTP_USER}>`;
@@ -47,6 +52,24 @@ async function sendPasswordReset({ to, firstName, token }) {
         <p>Click the link below to set a new password:</p>
         <p><a href="${link}">${link}</a></p>
         <p>This link expires in 2 hours. If you did not request a reset, ignore this email.</p>
+      `,
+    }),
+  });
+}
+
+async function sendLoginCode({ to, firstName, code }) {
+  await transporter.sendMail({
+    from: FROM,
+    to,
+    subject: 'PDash — Your sign-in code',
+    html: renderEmailHtml({
+      appUrl: APP_URL,
+      bodyHtml: `
+        <p>Hi ${escapeHtml(firstName || 'there')},</p>
+        <p>Your PDash sign-in code is:</p>
+        <p style="font-size:24px;letter-spacing:4px"><strong>${code}</strong></p>
+        <p>It expires in 10 minutes.</p>
+        <p>If you didn't try to sign in, change your password.</p>
       `,
     }),
   });
@@ -131,13 +154,13 @@ async function sendAdminNotificationEmail({ to, firstName, title, body, url }) {
     html: renderEmailHtml({
       appUrl: APP_URL,
       bodyHtml: `
-        <p>Hi ${firstName || 'there'},</p>
-        <p><strong>${title}</strong></p>
-        ${body ? `<p>${body.replace(/\n/g, '<br>')}</p>` : ''}
+        <p>Hi ${escapeHtml(firstName || 'there')},</p>
+        <p><strong>${escapeHtml(title)}</strong></p>
+        ${body ? `<p>${escapeHtml(body).replace(/\n/g, '<br>')}</p>` : ''}
         ${link ? `<p><a href="${link}">Open in PDash</a></p>` : ''}
       `,
     }),
   });
 }
 
-module.exports = { sendInvite, sendPasswordReset, sendShareNotification, sendShareRevokedEmail, sendOwnerReassignedEmail, sendExportEmail, sendAdminNotificationEmail, APP_URL };
+module.exports = { sendInvite, sendLoginCode, sendPasswordReset, sendShareNotification, sendShareRevokedEmail, sendOwnerReassignedEmail, sendExportEmail, sendAdminNotificationEmail, APP_URL };

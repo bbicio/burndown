@@ -3,12 +3,95 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { query } = require('../db/client');
 const { setAuthCookie, clearAuthCookie } = require('../services/jwt');
-const { sendInvite, sendPasswordReset, sendAdminNotificationEmail } = require('../services/email');
+const { sendInvite, sendPasswordReset, sendAdminNotificationEmail, sendLoginCode } = require('../services/email');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { pushToUser } = require('./notifications');
-const { rectificationError, escapeHtml } = require('../lib/user-details');
+const { rectificationError, normalizeDetails, detailsError } = require('../lib/user-details');
+const T = require('../lib/two-step');
+const { createLimiter } = require('../lib/rate-limit');
+const twoStep = require('../services/two-step');
 
 const router = express.Router();
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Failed password attempts only: a successful login does not count, so a shared NAT or the test suite
+// can sign in as often as it likes while guessing stays capped. A slot is reserved with hit before the
+// first await (so a burst of parallel guesses cannot all pass a check made before any of them is counted)
+// and refunded once the password turns out right. In memory: the counters are lost on restart.
+const loginIpLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
+const loginEmailLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
+// Every code sent (login that opens a challenge, resend): 10 per user per hour.
+const sendLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
+
+const CHALLENGE_COOKIE = 'pdash_challenge';
+const DEVICE_COOKIE = 'pdash_device';
+const COOKIE_PATH = '/api/auth';
+
+function setChallengeCookie(res, token) {
+  res.cookie(CHALLENGE_COOKIE, token, {
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: process.env.NODE_ENV === 'production',
+    path: COOKIE_PATH,
+    maxAge: T.CHALLENGE_TTL_MS,
+  });
+}
+
+function setDeviceCookie(res, token) {
+  res.cookie(DEVICE_COOKIE, token, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: COOKIE_PATH,
+    maxAge: T.TRUST_DAYS * 24 * 60 * 60 * 1000,
+  });
+}
+
+function clearChallengeCookie(res) { res.clearCookie(CHALLENGE_COOKIE, { path: COOKIE_PATH }); }
+function clearDeviceCookie(res) { res.clearCookie(DEVICE_COOKIE, { path: COOKIE_PATH }); }
+
+const seconds = ms => Math.max(1, Math.ceil(ms / 1000));
+
+function rateLimited(res, retryInMs) {
+  return res.status(429).json({ error: 'Too many attempts', code: 'RATE_LIMITED', retryIn: seconds(retryInMs) });
+}
+
+function signedInBody(user) {
+  return { id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name, role: user.role };
+}
+
+// The code mail is the one step that may fail without failing the login: the challenge stays and the
+// user can ask for a new code. Resolves to true when the mail was handed over.
+async function deliverCode(challengeId, user, code) {
+  try {
+    await sendLoginCode({ to: user.email, firstName: user.first_name, code });
+    await twoStep.markSent(challengeId);
+    return true;
+  } catch (e) {
+    console.warn('[two-step] code email failed:', e.message);
+    return false;
+  }
+}
+
+// The challenge of the pdash_challenge cookie and its user, or null (cookie cleared, challenge dropped
+// when its user is gone or no longer active).
+async function challengeOf(req, res) {
+  const ch = await twoStep.findChallenge(req.cookies && req.cookies[CHALLENGE_COOKIE]);
+  if (!ch) { clearChallengeCookie(res); return null; }
+  const { rows } = await query('SELECT * FROM users WHERE id = $1', [ch.user_id]);
+  const user = rows[0];
+  if (!user || user.status !== 'active') {
+    await twoStep.deleteChallenge(ch.id);
+    clearChallengeCookie(res);
+    return null;
+  }
+  return { ch, user };
+}
+
+function noChallenge(res) {
+  return res.status(401).json({ error: 'Sign-in expired', code: 'NO_CHALLENGE' });
+}
 
 async function getCurrentTermsVersion() {
   const { rows } = await query('SELECT COALESCE(MAX(version), 1) AS value FROM terms_versions');
@@ -32,13 +115,18 @@ router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await query(
       `SELECT id, email, first_name, last_name, role, status, terms_version,
-              created_at, terms_accepted_at, password_changed_at
+              created_at, terms_accepted_at, password_changed_at, two_step_method
        FROM users WHERE id = $1`,
       [req.user.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'User not found' });
     const currentTermsVersion = await getCurrentTermsVersion();
-    res.json({ ...rows[0], current_terms_version: currentTermsVersion });
+    const { two_step_method: method, ...me } = rows[0];
+    res.json({
+      ...me,
+      current_terms_version: currentTermsVersion,
+      two_step: { method, destination: T.maskEmail(me.email) },
+    });
   } catch (err) { next(err); }
 });
 
@@ -79,12 +167,12 @@ router.post('/rectification-request', requireAuth, async (req, res, next) => {
         // The email below still goes out: this admin hears of the request through one channel at least.
         console.warn('[rectification] notification failed:', e.message);
       }
-      // The email body is HTML: what the user typed is escaped here, the in-app notification stays text.
+      // The mailer escapes what it puts in the HTML; the in-app notification stays text.
       sendAdminNotificationEmail({
         to: a.email,
-        firstName: escapeHtml(a.first_name),
-        title: escapeHtml(title),
-        body: escapeHtml(text),
+        firstName: a.first_name,
+        title,
+        body: text,
         url: '/admin.html',
       }).catch(e => console.warn('[rectification] email send failed:', e.message));
     }
@@ -104,28 +192,182 @@ router.post('/accept-terms', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// POST /api/auth/login
+// POST /api/auth/login — the password step. With a trusted device the session opens here; otherwise a
+// challenge is opened, the code is mailed and the answer carries no pdash_token.
 router.post('/login', async (req, res, next) => {
+  // The reserved slots go back unless the password was judged: a database error costs the user nothing.
+  let refundSlots = () => {};
+  let judged = false;
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+    // Strings only, before a slot is reserved: bcrypt throws on anything else, and that error is refunded.
+    if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
+      return res.status(400).json({ error: 'Email and password required' });
+    }
 
-    const { rows } = await query('SELECT * FROM users WHERE email = $1', [email.toLowerCase()]);
+    const normalized = String(email).toLowerCase();
+    const ipKey = req.ip;
+    const ipSlot = loginIpLimiter.hit(ipKey);
+    const emailSlot = loginEmailLimiter.hit(normalized);
+    refundSlots = () => {
+      if (ipSlot.allowed) loginIpLimiter.refund(ipKey, Date.now(), ipSlot.window);
+      if (emailSlot.allowed) loginEmailLimiter.refund(normalized, Date.now(), emailSlot.window);
+    };
+    if (!ipSlot.allowed || !emailSlot.allowed) {
+      refundSlots();
+      return rateLimited(res, Math.max(ipSlot.retryInMs, emailSlot.retryInMs));
+    }
+
+    const { rows } = await query('SELECT * FROM users WHERE email = $1', [normalized]);
     const user = rows[0];
 
     const valid = user && user.password_hash && await bcrypt.compare(password, user.password_hash);
+    judged = true;
     if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
+    refundSlots();
     if (user.status === 'disabled') return res.status(403).json({ error: 'Account disabled' });
     if (user.status === 'pending') return res.status(403).json({ error: 'Account not yet activated' });
 
+    const device = await twoStep.findTrustedDevice(req.cookies && req.cookies[DEVICE_COOKIE]);
+    if (T.deviceTrusted(device, user, Date.now())) {
+      await twoStep.touchDevice(device.id);
+      setAuthCookie(res, { id: user.id, email: user.email, role: user.role });
+      return res.json(signedInBody(user));
+    }
+
+    const send = sendLimiter.hit(user.id);
+    if (!send.allowed) return rateLimited(res, send.retryInMs);
+
+    // Opened only while the user is still as read above: bcrypt took time, and a password change that
+    // revoked in the meantime must not leave this challenge behind.
+    const created = await twoStep.createChallenge(user.id, { guard: { email: user.email, passwordChangedAt: user.password_changed_at } });
+    if (!created) return res.status(401).json({ error: 'Invalid email or password' });
+    const { challenge, token, code } = created;
+    const sent = await deliverCode(challenge.id, user, code);
+    setChallengeCookie(res, token);
+    res.json({
+      twoStep: {
+        method: 'email',
+        destination: T.maskEmail(user.email),
+        expiresIn: T.CODE_TTL_MS / 1000,
+        resendIn: sent ? T.RESEND_COOLDOWN_MS / 1000 : 0,
+        sendFailed: !sent,
+      },
+    });
+  } catch (err) { if (!judged) refundSlots(); next(err); }
+});
+
+// POST /api/auth/two-step/verify — the code step. Attempts are counted per challenge; a resend does
+// not reset them.
+router.post('/two-step/verify', async (req, res, next) => {
+  try {
+    const found = await challengeOf(req, res);
+    if (!found) return noChallenge(res);
+    const { ch, user } = found;
+
+    const attempts = await twoStep.recordAttempt(ch.id);
+    if (attempts === null) {
+      await twoStep.deleteChallenge(ch.id);
+      clearChallengeCookie(res);
+      return res.status(423).json({ error: 'Too many attempts', code: 'LOCKED' });
+    }
+
+    const entered = T.normalizeCode(req.body && req.body.code);
+    const expected = Buffer.from(ch.code_hash);
+    const given = Buffer.from(T.hashCode(process.env.JWT_SECRET, ch.id, entered));
+    const matches = entered.length === 6 && given.length === expected.length && crypto.timingSafeEqual(given, expected);
+    const outcome = T.verifyOutcome({ attempts, code_expires_at: ch.code_expires_at }, Date.now(), matches);
+
+    if (outcome.result === 'expired') return res.status(410).json({ error: 'Code expired', code: 'CODE_EXPIRED' });
+    if (outcome.result === 'wrong') {
+      return res.status(400).json({ error: 'Incorrect code', code: 'WRONG_CODE', attemptsLeft: outcome.attemptsLeft });
+    }
+    if (outcome.result === 'locked') {
+      await twoStep.deleteChallenge(ch.id);
+      clearChallengeCookie(res);
+      return res.status(423).json({ error: 'Too many attempts', code: 'LOCKED' });
+    }
+
+    await twoStep.deleteChallenge(ch.id);
+    clearChallengeCookie(res);
+    if (req.body && req.body.trustDevice === true) {
+      const deviceToken = await twoStep.trustDevice(user.id, req.get('user-agent'),
+        { guard: { email: user.email, passwordChangedAt: user.password_changed_at } });
+      // null: the credentials changed while this request was in flight; no session either.
+      if (!deviceToken) return noChallenge(res);
+      setDeviceCookie(res, deviceToken);
+    }
     setAuthCookie(res, { id: user.id, email: user.email, role: user.role });
-    res.json({ id: user.id, email: user.email, firstName: user.first_name, lastName: user.last_name, role: user.role });
+    res.json(signedInBody(user));
   } catch (err) { next(err); }
 });
 
-// POST /api/auth/logout
+// POST /api/auth/two-step/resend — a new code replaces the old one.
+router.post('/two-step/resend', async (req, res, next) => {
+  try {
+    const found = await challengeOf(req, res);
+    if (!found) return noChallenge(res);
+    const { ch, user } = found;
+
+    const wait = T.resendWait(ch, Date.now());
+    if (wait === 'exhausted') {
+      return rateLimited(res, new Date(ch.expires_at).getTime() - Date.now());
+    }
+    if (wait > 0) {
+      return res.status(429).json({ error: 'Wait before asking for a new code', code: 'COOLDOWN', retryIn: seconds(wait) });
+    }
+    const send = sendLimiter.hit(user.id);
+    if (!send.allowed) return rateLimited(res, send.retryInMs);
+
+    const code = await twoStep.replaceCode(ch.id);
+    if (!await deliverCode(ch.id, user, code)) {
+      return res.status(502).json({ error: 'The email could not be sent', code: 'SEND_FAILED' });
+    }
+    res.json({ ok: true, expiresIn: T.CODE_TTL_MS / 1000, resendIn: T.RESEND_COOLDOWN_MS / 1000 });
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/auth/two-step — "Back to sign in": drops the open challenge. Always 200.
+router.delete('/two-step', async (req, res, next) => {
+  try {
+    const ch = await twoStep.findChallenge(req.cookies && req.cookies[CHALLENGE_COOKIE]);
+    if (ch) await twoStep.deleteChallenge(ch.id);
+    clearChallengeCookie(res);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// GET /api/auth/trusted-devices
+router.get('/trusted-devices', requireAuth, async (req, res, next) => {
+  try {
+    res.json(await twoStep.listDevices(req.user.id, req.cookies && req.cookies[DEVICE_COOKIE]));
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/auth/trusted-devices — every device of the user.
+router.delete('/trusted-devices', requireAuth, async (req, res, next) => {
+  try {
+    await twoStep.removeAllDevices(req.user.id);
+    clearDeviceCookie(res);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// DELETE /api/auth/trusted-devices/:id
+router.delete('/trusted-devices/:id', requireAuth, async (req, res, next) => {
+  try {
+    if (!UUID_RE.test(req.params.id)) return res.status(404).json({ error: 'Device not found' });
+    const r = await twoStep.removeDevice(req.user.id, req.params.id, req.cookies && req.cookies[DEVICE_COOKIE]);
+    if (!r.removed) return res.status(404).json({ error: 'Device not found' });
+    if (r.wasCurrent) clearDeviceCookie(res);
+    res.json({ ok: true });
+  } catch (err) { next(err); }
+});
+
+// POST /api/auth/logout — pdash_device stays: signing out does not untrust the browser.
 router.post('/logout', (req, res) => {
   clearAuthCookie(res);
+  clearChallengeCookie(res);
   res.json({ ok: true });
 });
 
@@ -136,17 +378,22 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
     if (!email || !firstName || !lastName) return res.status(400).json({ error: 'email, firstName and lastName required' });
     if (!['admin', 'user'].includes(role)) return res.status(400).json({ error: 'role must be admin or user' });
 
-    const exists = await query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    // The same rules as an admin's edit of a user's details (length, shape, the reserved anonymized address).
+    const details = normalizeDetails({ firstName, lastName, email });
+    const detErr = detailsError(details);
+    if (detErr) return res.status(400).json(detErr);
+
+    const exists = await query('SELECT id FROM users WHERE email = $1', [details.email]);
     if (exists.rows[0]) return res.status(409).json({ error: 'Email already registered' });
 
     const { tok, exp } = token48h();
     const { rows } = await query(
       `INSERT INTO users (email, first_name, last_name, role, status, invite_token, invite_expires, invited_by)
        VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7) RETURNING id`,
-      [email.toLowerCase(), firstName, lastName, role, tok, exp, req.user.id]
+      [details.email, details.firstName, details.lastName, role, tok, exp, req.user.id]
     );
 
-    await sendInvite({ to: email, firstName, token: tok });
+    await sendInvite({ to: details.email, firstName: details.firstName, token: tok });
     res.status(201).json({ id: rows[0].id });
   } catch (err) { next(err); }
 });
@@ -208,6 +455,7 @@ router.post('/activate', async (req, res, next) => {
       `UPDATE users SET password_hash = $1, password_changed_at = NOW(), status = 'active', invite_token = NULL, invite_expires = NULL WHERE id = $2`,
       [hash, rows[0].id]
     );
+    await twoStep.revokeTwoStepState(rows[0].id);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -266,6 +514,7 @@ router.post('/reset-password', async (req, res, next) => {
       `UPDATE users SET password_hash = $1, password_changed_at = NOW(), reset_token = NULL, reset_expires = NULL WHERE id = $2`,
       [hash, rows[0].id]
     );
+    await twoStep.revokeTwoStepState(rows[0].id);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -285,6 +534,9 @@ router.post('/change-password', requireAuth, async (req, res, next) => {
 
     const hash = await bcrypt.hash(newPassword, 12);
     await query('UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2', [hash, req.user.id]);
+    // Every trusted device (this browser's included) asks for the code again; a challenge opened with the old password goes too.
+    await twoStep.revokeTwoStepState(req.user.id);
+    clearDeviceCookie(res);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

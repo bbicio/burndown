@@ -3,6 +3,7 @@ const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { roleChangeError } = require('../lib/role-transition');
 const { ANON_EMAIL_RE, normalizeDetails, detailsError } = require('../lib/user-details');
+const { revokeTwoStepState } = require('../services/two-step');
 
 const router = express.Router();
 
@@ -159,6 +160,10 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
       params
     );
     if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+    // A new address or a disabled account must not keep a code mailed to the old one, nor a device trusted before.
+    if ((details.email !== undefined && details.email !== target.email) || status === 'disabled') {
+      await revokeTwoStepState(req.params.id);
+    }
     res.json(rows[0]);
   } catch (err) { next(err); }
 });
@@ -197,6 +202,7 @@ router.post('/:id/anonymize', requireAdmin, async (req, res, next) => {
        RETURNING id, status`,
       [req.params.id]
     );
+    await revokeTwoStepState(req.params.id);
     res.json({ ok: true, ...updated });
   } catch (err) { next(err); }
 });
@@ -221,6 +227,7 @@ router.delete('/:id', requireAdmin, async (req, res, next) => {
       [req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'User not found' });
+    await revokeTwoStepState(req.params.id);
     res.json(rows[0]);
   } catch (err) { next(err); }
 });

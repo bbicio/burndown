@@ -1,14 +1,36 @@
 import { describe, it, expect } from 'vitest';
-import { PROFILE_SECTIONS, sectionFromHash, passwordStrength, passwordFormState, maskInitials } from './profile-ui.js';
+import { PROFILE_SECTIONS, sectionFromHash, passwordStrength, passwordFormState, maskInitials, deviceExpiry } from './profile-ui.js';
 
 describe('sectionFromHash', () => {
   it('maps a known hash to its section', () => {
-    expect(PROFILE_SECTIONS).toEqual(['details', 'password', 'privacy']);
+    expect(PROFILE_SECTIONS).toEqual(['details', 'password', 'two-step', 'devices', 'privacy']);
     expect(sectionFromHash('#privacy')).toBe('privacy');
+    expect(sectionFromHash('#devices')).toBe('devices');
+    expect(sectionFromHash('#two-step')).toBe('two-step');
     expect(sectionFromHash('#password')).toBe('password');
   });
   it('falls back to details for an empty, bare or unknown hash', () => {
     for (const h of ['', '#', '#foo', undefined, null]) expect(sectionFromHash(h)).toBe('details');
+  });
+});
+
+describe('deviceExpiry', () => {
+  const now = Date.parse('2026-11-10T12:00:00Z');
+  const inDays = n => new Date(now + n * 86400000).toISOString();
+
+  it('says "in N days" and flags it soon under 10 days', () => {
+    expect(deviceExpiry(inDays(3), now)).toEqual({ soon: true, text: 'expires in 3 days' });
+    expect(deviceExpiry(inDays(9), now)).toEqual({ soon: true, text: 'expires in 9 days' });
+  });
+  it('uses the singular for one day, and never goes below it', () => {
+    expect(deviceExpiry(inDays(1), now)).toEqual({ soon: true, text: 'expires in 1 day' });
+    expect(deviceExpiry(inDays(0.2), now)).toEqual({ soon: true, text: 'expires in 1 day' });
+  });
+  it('shows the date from 10 days on, not soon', () => {
+    const r = deviceExpiry(inDays(20), now);
+    expect(r.soon).toBe(false);
+    expect(r.text).toBe('expires Nov 30, 2026');
+    expect(deviceExpiry(inDays(10), now).soon).toBe(false);
   });
 });
 

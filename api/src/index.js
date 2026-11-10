@@ -29,6 +29,9 @@ const { invalidatePlanningData } = require('./services/planning-data');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// nginx sits in front: req.ip (the login rate limits) must be the client's, from X-Forwarded-For.
+app.set('trust proxy', 1);
+
 app.use(cors({
   origin: process.env.APP_URL || 'http://localhost',
   credentials: true,

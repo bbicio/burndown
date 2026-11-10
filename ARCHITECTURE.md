@@ -110,9 +110,13 @@ User clicks link
 User submits email + password
   → POST /api/auth/login
   → server validates credentials
-  → if ok: sets httpOnly JWT cookie, returns user profile
-  → if error: 401 generic message (no distinction email/password)
+  → if error: 401 generic message (no distinction email/password); failed attempts only are rate limited (429 RATE_LIMITED)
   → if disabled: 403
+  → if the pdash_device cookie is a valid trusted device of the user: sets httpOnly JWT cookie, returns user profile
+  → otherwise: opens a login_challenges row, mails a 6-digit code, sets the pdash_challenge cookie and answers
+    { twoStep: { method, destination, expiresIn, resendIn, sendFailed } } with no JWT
+  → POST /api/auth/two-step/verify { code, trustDevice } → JWT cookie (+ pdash_device when trustDevice)
+  → POST /api/auth/two-step/resend, DELETE /api/auth/two-step ("Back to sign in")
 ```
 
 ### 4.3 Password Recovery
@@ -196,6 +200,7 @@ users (
   terms_version     INTEGER,          -- migration 014: last accepted T&C version (NULL = never accepted)
   terms_accepted_at TIMESTAMPTZ,      -- migration 014: timestamp of last acceptance
   password_changed_at TIMESTAMPTZ,    -- migration 033: set by change-password, reset-password, activate
+  two_step_method   TEXT NOT NULL DEFAULT 'email',  -- migration 034: no CHECK, the values live in api/src/lib/two-step.js
   created_at        TIMESTAMPTZ DEFAULT NOW()
 )
 
@@ -207,6 +212,22 @@ rectification_requests (              -- migration 033: register of the correcti
 )
 -- Deleted by POST /api/users/:id/anonymize (the message is free text with personal data); the admins'
 -- notifications of a request reference it (notifications.rectification_request_id, indexed) and are deleted with it.
+
+login_challenges (                    -- migration 034: one open sign-in step per login; several per user coexist
+  id UUID PRIMARY KEY, user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,    -- sha256 of the pdash_challenge cookie
+  method TEXT NOT NULL, code_hash TEXT NOT NULL,   -- HMAC-SHA256(JWT_SECRET, id:code), never the code
+  code_expires_at TIMESTAMPTZ NOT NULL, code_sent_at TIMESTAMPTZ,
+  attempts INT NOT NULL DEFAULT 0, sends INT NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), expires_at TIMESTAMPTZ NOT NULL
+)
+trusted_devices (                     -- migration 034: skip the code for 30 days; neither IP nor raw user agent is stored
+  id UUID PRIMARY KEY, user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash TEXT NOT NULL UNIQUE,    -- sha256 of the pdash_device cookie
+  label TEXT NOT NULL, kind TEXT NOT NULL,   -- 'desktop' | 'mobile'
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), expires_at TIMESTAMPTZ NOT NULL, last_used_at TIMESTAMPTZ
+)
+-- Both deleted by revokeTwoStepState() on every credential or account-state change (api/src/services/two-step.js).
 
 app_settings (                        -- migration 015: generic key/value store for admin-managed config
   key        VARCHAR(100) PRIMARY KEY,
@@ -632,7 +653,13 @@ timesheets (
 |---|---|---|---|
 | POST | /api/auth/login | — | Login email + password |
 | POST | /api/auth/logout | ✅ | Clear JWT cookie |
-| GET | /api/auth/me | ✅ | Current user profile, incl. `created_at`, `terms_accepted_at`, `password_changed_at` |
+| GET | /api/auth/me | ✅ | Current user profile, incl. `created_at`, `terms_accepted_at`, `password_changed_at`, `two_step { method, destination }` |
+| POST | /api/auth/two-step/verify | — | `{ code, trustDevice }` against the `pdash_challenge` cookie: 400 `WRONG_CODE` (with `attemptsLeft`), 410 `CODE_EXPIRED`, 423 `LOCKED`, 401 `NO_CHALLENGE`; success sets the JWT cookie (and `pdash_device`) |
+| POST | /api/auth/two-step/resend | — | New code for the open challenge: 429 `COOLDOWN` / `RATE_LIMITED`, 502 `SEND_FAILED` |
+| DELETE | /api/auth/two-step | — | Drops the open challenge ("Back to sign in"); always 200 |
+| GET | /api/auth/trusted-devices | ✅ | The user's unexpired trusted devices, `current` from the `pdash_device` cookie |
+| DELETE | /api/auth/trusted-devices/:id | ✅ | Remove one of the user's own devices; 404 for another user's |
+| DELETE | /api/auth/trusted-devices | ✅ | Remove all of the user's devices |
 | POST | /api/auth/invite | admin | Invite new user |
 | POST | /api/auth/:id/resend-invite | admin | Resend activation email to a pending user with a fresh 48h token |
 | GET | /api/auth/invite/:token | — | Validate invite token |
@@ -1100,7 +1127,7 @@ Current migrations:
 - `024_resource_aliases_unmatched.sql` — creates `resource_aliases` and `profile_unmatched` (see §5; Cycle 3b, 2026-09-25); `profile_unmatched` is keyed by `project_code`, not project id
 - `025_resource_role_id.sql` — `resources.role_id → roles(id)` NOT NULL replacing free-text `job_title`; backfill by `roles.code` then `roles.label`, aborts loudly on an unmatched row, re-runnable (Team role by id, 2026-09-25)
 - `026_profile_engine.sql` — `resource_project_contributions`, `profile_project_state`, `profile_job_runs`, `resources.profile`/`profile_computed_at`, and the `profile_job_interval_min`/`profile_job_enabled` defaults in `app_settings` (see §5; Cycle 3c, 2026-09-25). Idempotent (`IF NOT EXISTS` / `ON CONFLICT DO NOTHING`)
-- `027`–`033`: one line each in docs/db/migrations.md (033 = `users.password_changed_at`, `rectification_requests`, `notifications.rectification_request_id`)
+- `027`–`034`: one line each in docs/db/migrations.md (034 = `users.two_step_method`, `login_challenges`, `trusted_devices`; 033 = `users.password_changed_at`, `rectification_requests`, `notifications.rectification_request_id`)
 
 ---
 
