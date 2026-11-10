@@ -388,6 +388,108 @@ async function testTwoStep() {
   }
 }
 
+// ── Two-step revocation ───────────────────────────────────────────────────────
+
+// A throw-away user with one trusted device and one open challenge: the state every credential change
+// must wipe. `session` is a signed-in cookie taken before the challenge that stays open.
+async function armedUser(tag) {
+  const u = await makeTsUser(`rev${tag}`);
+  if (!u) return null;
+  const session = await loginWithCode(u.email, TS_PASS);
+  const device = `pdash_device=${cli('src/trust-device.js', u.email)}`;
+  const { cookie: challenge } = await openChallenge(u);
+  return { ...u, session, device, challenge };
+}
+
+async function twoStepRows(userId) {
+  const d = await sql('SELECT count(*)::int AS n FROM trusted_devices WHERE user_id = $1', [userId]);
+  const c = await sql('SELECT count(*)::int AS n FROM login_challenges WHERE user_id = $1', [userId]);
+  return d && c ? { devices: d[0].n, challenges: c[0].n } : null;
+}
+
+async function expectWiped(label, userId) {
+  const rows = await twoStepRows(userId);
+  ok(rows && rows.devices === 0 && rows.challenges === 0, `${label} no trusted device and no challenge left (got ${JSON.stringify(rows)})`);
+}
+
+async function testTwoStepRevocation() {
+  section('Two-step revocation');
+  const U = id => `/api/users/${id}`;
+
+  const a = await armedUser('a');
+  if (a) {
+    const before = await twoStepRows(a.id);
+    ok(before && before.devices === 1 && before.challenges === 1, `TS-20 setup: one device, one challenge (got ${JSON.stringify(before)})`);
+    const r = await api('POST', '/api/auth/change-password',
+      { currentPassword: TS_PASS, newPassword: TS_PASS + 'x', newPasswordConfirm: TS_PASS + 'x' }, joinCookies(a.session, a.device));
+    ok(r.status === 200, `TS-20 change-password → 200 (got ${r.status})`);
+    await expectWiped('TS-20', a.id);
+    ok((r.headers.getSetCookie?.() || []).some(h => /^pdash_device=;/.test(h)), 'TS-20 the response clears the pdash_device cookie');
+  }
+
+  const b = await armedUser('b');
+  if (b) {
+    const tok = `__test_ts_reset_${Date.now()}__`;
+    await sql(`UPDATE users SET reset_token = $2, reset_expires = NOW() + interval '1 hour' WHERE id = $1`, [b.id, tok]);
+    const r = await api('POST', '/api/auth/reset-password', { token: tok, password: 'ResetPass123!', passwordConfirm: 'ResetPass123!' });
+    ok(r.status === 200, `TS-21 reset-password → 200 (got ${r.status})`);
+    await expectWiped('TS-21', b.id);
+  }
+
+  const c = await armedUser('c');
+  if (c) {
+    const r = await api('PATCH', U(c.id), { email: `__test_ts_moved_${Date.now()}@pdash.local` }, adminCookie);
+    ok(r.status === 200, `TS-22 an admin changes the email → 200 (got ${r.status})`);
+    await expectWiped('TS-22', c.id);
+    const v = await api('POST', '/api/auth/two-step/verify', { code: '123456' }, c.challenge);
+    ok(v.status === 401 && v.data?.code === 'NO_CHALLENGE', `TS-22 the old challenge is gone → 401 NO_CHALLENGE (got ${v.status})`);
+  }
+
+  const d = await armedUser('d');
+  const e = await armedUser('e');
+  if (d && e) {
+    const r1 = await api('PATCH', U(d.id), { status: 'disabled' }, adminCookie);
+    ok(r1.status === 200, `TS-23 disabling a user → 200 (got ${r1.status})`);
+    await expectWiped('TS-23 (disable)', d.id);
+    const r2 = await api('DELETE', U(e.id), null, adminCookie);
+    ok(r2.status === 200, `TS-23 DELETE /users/:id → 200 (got ${r2.status})`);
+    await expectWiped('TS-23 (delete)', e.id);
+  }
+
+  const f = await armedUser('f');
+  if (f) {
+    const r = await api('POST', `${U(f.id)}/anonymize`, null, sysadminCookie);
+    ok(r.status === 200, `TS-24 anonymize → 200 (got ${r.status})`);
+    await expectWiped('TS-24', f.id);
+  }
+
+  // TS-26 (B-397): an export goes to the address on file, not to the one the session was signed with.
+  const g = await armedUser('g');
+  if (g) {
+    const moved = `__test_ts_export_${Date.now()}@pdash.local`;
+    await api('PATCH', U(g.id), { email: moved }, adminCookie);
+    const r = await api('POST', '/api/exports/portfolio', null, g.session);
+    ok(r.status === 200 && r.data?.email === moved, `TS-26 the export answers with the new address (got ${r.status}, ${r.data?.email})`);
+  }
+
+  // TS-27 (B-409): invite validates like an admin's edit of a user's details.
+  const inv = (over = {}) => api('POST', '/api/auth/invite',
+    { email: `__test_ts_inv_${Date.now()}@pdash.local`, firstName: 'Inv', lastName: 'Ited', role: 'user', ...over }, adminCookie);
+  const longName = await inv({ firstName: 'x'.repeat(101) });
+  ok(longName.status === 400, `TS-27 a first name of 101 characters → 400 (got ${longName.status})`);
+  const reserved = await inv({ email: 'anon_x@deleted.local' });
+  ok(reserved.status === 400, `TS-27 the reserved anonymized address → 400 (got ${reserved.status})`);
+
+  // TS-28: the emergency reset locks out whoever held the old password.
+  const h = await armedUser('h');
+  if (h) {
+    cli('src/create-admin.js', h.email, 'ResetPass123!', 'Two', 'Step');
+    const row = await sql('SELECT password_changed_at FROM users WHERE id = $1', [h.id]);
+    ok(row && row[0].password_changed_at !== null, 'TS-28 create-admin.js sets password_changed_at');
+    await expectWiped('TS-28', h.id);
+  }
+}
+
 // ── Profile ───────────────────────────────────────────────────────────────────
 
 async function testProfile() {
@@ -1547,6 +1649,7 @@ async function testUsers() {
 
   const e2 = await api('PATCH', U(admin.id), { email: 'test-admin-ed@pdash.local' }, sysadminCookie);
   const e2b = await api('PATCH', U(admin.id), { email: EMAIL }, sysadminCookie);
+  ADMIN_DEVICE = deviceCookie(EMAIL);   // an email change removes the trusted devices
   ok(e2.status === 200 && e2.data?.email === 'test-admin-ed@pdash.local' && e2b.status === 200 && !!(await byEmail(EMAIL)),
     `AD-ED-02 sysadmin changes the admin's email and back → 200, 200 (got ${e2.status}, ${e2b.status})`);
 
@@ -4343,6 +4446,7 @@ async function main() {
       process.exit(1);
     }
     await testTwoStep();
+    await testTwoStepRevocation();
     await testProfile();
     await ensureTestCurrencies();
     await testSecurity();

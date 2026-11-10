@@ -49,6 +49,7 @@ if (!email || !password) {
 // ── Main ─────────────────────────────────────────────────────────────────────
 const { Pool } = require('pg');
 const bcrypt   = require('bcryptjs');
+const { revokeTwoStepState } = require('./services/two-step');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
@@ -66,11 +67,13 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
       const u = existing.rows[0];
       await pool.query(
         `UPDATE users
-         SET password_hash = $1, role = 'admin', status = 'active',
+         SET password_hash = $1, password_changed_at = NOW(), role = 'admin', status = 'active',
              invite_token = NULL, invite_expires = NULL, reset_token = NULL, reset_expires = NULL
          WHERE id = $2`,
         [hash, u.id]
       );
+      // A reset must lock out whoever held the old password: no trusted device or open challenge survives it.
+      await revokeTwoStepState(u.id, { db: pool });
       console.log(`Updated: ${normalized} (was role=${u.role} status=${u.status}) → role=admin status=active`);
     } else {
       const { rows } = await pool.query(

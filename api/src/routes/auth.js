@@ -6,7 +6,7 @@ const { setAuthCookie, clearAuthCookie } = require('../services/jwt');
 const { sendInvite, sendPasswordReset, sendAdminNotificationEmail, sendLoginCode } = require('../services/email');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { pushToUser } = require('./notifications');
-const { rectificationError } = require('../lib/user-details');
+const { rectificationError, normalizeDetails, detailsError } = require('../lib/user-details');
 const T = require('../lib/two-step');
 const { createLimiter } = require('../lib/rate-limit');
 const twoStep = require('../services/two-step');
@@ -358,17 +358,22 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
     if (!email || !firstName || !lastName) return res.status(400).json({ error: 'email, firstName and lastName required' });
     if (!['admin', 'user'].includes(role)) return res.status(400).json({ error: 'role must be admin or user' });
 
-    const exists = await query('SELECT id FROM users WHERE email = $1', [email.toLowerCase()]);
+    // The same rules as an admin's edit of a user's details (length, shape, the reserved anonymized address).
+    const details = normalizeDetails({ firstName, lastName, email });
+    const detErr = detailsError(details);
+    if (detErr) return res.status(400).json(detErr);
+
+    const exists = await query('SELECT id FROM users WHERE email = $1', [details.email]);
     if (exists.rows[0]) return res.status(409).json({ error: 'Email already registered' });
 
     const { tok, exp } = token48h();
     const { rows } = await query(
       `INSERT INTO users (email, first_name, last_name, role, status, invite_token, invite_expires, invited_by)
        VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7) RETURNING id`,
-      [email.toLowerCase(), firstName, lastName, role, tok, exp, req.user.id]
+      [details.email, details.firstName, details.lastName, role, tok, exp, req.user.id]
     );
 
-    await sendInvite({ to: email, firstName, token: tok });
+    await sendInvite({ to: details.email, firstName: details.firstName, token: tok });
     res.status(201).json({ id: rows[0].id });
   } catch (err) { next(err); }
 });
@@ -430,6 +435,7 @@ router.post('/activate', async (req, res, next) => {
       `UPDATE users SET password_hash = $1, password_changed_at = NOW(), status = 'active', invite_token = NULL, invite_expires = NULL WHERE id = $2`,
       [hash, rows[0].id]
     );
+    await twoStep.revokeTwoStepState(rows[0].id);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -488,6 +494,7 @@ router.post('/reset-password', async (req, res, next) => {
       `UPDATE users SET password_hash = $1, password_changed_at = NOW(), reset_token = NULL, reset_expires = NULL WHERE id = $2`,
       [hash, rows[0].id]
     );
+    await twoStep.revokeTwoStepState(rows[0].id);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -507,6 +514,9 @@ router.post('/change-password', requireAuth, async (req, res, next) => {
 
     const hash = await bcrypt.hash(newPassword, 12);
     await query('UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2', [hash, req.user.id]);
+    // Every trusted device (this browser's included) asks for the code again; a challenge opened with the old password goes too.
+    await twoStep.revokeTwoStepState(req.user.id);
+    clearDeviceCookie(res);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
