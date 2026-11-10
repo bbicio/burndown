@@ -21,6 +21,11 @@ test('detailsError: refuses a malformed email', () => {
   assert.deepEqual(detailsError({ email: 'x@y' }), { field: 'email', error: 'Invalid email address' });
 });
 
+test('detailsError: refuses the anonymized-address pattern (it would lock the account)', () => {
+  assert.deepEqual(detailsError({ email: 'anon_x@deleted.local' }), { field: 'email', error: 'This address is reserved' });
+  assert.equal(detailsError({ email: 'anon@deleted.local.com' }), null);
+});
+
 test('detailsError: refuses an over-long value', () => {
   assert.deepEqual(detailsError({ firstName: 'x'.repeat(256) }), { field: 'firstName', error: 'First name is too long' });
   assert.equal(detailsError({ email: 'x'.repeat(251) + '@b.co' }).error, 'Email is too long');

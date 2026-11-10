@@ -2,9 +2,7 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { roleChangeError } = require('../lib/role-transition');
-const { normalizeDetails, detailsError } = require('../lib/user-details');
-
-const ANON_EMAIL_RE = /^anon_.+@deleted\.local$/;
+const { ANON_EMAIL_RE, normalizeDetails, detailsError } = require('../lib/user-details');
 
 const router = express.Router();
 
@@ -110,7 +108,7 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
     if (role && !allowed.role.includes(role)) return res.status(400).json({ error: 'Invalid role' });
     if (status && !allowed.status.includes(status)) return res.status(400).json({ error: 'Invalid status' });
 
-    const { rows: [target] } = await query('SELECT role, email FROM users WHERE id = $1', [req.params.id]);
+    const { rows: [target] } = await query('SELECT role, email, status FROM users WHERE id = $1', [req.params.id]);
     if (!target) return res.status(404).json({ error: 'User not found' });
 
     // A sysadmin row is only ever modifiable by another sysadmin — whatever
@@ -146,6 +144,10 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
     if (details.firstName !== undefined) { params.push(details.firstName); fields.push(`first_name = $${params.length}`); }
     if (details.lastName  !== undefined) { params.push(details.lastName);  fields.push(`last_name = $${params.length}`); }
     if (details.email     !== undefined) { params.push(details.email);     fields.push(`email = $${params.length}`); }
+    // The invite of a pending user went to the old address: it must not activate the corrected account.
+    if (details.email !== undefined && details.email !== target.email && target.status === 'pending') {
+      fields.push('invite_token = NULL', 'invite_expires = NULL');
+    }
     if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
 
     params.push(req.params.id);

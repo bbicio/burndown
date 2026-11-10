@@ -202,6 +202,8 @@ async function testProfile() {
     'RR-04 the sysadmin receives the notification');
   const rows = await sql('SELECT count(*)::int AS n FROM rectification_requests WHERE message = $1', [msg]);
   if (rows) ok(rows[0].n === 1, 'RR-04 the request is recorded in rectification_requests');
+  const unlinked = await sql('SELECT count(*)::int AS n FROM notifications WHERE body = $1 AND rectification_request_id IS NULL', [msg]);
+  if (unlinked) ok(unlinked[0].n === 0, 'RR-04 every notification of the request is linked to it (anonymize can delete it)');
 
   ok((await api('POST', RR, { message: '<b>x</b>' }, adminCookie)).status === 201, 'RR-05 HTML message → 201');
 
@@ -1400,6 +1402,22 @@ async function testUsers() {
     const after = await sql('SELECT count(*)::int AS n FROM notifications WHERE body = $1', [msg]);
     ok(sent.status === 201 && before?.[0]?.n > 0 && an.status === 200 && after?.[0]?.n === 0,
       `AD-ED-10 anonymize deletes the admins' notifications of the user's requests (got ${before?.[0]?.n} → ${after?.[0]?.n})`);
+  }
+
+  // A pending user's invite went to the old address: changing the email voids it (Resend invite issues a new one).
+  const pend = await sql(
+    `INSERT INTO users (email, first_name, last_name, role, status, invite_token, invite_expires)
+     VALUES ($1, 'Pen', 'Ding', 'user', 'pending', $2, NOW() + interval '48 hours') RETURNING id`,
+    [`__test_pending_${Date.now()}@pdash.local`, `tok_${Date.now()}`]);
+  if (pend) {
+    const pid = pend[0].id;
+    const e12 = await api('PATCH', U(pid), { email: `__test_pending_fixed_${Date.now()}@pdash.local` }, sysadminCookie);
+    const tok = await sql('SELECT invite_token, invite_expires FROM users WHERE id = $1', [pid]);
+    ok(e12.status === 200 && tok?.[0]?.invite_token === null && tok?.[0]?.invite_expires === null,
+      `AD-ED-12 changing a pending user's email voids the invite sent to the old address (got ${e12.status}, token ${tok?.[0]?.invite_token === null ? 'cleared' : 'kept'})`);
+    const e13 = await api('PATCH', U(pid), { email: 'anon_x@deleted.local' }, sysadminCookie);
+    ok(e13.status === 400 && e13.data?.field === 'email', `AD-ED-13 the anonymized-address pattern is refused → 400 (got ${e13.status})`);
+    await sql('DELETE FROM users WHERE id = $1', [pid]);
   }
 }
 

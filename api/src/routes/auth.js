@@ -5,7 +5,7 @@ const { query } = require('../db/client');
 const { setAuthCookie, clearAuthCookie } = require('../services/jwt');
 const { sendInvite, sendPasswordReset, sendAdminNotificationEmail } = require('../services/email');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
-const { createNotification } = require('./notifications');
+const { pushToUser } = require('./notifications');
 const { rectificationError, escapeHtml } = require('../lib/user-details');
 
 const router = express.Router();
@@ -62,10 +62,23 @@ router.post('/rectification-request', requireAuth, async (req, res, next) => {
        WHERE status = 'active' AND role IN ('admin','sysadmin') AND id <> $1`,
       [req.user.id]
     );
+    // Once the request is recorded the answer is 201: a failed delivery to one admin is logged, never a 500
+    // that a retry would turn into a second request.
     for (const a of admins) {
-      const n = await createNotification(a.id, { title, body: text, url: '/admin.html', urlLabel: 'Open User Admin' });
-      // Linked to the request so that anonymizing the requester deletes it (ON DELETE CASCADE).
-      await query('UPDATE notifications SET rectification_request_id = $1 WHERE id = $2', [request.id, n.id]);
+      try {
+        // Inserted already linked to the request (one statement), so anonymizing the requester deletes it
+        // (notifications.rectification_request_id ON DELETE CASCADE).
+        const { rows: [n] } = await query(
+          `INSERT INTO notifications (user_id, type, title, body, url, url_label, rectification_request_id)
+           VALUES ($1, 'info', $2, $3, '/admin.html', 'Open User Admin', $4)
+           RETURNING id, user_id, type, title, body, url, url_label, read_at, created_at`,
+          [a.id, title, text, request.id]
+        );
+        pushToUser(a.id, { event: 'notification', data: n });
+      } catch (e) {
+        console.warn('[rectification] notification failed:', e.message);
+        continue;
+      }
       // The email body is HTML: what the user typed is escaped here, the in-app notification stays text.
       sendAdminNotificationEmail({
         to: a.email,

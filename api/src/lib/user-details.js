@@ -3,6 +3,7 @@
 // Pure — no DB/Express dependency.
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const ANON_EMAIL_RE = /^anon_.+@deleted\.local$/;
 const MAX_LEN = 255;
 const RECTIFICATION_MAX = 2000;
 
@@ -27,6 +28,8 @@ function detailsError(normalized) {
     const v = normalized[key];
     if (key === 'email') {
       if (!EMAIL_RE.test(v)) return { field: key, error: 'Invalid email address' };
+      // The address anonymize writes: on a live account it would make the row read as anonymized for good.
+      if (ANON_EMAIL_RE.test(v)) return { field: key, error: 'This address is reserved' };
     } else if (!v) {
       return { field: key, error: `${label} is required` };
     }
@@ -50,4 +53,4 @@ function escapeHtml(s) {
     .replace(/'/g, '&#39;');
 }
 
-module.exports = { normalizeDetails, detailsError, RECTIFICATION_MAX, rectificationError, escapeHtml };
+module.exports = { ANON_EMAIL_RE, normalizeDetails, detailsError, RECTIFICATION_MAX, rectificationError, escapeHtml };
