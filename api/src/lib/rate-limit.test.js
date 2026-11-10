@@ -44,3 +44,18 @@ test('expired keys are purged on hit', () => {
   l.hit('new', 5000);
   assert.equal(l.size(), 1);
 });
+
+test('refund gives back one slot, never below zero, and ignores an unknown key', () => {
+  const l = createLimiter({ windowMs: 1000, max: 2 });
+  l.hit('k', 0);
+  l.hit('k', 0);
+  assert.equal(l.hit('k', 1).allowed, false);
+  l.refund('k', 2);
+  assert.equal(l.hit('k', 3).allowed, true);
+  assert.equal(l.hit('k', 4).allowed, false);
+  l.refund('nobody', 5);
+  for (let i = 0; i < 5; i++) l.refund('k', 6);
+  assert.equal(l.hit('k', 7).allowed, true);
+  assert.equal(l.hit('k', 8).allowed, true);
+  assert.equal(l.hit('k', 9).allowed, false);
+});

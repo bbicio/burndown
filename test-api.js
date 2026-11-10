@@ -367,6 +367,13 @@ async function testTwoStep() {
   ok(statuses.every(s => s === 401) && limited.status === 429 && limited.data?.code === 'RATE_LIMITED' && limited.data?.retryIn > 0,
     `TS-15 the 11th failed login → 429 RATE_LIMITED with retryIn (got ${limited.status})`);
 
+  // TS-15b: the slot is taken before the password is checked, so a parallel burst cannot all get through.
+  const ghost2 = `__test_ts_burst_${Date.now()}@pdash.local`;
+  const burst = await Promise.all(Array.from({ length: 25 }, () => api('POST', '/api/auth/login', { email: ghost2, password: 'x' })));
+  const n401 = burst.filter(r => r.status === 401).length;
+  const n429 = burst.filter(r => r.status === 429).length;
+  ok(n401 === 10 && n429 === 15, `TS-15b 25 parallel failed logins: exactly 10 are tried, 15 refused (got ${n401} × 401, ${n429} × 429)`);
+
   // TS-16: two challenges of one user coexist, one per cookie; the CLI code is for the latest.
   const u3 = await makeTsUser('c');
   if (u3) {
@@ -377,6 +384,30 @@ async function testTwoStep() {
     ok(onFirst.status === 400 && onFirst.data?.code === 'WRONG_CODE', `TS-16 the latest code does not open the first challenge (got ${onFirst.status})`);
     const onSecond = await api('POST', VERIFY, { code }, second.cookie);
     ok(onSecond.status === 200, `TS-16 …and opens the second (got ${onSecond.status})`);
+  }
+
+  // TS-29: a row written by a request that read the user before a credential change is refused. The
+  // guard is exercised on the service itself, in a child process (the race cannot be provoked over HTTP).
+  const u5 = await makeTsUser('e');
+  if (u5) {
+    const probe = guard => JSON.parse(execFileSync('node', ['-e',
+      "const s=require('./src/services/two-step');const {pool}=require('./src/db/client');const g=JSON.parse(process.argv[1]);" +
+      "(async()=>{try{const o={guard:{email:g.email,passwordChangedAt:g.pca}};const c=await s.createChallenge(g.id,o);" +
+      "const d=await s.trustDevice(g.id,'',o);console.log(JSON.stringify({c:!!c,d:!!d}));}finally{await pool.end();}})();",
+      JSON.stringify({ id: u5.id, email: u5.email, pca: guard })], {
+      env: { ...process.env, NODE_PATH: '/tmp/node_modules' }, stdio: ['ignore', 'pipe', 'pipe'],
+    }).toString().trim());
+    const fresh = probe(null);
+    ok(fresh.c && fresh.d, 'TS-29 a guard that matches the user lets the challenge and the device in');
+    await sql('UPDATE users SET password_changed_at = NOW() WHERE id = $1', [u5.id]);
+    const stale = probe(null);
+    ok(!stale.c && !stale.d, 'TS-29 a password change since the read → no challenge, no device');
+    const cur = (await sql('SELECT password_changed_at FROM users WHERE id = $1', [u5.id]))?.[0]?.password_changed_at;
+    const now = probe(cur && cur.toISOString());
+    ok(now.c && now.d, 'TS-29 the guard carrying the new password_changed_at matches again');
+    await sql('UPDATE users SET email = $2 WHERE id = $1', [u5.id, `__test_ts_moved2_${Date.now()}@pdash.local`]);
+    const moved = probe(cur && cur.toISOString());
+    ok(!moved.c && !moved.d, 'TS-29 an email change since the read → refused');
   }
 
   // TS-17: no open challenge → the CLI refuses.

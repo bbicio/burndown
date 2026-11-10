@@ -72,7 +72,7 @@
         <form @submit.prevent="submitCode" novalidate>
           <div class="auth-field auth-field--left">
             <label class="form-label" id="codeLabel">Code from email</label>
-            <otp-input ref="otp" v-model="code" label="Code from email" :disabled="boxesDisabled" :invalid="codeState === 'wrong'" @complete="verify"></otp-input>
+            <otp-input ref="otp" v-model="code" @update:model-value="onCodeEdit" label="Code from email" :disabled="boxesDisabled" :invalid="codeState === 'wrong'" @complete="verify"></otp-input>
           </div>
 
           <div class="form-check auth-trust">
@@ -245,6 +245,8 @@
           this.error = null;
           this.codeState = 'idle';
         },
+
+        onCodeEdit() { if (this.codeState === 'wrong') this.codeState = 'idle'; },
 
         submitCode() { return this.primaryIsResend ? this.resend() : this.verify(); },
 

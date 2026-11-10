@@ -34,6 +34,11 @@ function createLimiter({ windowMs, max }) {
     peek(key, now = Date.now()) {
       return verdict(state(key, now), now);
     },
+    // Gives back one slot taken by hit(): the caller reserves first and refunds what turned out not to count.
+    refund(key, now = Date.now()) {
+      const e = state(key, now);
+      if (e && e.count > 0) e.count -= 1;
+    },
     reset(key) {
       entries.delete(key);
     },

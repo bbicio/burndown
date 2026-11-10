@@ -225,6 +225,12 @@ describe('migrated auth pages', () => {
       const line = t.split('\n').find(l => l.includes('switchToForgot()'));
       expect(line).toContain('this.forgotEmail ||= this.email');
     });
+    // The boxes turn red when `invalid` flips to true: a second refusal in a row must flip it again, so the
+    // first edit after a wrong code puts the state back to idle.
+    it('puts a wrong-code state back to idle on the first edit of the code', () => {
+      expect(t).toContain('@update:model-value="onCodeEdit"');
+      expect(t).toMatch(/onCodeEdit\(\)\s*\{\s*if \(this\.codeState === 'wrong'\) this\.codeState = 'idle';\s*\}/);
+    });
     it('compacts the logo in every view but the sign-in form (Forgot, code, locked)', () => {
       expect(t).toContain("'auth-logo--compact': view !== 'login'");
     });

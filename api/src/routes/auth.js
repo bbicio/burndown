@@ -16,8 +16,9 @@ const router = express.Router();
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Failed password attempts only: a successful login does not count, so a shared NAT or the test suite
-// can sign in as often as it likes while guessing stays capped. Checked with peek before bcrypt,
-// counted with hit on a 401. In memory: the counters are lost on restart.
+// can sign in as often as it likes while guessing stays capped. A slot is reserved with hit before the
+// first await (so a burst of parallel guesses cannot all pass a check made before any of them is counted)
+// and refunded once the password turns out right. In memory: the counters are lost on restart.
 const loginIpLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
 const loginEmailLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
 // Every code sent (login that opens a challenge, resend): 10 per user per hour.
@@ -200,18 +201,23 @@ router.post('/login', async (req, res, next) => {
 
     const normalized = String(email).toLowerCase();
     const ipKey = req.ip;
-    const gate = [loginIpLimiter.peek(ipKey), loginEmailLimiter.peek(normalized)].find(g => !g.allowed);
-    if (gate) return rateLimited(res, gate.retryInMs);
+    const ipSlot = loginIpLimiter.hit(ipKey);
+    const emailSlot = loginEmailLimiter.hit(normalized);
+    const refundSlots = () => {
+      if (ipSlot.allowed) loginIpLimiter.refund(ipKey);
+      if (emailSlot.allowed) loginEmailLimiter.refund(normalized);
+    };
+    if (!ipSlot.allowed || !emailSlot.allowed) {
+      refundSlots();
+      return rateLimited(res, Math.max(ipSlot.retryInMs, emailSlot.retryInMs));
+    }
 
     const { rows } = await query('SELECT * FROM users WHERE email = $1', [normalized]);
     const user = rows[0];
 
     const valid = user && user.password_hash && await bcrypt.compare(password, user.password_hash);
-    if (!valid) {
-      loginIpLimiter.hit(ipKey);
-      loginEmailLimiter.hit(normalized);
-      return res.status(401).json({ error: 'Invalid email or password' });
-    }
+    if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
+    refundSlots();
     if (user.status === 'disabled') return res.status(403).json({ error: 'Account disabled' });
     if (user.status === 'pending') return res.status(403).json({ error: 'Account not yet activated' });
 
@@ -225,7 +231,11 @@ router.post('/login', async (req, res, next) => {
     const send = sendLimiter.hit(user.id);
     if (!send.allowed) return rateLimited(res, send.retryInMs);
 
-    const { challenge, token, code } = await twoStep.createChallenge(user.id);
+    // Opened only while the user is still as read above: bcrypt took time, and a password change that
+    // revoked in the meantime must not leave this challenge behind.
+    const created = await twoStep.createChallenge(user.id, { guard: { email: user.email, passwordChangedAt: user.password_changed_at } });
+    if (!created) return res.status(401).json({ error: 'Invalid email or password' });
+    const { challenge, token, code } = created;
     const sent = await deliverCode(challenge.id, user, code);
     setChallengeCookie(res, token);
     res.json({
@@ -274,7 +284,10 @@ router.post('/two-step/verify', async (req, res, next) => {
     await twoStep.deleteChallenge(ch.id);
     clearChallengeCookie(res);
     if (req.body && req.body.trustDevice === true) {
-      const deviceToken = await twoStep.trustDevice(user.id, req.get('user-agent'));
+      const deviceToken = await twoStep.trustDevice(user.id, req.get('user-agent'),
+        { guard: { email: user.email, passwordChangedAt: user.password_changed_at } });
+      // null: the credentials changed while this request was in flight; no session either.
+      if (!deviceToken) return noChallenge(res);
       setDeviceCookie(res, deviceToken);
     }
     setAuthCookie(res, { id: user.id, email: user.email, role: user.role });
