@@ -32,6 +32,10 @@ export const SUBNAV_SETS = {
       { id: 'details', label: 'Details', href: '#details' },
       { id: 'password', label: 'Password', href: '#password' },
     ] },
+    { group: 'SECURITY', items: [
+      { id: 'two-step', label: 'Two-step verification', href: '#two-step' },
+      { id: 'devices', label: 'Trusted devices', href: '#devices' },
+    ] },
     { group: 'PRIVACY', items: [
       { id: 'privacy', label: 'Privacy & data', href: '#privacy' },
     ] },
@@ -100,6 +104,23 @@ export function setSubnavBadge(id, count, title = '') {
   });
 }
 
+// A text pill (.md-subnav-chip) on the item `id`: the method name or a count. Removed when `text` is empty or
+// '0'. The phone selector carries no tag.
+export function setSubnavChip(id, text) {
+  const t = text === null || text === undefined ? '' : String(text).trim();
+  const show = t !== '' && t !== '0';
+  document.querySelectorAll('nav.md-subnav').forEach(nav => {
+    const item = [...nav.querySelectorAll('a.md-subnav-item')].find(a => a.getAttribute('data-subnav-id') === id);
+    if (!item) return;
+    item.querySelector('.md-subnav-chip')?.remove();
+    if (!show) return;
+    const pill = document.createElement('span');
+    pill.className = 'md-subnav-chip';
+    pill.textContent = t;
+    item.appendChild(pill);
+  });
+}
+
 // back from the bfcache a select still holds the section picked before leaving
 function resetMdSubnavSelects() {
   document.querySelectorAll('select.md-subnav-select-input').forEach(sel => {
@@ -115,5 +136,6 @@ if (typeof window !== 'undefined') {
   window.mdSubnavHtml = mdSubnavHtml;
   window.mountMdSubnav = mountMdSubnav;
   window.setSubnavBadge = setSubnavBadge;
+  window.setSubnavChip = setSubnavChip;
 }
 if (typeof document !== 'undefined') mountMdSubnav();

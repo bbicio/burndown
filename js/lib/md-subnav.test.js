@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { MD_SECTIONS, SUBNAV_SETS, mdSubnavHtml, mountMdSubnav, setSubnavBadge } from './md-subnav.js';
+import { MD_SECTIONS, SUBNAV_SETS, mdSubnavHtml, mountMdSubnav, setSubnavBadge, setSubnavChip } from './md-subnav.js';
 
 const parse = html => { const d = document.createElement('div'); d.innerHTML = html; return d; };
 
@@ -189,10 +189,47 @@ describe('setSubnavBadge', () => {
   });
 });
 
+describe('setSubnavChip', () => {
+  afterEach(() => { document.body.innerHTML = ''; });
+  const mount = () => {
+    document.body.innerHTML = '<nav class="md-subnav" data-subnav-set="profile" data-md-active="details"></nav>';
+    mountMdSubnav(document);
+  };
+  const item = id => document.querySelector('a.md-subnav-item[data-subnav-id="' + id + '"]');
+
+  it('adds a pill with the text on the item, and none on the phone selector', () => {
+    mount();
+    setSubnavChip('two-step', 'Email');
+    expect(item('two-step').querySelector('.md-subnav-chip').textContent).toBe('Email');
+    expect(document.querySelector('.md-subnav-select-badge')).toBeNull();
+    expect(document.querySelector('.md-subnav-select .md-subnav-chip')).toBeNull();
+  });
+
+  it('updates in place, and removes the pill for an empty text or "0"', () => {
+    mount();
+    setSubnavChip('devices', '2');
+    setSubnavChip('devices', '3');
+    expect(item('devices').querySelectorAll('.md-subnav-chip')).toHaveLength(1);
+    expect(item('devices').querySelector('.md-subnav-chip').textContent).toBe('3');
+    for (const v of ['0', '', '  ', null, undefined]) {
+      setSubnavChip('devices', '1');
+      setSubnavChip('devices', v);
+      expect(item('devices').querySelector('.md-subnav-chip')).toBeNull();
+    }
+  });
+
+  it('does nothing for an id that is not on the page', () => {
+    mount();
+    expect(() => setSubnavChip('nope', 'x')).not.toThrow();
+  });
+});
+
 describe('the profile set', () => {
-  it('renders hash links, the active one current, and the PRIVACY group', () => {
+  it('renders hash links, the active one current, and the ACCOUNT, SECURITY and PRIVACY groups', () => {
     const d = parse(mdSubnavHtml('password', 'profile'));
-    expect([...d.querySelectorAll('.md-subnav-group')].map(g => g.textContent)).toEqual(['ACCOUNT', 'PRIVACY']);
+    expect([...d.querySelectorAll('.md-subnav-group')].map(g => g.textContent)).toEqual(['ACCOUNT', 'SECURITY', 'PRIVACY']);
+    expect([...d.querySelectorAll('a.md-subnav-item')].map(a => a.getAttribute('href')))
+      .toEqual(['#details', '#password', '#two-step', '#devices', '#privacy']);
     const cur = d.querySelector('[aria-current="page"]');
     expect(cur.getAttribute('href')).toBe('#password');
     expect(SUBNAV_SETS.profile.label).toBe('My profile');
