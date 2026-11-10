@@ -69,6 +69,7 @@ services:
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-pdash}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-pdash}
       API_URL: http://api:3000
+      JWT_SECRET: ${JWT_SECRET}   # two-step-code.js hashes the code with it
       TEST_ADMIN_EMAIL: ${TEST_ADMIN_EMAIL:-test-admin@pdash.local}
       TEST_ADMIN_PASSWORD: ${TEST_ADMIN_PASSWORD:-TestAdmin123!}
       TEST_SYSADMIN_EMAIL: ${TEST_SYSADMIN_EMAIL:-test-sysadmin@pdash.local}

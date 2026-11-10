@@ -10,6 +10,10 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
+  // The login answers only after the code mail is handed over: an unreachable SMTP must fail fast.
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
 });
 
 const FROM = `PDash <${process.env.SMTP_USER}>`;

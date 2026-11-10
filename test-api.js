@@ -130,6 +130,44 @@ function extractCookie(headers) {
   return m ? m[0] : '';
 }
 
+// ── Two-step helpers ──────────────────────────────────────────────────────────
+// The suite signs in as the two test accounts with a trusted device minted by the CLI (the code step
+// is not bypassed anywhere in the server); the TS-* tests go through the real code step, taking the
+// code from the emergency CLI. Both CLIs run inside this container (`pg` under /tmp, JWT_SECRET set).
+const { execFileSync } = require('child_process');
+
+// stdout of `node <script> <args>`, trimmed; throws on a non-zero exit.
+function cli(script, ...args) {
+  return execFileSync('node', [script, ...args], {
+    env: { ...process.env, NODE_PATH: '/tmp/node_modules' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).toString().trim();
+}
+
+// `name=value` of a cookie the response sets, '' when absent or cleared.
+function cookieValue(headers, name) {
+  const c = (headers.getSetCookie ? headers.getSetCookie() : []).find(h => h.startsWith(`${name}=`));
+  const pair = c ? c.split(';')[0] : '';
+  return pair === `${name}=` ? '' : pair;
+}
+
+const joinCookies = (...c) => c.filter(Boolean).join('; ');
+
+// A fresh trusted-device cookie for an account, and its row id for assertions.
+const deviceCookie = email => `pdash_device=${cli('src/trust-device.js', email)}`;
+
+// Password, then the code the CLI prints, then verify → the pdash_token cookie.
+async function loginWithCode(email, password) {
+  const login = await api('POST', '/api/auth/login', { email, password });
+  const challenge = cookieValue(login.headers, 'pdash_challenge');
+  if (!challenge) return '';
+  const verify = await api('POST', '/api/auth/two-step/verify', { code: cli('src/two-step-code.js', email) }, challenge);
+  return extractCookie(verify.headers);
+}
+
+let ADMIN_DEVICE = '';
+let SYSADMIN_DEVICE = '';
+
 async function runCleanup() {
   if (!cleanupQueue.length) return;
   section('Cleanup');
@@ -145,7 +183,14 @@ async function runCleanup() {
 async function testAuth() {
   section('Auth');
 
-  const r1 = await api('POST', '/api/auth/login', { email: EMAIL, password: PASS });
+  try {
+    ADMIN_DEVICE = deviceCookie(EMAIL);
+    SYSADMIN_DEVICE = deviceCookie(SYSADMIN_EMAIL);
+  } catch (e) {
+    fail(`trust-device.js unavailable (${e.message}) — cannot sign in`);
+    return false;
+  }
+  const r1 = await api('POST', '/api/auth/login', { email: EMAIL, password: PASS }, ADMIN_DEVICE);
   if (!ok(r1.status === 200, 'A-01 valid login → 200')) return false;
 
   adminCookie = extractCookie(r1.headers);
@@ -167,7 +212,7 @@ async function testAuth() {
     'A-me-2 /me carries created_at, terms_accepted_at, password_changed_at');
 
   // Sysadmin test account — needed for admin/reset/* (sysadmin-exclusive).
-  const r2 = await api('POST', '/api/auth/login', { email: SYSADMIN_EMAIL, password: SYSADMIN_PASS });
+  const r2 = await api('POST', '/api/auth/login', { email: SYSADMIN_EMAIL, password: SYSADMIN_PASS }, SYSADMIN_DEVICE);
   if (!ok(r2.status === 200, 'A-06 sysadmin login → 200')) return false;
   sysadminCookie = extractCookie(r2.headers);
   ok(!!sysadminCookie, 'A-06 sysadmin JWT cookie is set');
@@ -175,6 +220,172 @@ async function testAuth() {
   ok(sysMe.data?.role === 'sysadmin', 'A-06 sysadmin role = sysadmin');
 
   return true;
+}
+
+// ── Two-step login ────────────────────────────────────────────────────────────
+
+const TS_PASS = 'TsPass123!';
+
+// A throw-away active user with a known password (cleanup disables it).
+async function makeTsUser(tag) {
+  let bcrypt = null;
+  try { bcrypt = require('/tmp/node_modules/bcryptjs'); } catch (e) { fail(`bcryptjs unavailable (${e.message})`); return null; }
+  const email = `__test_ts_${tag}_${Date.now()}@pdash.local`;
+  const rows = await sql(
+    `INSERT INTO users (email, first_name, last_name, role, status, password_hash)
+     VALUES ($1, 'Two', 'Step', 'user', 'active', $2) RETURNING id`, [email, bcrypt.hashSync(TS_PASS, 4)]);
+  if (!rows) return null;
+  later('DELETE', `/api/users/${rows[0].id}`);
+  return { id: rows[0].id, email };
+}
+
+// A code that is not `code`.
+const wrongCodeFor = code => String((Number(code) + 1) % 1000000).padStart(6, '0');
+
+// Login without a device → the challenge cookie (and the response).
+async function openChallenge(user) {
+  const r = await api('POST', '/api/auth/login', { email: user.email, password: TS_PASS });
+  return { r, cookie: cookieValue(r.headers, 'pdash_challenge') };
+}
+
+async function testTwoStep() {
+  section('Two-step login');
+  const VERIFY = '/api/auth/two-step/verify';
+  const u1 = await makeTsUser('a');
+  if (!u1) return;
+
+  // TS-01..04: the challenge, a wrong code, the lock. In this stack the SMTP server may be
+  // unreachable (sendFailed) — nothing below depends on the mail, the code comes from the CLI.
+  const c1 = await openChallenge(u1);
+  ok(c1.r.status === 200 && c1.r.data?.twoStep?.method === 'email'
+    && /•••@/.test(c1.r.data.twoStep.destination || '') && !extractCookie(c1.r.headers) && !!c1.cookie,
+    `TS-01 login without a device → twoStep, masked destination, challenge cookie, no pdash_token (got ${c1.r.status})`);
+  ok((await api('GET', '/api/auth/me', null, c1.cookie)).status === 401, 'TS-02 /me with only the challenge cookie → 401');
+
+  const code1 = cli('src/two-step-code.js', u1.email);
+  const bad = wrongCodeFor(code1);
+  const w1 = await api('POST', VERIFY, { code: bad }, c1.cookie);
+  ok(w1.status === 400 && w1.data?.code === 'WRONG_CODE' && w1.data?.attemptsLeft === 4,
+    `TS-03 wrong code → 400 WRONG_CODE, 4 attempts left (got ${w1.status}, ${w1.data?.attemptsLeft})`);
+  let left = [];
+  for (let i = 0; i < 3; i++) left.push((await api('POST', VERIFY, { code: bad }, c1.cookie)).data?.attemptsLeft);
+  ok(left.join() === '3,2,1', `TS-04 three more wrong codes count down to 1 (got ${left.join()})`);
+  const w5 = await api('POST', VERIFY, { code: bad }, c1.cookie);
+  ok(w5.status === 423 && w5.data?.code === 'LOCKED', `TS-04 the fifth wrong code → 423 LOCKED (got ${w5.status})`);
+  const after = await api('POST', VERIFY, { code: code1 }, c1.cookie);
+  ok(after.status === 401 && after.data?.code === 'NO_CHALLENGE', `TS-04 a locked challenge is gone → 401 NO_CHALLENGE (got ${after.status})`);
+
+  // TS-05/06: the right code opens the session, also pasted with a space.
+  const c2 = await openChallenge(u1);
+  const v2 = await api('POST', VERIFY, { code: cli('src/two-step-code.js', u1.email) }, c2.cookie);
+  const session = extractCookie(v2.headers);
+  ok(v2.status === 200 && !!session, `TS-05 the right code → 200 with pdash_token (got ${v2.status})`);
+  const me = await api('GET', '/api/auth/me', null, session);
+  ok(me.status === 200 && me.data?.two_step?.method === 'email' && /•••@/.test(me.data.two_step.destination || ''),
+    'TS-05 /me carries two_step { method, destination }');
+  const c3 = await openChallenge(u1);
+  const spaced = cli('src/two-step-code.js', u1.email).replace(/^(\d{3})(\d{3})$/, '$1 $2');
+  const v3 = await api('POST', VERIFY, { code: spaced }, c3.cookie);
+  ok(v3.status === 200 && !!extractCookie(v3.headers), `TS-06 a code typed as "123 456" → 200 (got ${v3.status})`);
+
+  // TS-07/08: resend. code_sent_at is set by hand (a failed mail leaves it NULL).
+  const c4 = await openChallenge(u1);
+  await sql('UPDATE login_challenges SET code_sent_at = NOW() WHERE user_id = $1', [u1.id]);
+  const rs1 = await api('POST', '/api/auth/two-step/resend', null, c4.cookie);
+  ok(rs1.status === 429 && rs1.data?.code === 'COOLDOWN' && rs1.data?.retryIn >= 1 && rs1.data?.retryIn <= 60,
+    `TS-07 resend within the cooldown → 429 COOLDOWN (got ${rs1.status}, retryIn ${rs1.data?.retryIn})`);
+  const old4 = cli('src/two-step-code.js', u1.email);
+  await sql(`UPDATE login_challenges SET code_sent_at = NOW() - interval '61 seconds' WHERE user_id = $1`, [u1.id]);
+  const rs2 = await api('POST', '/api/auth/two-step/resend', null, c4.cookie);
+  // 502 when the SMTP server is unreachable: the new code is stored all the same.
+  ok([200, 502].includes(rs2.status), `TS-08 resend after the cooldown → 200 (502 if the mail fails) (got ${rs2.status})`);
+  const o4 = await api('POST', VERIFY, { code: old4 }, c4.cookie);
+  ok(o4.status === 400 && o4.data?.code === 'WRONG_CODE', `TS-08 the previous code no longer works → 400 (got ${o4.status})`);
+  const n4 = await api('POST', VERIFY, { code: cli('src/two-step-code.js', u1.email) }, c4.cookie);
+  ok(n4.status === 200, `TS-08 the new code works → 200 (got ${n4.status})`);
+
+  // TS-09: an expired code.
+  const c5 = await openChallenge(u1);
+  const code5 = cli('src/two-step-code.js', u1.email);
+  await sql(`UPDATE login_challenges SET code_expires_at = NOW() - interval '1 second' WHERE user_id = $1`, [u1.id]);
+  const e5 = await api('POST', VERIFY, { code: code5 }, c5.cookie);
+  ok(e5.status === 410 && e5.data?.code === 'CODE_EXPIRED', `TS-09 an expired code → 410 CODE_EXPIRED (got ${e5.status})`);
+
+  // TS-10: "Back to sign in" in another tab drops the challenge; the next verify says it is gone.
+  const c6 = await openChallenge(u1);
+  const open0 = await sql('SELECT count(*)::int AS n FROM login_challenges WHERE user_id = $1', [u1.id]);
+  const del = await api('DELETE', '/api/auth/two-step', null, c6.cookie);
+  const open1 = await sql('SELECT count(*)::int AS n FROM login_challenges WHERE user_id = $1', [u1.id]);
+  ok(del.status === 200 && open0 && open1 && open1[0].n === open0[0].n - 1, `TS-10 DELETE /two-step removes the challenge (got ${del.status})`);
+  const gone = await api('POST', VERIFY, { code: '123456' }, c6.cookie);
+  ok(gone.status === 401 && gone.data?.code === 'NO_CHALLENGE', `TS-10 a verify after it → 401 NO_CHALLENGE (got ${gone.status})`);
+
+  // TS-11..14: trusted devices.
+  const u2 = await makeTsUser('b');
+  if (u2) {
+    const d1 = await openChallenge(u2);
+    const t1 = await api('POST', VERIFY, { code: cli('src/two-step-code.js', u2.email), trustDevice: true }, d1.cookie);
+    const dev1 = cookieValue(t1.headers, 'pdash_device');
+    const sess2 = extractCookie(t1.headers);
+    ok(t1.status === 200 && !!dev1, `TS-11 trustDevice → pdash_device cookie (got ${t1.status})`);
+    const again = await api('POST', '/api/auth/login', { email: u2.email, password: TS_PASS }, dev1);
+    ok(again.status === 200 && !again.data?.twoStep && !!extractCookie(again.headers),
+      'TS-11 the next login with that cookie skips the code');
+
+    const onAdmin = await api('POST', '/api/auth/login', { email: EMAIL, password: PASS }, dev1);
+    ok(onAdmin.status === 200 && !!onAdmin.data?.twoStep && !extractCookie(onAdmin.headers),
+      "TS-12 another user's device cookie does not skip the admin's code");
+    await api('DELETE', '/api/auth/two-step', null, cookieValue(onAdmin.headers, 'pdash_challenge'));
+
+    const list = await api('GET', '/api/auth/trusted-devices', null, joinCookies(sess2, dev1));
+    ok(list.status === 200 && list.data?.length === 1 && list.data[0].current === true && list.data[0].label
+      && 'expires_at' in list.data[0], 'TS-13 GET /trusted-devices → one device, current: true');
+    const adminDev = await sql('SELECT d.id FROM trusted_devices d JOIN users u ON u.id = d.user_id WHERE u.email = $1 LIMIT 1', [EMAIL]);
+    if (adminDev?.[0]) {
+      const foreign = await api('DELETE', `/api/auth/trusted-devices/${adminDev[0].id}`, null, sess2);
+      ok(foreign.status === 404, `TS-13 removing another user's device → 404 (got ${foreign.status})`);
+    }
+    const rm = await api('DELETE', `/api/auth/trusted-devices/${list.data?.[0]?.id}`, null, joinCookies(sess2, dev1));
+    ok(rm.status === 200, `TS-13 DELETE /trusted-devices/:id → 200 (got ${rm.status})`);
+    const afterRm = await api('POST', '/api/auth/login', { email: u2.email, password: TS_PASS }, dev1);
+    ok(afterRm.status === 200 && !!afterRm.data?.twoStep, 'TS-13 the removed device asks for the code again');
+
+    cli('src/trust-device.js', u2.email);
+    cli('src/trust-device.js', u2.email);
+    const many = await api('GET', '/api/auth/trusted-devices', null, sess2);
+    const rmAll = await api('DELETE', '/api/auth/trusted-devices', null, sess2);
+    const none = await api('GET', '/api/auth/trusted-devices', null, sess2);
+    ok(many.data?.length === 2 && rmAll.status === 200 && Array.isArray(none.data) && none.data.length === 0,
+      'TS-14 DELETE /trusted-devices removes them all');
+  }
+
+  // TS-15: the login limiter counts failures only (10 per email).
+  const ghost = `__test_ts_ghost_${Date.now()}@pdash.local`;
+  const statuses = [];
+  for (let i = 0; i < 10; i++) statuses.push((await api('POST', '/api/auth/login', { email: ghost, password: 'x' })).status);
+  const limited = await api('POST', '/api/auth/login', { email: ghost, password: 'x' });
+  ok(statuses.every(s => s === 401) && limited.status === 429 && limited.data?.code === 'RATE_LIMITED' && limited.data?.retryIn > 0,
+    `TS-15 the 11th failed login → 429 RATE_LIMITED with retryIn (got ${limited.status})`);
+
+  // TS-16: two challenges of one user coexist, one per cookie; the CLI code is for the latest.
+  const u3 = await makeTsUser('c');
+  if (u3) {
+    const first = await openChallenge(u3);
+    const second = await openChallenge(u3);
+    const code = cli('src/two-step-code.js', u3.email);
+    const onFirst = await api('POST', VERIFY, { code }, first.cookie);
+    ok(onFirst.status === 400 && onFirst.data?.code === 'WRONG_CODE', `TS-16 the latest code does not open the first challenge (got ${onFirst.status})`);
+    const onSecond = await api('POST', VERIFY, { code }, second.cookie);
+    ok(onSecond.status === 200, `TS-16 …and opens the second (got ${onSecond.status})`);
+  }
+
+  // TS-17: no open challenge → the CLI refuses.
+  const u4 = await makeTsUser('d');
+  if (u4) {
+    let refused = false;
+    try { cli('src/two-step-code.js', u4.email); } catch { refused = true; }
+    ok(refused, 'TS-17 two-step-code.js exits non-zero without an open challenge');
+  }
 }
 
 // ── Profile ───────────────────────────────────────────────────────────────────
@@ -223,7 +434,8 @@ async function testProfile() {
   const w3 = await api('POST', CP, { currentPassword: 'wrong-' + PASS, newPassword: PASS + 'y', newPasswordConfirm: PASS + 'y' }, adminCookie);
   ok(w3.status === 400 && w3.data?.field === 'currentPassword' && w3.data?.error === 'Current password is incorrect',
     `PW-02 wrong current password → 400 field currentPassword (got ${w3.status})`);
-  ok((await api('POST', '/api/auth/login', { email: EMAIL, password: PASS })).status === 200, 'PW-02 the password is unchanged');
+  ADMIN_DEVICE = deviceCookie(EMAIL);   // a password change removes the trusted devices
+  ok((await api('POST', '/api/auth/login', { email: EMAIL, password: PASS }, ADMIN_DEVICE)).status === 200, 'PW-02 the password is unchanged');
 }
 
 // ── Security ─────────────────────────────────────────────────────────────────
@@ -1379,8 +1591,7 @@ async function testUsers() {
      VALUES ($1, 'Req', 'Uester', 'user', 'active', $2) RETURNING id`, [reqEmail, bcrypt.hashSync('ReqPass123!', 4)]);
   if (reqRow) {
     const rid = reqRow[0].id;
-    const login = await api('POST', '/api/auth/login', { email: reqEmail, password: 'ReqPass123!' });
-    const reqCookie = extractCookie(login.headers);
+    const reqCookie = await loginWithCode(reqEmail, 'ReqPass123!');
     const msg = `__test_rr_anon_${Date.now()}__`;
     const sent = await api('POST', '/api/auth/rectification-request', { message: msg }, reqCookie);
     const before = await sql('SELECT count(*)::int AS n FROM notifications WHERE body = $1', [msg]);
@@ -2444,7 +2655,7 @@ async function getPlainUserCookie() {
   try {
     const down = await api('PATCH', `/api/users/${adminId}`, { role: 'user' }, sysadminCookie);
     if (down.status !== 200) return '';
-    const login = await api('POST', '/api/auth/login', { email: EMAIL, password: PASS });
+    const login = await api('POST', '/api/auth/login', { email: EMAIL, password: PASS }, ADMIN_DEVICE);
     cookie = login.status === 200 && login.data?.role === 'user' ? extractCookie(login.headers) : '';
   } finally {
     const back = await api('PATCH', `/api/users/${adminId}`, { role: 'admin' }, sysadminCookie);
@@ -4131,6 +4342,7 @@ async function main() {
       process.stdout.write(red('\nLogin failed — cannot continue. Run create-admin.js first.\n'));
       process.exit(1);
     }
+    await testTwoStep();
     await testProfile();
     await ensureTestCurrencies();
     await testSecurity();

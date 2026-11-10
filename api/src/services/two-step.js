@@ -62,6 +62,24 @@ async function replaceCode(challengeId, { db = defaultDb } = {}) {
   return code;
 }
 
+// Emergency/test CLI: a fresh code for the user's most recent open challenge, without touching
+// sends or code_sent_at. Null when the user has none.
+async function resetLatestCode(userId, { db = defaultDb } = {}) {
+  const { rows } = await db.query(
+    `SELECT id FROM login_challenges WHERE user_id = $1 AND expires_at > NOW()
+     ORDER BY created_at DESC LIMIT 1`,
+    [userId]
+  );
+  if (!rows[0]) return null;
+  const code = T.generateCode();
+  await db.query(
+    `UPDATE login_challenges SET code_hash = $2, code_expires_at = NOW() + ($3 || ' milliseconds')::interval
+     WHERE id = $1`,
+    [rows[0].id, T.hashCode(secret(), rows[0].id, code), String(T.CODE_TTL_MS)]
+  );
+  return code;
+}
+
 async function deleteChallenge(challengeId, { db = defaultDb } = {}) {
   await db.query('DELETE FROM login_challenges WHERE id = $1', [challengeId]);
 }
@@ -118,6 +136,6 @@ async function removeAllDevices(userId, { db = defaultDb } = {}) {
 }
 
 module.exports = {
-  createChallenge, markSent, findChallenge, recordAttempt, replaceCode, deleteChallenge,
+  createChallenge, markSent, findChallenge, recordAttempt, replaceCode, resetLatestCode, deleteChallenge,
   revokeTwoStepState, trustDevice, findTrustedDevice, touchDevice, listDevices, removeDevice, removeAllDevices,
 };
