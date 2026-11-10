@@ -6,7 +6,7 @@ const { setAuthCookie, clearAuthCookie } = require('../services/jwt');
 const { sendInvite, sendPasswordReset, sendAdminNotificationEmail } = require('../services/email');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { pushToUser } = require('./notifications');
-const { rectificationError, escapeHtml } = require('../lib/user-details');
+const { rectificationError } = require('../lib/user-details');
 
 const router = express.Router();
 
@@ -79,12 +79,12 @@ router.post('/rectification-request', requireAuth, async (req, res, next) => {
         // The email below still goes out: this admin hears of the request through one channel at least.
         console.warn('[rectification] notification failed:', e.message);
       }
-      // The email body is HTML: what the user typed is escaped here, the in-app notification stays text.
+      // The mailer escapes what it puts in the HTML; the in-app notification stays text.
       sendAdminNotificationEmail({
         to: a.email,
-        firstName: escapeHtml(a.first_name),
-        title: escapeHtml(title),
-        body: escapeHtml(text),
+        firstName: a.first_name,
+        title,
+        body: text,
         url: '/admin.html',
       }).catch(e => console.warn('[rectification] email send failed:', e.message));
     }
