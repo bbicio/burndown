@@ -34,7 +34,7 @@ Things to verify the first time the app runs outside a development machine, and 
 - [ ] Removing the device (or all devices) makes the next sign-in ask for the code again.
 - [ ] Changing the password removes the trusted devices.
 - [ ] An admin changing a user's email, disabling or anonymizing the user removes that user's devices and open sign-ins.
-- [ ] Disabling or anonymizing a user, or a password change from another browser, ends that user's open session at its next request (pinned by `test-api.js` SE-01..SE-05).
+- [ ] Disabling or anonymizing a user, or a password change from another browser, ends that user's open session at its next request (pinned by `test-api.js` SE-01..SE-03).
 - [ ] The failed-login limit answers "Too many attempts" after repeated wrong passwords for one email, and a different email is not affected.
 
 ## Known limits to accept or plan for

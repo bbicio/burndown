@@ -185,8 +185,8 @@ api/src/services/        — email (nodemailer) and jwt, plus resource-matching,
 api/src/middleware/auth.js — `requireAuth` (JWT cookie → `req.user`; re-reads status, role and
                             `password_changed_at` from the DB on every request — `api/src/lib/session.js`),
                             `requireAdmin` (`role === 'admin' || role === 'sysadmin'`), `requireSysAdmin`
-                            (`role === 'sysadmin'` exclusive — gates `reset.js` and `PUT
-                            /api/app-settings/terms`). `liveRole(userId)`:
+                            (`role === 'sysadmin'` exclusive — gates `reset.js` and the Terms
+                            editor routes of `app-settings.js`). `liveRole(userId)`:
                             the role read from the DB, used by the project rules (see "Project
                             currency lock" below) so a demoted sysadmin loses the exception at once.
 api/src/index.js         — app bootstrap and route mounting; also holds the planning-cache write-invalidation middleware: any successful non-GET request under `/api/projects`, `/api/timesheets`, `/api/resources`, `/api/admin/reset`, `/api/cost-grids` calls `invalidatePlanningData()`. **A new write path that changes planning inputs outside those prefixes must be added to `PLANNING_WRITE_PREFIXES`** (the 30 s TTL is only the safety net).
