@@ -1,9 +1,11 @@
 const express = require('express');
-const { query } = require('../db/client');
+const { query, pool } = require('../db/client');
+const { withTransaction } = require('../db/transaction');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { roleChangeError } = require('../lib/role-transition');
 const { ANON_EMAIL_RE, normalizeDetails, detailsError } = require('../lib/user-details');
 const { revokeTwoStepState } = require('../services/two-step');
+const { anonymizeUser } = require('../services/users');
 
 const router = express.Router();
 
@@ -151,11 +153,20 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
     if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
 
     params.push(req.params.id);
-    const { rows } = await query(
-      `UPDATE users SET ${fields.join(', ')} WHERE id = $${params.length}
-       RETURNING id, email, first_name, last_name, role, status`,
-      params
-    );
+    let rows;
+    try {
+      ({ rows } = await query(
+        `UPDATE users SET ${fields.join(', ')} WHERE id = $${params.length}
+         RETURNING id, email, first_name, last_name, role, status`,
+        params
+      ));
+    } catch (err) {
+      // A concurrent request took the address between the duplicate check above and this UPDATE.
+      if (err.code === '23505' && err.constraint === 'users_email_key') {
+        return res.status(409).json({ error: 'Email already in use', field: 'email' });
+      }
+      throw err;
+    }
     if (!rows[0]) return res.status(404).json({ error: 'User not found' });
     // A new address or a disabled account must not keep a code mailed to the old one, nor a device trusted before.
     if ((details.email !== undefined && details.email !== target.email) || status === 'disabled') {
@@ -178,28 +189,8 @@ router.post('/:id/anonymize', requireAdmin, async (req, res, next) => {
     const protErr = sysAdminTargetError(actorRole, existing.role);
     if (protErr) return res.status(403).json({ error: protErr });
 
-    // The rectification requests are free text with personal data: they go with the rest, and the
-    // admins' notifications of them with them (notifications.rectification_request_id ON DELETE CASCADE).
-    await query('DELETE FROM rectification_requests WHERE user_id = $1', [req.params.id]);
-    const { rows: [updated] } = await query(
-      `UPDATE users SET
-         email             = 'anon_' || id || '@deleted.local',
-         first_name        = '[Deleted]',
-         last_name         = 'User',
-         password_hash     = NULL,
-         invite_token      = NULL,
-         invite_expires    = NULL,
-         reset_token       = NULL,
-         reset_expires     = NULL,
-         terms_version     = NULL,
-         terms_accepted_at = NULL,
-         password_changed_at = NULL,
-         status            = 'disabled'
-       WHERE id = $1
-       RETURNING id, status`,
-      [req.params.id]
-    );
-    await revokeTwoStepState(req.params.id);
+    // All or nothing: a failure half-way must not leave the requests deleted and the user intact.
+    const updated = await withTransaction(pool, c => anonymizeUser(c, req.params.id));
     res.json({ ok: true, ...updated });
   } catch (err) { next(err); }
 });
