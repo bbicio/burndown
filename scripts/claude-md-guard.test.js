@@ -116,7 +116,7 @@ describe('CLAUDE.md size (it is loaded in full every session)', () => {
       .toBeLessThanOrEqual(64_000);
   });
 
-  it('keeps the File structure block at exactly 13,113 LF bytes', () => {
+  it('keeps the File structure block at exactly 13,120 LF bytes', () => {
     // 12,538 at the phase-3 merge; raised to 12,758 by the same /sync-docs run,
     // for this file's own 2-line index entry. That is the allowed kind of growth
     // -- a new file needs an index line -- and it is why the pin is exact rather
@@ -148,11 +148,12 @@ describe('CLAUDE.md size (it is loaded in full every session)', () => {
     // 13,131 on 2026-11-10: +29 B, run-tests.sh entry names the backend unit tests (gate1-tests).
     // 13,098 on 2026-11-11: -33 B, auth.js entry: requireAuth re-reads the session state, no "JWT-cached" (backlog c01).
     // 13,113 on 2026-11-11: +15 B, the same entry names every requireSysAdmin route group (Gate 1 claims pre-check).
+    // 13,120 on 2026-11-11: +7 B, the api/src/services/ entry lists the new users service (same cycle's /sync-docs).
     const bytes = Buffer.byteLength(fileStructureBlock().join('\n'), 'utf8');
-    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 13,113. It is an INDEX:
+    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 13,120. It is an INDEX:
       one or two lines per entry, pointing at the docs/ file that holds the narrative.
       If you shrank it on purpose, lower this number in the same commit`)
-      .toBe(13_113);
+      .toBe(13_120);
   });
 
   it('keeps exactly 12 entries longer than two lines', () => {

@@ -10,6 +10,7 @@ What lives in `api/src/services/`, and where each one is documented. `CLAUDE.md`
 | `llm.js`, `planning-assistant.js` | [docs/api/planning-assistant.md](planning-assistant.md) |
 | `planning-data.js` | [docs/api/planning-model.md](planning-model.md) |
 | `topic-extraction.js` | [docs/api/profile-engine.md](profile-engine.md) (where `extractForCode` and the peek-before-claim flow are; `docs/api/topics.md` routes here too) |
+| `users.js` | [docs/api/users.md](users.md) (`anonymizeUser`) and this file (below) |
 
 ## email.js
 
@@ -32,3 +33,4 @@ Token signing/verification behind the `pdash_token` cookie. The middleware that 
 - `planning-data.js` (2026-09-29) — loads projects/tasks, actuals, resources and aliases for the planning model and caches them for 30 s (`getPlanningData`, `invalidatePlanningData`, `visibleProjectIds`).
 - `topic-extraction.js` (2026-09-29) — extracts the competence vocabulary from project/task descriptions for the profile worker; the pure rules live in `api/src/lib/topic-extract.js` and the LLM call goes through `llm.js`. Detail in [docs/api/profile-engine.md](profile-engine.md), not in `topics.md` (which covers the admin API over the resulting vocabulary).
 - `two-step.js` (2026-11-10) — data access of the email-code login: challenges (`createChallenge`, `findChallenge`, `recordAttempt`, `replaceCode`, `resetLatestCode`, `deleteChallenge`), trusted devices (`trustDevice`, `findTrustedDevice`, `listDevices`, `removeDevice`, `removeAllDevices`), and `revokeTwoStepState(userId)`, called from every path that changes a credential or the state of an account. `createChallenge` and `trustDevice` take a `guard` (`{ email, passwordChangedAt }` as read before the slow steps) and insert only while the user still matches, returning null otherwise. `email.js` gained `sendLoginCode`, its transporter has connect/greeting/socket timeouts, and `sendAdminNotificationEmail` escapes title, body and name itself.
+- `users.js` (2026-11-11) — writes on `users` that run on the caller's transaction client: `anonymizeUser(db, id)` (requests, row, two-step state) and `notifyAdmins(db, requestId, title, body, requesterId)`, one `INSERT INTO notifications … SELECT` for every other active admin/sysadmin, returning the rows with each admin's `email`/`first_name` (none → `POST /api/auth/rectification-request` answers 409 `NO_RECIPIENT`). The transaction itself is `withTransaction(pool, fn)` in `api/src/db/transaction.js`.

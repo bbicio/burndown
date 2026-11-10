@@ -42,6 +42,8 @@
 | A-27 | Six-box code input | Type, paste `123456` into the first box, Backspace, arrows, autofill | Digits only; the paste fills all six and submits; Backspace empties and steps back; the boxes turn red on every wrong code | ✓ (vitest) |
 | A-28 | Sign-in code views vs the boards | Open `/login.html` at 1440, 1024 and 390 px in the initial, wrong, expired, locked and send-error states | They match boards 15u–15al within the deviations recorded in `docs/pages/login.md` | |
 | A-29 | Security sections of My profile | Open `/profile.html#two-step` and `#devices` at 1440 and 390 px | `Email code · Active` with the masked address; the sub-navigation shows the `Email` pill and the device count; the rows match boards 15c and 15i | |
+| A-30 | Open sessions end with the account (2026-11-11) | Sign the user in; an admin disables it (or deletes or anonymizes it), or the user changes the password from another browser; act in the first browser | 401 "Session expired", the page goes to the login; the browser that changed its own password stays signed in (`SE-01`..`SE-03`) | ✓ |
+| A-31 | Demoted admin and token without `pwd` (2026-11-11) | An admin's role is lowered to user while signed in, then the old session opens an admin route; a token signed without the `pwd` claim (as before this cycle) opens `/api/auth/me` | 403 on the admin route; 401 for the old token, so everyone signs in again once after the deploy (`SE-04`, `SE-05`) | ✓ |
 
 ---
 
@@ -659,6 +661,7 @@
 | AD-48 | Edit details (2026-11) | Row ⋯ → Edit details… on another user → change the first name → Save | Drawer closes; the row shows the new name; banner "Details updated for {name}."; Save stays disabled until a field changes and while a field is empty (`AD-ED-01`…`AD-ED-03`) | ✓ |
 | AD-49 | Edit details — duplicate email (2026-11) | Same drawer, enter another user's email in capitals with spaces → Save | "Email already in use" under Email, nothing saved (`AD-ED-04`) | ✓ |
 | AD-50 | Edit details — where it is offered (2026-11) | Look at the ⋯ menu of your own row, an anonymized row, and (as admin) a sysadmin row | No menu on any of them, so no Edit details; the API refuses the same edits (`AD-ED-05`, `AD-ED-06`, `AD-ED-09`) | ✓ |
+| AD-52 | Two admins assign the same new email at once (2026-11-11) | Two concurrent `PATCH /api/users/:id { email }` with one new address, for two different users | One 200, one 409 "Email already in use" with `field: 'email'`; never a 500 (`AD-ED-16`, ten rounds) | ✓ |
 | AD-51 | Anonymize deletes rectification requests (2026-11) | User sends a request from `/profile.html` → admin disables and anonymizes that user → on the branch stack `SELECT count(*) FROM rectification_requests WHERE user_id = '<id>'` | 0 (`AD-ED-08`) | ✓ |
 | AD-18 | T&C editor removed from admin.html (2026-09) | Open admin.html | No Terms & Conditions section — moved to `_terms-editor.html` (sysadmin-exclusive, see §17a) | |
 
@@ -713,6 +716,8 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | GD-09 | My profile — request a change (2026-11) | Request a change → type a message → Send request | Drawer closes, "Request sent to the admins." shown, focus back on Request a change; every other active admin/sysadmin gets the notification "Profile change requested by {name}" linking to User Admin; a row in `rectification_requests`. Blank → Send request disabled; 2001 characters refused (`RR-01`…`RR-05`) | ✓ |
 | GD-10 | My profile — password form (2026-11) | On Password type a new password and a different confirmation; then `abc`, `abcdefgh`, `Abcdefgh1234!` as new password | Confirmation red with "Passwords don't match." and Update password disabled; the bar fills 1, 2 and 4 segments | |
 | GD-11 | My profile — privacy contact (2026-11) | With `PRIVACY_CONTACT_EMAIL` (and `PRIVACY_CONTACT_NAME`) set for the api container, open `#privacy`; then unset it and reload | Set: "Questions about your data?" card with the name and email, Write an email opens `mailto:` that address; unset: no card, no message (`PC-01` for the endpoint) | |
+| GD-13 | Request a change — hourly limit (2026-11-11) | Send six valid requests within an hour | The first five succeed; the sixth keeps the drawer open with "Too many attempts" (429 `RATE_LIMITED`, `RR-06`) | ✓ |
+| GD-14 | Request a change — no other admin (2026-11-11) | As the only active admin/sysadmin, send a request | The drawer stays open with "There is no other admin to send this request to."; no success banner; no row in `rectification_requests` (409 `NO_RECIPIENT`, `RR-07`) | ✓ |
 | GD-12 | My profile — responsive (2026-11) | Open `/profile.html` at 1440, 820 and 390px | Sub-navigation as a column, a row of tabs, a section selector; no horizontal scroll; buttons at least 44px tall on the phone | |
 
 ---

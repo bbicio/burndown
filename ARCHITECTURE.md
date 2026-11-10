@@ -668,7 +668,7 @@ timesheets (
 | GET | /api/auth/reset-password/:token | — | Validate reset token |
 | POST | /api/auth/reset-password | — | Set new password |
 | POST | /api/auth/change-password | ✅ | Change password (authenticated); writes `password_changed_at`. A wrong current password is `400 { error, field: 'currentPassword' }`, not 401 (the client would treat it as an expired session) |
-| POST | /api/auth/rectification-request | ✅ | `{ message }` (1–2000 characters after trim): records a `rectification_requests` row and notifies every other active admin/sysadmin (in-app + email); `201 { ok: true }`. The user's own details are not editable by the user |
+| POST | /api/auth/rectification-request | ✅ | `{ message }` (1–2000 characters after trim): records a `rectification_requests` row and notifies every other active admin/sysadmin (in-app + email), the request and its notifications in one transaction; `201 { ok: true }`. 5 per user per hour (`429 { code: 'RATE_LIMITED', retryIn }`); no other active admin/sysadmin → `409 { code: 'NO_RECIPIENT' }`, nothing recorded. The user's own details are not editable by the user |
 | POST | /api/auth/accept-terms | ✅ | Record current T&C version acceptance (writes `terms_version` + `terms_accepted_at`) |
 
 ### Users
@@ -679,9 +679,9 @@ timesheets (
 | GET | /api/users/active-list | ✅ | List of all active users (id/email/firstName/lastName/role) — used by share modal and notification target picker; returns `role` so frontend can filter out admins |
 | GET | /api/users | admin | List all users |
 | GET | /api/users/:id | admin | Get user detail |
-| PATCH | /api/users/:id | admin* | Update role, status, or `firstName`/`lastName`/`email` (trimmed, email lower-cased; 400 `{ error, field }` on an invalid field, 409 `{ error, field: 'email' }` on a duplicate, 400 on an anonymized user; one invalid field refuses the whole request). `role` accepts `admin`/`user`/`sysadmin` (2026-09) subject to `roleChangeError()`'s two-step promotion/demotion rules. *Mutating a target already `role='sysadmin'` — any field — additionally requires the actor to be sysadmin (`sysAdminTargetError()`, live DB role) |
+| PATCH | /api/users/:id | admin* | Update role, status, or `firstName`/`lastName`/`email` (trimmed, email lower-cased; 400 `{ error, field }` on an invalid field, 409 `{ error, field: 'email' }` on a duplicate (also when a concurrent request takes the address first), 400 on an anonymized user; one invalid field refuses the whole request). `role` accepts `admin`/`user`/`sysadmin` (2026-09) subject to `roleChangeError()`'s two-step promotion/demotion rules. *Mutating a target already `role='sysadmin'` — any field — additionally requires the actor to be sysadmin (`sysAdminTargetError()`, live DB role) |
 | DELETE | /api/users/:id | admin* | Disable user (soft delete). *Same sysadmin-target protection as PATCH above |
-| POST | /api/users/:id/anonymize | admin* | Permanently replace personal data with anonymous values (name → "[Deleted] User", email → `anon_<uuid>@deleted.local`); clears password hash and tokens; preserves operational records. *Same sysadmin-target protection as PATCH above |
+| POST | /api/users/:id/anonymize | admin* | Permanently replace personal data with anonymous values (name → "[Deleted] User", email → `anon_<uuid>@deleted.local`); clears password hash and tokens; preserves operational records; one transaction. *Same sysadmin-target protection as PATCH above |
 
 ### Configuration
 

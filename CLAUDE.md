@@ -180,7 +180,7 @@ api/src/lib/              — pure functions extracted for unit testing (node:te
                             and history: [docs/api/lib.md](docs/api/lib.md). project-rules.js + version-lock.js have
                             their own section below ("Project currency lock").
 api/src/services/        — email (nodemailer) and jwt, plus resource-matching, profile-engine/worker, llm,
-                            planning-assistant, planning-data and topic-extraction. Index and detail:
+                            planning-assistant, planning-data, topic-extraction and users. Index and detail:
                             [docs/api/services.md](docs/api/services.md).
 api/src/middleware/auth.js — `requireAuth` (JWT cookie → `req.user`; re-reads status, role and
                             `password_changed_at` from the DB on every request — `api/src/lib/session.js`),
