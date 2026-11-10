@@ -41,7 +41,7 @@ Three tiers (2026-09, `018_sysadmin_role.sql` widened the `role` CHECK constrain
 
 No user is promoted to `sysadmin` automatically — the migration is a pure constraint widening with no backfill. The first sysadmin must be set directly via SQL (`UPDATE users SET role='sysadmin' WHERE ...`) or the `api/src/promote-sysadmin.js` CLI script; every subsequent promotion goes through `admin.html`'s "⬆ Grant sysadmin" toggle (sysadmin viewers only). Promotion is two-step by design: `user → admin` (any admin/sysadmin) then `admin → sysadmin` (sysadmin only) — never a direct `user → sysadmin` jump, and demotion mirrors it (`sysadmin → admin` only, never straight to `user`), enforced by `api/src/lib/role-transition.js`'s `roleChangeError()`.
 
-Backend authorization has two middleware tiers (`api/src/middleware/auth.js`): `requireAdmin` (`role === 'admin' || role === 'sysadmin'`, trusts the JWT's role claim for its full session lifetime — same JWT-caching behavior as before this change) and `requireSysAdmin` (`role === 'sysadmin'` exclusive, re-reads the role from the DB on every call rather than trusting the token — used only for `reset.js` and `PUT /api/app-settings/terms`, where an up-to-8h stale revocation window on irreversible bulk-deletion routes was judged unacceptable). A shared `isAdminRole(role)` helper (`api/src/lib/is-admin.js`) backs every route-local `role === 'admin'` check that isn't behind the `requireAdmin` middleware itself (cost-grids, projects, timesheets, exports, reporting, notifications, pipeline-years) — added after a live-verified gap where several such literals were missed by the initial sysadmin rollout, leaving a real sysadmin account unable to see any projects/grids/timesheets.
+Backend authorization has two middleware tiers (`api/src/middleware/auth.js`), both built on `requireAuth`, which after the JWT signature reads the user's `status`, `role` and `password_changed_at` from the DB on every request: `401 Session expired` when the row is gone, the account is not `active`, or the token's `pwd` claim (`password_changed_at` in ms, `api/src/lib/session.js`) differs from the row's — so disabling, anonymizing or a password change ends every older session at its next request — and otherwise `req.user.role` is the DB's role. `requireAdmin` (`role === 'admin' || role === 'sysadmin'`) and `requireSysAdmin` (`role === 'sysadmin'` exclusive, no query of its own — used only for `reset.js` and `PUT /api/app-settings/terms`) check that role. `change-password` reissues the caller's `pdash_token` with the new `pwd`. A shared `isAdminRole(role)` helper (`api/src/lib/is-admin.js`) backs every route-local `role === 'admin'` check that isn't behind the `requireAdmin` middleware itself (cost-grids, projects, timesheets, exports, reporting, notifications, pipeline-years) — added after a live-verified gap where several such literals were missed by the initial sysadmin rollout, leaving a real sysadmin account unable to see any projects/grids/timesheets.
 
 ### 3.2 Permission Matrix
 
@@ -70,7 +70,7 @@ Backend authorization has two middleware tiers (`api/src/middleware/auth.js`): `
 | Read attribute lists (assign tags on a proposal/project one has access to, 2026-09 Cycle 2) | ✅ | ✅ | ✅ |
 | Manage profile-engine jobs (`profile-jobs.html`, 2026-09 Cycle 3d) | ✅ | ✅ | ❌ |
 
-"Modify a sysadmin" mutations (`PATCH /api/users/:id`, `POST /:id/anonymize`, `DELETE /:id`) are guarded by `sysAdminTargetError()` (`api/src/routes/users.js`), checked against the actor's *live* DB role (not the JWT-cached one `requireAdmin` reads elsewhere) — closing the same stale-token window `requireSysAdmin` closes for the DB-wipe routes, applied here because these routes can also grant/revoke sysadmin itself.
+"Modify a sysadmin" mutations (`PATCH /api/users/:id`, `POST /:id/anonymize`, `DELETE /:id`) are guarded by `sysAdminTargetError()` (`api/src/routes/users.js`), checked against the actor's *live* DB role (`liveRole`), read again right before the write because these routes can also grant/revoke sysadmin itself.
 
 ### 3.3 Ownership and Sharing
 
@@ -881,7 +881,7 @@ Every POT route counts a proposal once, through its reference version (`pot_v`, 
 
 ### Admin — Bulk Reset
 
-Scopes: `proposals`, `projects`, `clients`, `ratecards`, `actuals`, `pipelines`, `notifications`. Each runs inside a DB transaction. All four endpoints below were `admin`-gated before 2026-09; now **sysadmin**-exclusive (`requireSysAdmin`, re-reads role from the DB rather than trusting the JWT — see §3.1).
+Scopes: `proposals`, `projects`, `clients`, `ratecards`, `actuals`, `pipelines`, `notifications`. Each runs inside a DB transaction. All four endpoints below were `admin`-gated before 2026-09; now **sysadmin**-exclusive (`requireSysAdmin`, on the role `requireAuth` reads from the DB — see §3.1).
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
@@ -929,8 +929,7 @@ services:
       SMTP_PASS: ${SMTP_PASS}
       APP_URL: ${APP_URL:-http://localhost}
       NODE_ENV: ${NODE_ENV:-development}
-    ports:
-      - "3000:3000"
+    # no ports: reached only through nginx on the Compose network (scripts/compose-api-port.test.js)
     depends_on:
       db:
         condition: service_healthy

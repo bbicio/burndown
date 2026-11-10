@@ -6,15 +6,15 @@ Things to verify the first time the app runs outside a development machine, and 
 
 - [ ] **Backup.** `scripts/backup-db.sh` has produced a fresh dump. Failure: no file in `backups/`.
 - [ ] **Migrations applied, in order.** Every file of `api/src/db/migrations/` is applied; `docs/db/migrations.md` lists them. Check: `docker exec pdash-db psql -U pdash -d pdash -c "\dt"` shows `login_challenges` and `trusted_devices`, and `\d users` shows `two_step_method` and `password_changed_at`. Failure: the first login answers 500.
-- [ ] **Environment variables are set and stable.** `JWT_SECRET`, `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `APP_URL`, `NODE_ENV=production`. A new `JWT_SECRET` signs every user out and invalidates every open sign-in code; it does not touch trusted devices. `.env.example` lists the names.
+- [ ] **Environment variables are set and stable.** `JWT_SECRET`, `DATABASE_URL`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `APP_URL`, `NODE_ENV=production`. A new `JWT_SECRET` signs every user out and invalidates every open sign-in code; it does not touch trusted devices. The first deploy of the session check (B-414) also signs every user out once: a token signed before it is refused. `.env.example` lists the names.
 - [ ] **`APP_URL` is the public address.** Links in invitation, reset and share emails are built from it. Failure: links point at `localhost`.
 
-## Network and proxy (B-414, B-415 in `docs/BACKLOG.md`)
+## Network and proxy (B-415 in `docs/BACKLOG.md`)
 
 - [ ] **HTTPS end to end.** With `NODE_ENV=production` the session, sign-in and device cookies are `Secure`. Check in the browser's cookie panel after a login: `pdash_token` is Secure and present. Failure: the login succeeds, the next page sends the user back to the login page.
 - [ ] **How many proxies sit in front of the API.** `api/src/index.js` trusts exactly one hop (nginx). If anything else is in front of nginx (a load balancer, a corporate reverse proxy, a hosting platform), the hop count must change. Check: from two different networks, fail a login on purpose and look at the API's view of the address, or fail it more than the per-address limit allows from one client and confirm another client is not locked out. Failure: one user's failed logins answer "Too many attempts" to everybody.
 - [ ] **The proxy forwards `X-Forwarded-For` and does not accept a client-supplied one.** The edge proxy must overwrite the header, not append to what the client sent.
-- [ ] **The API port is not reachable from outside.** From another machine: `curl -i http://<host>:3000/api/auth/me` must not answer. `docker-compose.yml` still publishes it (B-415). Failure: any answer.
+- [ ] **The API port is not reachable from outside.** `docker-compose.yml` publishes no port for `api` (pinned by `scripts/compose-api-port.test.js`); an `api` container created before that change keeps the port until it is recreated (`docker compose up -d api`). Check from another machine: `curl -i http://<host>:3000/api/auth/me` must not answer. Failure: any answer.
 - [ ] **Cookie paths survive the proxy.** The challenge and device cookies are scoped to `/api/auth`. The app must be served from the root of its host, with `/api/` reaching the API unchanged. Failure: the code step answers "Sign-in expired" at once.
 - [ ] **`/api/auth/*` is not cached** by a CDN or proxy. Failure: a user sees another user's profile, or a stale sign-in state.
 
@@ -34,10 +34,10 @@ Things to verify the first time the app runs outside a development machine, and 
 - [ ] Removing the device (or all devices) makes the next sign-in ask for the code again.
 - [ ] Changing the password removes the trusted devices.
 - [ ] An admin changing a user's email, disabling or anonymizing the user removes that user's devices and open sign-ins.
+- [ ] Disabling or anonymizing a user, or a password change from another browser, ends that user's open session at its next request (pinned by `test-api.js` SE-01..SE-05).
 - [ ] The failed-login limit answers "Too many attempts" after repeated wrong passwords for one email, and a different email is not affected.
 
 ## Known limits to accept or plan for
 
-- [ ] A disabled, anonymized or password-changed user keeps a session already open until its token expires (B-414).
 - [ ] The failed-login and code-sending counters live in the API process: a restart resets them, and a second API instance would count separately.
 - [ ] Automated tools that log in (`scripts/shoot.mjs`, `api/src/scripts/seed-planning-golden.js`) need a trusted device minted on that environment; see `docs/scripts/shoot.md`.

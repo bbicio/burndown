@@ -771,11 +771,10 @@ async function testPipelineYears() {
   const offersFor = async (cookie, year) =>
     ((await api('GET', '/api/pipeline-years', null, cookie)).data || []).find(r => r.year === year)?.offers;
 
-  const me = await api('GET', '/api/auth/me', null, adminCookie);
-  const plain = await getPlainUserCookie();
+  const { id: plainId, cookie: plain } = await getPlainUser();
   const base = { admin: await offersFor(adminCookie, offYear), plain: await offersFor(plain, offYear) };
 
-  // Fixtures are owned by the sysadmin so the (demoted) test admin is neither owner nor shared.
+  // Fixtures are owned by the sysadmin so the plain user is neither owner nor shared.
   const mkCg = async (tag, published = true) => {
     const g = await api('POST', '/api/cost-grids', { name: `__test_py_offers_${tag}__` }, sysadminCookie);
     const cgId = g.data?.id;
@@ -801,7 +800,7 @@ async function testPipelineYears() {
   ok((await offersFor(plain, offYear)) - base.plain === 0,
     'PY-12 plain user offers delta = 0 for CGs neither owned nor shared');
   const sh = await api('POST', `/api/cost-grids/${A.cgId}/shares`,
-    { userId: me.data?.id, permission: 'viewer' }, sysadminCookie);
+    { userId: plainId, permission: 'viewer' }, sysadminCookie);
   ok(sh.status === 200 || sh.status === 201, 'PY-13 setup share to plain user');
   ok((await offersFor(plain, offYear)) - base.plain === 1,
     'PY-13 plain user offers delta = 1 after the proposal is shared with them');
@@ -1621,8 +1620,8 @@ async function testPotReferenceVersion() {
     .find(s => s.pipeline === st)?.count || 0;
   const offers = async (cookie = adminCookie) => ((await api('GET', '/api/pipeline-years', null, cookie)).data || [])
     .find(y => Number(y.year) === year)?.offers || 0;
-  // The test admin demoted to role user: a non-admin who owns every proposal this section creates.
-  const plain = await getPlainUserCookie();
+  // A non-admin; POT-20 makes it the owner of its proposal.
+  const { id: plainId, cookie: plain } = await getPlainUser();
 
   // POT-18 / POT-19 — v1 Expected (200), v2 Committed (400): counted once, in Committed
   const ytBefore = await yearTotals();
@@ -1652,7 +1651,8 @@ async function testPotReferenceVersion() {
   const plainBefore = plain ? await offers(plain) : null;
   const p20 = await proposal('__test_pot_ref_20__', ['Committed', 3], ['Anticipated', 5]);
   if (!p20) { fail('POT-20: proposal setup failed — skipping'); return; }
-  const pj = await api('POST', '/api/projects', { name: '__test_pot_ref_20_project__', cgVersionId: p20.v1, currency: 'EUR' }, sysadminCookie);
+  if (plainId) await sql('UPDATE cost_grids SET owner_id = $1 WHERE id = $2', [plainId, p20.cgId]);
+  const pj =await api('POST', '/api/projects', { name: '__test_pot_ref_20_project__', cgVersionId: p20.v1, currency: 'EUR' }, sysadminCookie);
   if (pj.data?.id) later('DELETE', `/api/projects/${pj.data.id}`);
   ok(pj.status === 201, `POT-20 setup: project linked to v1 → 201 (got ${pj.status})`);
   const row20 = ((await details()).proposals || []).filter(r => r.cg_id === p20.cgId);
@@ -2905,21 +2905,15 @@ async function testProfileEngineHooks() {
 // emailed token, so the sysadmin demotes the test admin to 'user', we log in (JWT role = user) and
 // the admin is promoted back at once. requireAdmin trusts the JWT role claim, so the existing
 // adminCookie keeps working throughout; the run-tests.sh stack is disposable.
+// A throw-away user with role user, signed in. Not the test admin demoted and restored: the session
+// carries the role in the database, so a cookie taken while demoted is an admin's again once restored.
+async function getPlainUser() {
+  const u = await makeTsUser('plain');
+  return u ? { id: u.id, cookie: await loginWithCode(u.email, TS_PASS) } : { id: null, cookie: '' };
+}
+
 async function getPlainUserCookie() {
-  const me = await api('GET', '/api/auth/me', null, adminCookie);
-  const adminId = me.data?.id;
-  if (!adminId || !sysadminCookie) return '';
-  let cookie = '';
-  try {
-    const down = await api('PATCH', `/api/users/${adminId}`, { role: 'user' }, sysadminCookie);
-    if (down.status !== 200) return '';
-    const login = await api('POST', '/api/auth/login', { email: EMAIL, password: PASS }, ADMIN_DEVICE);
-    cookie = login.status === 200 && login.data?.role === 'user' ? extractCookie(login.headers) : '';
-  } finally {
-    const back = await api('PATCH', `/api/users/${adminId}`, { role: 'admin' }, sysadminCookie);
-    ok(back.status === 200 && back.data?.role === 'admin', 'PJ-setup the test admin is restored to role admin');
-  }
-  return cookie;
+  return (await getPlainUser()).cookie;
 }
 
 // GET the console state, with the project rows indexed by code.
@@ -3492,7 +3486,7 @@ async function testPlanningModel() {
   ok(r2.data?.roles?.find(x => x.role === 'Consultant')?.actuals === 15, 'PM-06 a new upload is visible right away (cache invalidated)');
 
   // PM-07: a non-admin who neither owns nor was shared the project gets an empty result, not an error
-  // The plain user is the demoted test admin (getPlainUserCookie); the project the
+  // The plain user comes from getPlainUserCookie; the project the
   // plain user must NOT see is created by the sysadmin (a different account) with its own actuals.
   const code7 = `TPLANX${ts}`;
   const r7 = sysadminCookie ? await api('POST', '/api/projects', { name: `__plan_${code7}__`, code: code7, startDate: '209901', endDate: '209903' }, sysadminCookie) : null;
