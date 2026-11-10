@@ -664,8 +664,11 @@ async function testProfile() {
   ok(pc.status === 200 && pc.data && 'name' in pc.data && 'email' in pc.data, 'PC-01 privacy-contact → 200 { name, email }');
 
   const CP = '/api/auth/change-password';
+  // A password change ends every older session and reissues this one: carry the new cookie on.
   const w1 = await api('POST', CP, { currentPassword: PASS, newPassword: PASS + 'x', newPasswordConfirm: PASS + 'x' }, adminCookie);
+  adminCookie = extractCookie(w1.headers) || adminCookie;
   const w2 = await api('POST', CP, { currentPassword: PASS + 'x', newPassword: PASS, newPasswordConfirm: PASS }, adminCookie);
+  adminCookie = extractCookie(w2.headers) || adminCookie;
   ok(w1.status === 200 && w2.status === 200, `PW-01 change-password and back → 200, 200 (got ${w1.status}, ${w2.status})`);
   const pw = (await api('GET', '/api/auth/me', null, adminCookie)).data;
   ok(!!pw?.password_changed_at, 'PW-01 /me.password_changed_at is set');

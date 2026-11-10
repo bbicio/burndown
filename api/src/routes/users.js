@@ -16,12 +16,9 @@ function sysAdminTargetError(actorRole, targetCurrentRole) {
   return null;
 }
 
-// requireAdmin (unlike requireSysAdmin) trusts the role claim baked into the
-// JWT at login time. That's fine for ordinary admin actions, but role/status/
-// anonymize mutations that touch a sysadmin account need the actor's *current*
-// privilege, not a stale one from up to 8h ago — an actor whose sysadmin
-// status was just revoked must not be able to keep granting/revoking it or
-// modifying other sysadmins on the strength of an old token.
+// The actor's role read from the database. requireAuth already sets req.user.role
+// from the database on every request; the role/status/anonymize mutations that
+// touch a sysadmin account read it again right before the write they guard.
 async function liveRole(userId) {
   const { rows: [u] } = await query('SELECT role FROM users WHERE id = $1', [userId]);
   return u ? u.role : null;
@@ -114,7 +111,7 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
 
     // A sysadmin row is only ever modifiable by another sysadmin — whatever
     // field the request is trying to change (status-only requests included).
-    // Use the actor's live role, not the JWT-cached one from requireAdmin.
+    // Use the actor's live role.
     const actorRole = await liveRole(req.user.id);
     const protErr = sysAdminTargetError(actorRole, target.role);
     if (protErr) return res.status(403).json({ error: protErr });
@@ -126,7 +123,7 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
 
     let details = {};
     if (wantsDetails) {
-      // Live role: a demoted admin's JWT still says admin, and an email change is an account takeover.
+      // Live role: an email change is an account takeover.
       if (!['admin', 'sysadmin'].includes(actorRole)) return res.status(403).json({ error: 'Admin rights required' });
       if (ANON_EMAIL_RE.test(target.email)) return res.status(400).json({ error: 'This user has been anonymized' });
       details = normalizeDetails({ firstName, lastName, email });

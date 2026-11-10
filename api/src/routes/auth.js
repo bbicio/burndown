@@ -9,6 +9,7 @@ const { pushToUser } = require('./notifications');
 const { rectificationError, normalizeDetails, detailsError } = require('../lib/user-details');
 const T = require('../lib/two-step');
 const { createLimiter } = require('../lib/rate-limit');
+const { sessionClaims } = require('../lib/session');
 const twoStep = require('../services/two-step');
 
 const router = express.Router();
@@ -231,7 +232,7 @@ router.post('/login', async (req, res, next) => {
     const device = await twoStep.findTrustedDevice(req.cookies && req.cookies[DEVICE_COOKIE]);
     if (T.deviceTrusted(device, user, Date.now())) {
       await twoStep.touchDevice(device.id);
-      setAuthCookie(res, { id: user.id, email: user.email, role: user.role });
+      setAuthCookie(res, sessionClaims(user));
       return res.json(signedInBody(user));
     }
 
@@ -297,7 +298,7 @@ router.post('/two-step/verify', async (req, res, next) => {
       if (!deviceToken) return noChallenge(res);
       setDeviceCookie(res, deviceToken);
     }
-    setAuthCookie(res, { id: user.id, email: user.email, role: user.role });
+    setAuthCookie(res, sessionClaims(user));
     res.json(signedInBody(user));
   } catch (err) { next(err); }
 });
@@ -533,10 +534,14 @@ router.post('/change-password', requireAuth, async (req, res, next) => {
     if (!valid) return res.status(400).json({ error: 'Current password is incorrect', field: 'currentPassword' });
 
     const hash = await bcrypt.hash(newPassword, 12);
-    await query('UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2', [hash, req.user.id]);
+    const { rows: [changed] } = await query(
+      'UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2 RETURNING password_changed_at',
+      [hash, req.user.id]);
     // Every trusted device (this browser's included) asks for the code again; a challenge opened with the old password goes too.
     await twoStep.revokeTwoStepState(req.user.id);
     clearDeviceCookie(res);
+    // The new password_changed_at ends every other session; this one gets a token signed with it.
+    setAuthCookie(res, sessionClaims({ ...req.user, password_changed_at: changed.password_changed_at }));
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
