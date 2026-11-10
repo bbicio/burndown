@@ -176,6 +176,12 @@ try {
     await rpc(ws, pending, 'Network.setCookie', {
       name: 'pdash_token', value: token, domain: hostname, path: '/', httpOnly: true,
     }, sessionId);
+    // The browser holds the trusted device too, so Profile → Trusted devices marks it as this device.
+    if (device) {
+      await rpc(ws, pending, 'Network.setCookie', {
+        name: 'pdash_device', value: device, domain: hostname, path: '/api/auth', httpOnly: true,
+      }, sessionId);
+    }
   }
 
   const written = [];
