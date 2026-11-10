@@ -59,3 +59,16 @@ test('refund gives back one slot, never below zero, and ignores an unknown key',
   assert.equal(l.hit('k', 8).allowed, true);
   assert.equal(l.hit('k', 9).allowed, false);
 });
+
+test('a refund aimed at an earlier window does not touch the current one', () => {
+  const l = createLimiter({ windowMs: 1000, max: 2 });
+  const first = l.hit('k', 0);
+  assert.equal(typeof first.window, 'number');
+  const second = l.hit('k', 1500);
+  assert.equal(second.allowed, true);
+  l.refund('k', 1600, first.window);
+  l.hit('k', 1700);
+  assert.equal(l.hit('k', 1800).allowed, false);
+  l.refund('k', 1900, second.window);
+  assert.equal(l.hit('k', 1950).allowed, true);
+});

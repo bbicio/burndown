@@ -372,7 +372,8 @@ async function testTwoStep() {
   const burst = await Promise.all(Array.from({ length: 25 }, () => api('POST', '/api/auth/login', { email: ghost2, password: 'x' })));
   const n401 = burst.filter(r => r.status === 401).length;
   const n429 = burst.filter(r => r.status === 429).length;
-  ok(n401 === 10 && n429 === 15, `TS-15b 25 parallel failed logins: exactly 10 are tried, 15 refused (got ${n401} × 401, ${n429} × 429)`);
+  // At most 10 are tried (fewer when this IP's own limit was already partly used by an earlier run on a reused stack).
+  ok(n401 >= 1 && n401 <= 10 && n401 + n429 === 25, `TS-15b 25 parallel failed logins: at most 10 are tried, the rest refused (got ${n401} × 401, ${n429} × 429)`);
 
   // TS-16: two challenges of one user coexist, one per cookie; the CLI code is for the latest.
   const u3 = await makeTsUser('c');

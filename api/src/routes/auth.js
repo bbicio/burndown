@@ -195,6 +195,9 @@ router.post('/accept-terms', requireAuth, async (req, res, next) => {
 // POST /api/auth/login — the password step. With a trusted device the session opens here; otherwise a
 // challenge is opened, the code is mailed and the answer carries no pdash_token.
 router.post('/login', async (req, res, next) => {
+  // The reserved slots go back unless the password was judged: a database error costs the user nothing.
+  let refundSlots = () => {};
+  let judged = false;
   try {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
@@ -203,9 +206,9 @@ router.post('/login', async (req, res, next) => {
     const ipKey = req.ip;
     const ipSlot = loginIpLimiter.hit(ipKey);
     const emailSlot = loginEmailLimiter.hit(normalized);
-    const refundSlots = () => {
-      if (ipSlot.allowed) loginIpLimiter.refund(ipKey);
-      if (emailSlot.allowed) loginEmailLimiter.refund(normalized);
+    refundSlots = () => {
+      if (ipSlot.allowed) loginIpLimiter.refund(ipKey, Date.now(), ipSlot.window);
+      if (emailSlot.allowed) loginEmailLimiter.refund(normalized, Date.now(), emailSlot.window);
     };
     if (!ipSlot.allowed || !emailSlot.allowed) {
       refundSlots();
@@ -216,6 +219,7 @@ router.post('/login', async (req, res, next) => {
     const user = rows[0];
 
     const valid = user && user.password_hash && await bcrypt.compare(password, user.password_hash);
+    judged = true;
     if (!valid) return res.status(401).json({ error: 'Invalid email or password' });
     refundSlots();
     if (user.status === 'disabled') return res.status(403).json({ error: 'Account disabled' });
@@ -247,7 +251,7 @@ router.post('/login', async (req, res, next) => {
         sendFailed: !sent,
       },
     });
-  } catch (err) { next(err); }
+  } catch (err) { if (!judged) refundSlots(); next(err); }
 });
 
 // POST /api/auth/two-step/verify — the code step. Attempts are counted per challenge; a resend does
