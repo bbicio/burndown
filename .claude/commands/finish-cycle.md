@@ -24,13 +24,13 @@ Run the full closeout sequence for the current feature branch: a mechanical pre-
    - **Ten minutes is a cap, not an estimate.** At 10 minutes, stop where you are and continue to step 1, recording in the report's **Roadmap notes** that the cap was reached and what was left unchecked. The remainder is left to Gate 3.
    - Record what it cost (wall-clock minutes) and what it caught (how many defects, of what kind). Gate 3 adds its own half. This step is an experiment: PROCESS.md §6.4d says what is decided on those numbers, and when.
 1. Run `npm test` natively (host Node ≥ 20.12). In a worktree with no `node_modules`, run `npm ci` once first. Use the `docker run ... node:22` one-liner from `CLAUDE.md` only if the host Node is older than 20.12.
-   - If it fails: stop immediately, show the failing output verbatim. Do not start Docker. Require a fix and a re-run of `/finish-cycle` from the top.
-   - **A red from `scripts/architecture-guard.test.js` is not a code defect** — it means this branch added a route handler, a migration-created table, or an `ALTER TABLE` column that `ARCHITECTURE.md` §5/§6 does not document. The fix is that documentation edit, **on this branch**, before `/finish-cycle` runs again. The other documentation guards in this run — `scripts/claude-md-guard.test.js`, `scripts/doc-paths-guard.test.js` and `scripts/decision-ledger-guard.test.js` — say in their own failure messages what they want. That list is not guaranteed complete; `ls scripts/*-guard.test.js` is (PROCESS.md §4b).
+   - If it fails: stop immediately, show the failing output verbatim. Do not start Docker. Note the current HEAD as `<red-HEAD>`. Fix on the branch and commit, then re-enter this gate at step 0, scoped to `git diff <red-HEAD>..HEAD -- '*.md'`, and continue from step 1.
+   - **A red from `scripts/architecture-guard.test.js` is not a code defect** — it means this branch added a route handler, a migration-created table, or an `ALTER TABLE` column that `ARCHITECTURE.md` §5/§6 does not document. The fix is that documentation edit, **on this branch**, before re-entering this gate. The other documentation guards in this run — `scripts/claude-md-guard.test.js`, `scripts/doc-paths-guard.test.js` and `scripts/decision-ledger-guard.test.js` — say in their own failure messages what they want. That list is not guaranteed complete; `ls scripts/*-guard.test.js` is (PROCESS.md §4b).
 2. If it passes, run `git diff --stat main...HEAD` and inspect the listed paths.
    - If any path starts with `api/` (including `api/src/db/migrations/`), or if any touched path's relevance to backend behavior is unclear/ambiguous, proceed to step 3.
    - Otherwise, skip straight to Gate 2.
-3. Run `scripts/run-tests.sh`.
-   - If it fails: stop immediately, show the failing output verbatim. Require a fix and a re-run of `/finish-cycle` from the top.
+3. Run `scripts/run-tests.sh`. It runs the backend unit tests, then the integration suite.
+   - If it fails: stop immediately, show the failing output verbatim. Re-enter exactly as after a red at step 1 — `<red-HEAD>`, fix, scoped step 0 — and run step 1 again too: the fix may touch files `npm test` covers.
 4. Proceed automatically to Gate 2 — no confirmation needed, this is an objective gate.
 
 ## Gate 2 — MANUAL VERIFICATION (human gate, always confirms)
@@ -215,7 +215,9 @@ Every file edit in this gate, `/sync-docs`'s, the report's and `docs/BACKLOG.md`
         or of the backend suite (`node --test` over `api/`), targeted single-file runs excluded. A
         counter the session did not observe in full is `unknown`.
         Gate 5 tests: filled in by step 3, after this file exists; the verdict is the first line of
-        `node scripts/gate5-scope.mjs`, and ×N counts one run per entry into step 3.
+        `node scripts/gate5-scope.mjs`, and ×N counts one run per entry into step 3. Verdict and command
+        are those of the green run; if an earlier run had a different verdict, append
+        `(first: <verdict> → <command>)`.
         Risk class: the values Gate 2's identification step recorded.
         Acceptance: the outcome of Gate 2's Acceptance checklist. -->
 
@@ -252,7 +254,7 @@ Every file edit in this gate, `/sync-docs`'s, the report's and `docs/BACKLOG.md`
    - It runs **before** step 3, so that step's blocking test run checks the new rows' cited paths through `scripts/doc-paths-guard.test.js`. **That cover is partial:** `docs/BACKLOG.md`'s own rules 1 and 2 say which citations the guard cannot see; do not read a green suite as having verified a row it cannot see.
 
 3. **Run the tests (blocking, no confirmation).** First run `node scripts/gate5-scope.mjs`. If its first stdout line is `docs-only` or `docs-and-script-tests`, run `npx vitest run scripts/ js/lib/test-cases-parse.test.js`; if it is `other`, or the script exits non-zero, run `npm test`. Record whether this first test run in the gate was green. When the run is green, write the report's `Gate 5 tests` line with the Edit tool: the verdict, the command, and how many times this step ran. Same semantics as Gate 1 step 1: if it fails, stop immediately, show the failing output verbatim, and run **no** `git add`, `git commit` or `git push`.
-   - **Unlike Gate 1,** a failure here is **not** a "re-run `/finish-cycle` from the top" case. Fix it on `main` — usually by correcting the edit `/sync-docs` just made, or by lowering a pin in the same commit if the shrink was deliberate — then re-enter this gate at step 3: `node scripts/gate5-scope.mjs` again, then the command its verdict names. `/sync-docs`, the report and step 2b's rows are not redone; a correction to the report is an Edit. Never make the suite green by relaxing an assertion or raising a pin to fit new content.
+   - **As at Gate 1,** a failure here is fixed and the gate re-entered, not restarted. Fix it on `main` — usually by correcting the edit `/sync-docs` just made, or by lowering a pin in the same commit if the shrink was deliberate — then re-enter this gate at step 3: `node scripts/gate5-scope.mjs` again, then the command its verdict names. `/sync-docs`, the report and step 2b's rows are not redone; a correction to the report is an Edit. Never make the suite green by relaxing an assertion or raising a pin to fit new content.
 4. Show the combined diff (`git diff`, covers `/sync-docs`'s edits, step 2b's rows in `docs/BACKLOG.md`, and the new report file — none of the three has been committed yet).
 5. **Pre-authorised path.** Skip the question below and go to step 6 only when all three hold: `<gate5-preauthorised>` (Gate 4 step 2) is true, the latest `node scripts/gate5-scope.mjs` run printed `docs-only`, and step 3 was green on its first run in this gate. Say so in one line before committing, with the reason. A red step 3, even once fixed, voids the pre-authorisation, and a re-entry at step 3 always asks. `/sync-docs`'s own questions are never covered.
    - Otherwise ask explicitly: "Commit and push these doc/report changes to main? [yes/no]"
