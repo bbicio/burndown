@@ -55,7 +55,7 @@ The application has three primary views accessible from the main navigation.
 
 Admin section entries: **Master Data** (the Config page, formerly "Config"), **Timesheets** (formerly "Actuals Repository"), **User Admin**, **Team**, **Attribute Lists**. Sysadmin section entries: **DB Reset**, **Terms & Conditions**.
 
-Some pages have no menu entry at all and are reached only in context from the page that owns them — the project configuration form and the **Program Dashboard** (§6.1a) from the Portfolio, the profile-processing console from Timesheets.
+Some pages have no menu entry at all and are reached only in context from the page that owns them — the project configuration form and the **Program Dashboard** (§6.1a) from the Portfolio, the profile-processing console from Timesheets, and the **My profile** page from the account menu's My Profile and Change password (§17.2).
 
 **Default view on load:** Pipeline.
 

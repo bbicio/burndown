@@ -33,6 +33,10 @@ Shared layout (`card`/`table`/`btn-primary`/`form-*`/`empty`/`alert-sm`) for the
 
 `team.html` only (2026-11-08, Team redesign), loaded after `admin-crud.css`: the `tm-` rules of the list, callout, toolbar, Unmatched drawer, New/Edit fields and the resource panel, plus the tablet and phone media queries. Tokens only (`js/lib/team-page-guard.test.js`). Detail: [docs/pages/team.md](../pages/team.md).
 
+## css/profile.css
+
+`profile.html` only (2026-11, My profile page): the `mp-` rules of the avatar page head, the section cards, the read-only values, the password form and strength bar, the privacy rows and contact card, and the phone media query. The sub-navigation and card frame are the Master Data ones in `style.css`. Tokens only. Detail: [docs/pages/profile.md](../pages/profile.md).
+
 ## css/attribute-lists.css
 
 `attribute-lists.html` only (2026-11-09, Attribute Lists redesign), loaded after `admin-crud.css`: the `al-` rules of the buttons, sub-nav counts and badge, list and topic cards, toolbar, table, queue strip, drawers, merge, and the tablet and phone media queries. Tokens only (`js/lib/attribute-lists-page-guard.test.js`). Detail: [docs/pages/attribute-lists.md](../pages/attribute-lists.md).

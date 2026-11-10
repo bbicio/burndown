@@ -40,7 +40,12 @@ After login, if the user has never accepted the current Terms & Conditions versi
 
 ### 17.2 Profile Rectification
 
-"My Profile" (accessible from the account menu) lets a user update their own first name, last name, and email. Email must be a valid format and not already used by another account.
+**Since 2026-11 a user's first name, last name and email are managed by an admin.** "My Profile" in the account menu opens the **My profile** page (`profile.html`, no menu entry; "Change password" opens its Password section). Its sections:
+- **Details** shows name, email, role and member-since date read-only, with **Request a change**: a drawer where the user writes what is wrong (up to 2000 characters). The request is recorded, and every other active admin/sysadmin gets a notification and an email linking to User Admin; the page confirms "Request sent to the admins."
+- **Password** has the current password, the new one twice, a strength hint, and "Last changed on {date}" once a change has been recorded.
+- **Privacy & data** lists what PDash keeps (profile, work, agreements, with links to the Privacy Notice) and, when the deployment configures a privacy contact, a "Questions about your data?" card with a "Write an email" button.
+
+The admin makes the correction from User Admin → **Edit details…** (§16.3). Anonymizing a user (§17.3) also deletes their requests and the notifications about them.
 
 ### 17.3 Anonymization
 

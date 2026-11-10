@@ -981,6 +981,7 @@ burndown/
     planning.css          ← page stylesheet of planning.html only (toolbar, period selector, grid, Filters panel, Team assistant drawer, smartphone layout below 768px). Detail: docs/css/stylesheets.md
     admin-crud.css        ← shared layout for the simple admin CRUD pages. Detail: docs/css/stylesheets.md
     team.css              ← page stylesheet of team.html only, loaded after admin-crud.css. Detail: docs/css/stylesheets.md
+    profile.css           ← page stylesheet of profile.html only. Detail: docs/css/stylesheets.md
     auth.css              ← shared stylesheet of the public auth pages (login/activate/reset-password). Detail: docs/css/stylesheets.md
   js/
     api.js                ← Api.* namespace, apiFetch wrapper (also triggers the save overlay on slow writes). Detail: docs/js/shared-libs.md
@@ -1013,6 +1014,7 @@ burndown/
   _db-reset.html          ← sysadmin-exclusive hidden page, bulk DB data deletion by scope. Detail: docs/pages/db-reset.md
   _terms-editor.html      ← sysadmin-exclusive hidden page, T&C editor (see §5's App Settings). Detail: docs/pages/terms-editor.md
   privacy-notice.html     ← Privacy Notice page: read-only latest Terms & Conditions with version and publication date. Detail: docs/pages/privacy-notice.md
+  profile.html            ← My profile (read-only details + rectification request, password, privacy & data); adds js/lib/md-subnav.js (set profile) and js/lib/profile-ui.js; own stylesheet css/profile.css. Detail: docs/pages/profile.md
   team.html               ← resource registry CRUD, admin or sysadmin; own stylesheet css/team.css. Detail: docs/pages/team.md
   attribute-lists.html    ← generic tag/taxonomy admin console (lists + items, no physical delete); its items feed the Tags sections via js/tags.js; own stylesheet css/attribute-lists.css. Detail: docs/pages/attribute-lists.md
   profile-jobs.html       ← profile-engine job console, hidden (reached from the Timesheets sub-menu of timesheets.html); adds js/lib/profile-jobs-ui.js. Detail: docs/pages/profile-jobs.md
@@ -1098,6 +1100,7 @@ Current migrations:
 - `024_resource_aliases_unmatched.sql` — creates `resource_aliases` and `profile_unmatched` (see §5; Cycle 3b, 2026-09-25); `profile_unmatched` is keyed by `project_code`, not project id
 - `025_resource_role_id.sql` — `resources.role_id → roles(id)` NOT NULL replacing free-text `job_title`; backfill by `roles.code` then `roles.label`, aborts loudly on an unmatched row, re-runnable (Team role by id, 2026-09-25)
 - `026_profile_engine.sql` — `resource_project_contributions`, `profile_project_state`, `profile_job_runs`, `resources.profile`/`profile_computed_at`, and the `profile_job_interval_min`/`profile_job_enabled` defaults in `app_settings` (see §5; Cycle 3c, 2026-09-25). Idempotent (`IF NOT EXISTS` / `ON CONFLICT DO NOTHING`)
+- `027`–`033`: one line each in docs/db/migrations.md (033 = `users.password_changed_at`, `rectification_requests`, `notifications.rectification_request_id`)
 
 ---
 
