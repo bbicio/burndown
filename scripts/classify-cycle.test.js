@@ -185,6 +185,20 @@ describe('classify-cycle.mjs end to end', () => {
     expect(r.stdout).toContain('docs/foo.md');
   }, E2E_TIMEOUT);
 
+  it('judges only the given two-dot range, not earlier commits', () => {
+    const d = repo();
+    write(d, 'api/src/foo.js', 'console.log(1);\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'base');
+    write(d, 'docs/a.md', 'one\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'docs');
+
+    const r = run(d, 'HEAD~1..HEAD');
+    expect(firstLine(r.stdout)).toBe('no-code');
+    expect(r.stdout).not.toContain('api/src/foo.js');
+  }, E2E_TIMEOUT);
+
   it('does not qualify when the diff is empty although commits exist', () => {
     const d = repo();
     write(d, 'docs/a.md', 'one\n');
