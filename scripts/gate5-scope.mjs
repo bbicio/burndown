@@ -1,14 +1,19 @@
-// Classifies Gate 5's uncommitted diff for /finish-cycle: is it "docs-only"?
+// Classifies Gate 5's uncommitted diff for /finish-cycle into three verdicts.
 //
-// Two decisions of Gate 5 read this verdict: step 3 runs the doc-reading test
-// subset instead of the full suite, and steps 5-6 may commit and push without
-// asking under the Gate 4 pre-authorisation. Both are granted ONLY on the
-// literal token `docs-only`. See
-// docs/superpowers/specs/2026-10-28-finish-cycle-gate5-lighter-design.md.
+// Two decisions of Gate 5 read this verdict. Step 3 runs the test subset
+// instead of the full suite on `docs-only` or `docs-and-script-tests`. Steps
+// 5-6 may commit and push without asking under the Gate 4 pre-authorisation
+// ONLY on the literal token `docs-only`. See
+// docs/superpowers/specs/2026-10-28-finish-cycle-gate5-lighter-design.md and
+// docs/superpowers/specs/2026-11-10-gate5-tests-design.md.
 //
-// A diff is docs-only when it is non-empty and every path ends in .md or is
-// GATE5_TEST_FILE. Any other path — scripts/claude-md-guard.test.js, an .html,
-// a stray untracked log — makes it `other`, and Gate 5 asks as before.
+// A diff is `docs-only` when it is non-empty and every path ends in .md or is
+// GATE5_TEST_FILE. It is `docs-and-script-tests` when, in addition, some paths
+// are scripts/**/*.test.js — the subset runs every one of them, but a changed
+// guard is seen before the push, so Gate 5 asks. Any other path — an .html, a
+// scripts/*.mjs, another js/**/*.test.js, a stray untracked log — makes it
+// `other`. Paths only, not git status: a deleted scripts test classifies like
+// a modified one, and that verdict asks before the push anyway.
 //
 // The subset is safe only if no other js/**/*.test.js reads a .md file; the guard
 // in gate5-scope.test.js (mdReadingTests) keeps that true. Its limit: it sees
@@ -39,13 +44,15 @@ export function parsePorcelainZ(stdout) {
 
 /**
  * @param {string[]} paths
- * @returns {'docs-only'|'other'}
+ * @returns {'docs-only'|'docs-and-script-tests'|'other'}
  */
 export function classifyGate5(paths) {
   // An empty diff must not qualify vacuously.
-  return paths.length > 0 && paths.every((p) => p.endsWith('.md') || p === GATE5_TEST_FILE)
-    ? 'docs-only'
-    : 'other';
+  if (paths.length === 0) return 'other';
+  const isDoc = (p) => p.endsWith('.md') || p === GATE5_TEST_FILE;
+  const isScriptTest = (p) => p.startsWith('scripts/') && p.endsWith('.test.js');
+  if (paths.every(isDoc)) return 'docs-only';
+  return paths.every((p) => isDoc(p) || isScriptTest(p)) ? 'docs-and-script-tests' : 'other';
 }
 
 /**
@@ -62,7 +69,7 @@ export function mdReadingTests(files) {
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
-// Contract: first stdout line `docs-only` or `other`, the judged paths follow
+// Contract: first stdout line `docs-only`, `docs-and-script-tests` or `other`, the judged paths follow
 // one per line, exit 0. A git error goes to stderr with exit 1, and the gate
 // treats that as `other`.
 
