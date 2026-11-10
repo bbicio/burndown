@@ -96,7 +96,8 @@ Ri-eseguibile, ogni statement con guardia, in una transazione.
 Limiter a finestra fissa in memoria, nessuna dipendenza: `createLimiter({ windowMs, max })` → `hit(key, now)` →
 `{ allowed, retryInMs }`, con pulizia delle chiavi scadute. `app.set('trust proxy', 1)` in `index.js`. Limiti:
 
-- `POST /api/auth/login`: 20 per IP e 10 per email in 15 min.
+- `POST /api/auth/login`: i soli tentativi falliti (password errata o email sconosciuta), 30 per IP e 10 per email in
+  15 min; un login riuscito non conta. Oltre il limite si risponde 429 anche alla password giusta.
 - Invii del codice (login che crea un challenge, resend): 10 per utente all'ora.
 
 Oltre il limite: `429 { error, code: 'RATE_LIMITED', retryIn }` (secondi). I contatori si perdono al riavvio.
@@ -342,3 +343,6 @@ toccato, `md-subnav.js` aggiornato con i test che lo pinnano.
     sarebbe falsa (stesso principio della decisione 8 del ciclo 1).
 13. **Screenshot automatici nel Piano**, con gli stati e le larghezze di §6. Alternativa scartata: la sola verifica
     del Gate 2. Perché: 13 tavole su tre larghezze.
+14. **Il limiter del login conta i soli tentativi falliti, 30 per IP e 10 per email.** Alternativa scartata: ogni
+    tentativo, 20 per IP. Perché: `test-api.js` e un ufficio dietro un solo NAT fanno molti login riusciti dallo stesso
+    IP; il bersaglio è l'indovinare la password.
