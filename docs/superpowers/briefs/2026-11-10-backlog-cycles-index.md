@@ -23,3 +23,28 @@
 Ordine di partenza: 0, 1, 2, 3, 5, poi 4 (dopo la decisione su B-319 e B-320), 6, 7, 8, 9, 10, 11, 12, 13. Il ciclo 14 non si esegue: le sue voci vanno a `/brainstorming` una alla volta.
 
 Il triage è a livello di grep: una voce risolta o obsoleta si chiude solo con il comando eseguito in `Verified how` (ciclo 0).
+
+## Correzioni dal ciclo 0
+
+Riverifica del 2026-11-10; il comando e l'esito di ogni voce stanno nella sua riga di `docs/BACKLOG.md`.
+
+**Righe aperte che vanno a un ciclo** (non nominate dal suo brief):
+
+| Ciclo | Righe |
+|---|---|
+| 2 | B-229 |
+| 5 | B-227 |
+| 8 | B-301, B-302, B-303 |
+| 9 | B-304, B-305, B-309 |
+| 11 | B-306, B-310, B-311 |
+| 12 | B-307, B-308, B-312 |
+| 13 | B-008, B-021, B-026, B-027, B-028, B-056, B-057, B-065 |
+| 14 | B-298 |
+
+B-014 e B-053 (ciclo 10) e B-354 (ciclo 6) restano aperte e restano a quei cicli, che già le nominano.
+
+**Righe nominate da un brief ma già `closed`:** B-070, B-071, B-072, B-073, B-074, B-075, B-076, B-077 (ciclo 10), B-411 (ciclo 13). Quei cicli non le lavorano.
+
+**Chiuse dal ciclo 0:** B-108, B-146, B-148, B-178, B-179, B-281, B-284, B-286, B-295, B-396, B-397, B-400, B-409.
+
+**Da chiarire:** il brief del ciclo 8 cita «B-36», che non esiste in `docs/BACKLOG.md`; l'ID inteso si decide in quel ciclo.
