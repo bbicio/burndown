@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>PDash — Team</title><style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#F3F4F6}
+a{color:#0B1840}a:hover{color:#F0287A}
+input::placeholder,textarea::placeholder{color:#9AA0AC}
+@keyframes ua-spin{to{transform:rotate(360deg)}}
+.pb-navitem{height:40px;padding:0 10px;display:flex;align-items:center;gap:10px;border-radius:8px;text-decoration:none}
+.pb-navitem span{color:rgba(255,255,255,.75);font-size:13px;font-weight:500}
+.pb-subitem{height:32px;padding:0 10px 0 14px;display:flex;align-items:center;gap:9px;border-radius:8px;text-decoration:none}
+.pb-subitem span{color:rgba(255,255,255,.58);font-size:12px}
+.pb-subitem.active{background:rgba(255,255,255,.1);box-shadow:inset 3px 0 0 #F0287A}
+.pb-subitem.active span{color:#fff;font-weight:600}
+.pb-sublabel{padding:10px 10px 4px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:rgba(255,255,255,.38)}
+</style></helmet>
+<div style="width:1400px;height:1000px;box-sizing:border-box;display:flex;background:#F3F4F6;overflow:hidden;position:relative">
+
+  <div style="width:220px;flex-shrink:0;background:#0B1840;display:flex;flex-direction:column;box-sizing:border-box">
+    <div style="height:56px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 16px;border-bottom:3px solid #F0287A">
+      <span style="color:#FFFFFF;font-weight:700;font-size:22px;letter-spacing:-0.02em"><span style="color:#F0287A">P</span>Dash</span>
+      <div style="width:26px;height:26px;display:flex;align-items:center;justify-content:center"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="rgba(255,255,255,.6)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg></div>
+    </div>
+    <div style="padding:10px 8px 0;display:flex;flex-direction:column;gap:2px">
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 12V8M8 12V4M14 12V6" stroke="rgba(255,255,255,.65)" stroke-width="1.6" stroke-linecap="round"></path></svg><span>Pipeline</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="2" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="2" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><rect x="9" y="9" width="5" height="5" rx="1" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect></svg><span>Portfolio</span></a>
+      <a class="pb-navitem" href="#"><svg width="16" height="16" viewBox="0 0 16 16" fill="none"><rect x="2" y="2.5" width="12" height="11" rx="1.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4"></rect><path d="M2 6H14M5 2V4.5M11 2V4.5" stroke="rgba(255,255,255,.65)" stroke-width="1.4" stroke-linecap="round"></path></svg><span>Planning</span></a>
+      <sc-if value="{{ navAdmin }}" hint-placeholder-val="{{ true }}">
+        <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+        <div class="pb-sublabel">Admin</div>
+        <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="2.4" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></circle><path d="M8 2v1.6M8 12.4V14M14 8h-1.6M3.6 8H2" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Master Data</span></a>
+        <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><rect x="2" y="4" width="12" height="9" rx="1.2" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></rect><path d="M2 4l1.6-2h8.8L14 4" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg><span>Timesheets</span></a>
+        <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="5.5" r="2.3" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></circle><path d="M3 14c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" stroke="rgba(255,255,255,.55)" stroke-width="1.3"></path></svg><span>User Admin</span></a>
+        <a class="pb-subitem active" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="5.5" cy="5.5" r="2" stroke="#fff" stroke-width="1.2"></circle><circle cx="11" cy="6.5" r="1.6" stroke="#fff" stroke-width="1.2"></circle><path d="M2 14c0-2.3 1.7-3.8 3.9-3.8 1.6 0 2.9.8 3.5 2M9.6 10.3c1.6 0 3 1.1 3 3" stroke="#fff" stroke-width="1.2" stroke-linecap="round"></path></svg><span>Team</span></a>
+        <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 2h5.5L14 8.5 7.5 15 2 9.5V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Attribute Lists</span></a>
+        <div style="height:1px;background:rgba(255,255,255,.12);margin:8px 8px 0"></div>
+        <div class="pb-sublabel">Sysadmin</div>
+        <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><ellipse cx="8" cy="3.5" rx="5.2" ry="1.8" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></ellipse><path d="M2.8 3.5v9c0 1 2.3 1.8 5.2 1.8s5.2-.8 5.2-1.8v-9" stroke="rgba(255,255,255,.55)" stroke-width="1.2"></path></svg><span>DB Reset</span></a>
+        <a class="pb-subitem" href="#"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M4 2h5.5L13 5.5V14H4V2Z" stroke="rgba(255,255,255,.55)" stroke-width="1.2" stroke-linejoin="round"></path></svg><span>Terms &amp; Conditions</span></a>
+      </sc-if>
+    </div>
+    <div style="flex:1"></div>
+    <div style="border-top:1px solid rgba(255,255,255,.12);padding:12px 12px 14px;display:flex;align-items:center;gap:10px">
+      <div style="width:26px;height:26px;border-radius:999px;background:rgba(255,255,255,.12);display:flex;align-items:center;justify-content:center;color:#fff;font-size:10.5px;font-weight:700;flex-shrink:0">{{ meIni }}</div>
+      <span style="color:#fff;font-size:12px;font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ meEmail }}</span>
+    </div>
+  </div>
+
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column">
+    <div style="flex-shrink:0;height:44px;box-sizing:border-box;background:#FFFFFF;border-bottom:1px solid #DDE1E8;padding:0 24px;display:flex;align-items:center">
+      <div style="font-size:12px;color:#6B7280;display:flex;align-items:center;gap:6px">Home <span style="color:#C7CCD9">/</span> <span style="color:#374151;font-weight:600">Team</span></div>
+    </div>
+
+    <sc-if value="{{ denied }}" hint-placeholder-val="{{ false }}">
+      <div style="flex:1;display:flex;align-items:center;justify-content:center;padding:24px">
+        <div style="width:420px;background:#fff;border:1px solid #DDE1E8;border-radius:12px;padding:32px 28px;display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center">
+          <div style="width:48px;height:48px;border-radius:999px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;color:#0B1840"><svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="3" y="7" width="10" height="7" rx="1.5"></rect><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2"></path></svg></div>
+          <span style="font-size:17px;font-weight:700;color:#0B1840">Admin access required</span>
+          <span style="font-size:12.5px;color:#6B7280;line-height:1.55;text-wrap:pretty">The team register is available to admins and sysadmins. Ask an admin if you need access.</span>
+          <span style="margin-top:8px;font-size:12.5px;font-weight:600;color:#fff;background:#0B1840;border-radius:8px;padding:9px 16px;cursor:pointer">Go to app</span>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ allowed }}" hint-placeholder-val="{{ true }}">
+      <div style="flex-shrink:0;padding:16px 24px 0;display:flex;align-items:flex-end;gap:16px">
+        <div style="flex:1;display:flex;flex-direction:column;gap:2px">
+          <span style="font-size:26px;font-weight:700;color:#0B1840">Team</span>
+          <span style="font-size:12.5px;color:#6B7280">{{ subtitle }}</span>
+        </div>
+        <sc-if value="{{ headerBtn }}" hint-placeholder-val="{{ false }}"><div onClick="{{ openUnm }}" style="display:flex;align-items:center;gap:8px;height:36px;box-sizing:border-box;padding:0 12px;border-radius:8px;border:1px solid #DDE1E8;background:#fff;font-size:13px;font-weight:600;color:#0B1840;cursor:pointer" style-hover="border-color:#0B1840"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M6.6 9.4l2.8-2.8M7.2 4.6l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7l-1.2 1.2M8.8 11.4l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7l1.2-1.2"></path></svg>Unmatched names<span style="min-width:20px;height:20px;box-sizing:border-box;padding:0 6px;border-radius:999px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;background:#FDE7F0;color:#A3134F">{{ unmN }}</span></div></sc-if>
+        <div onClick="{{ openNew }}" style="display:flex;align-items:center;gap:7px;height:36px;box-sizing:border-box;padding:0 16px;border-radius:8px;background:#F0287A;font-size:13px;font-weight:600;color:#fff;cursor:pointer" style-hover="background:#D81E6A"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 3v10M3 8h10"></path></svg>New resource</div>
+      </div>
+      <sc-if value="{{ showTabs }}" hint-placeholder-val="{{ true }}"><div style="flex-shrink:0;padding:10px 24px 0;display:flex;gap:4px;border-bottom:1px solid #DDE1E8">
+        <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="2">
+          <div onClick="{{ t.pick }}" tabIndex="0" style="height:40px;padding:0 12px;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;font-weight:{{ t.w }};color:{{ t.c }};box-shadow:{{ t.sh }};outline:none" style-focus="background:#FFF5F9">{{ t.label }}<sc-if value="{{ t.hasN }}"><span style="min-width:20px;height:20px;box-sizing:border-box;padding:0 6px;border-radius:999px;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;background:{{ t.nBg }};color:{{ t.nC }}">{{ t.n }}</span></sc-if></div>
+        </sc-for>
+      </div></sc-if>
+
+      <div style="flex:1;min-height:0;overflow-y:scroll;scrollbar-gutter:stable;overflow-x:hidden;padding:16px 24px 24px;display:flex;flex-direction:column;gap:12px">
+        <sc-if value="{{ hasBanner }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid {{ bn.border }};background:{{ bn.bg }};color:{{ bn.c }};font-size:12.5px">
+            <sc-if value="{{ bn.ok }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"></circle><path d="M5.3 8.2l1.8 1.8 3.6-3.8"></path></svg></sc-if>
+            <sc-if value="{{ bn.err }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 4.8v3.8M8 11v.2"></path></svg></sc-if>
+            <span style="flex:1;line-height:1.45"><strong>{{ bn.title }}</strong> {{ bn.text }}</span>
+            <sc-if value="{{ bn.hasUndo }}"><span onClick="{{ bn.undo }}" style="font-weight:700;cursor:pointer;text-decoration:underline">Undo</span></sc-if>
+            <div onClick="{{ closeBanner }}" title="Dismiss" style="width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:rgba(0,0,0,.05)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ hasCallout }}" hint-placeholder-val="{{ false }}">
+          <div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:10px;border:1px solid #F2D3A6;background:#FFF8EC">
+            <div style="width:32px;height:32px;border-radius:999px;background:#FFF1DC;color:#8A4B08;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M7.2 4.6l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7l-1.2 1.2M8.8 11.4l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7l1.2-1.2M3 3l1.5 1.5M13 13l-1.5-1.5"></path></svg></div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0"><span style="font-size:13px;font-weight:700;color:#0B1840">{{ co.title }}</span><span style="font-size:12px;color:#8A4B08">{{ co.text }}. Their hours don't count in any experience profile until you match them.</span></div>
+            <span onClick="{{ openAliases }}" style="font-size:12.5px;font-weight:600;color:#0B1840;cursor:pointer;padding:8px 6px;white-space:nowrap">Existing aliases</span>
+            <div onClick="{{ openUnm }}" style="height:34px;box-sizing:border-box;padding:0 14px;border-radius:8px;background:#0B1840;color:#fff;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer;white-space:nowrap">Review names<svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h9M9 4.5L12.5 8 9 11.5"></path></svg></div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ loading }}" hint-placeholder-val="{{ false }}">
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;height:480px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#6B7280;font-size:12.5px">{{ bigSpin }}<span>Loading team…</span></div>
+        </sc-if>
+
+        <sc-if value="{{ isTeam }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#fff;border:1px solid #DDE1E8;border-radius:12px;display:flex;flex-direction:column">
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #EEF0F4;flex-wrap:wrap">
+              <div style="display:flex;background:#F1F2F5;border-radius:8px;padding:3px;gap:2px">
+                <sc-for list="{{ stFilters }}" as="f" hint-placeholder-count="3">
+                  <div onClick="{{ f.pick }}" style="height:28px;padding:0 11px;border-radius:6px;display:flex;align-items:center;gap:6px;cursor:pointer;background:{{ f.bg }};box-shadow:{{ f.sh }};font-size:12.5px;font-weight:{{ f.w }};color:{{ f.c }}">{{ f.label }}<span style="font-size:11px;font-weight:600;color:{{ f.nc }}">{{ f.n }}</span></div>
+                </sc-for>
+              </div>
+              <div style="position:relative;display:flex;align-items:center;height:34px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 28px 0 10px;font-size:12.5px;color:#374151;gap:6px"><span style="color:#6B7280">Role</span><select value="{{ roleF }}" onChange="{{ onRole }}" style="border:0;outline:none;background:transparent;font:inherit;font-weight:600;color:#0B1840;appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:4px;max-width:180px"><option value="all">All roles</option><option value="0">Healthware Account Director</option><option value="1">Project Manager</option><option value="2">Senior Project Manager</option><option value="3">Medical Writer</option><option value="4">Copywriter</option><option value="5">Art Director</option><option value="6">Front-end Developer</option><option value="7">Data Analyst</option><option value="8">Account Executive</option></select><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;right:10px;pointer-events:none"><path d="M4 6l4 4 4-4"></path></svg></div>
+              <div style="position:relative;display:flex;align-items:center;height:34px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 28px 0 10px;font-size:12.5px;color:#374151;gap:6px"><span style="color:#6B7280;white-space:nowrap">PDash user</span><select value="{{ linkF }}" onChange="{{ onLink }}" style="border:0;outline:none;background:transparent;font:inherit;font-weight:600;color:#0B1840;appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:4px"><option value="any">Any</option><option value="linked">Linked</option><option value="unlinked">Not linked</option></select><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;right:10px;pointer-events:none"><path d="M4 6l4 4 4-4"></path></svg></div>
+              <div style="flex:1"></div>
+              <div style="display:flex;align-items:center;gap:8px;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;width:260px"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg><input value="{{ q }}" onChange="{{ onQ }}" placeholder="Search name, email or role…" style="flex:1;min-width:0;border:0;outline:none;font-size:12.5px;font-family:inherit;background:transparent;color:#0B1840"></div>
+            </div>
+
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 270px 200px 104px 40px;gap:12px;padding:9px 16px;background:#F7F8FA;border-bottom:1px solid #EEF0F4;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280;align-items:center">
+              <sc-for list="{{ heads }}" as="h" hint-placeholder-count="5">
+                <div onClick="{{ h.sort }}" tabIndex="{{ h.tab }}" aria-sort="{{ h.aria }}" style="display:flex;align-items:center;gap:4px;cursor:{{ h.cur }};color:{{ h.c }};outline:none;border-radius:4px" style-focus="box-shadow:0 0 0 2px #F0287A">{{ h.label }}<sc-if value="{{ h.sortable }}"><span style="font-size:10px;color:{{ h.ac }}">{{ h.arrow }}</span></sc-if></div>
+              </sc-for>
+            </div>
+
+            <sc-if value="{{ teamEmpty }}" hint-placeholder-val="{{ false }}">
+              <div style="height:320px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center">
+                <div style="width:40px;height:40px;border-radius:999px;background:#F3F4F6;display:flex;align-items:center;justify-content:center;color:#6B7280"><svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="6" cy="6" r="4.5"></circle><path d="M9.5 9.5L13 13"></path></svg></div>
+                <span style="font-size:14px;font-weight:700;color:#0B1840">No resources match the current filter.</span>
+                <span style="font-size:12px;color:#6B7280">{{ emptyHint }}</span>
+                <span onClick="{{ clearFilters }}" style="margin-top:6px;font-size:12.5px;font-weight:600;color:#0B1840;border:1px solid #DDE1E8;border-radius:8px;padding:7px 14px;cursor:pointer" style-hover="background:#F7F8FA">Clear filters</span>
+              </div>
+            </sc-if>
+
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="10">
+              <div onClick="{{ r.open }}" tabIndex="0" style="display:grid;grid-template-columns:minmax(0,1fr) 270px 200px 104px 40px;gap:12px;padding:0 16px;min-height:56px;align-items:center;border-bottom:1px solid #F0F1F4;background:{{ r.bg }};box-shadow:{{ r.bar }};cursor:pointer;outline:none;opacity:{{ r.op }}" style-hover="background:#FAFBFC" style-focus="box-shadow:inset 0 0 0 2px #F0287A">
+                <div style="display:flex;align-items:center;gap:10px;min-width:0">
+                  <div style="width:30px;height:30px;border-radius:999px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:{{ r.avBg }};color:{{ r.avC }}">{{ r.ini }}</div>
+                  <div style="display:flex;flex-direction:column;gap:1px;min-width:0">
+                    <span style="font-size:13px;font-weight:600;color:{{ r.nameC }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.name }}</span>
+                    <span style="font-size:11.5px;color:#6B7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.email }}</span>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:1px;min-width:0"><span style="font-size:12.5px;color:#0B1840;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.role }}</span><span style="font-size:10.5px;font-weight:600;letter-spacing:.03em;color:#6B7280;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.code }}</span></div>
+                <div style="min-width:0">
+                  <sc-if value="{{ r.hasUser }}"><span style="display:inline-flex;align-items:center;gap:6px;max-width:100%;font-size:12.5px;color:#0B1840"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.5" stroke-linecap="round" style="flex-shrink:0"><path d="M6.6 9.4l2.8-2.8M7.2 4.6l1.2-1.2a2.6 2.6 0 0 1 3.7 3.7l-1.2 1.2M8.8 11.4l-1.2 1.2a2.6 2.6 0 0 1-3.7-3.7l1.2-1.2"></path></svg><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.user }}</span></span></sc-if>
+                  <sc-if value="{{ r.noUser }}"><span style="font-size:12.5px;color:#9AA0AC">—</span></sc-if>
+                </div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <sc-if value="{{ r.busy }}"><span style="display:flex;align-items:center;gap:7px;font-size:12px;color:#6B7280">{{ spin }}Updating…</span></sc-if>
+                  <sc-if value="{{ r.notBusy }}"><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:{{ r.stBg }};color:{{ r.stC }}"><span style="width:6px;height:6px;border-radius:999px;background:{{ r.stDot }}"></span>{{ r.status }}</span></sc-if>
+                </div>
+                <div style="position:relative;display:flex;justify-content:flex-end">
+                  <div onClick="{{ r.toggleMenu }}" title="More actions" style="width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#374151;background:{{ r.mBg }};border:1px solid {{ r.mB }};box-sizing:border-box" style-hover="background:#F3F4F6"><svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><circle cx="3.5" cy="8" r="1.3"></circle><circle cx="8" cy="8" r="1.3"></circle><circle cx="12.5" cy="8" r="1.3"></circle></svg></div>
+                  <sc-if value="{{ r.menuOpen }}">
+                    <div onClick="{{ stop }}" style="position:absolute;right:0;top:{{ r.mTop }};bottom:{{ r.mBot }};width:280px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;box-shadow:0 12px 32px rgba(11,24,64,.16);z-index:30;padding:6px;display:flex;flex-direction:column;cursor:default">
+                      <sc-for list="{{ r.items }}" as="it">
+                        <sc-if value="{{ it.sep }}"><div style="height:1px;background:#EEF0F4;margin:5px 4px"></div></sc-if>
+                        <div onClick="{{ it.run }}" style="display:flex;align-items:flex-start;gap:10px;padding:7px 8px;border-radius:7px;cursor:pointer;color:{{ it.c }}" style-hover="background:{{ it.hov }}">
+                          <div style="width:16px;height:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+                            <sc-if value="{{ it.iEdit }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M10.5 2.5l3 3L6 13H3v-3l7.5-7.5Z"></path></svg></sc-if>
+                            <sc-if value="{{ it.iPower }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M8 2v5.5M4.6 4.2a5 5 0 1 0 6.8 0"></path></svg></sc-if>
+                            <sc-if value="{{ it.iTrash }}"><svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"></path></svg></sc-if>
+                          </div>
+                          <div style="flex:1;display:flex;flex-direction:column;gap:1px;min-width:0">
+                            <div style="display:flex;align-items:center;gap:6px"><span style="font-size:12.5px;font-weight:600">{{ it.label }}</span><sc-if value="{{ it.hasTag }}"><span style="font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;border-radius:4px;padding:1px 5px;background:{{ it.tagBg }};color:{{ it.tagC }}">{{ it.tag }}</span></sc-if></div>
+                            <span style="font-size:11px;color:{{ it.subC }};line-height:1.35">{{ it.sub }}</span>
+                          </div>
+                        </div>
+                      </sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+
+            <sc-if value="{{ hasPager }}" hint-placeholder-val="{{ true }}">
+              <div style="padding:10px 16px;display:flex;align-items:center;gap:12px;font-size:12px;color:#6B7280">
+                <span>{{ pager.range }}</span>
+                <span style="flex:1"></span>
+                <div onClick="{{ pager.prev }}" style="height:30px;box-sizing:border-box;padding:0 10px;border:1px solid #DDE1E8;border-radius:7px;display:flex;align-items:center;font-weight:600;color:{{ pager.prevC }};cursor:{{ pager.prevCur }};background:#fff">‹ Previous</div>
+                <span style="color:#374151">Page <strong style="color:#0B1840">{{ pager.page }}</strong> of {{ pager.pages }}</span>
+                <div onClick="{{ pager.next }}" style="height:30px;box-sizing:border-box;padding:0 10px;border:1px solid #DDE1E8;border-radius:7px;display:flex;align-items:center;font-weight:600;color:{{ pager.nextC }};cursor:{{ pager.nextCur }};background:#fff">Next ›</div>
+              </div>
+            </sc-if>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ isUnm }}" hint-placeholder-val="{{ false }}">
+          <div style="position:{{ uw.pos }};top:0;right:0;bottom:0;width:{{ uw.w }};z-index:{{ uw.z }};background:#fff;border:{{ uw.b }};border-radius:{{ uw.r }};box-shadow:{{ uw.sh }};overflow-y:{{ uw.ov }};scrollbar-gutter:stable;overflow-x:hidden;box-sizing:border-box;display:flex;flex-direction:column">
+            <sc-if value="{{ uw.drawer }}"><div style="display:flex;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid #EEF0F4"><div style="flex:1;display:flex;flex-direction:column;gap:4px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">Team</span><span style="font-size:19px;font-weight:700;color:#0B1840">Unmatched names</span><span style="font-size:12px;color:#6B7280">Match names from uploaded actuals to resources, so their hours count in experience profiles.</span></div><div onClick="{{ closeUnm }}" title="Close (Esc)" style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#F3F4F6"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div></div></sc-if>
+            <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid #EEF0F4">
+              <div style="display:flex;background:#F1F2F5;border-radius:8px;padding:3px;gap:2px">
+                <sc-for list="{{ modes }}" as="m" hint-placeholder-count="2">
+                  <div onClick="{{ m.pick }}" style="height:28px;padding:0 11px;border-radius:6px;display:flex;align-items:center;gap:6px;cursor:pointer;background:{{ m.bg }};box-shadow:{{ m.sh }};font-size:12.5px;font-weight:{{ m.w }};color:{{ m.c }}">{{ m.label }}<span style="font-size:11px;font-weight:600;color:{{ m.nc }}">{{ m.n }}</span></div>
+                </sc-for>
+              </div>
+              <div style="flex:1"></div>
+              <sc-if value="{{ isQueue }}">
+                <div style="display:flex;align-items:center;gap:8px;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;width:240px"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg><input value="{{ uq }}" onChange="{{ onUq }}" placeholder="Search name…" style="flex:1;min-width:0;border:0;outline:none;font-size:12.5px;font-family:inherit;background:transparent;color:#0B1840"></div>
+                <div onClick="{{ rescan }}" title="Rebuild the queue from all uploaded actuals" style="height:34px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:8px;display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:#0B1840;cursor:pointer;background:#fff" style-hover="border-color:#0B1840"><sc-if value="{{ rescanning }}">{{ spin }}</sc-if><sc-if value="{{ notRescanning }}"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3"></path></svg></sc-if>{{ rescanLabel }}</div>
+              </sc-if>
+              <sc-if value="{{ isAliases }}">
+                <div style="position:relative;display:flex;align-items:center;height:34px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 28px 0 10px;font-size:12.5px;color:#374151;gap:6px"><span style="color:#6B7280">Resolves to</span><select value="{{ aF }}" onChange="{{ onAF }}" style="border:0;outline:none;background:transparent;font:inherit;font-weight:600;color:#0B1840;appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:4px"><option value="all">Anything</option><option value="res">A resource</option><option value="ign">Ignored</option></select><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;right:10px;pointer-events:none"><path d="M4 6l4 4 4-4"></path></svg></div>
+                <div style="display:flex;align-items:center;gap:8px;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;height:34px;box-sizing:border-box;width:240px"><svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg><input value="{{ aq }}" onChange="{{ onAq }}" placeholder="Search alias or resource…" style="flex:1;min-width:0;border:0;outline:none;font-size:12.5px;font-family:inherit;background:transparent;color:#0B1840"></div>
+              </sc-if>
+            </div>
+
+            <sc-if value="{{ isQueue }}">
+              <div style="display:flex;align-items:center;gap:24px;padding:14px 16px;border-bottom:1px solid #EEF0F4">
+                <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:22px;font-weight:700;color:#0B1840;line-height:1.1">{{ qs.left }}</span><span style="font-size:11.5px;color:#6B7280">names to match</span></div>
+                <div style="display:flex;flex-direction:column;gap:2px"><span style="font-size:22px;font-weight:700;color:#0B1840;line-height:1.1">{{ qs.hours }}</span><span style="font-size:11.5px;color:#6B7280">not attributed to anyone</span></div>
+                <div style="flex:1;display:flex;flex-direction:column;gap:6px;max-width:360px">
+                  <div style="display:flex;justify-content:space-between;font-size:11.5px;color:#374151"><span>{{ qs.doneLabel }}</span><span style="color:#6B7280">{{ qs.ambLabel }}</span></div>
+                  <div style="height:6px;border-radius:999px;background:#EEF0F4;overflow:hidden"><div style="height:100%;width:{{ qs.pct }};background:#1F9D55;border-radius:999px"></div></div>
+                </div>
+                <span style="flex:1"></span>
+                <span style="font-size:11.5px;color:#6B7280;max-width:330px;line-height:1.45;text-wrap:pretty">Names found in uploaded actuals that couldn't be matched to a resource. Assign each one, or ignore names that aren't people.</span>
+              </div>
+              <sc-if value="{{ hasSb }}">
+                <div style="margin:12px 16px 0;display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid {{ sb.border }};background:{{ sb.bg }};color:{{ sb.c }};font-size:12.5px">
+                  <sc-if value="{{ sb.ok }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6.2"></circle><path d="M5.3 8.2l1.8 1.8 3.6-3.8"></path></svg></sc-if>
+                  <sc-if value="{{ sb.err }}"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 4.8v3.8M8 11v.2"></path></svg></sc-if>
+                  <span style="flex:1;line-height:1.45"><strong>{{ sb.title }}</strong> {{ sb.text }}</span>
+                  <sc-if value="{{ sb.hasUndo }}"><span onClick="{{ sb.undo }}" style="font-weight:700;cursor:pointer;text-decoration:underline">Undo</span></sc-if>
+                  <div onClick="{{ closeSb }}" title="Dismiss" style="width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;cursor:pointer" style-hover="background:rgba(0,0,0,.05)"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+                </div>
+              </sc-if>
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) 116px 124px 280px 150px;gap:12px;padding:9px 16px;margin-top:12px;background:#F7F8FA;border-top:1px solid #EEF0F4;border-bottom:1px solid #EEF0F4;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280;align-items:center">
+                <sc-for list="{{ uheads }}" as="h" hint-placeholder-count="5">
+                  <div onClick="{{ h.sort }}" tabIndex="{{ h.tab }}" aria-sort="{{ h.aria }}" style="display:flex;align-items:center;gap:4px;cursor:{{ h.cur }};color:{{ h.c }};outline:none;border-radius:4px" style-focus="box-shadow:0 0 0 2px #F0287A">{{ h.label }}<sc-if value="{{ h.sortable }}"><span style="font-size:10px;color:{{ h.ac }}">{{ h.arrow }}</span></sc-if></div>
+                </sc-for>
+              </div>
+              <sc-if value="{{ qEmpty }}">
+                <div style="height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center">
+                  <div style="width:44px;height:44px;border-radius:999px;background:{{ qe.bg }};display:flex;align-items:center;justify-content:center;color:{{ qe.c }}"><sc-if value="{{ qe.done }}"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.4l2.6 2.6L12 5.4"></path></svg></sc-if><sc-if value="{{ qe.search }}"><svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="6" cy="6" r="4.5"></circle><path d="M9.5 9.5L13 13"></path></svg></sc-if></div>
+                  <span style="font-size:14px;font-weight:700;color:#0B1840">{{ qe.title }}</span>
+                  <span style="font-size:12px;color:#6B7280;max-width:380px;line-height:1.5">{{ qe.text }}</span>
+                </div>
+              </sc-if>
+              <sc-for list="{{ urows }}" as="u" hint-placeholder-count="8">
+                <div style="display:flex;flex-direction:column;border-bottom:1px solid #F0F1F4;background:{{ u.bg }};opacity:{{ u.op }}">
+                  <div style="display:grid;grid-template-columns:minmax(0,1fr) 116px 124px 280px 150px;gap:12px;padding:10px 16px;align-items:start">
+                    <div style="display:flex;flex-direction:column;gap:4px;min-width:0;padding-top:6px">
+                      <div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="font-size:13px;font-weight:{{ u.w }};color:#0B1840;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ u.name }}</span><sc-if value="{{ u.amb }}"><span title="Matches more than one active resource. The system never links these on its own." style="display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;border-radius:999px;background:#FFF1DC;color:#8A4B08;font-size:10.5px;font-weight:700;letter-spacing:.03em;text-transform:uppercase;flex-shrink:0"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 2L1.5 13.5h13L8 2ZM8 6.5v3M8 11.6v.2"></path></svg>Ambiguous</span></sc-if></div>
+                      <sc-if value="{{ u.amb }}"><span style="font-size:11.5px;color:#8A4B08">{{ u.ambText }}</span></sc-if>
+                    </div>
+                    <div style="display:flex;flex-direction:column;gap:5px;padding-top:6px">
+                      <span style="font-size:13px;font-weight:{{ u.w }};color:#0B1840;font-variant-numeric:tabular-nums">{{ u.hours }}</span>
+                      <div style="height:4px;width:96px;border-radius:999px;background:#EEF0F4;overflow:hidden"><div style="height:100%;width:{{ u.barW }};background:#0B1840;border-radius:999px"></div></div>
+                    </div>
+                    <div style="padding-top:2px"><div onClick="{{ u.toggleProj }}" style="height:30px;box-sizing:border-box;padding:0 9px;border-radius:7px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:12px;font-weight:600;color:#0B1840;cursor:pointer;background:{{ u.pBg }};border:1px solid {{ u.pB }}" style-hover="border-color:#0B1840">{{ u.projLabel }}<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate({{ u.pRot }})"><path d="M4 6l4 4 4-4"></path></svg></div></div>
+                    <div style="position:relative;display:flex;flex-direction:column;gap:6px">
+                      <div onClick="{{ u.toggleCombo }}" style="height:34px;box-sizing:border-box;border:1px solid {{ u.cB }};border-radius:8px;padding:0 10px;display:flex;align-items:center;gap:8px;cursor:pointer;background:#fff;box-shadow:{{ u.cSh }}">
+                        <span style="flex:1;min-width:0;font-size:12.5px;color:{{ u.cC }};font-weight:{{ u.cW }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ u.cLabel }}</span>
+                        <sc-if value="{{ u.hasCode }}"><span style="font-size:10.5px;font-weight:600;color:#6B7280;white-space:nowrap">{{ u.cCode }}</span></sc-if>
+                        <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l4 4 4-4"></path></svg>
+                      </div>
+                      <sc-if value="{{ u.amb }}">
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span style="font-size:11px;color:#6B7280">Candidates</span>
+                          <sc-for list="{{ u.cands }}" as="cd"><div onClick="{{ cd.pick }}" style="height:24px;box-sizing:border-box;padding:0 8px;border-radius:999px;display:flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;cursor:pointer;background:{{ cd.bg }};color:{{ cd.c }};border:1px solid {{ cd.b }}">{{ cd.label }}<span style="font-weight:500;color:{{ cd.sc }}">{{ cd.code }}</span></div></sc-for>
+                        </div>
+                      </sc-if>
+                      <sc-if value="{{ u.comboOpen }}">
+                        <div onClick="{{ stop }}" style="position:absolute;left:0;top:38px;width:340px;background:#fff;border:1px solid #DDE1E8;border-radius:10px;box-shadow:0 12px 32px rgba(11,24,64,.16);z-index:30;display:flex;flex-direction:column;overflow:hidden">
+                          <div style="padding:8px;border-bottom:1px solid #EEF0F4"><div style="display:flex;align-items:center;gap:8px;border:1px solid #0B1840;border-radius:7px;padding:0 9px;height:32px;box-sizing:border-box"><svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="6" cy="6" r="4.5" stroke="#8A8F9C" stroke-width="1.4"></circle><path d="M9.5 9.5L13 13" stroke="#8A8F9C" stroke-width="1.4" stroke-linecap="round"></path></svg><input value="{{ cq }}" onChange="{{ onCq }}" placeholder="Search resources…" style="flex:1;min-width:0;border:0;outline:none;font-size:12.5px;font-family:inherit;background:transparent;color:#0B1840"></div></div>
+                          <div style="max-height:300px;overflow-y:scroll;scrollbar-gutter:stable;padding:4px 6px 6px;display:flex;flex-direction:column">
+                            <sc-for list="{{ u.groups }}" as="g">
+                              <span style="padding:8px 8px 3px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">{{ g.label }}</span>
+                              <sc-for list="{{ g.items }}" as="o">
+                                <div onClick="{{ o.pick }}" style="display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;cursor:pointer;background:{{ o.bg }}" style-hover="background:#F3F4F6">
+                                  <span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:{{ o.c }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ o.label }}</span>
+                                  <span style="font-size:10.5px;color:#6B7280;white-space:nowrap">{{ o.code }}</span>
+                                  <sc-if value="{{ o.on }}"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#0B1840" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.4l3 3L12.5 5"></path></svg></sc-if>
+                                </div>
+                              </sc-for>
+                            </sc-for>
+                            <sc-if value="{{ u.more }}"><span style="padding:6px 8px;font-size:11px;color:#6B7280">{{ u.moreText }}</span></sc-if>
+                          </div>
+                          <div style="padding:7px 12px;border-top:1px solid #EEF0F4;background:#F7F8FA;font-size:10.5px;color:#6B7280;display:flex;gap:12px"><span>↑ ↓ move</span><span>Enter select</span><span>Esc close</span></div>
+                        </div>
+                      </sc-if>
+                    </div>
+                    <div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;height:34px">
+                      <sc-if value="{{ u.busy }}"><span style="display:flex;align-items:center;gap:7px;font-size:12px;color:#6B7280">{{ spin }}{{ u.busyText }}</span></sc-if>
+                      <sc-if value="{{ u.idle }}">
+                        <div onClick="{{ u.assign }}" style="height:32px;box-sizing:border-box;padding:0 14px;border-radius:7px;display:flex;align-items:center;font-size:12.5px;font-weight:600;background:{{ u.aBg }};color:{{ u.aC }};cursor:{{ u.aCur }}">Assign</div>
+                        <div onClick="{{ u.ignore }}" title="Not a person (e.g. TBD). Stored as an ignored alias." style="height:32px;box-sizing:border-box;padding:0 11px;border-radius:7px;display:flex;align-items:center;font-size:12.5px;font-weight:600;color:#374151;cursor:pointer;border:1px solid #DDE1E8;background:#fff" style-hover="border-color:#0B1840">Ignore</div>
+                      </sc-if>
+                    </div>
+                  </div>
+                  <sc-if value="{{ u.projOpen }}">
+                    <div style="margin:0 16px 12px;padding:10px 12px;border-radius:8px;background:#F7F8FA;display:flex;flex-direction:column;gap:6px">
+                      <span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">Projects with hours under this name</span>
+                      <sc-for list="{{ u.projects }}" as="p"><div style="display:grid;grid-template-columns:minmax(0,1fr) 170px 70px;gap:12px;font-size:12px;align-items:center"><span style="color:#0B1840;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ p.name }}</span><span style="color:#6B7280;font-variant-numeric:tabular-nums">{{ p.code }}</span><span style="color:#374151;text-align:right;font-variant-numeric:tabular-nums">{{ p.h }}</span></div></sc-for>
+                    </div>
+                  </sc-if>
+                </div>
+              </sc-for>
+            </sc-if>
+
+            <sc-if value="{{ isAliases }}">
+              <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 120px 96px;gap:12px;padding:9px 16px;background:#F7F8FA;border-bottom:1px solid #EEF0F4;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280"><span>Name in actuals</span><span>Resolves to</span><span>Hours</span><span></span></div>
+              <sc-if value="{{ aEmpty }}"><div style="height:200px;display:flex;align-items:center;justify-content:center;font-size:12.5px;color:#6B7280">No aliases match the search.</div></sc-if>
+              <sc-for list="{{ arows }}" as="a" hint-placeholder-count="8">
+                <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 120px 96px;gap:12px;padding:0 16px;min-height:48px;align-items:center;border-bottom:1px solid #F0F1F4">
+                  <span style="font-size:13px;font-weight:600;color:#0B1840">{{ a.name }}</span>
+                  <div style="min-width:0">
+                    <sc-if value="{{ a.isRes }}"><span style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:#0B1840"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h9M9 4.5L12.5 8 9 11.5"></path></svg>{{ a.res }}<sc-if value="{{ a.resInactive }}"><span style="font-size:10.5px;font-weight:600;color:#4B5563;background:#F0F1F4;border-radius:999px;padding:1px 7px">inactive</span></sc-if></span></sc-if>
+                    <sc-if value="{{ a.isIgn }}"><span style="display:inline-flex;align-items:center;height:22px;padding:0 9px;border-radius:999px;border:1px dashed #9AA0AC;font-size:11.5px;font-weight:600;color:#4B5563">ignored</span></sc-if>
+                  </div>
+                  <span style="font-size:12.5px;color:#374151;font-variant-numeric:tabular-nums">{{ a.h }}</span>
+                  <div style="display:flex;justify-content:flex-end"><div onClick="{{ a.remove }}" title="Send this name back to the queue" style="height:30px;box-sizing:border-box;padding:0 10px;border-radius:7px;display:flex;align-items:center;font-size:12px;font-weight:600;color:#374151;cursor:pointer;border:1px solid #DDE1E8;background:#fff" style-hover="border-color:#0B1840">Remove</div></div>
+                </div>
+              </sc-for>
+              <div style="padding:10px 16px;font-size:11.5px;color:#6B7280">Removing an alias sends the name back to the queue. Hours already attributed are recalculated in the next background run.</div>
+            </sc-if>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+  </div>
+
+  <sc-if value="{{ unmBackdrop }}" hint-placeholder-val="{{ false }}"><div onClick="{{ closeUnm }}" style="position:absolute;inset:0;background:rgba(11,24,64,.28);z-index:40"></div></sc-if>
+  <sc-if value="{{ popBackdrop }}" hint-placeholder-val="{{ false }}"><div onClick="{{ closePops }}" style="position:absolute;inset:0;z-index:20"></div></sc-if>
+
+  <sc-if value="{{ drawerOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeDrawer }}" style="position:absolute;inset:0;background:rgba(11,24,64,.28);z-index:40"></div>
+    <div style="position:absolute;top:0;right:0;bottom:0;width:860px;background:#fff;z-index:41;box-shadow:-12px 0 32px rgba(11,24,64,.18);display:flex;flex-direction:column">
+      <div style="background:#0B1840;padding:16px 20px 14px;display:flex;align-items:flex-start;gap:14px">
+        <div style="width:40px;height:40px;border-radius:999px;background:rgba(255,255,255,.12);color:#fff;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;flex-shrink:0">{{ d.ini }}</div>
+        <div style="flex:1;display:flex;flex-direction:column;gap:3px;min-width:0">
+          <div style="display:flex;align-items:center;gap:10px"><span style="font-size:19px;font-weight:700;color:#fff">{{ d.name }}</span><span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;font-size:11.5px;font-weight:600;background:{{ d.stBg }};color:{{ d.stC }}"><span style="width:6px;height:6px;border-radius:999px;background:{{ d.stDot }}"></span>{{ d.status }}</span></div>
+          <span style="font-size:12.5px;color:rgba(255,255,255,.75)">{{ d.roleLine }}</span>
+        </div>
+        <div onClick="{{ closeDrawer }}" title="Close (Esc)" style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.8);cursor:pointer" style-hover="background:rgba(255,255,255,.1)"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+      </div>
+      <div style="display:flex;gap:4px;padding:0 20px;border-bottom:1px solid #DDE1E8">
+        <sc-for list="{{ dtabs }}" as="t"><div onClick="{{ t.pick }}" style="height:42px;padding:0 12px;display:flex;align-items:center;cursor:pointer;font-size:13px;font-weight:{{ t.w }};color:{{ t.c }};box-shadow:{{ t.sh }}">{{ t.label }}</div></sc-for>
+        <span style="flex:1"></span>
+        <sc-if value="{{ dIsDetails }}"><div style="display:flex;align-items:center"><div onClick="{{ d.edit }}" style="height:32px;box-sizing:border-box;padding:0 12px;border:1px solid #DDE1E8;border-radius:7px;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#0B1840;cursor:pointer" style-hover="border-color:#0B1840"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M10.5 2.5l3 3L6 13H3v-3l7.5-7.5Z"></path></svg>Edit</div></div></sc-if>
+      </div>
+
+      <div style="flex:1;min-height:0;overflow-y:scroll;scrollbar-gutter:stable;overflow-x:hidden;padding:18px 24px 24px;display:grid;grid-template-columns:minmax(0,1fr);align-content:start;gap:16px">
+        <sc-if value="{{ dIsDetails }}">
+          <div style="display:grid;grid-template-columns:150px minmax(0,1fr);border:1px solid #EEF0F4;border-radius:10px;flex-shrink:0">
+            <sc-for list="{{ d.fields }}" as="f">
+              <div style="padding:11px 14px;background:#F7F8FA;border-top:1px solid {{ f.bt }};font-size:11.5px;font-weight:600;color:#6B7280">{{ f.k }}</div>
+              <div style="padding:11px 14px;border-top:1px solid {{ f.bt }};display:flex;flex-direction:column;gap:2px;min-width:0"><span style="font-size:13px;color:{{ f.c }};white-space:pre-line;line-height:1.5">{{ f.v }}</span><sc-if value="{{ f.hasSub }}"><span style="font-size:11.5px;color:#6B7280">{{ f.sub }}</span></sc-if></div>
+            </sc-for>
+          </div>
+
+          <div style="border:1px solid #EEF0F4;border-radius:10px;display:flex;flex-direction:column">
+            <div onClick="{{ d.toggleAliases }}" style="display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer">
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#374151" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate({{ d.aRot }})"><path d="M6 4l4 4-4 4"></path></svg>
+              <span style="font-size:13px;font-weight:700;color:#0B1840">Aliases</span><span style="font-size:11.5px;font-weight:600;color:#6B7280">{{ d.aliasN }}</span>
+              <span style="flex:1;font-size:11.5px;color:#6B7280">Names from uploaded actuals that resolve to this resource.</span>
+            </div>
+            <sc-if value="{{ d.aliasesOpen }}">
+              <sc-if value="{{ d.noAliases }}"><div style="padding:14px;border-top:1px solid #EEF0F4;font-size:12.5px;color:#6B7280">No aliases for this resource.</div></sc-if>
+              <sc-for list="{{ d.aliases }}" as="a">
+                <div style="display:flex;align-items:center;gap:12px;padding:0 14px;min-height:44px;border-top:1px solid #EEF0F4"><span style="flex:1;font-size:12.5px;font-weight:600;color:#0B1840">{{ a.name }}</span><span style="font-size:12px;color:#6B7280;font-variant-numeric:tabular-nums">{{ a.h }}</span><div onClick="{{ a.remove }}" style="height:28px;box-sizing:border-box;padding:0 10px;border-radius:7px;display:flex;align-items:center;font-size:12px;font-weight:600;color:#374151;cursor:pointer;border:1px solid #DDE1E8" style-hover="border-color:#0B1840">Remove</div></div>
+              </sc-for>
+            </sc-if>
+          </div>
+
+          <div style="display:flex;flex-direction:column;border:1px solid #EEF0F4;border-radius:10px">
+            <div style="display:flex;align-items:center;gap:14px;padding:12px 14px">
+              <div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;font-weight:700;color:#0B1840">{{ d.deTitle }}</span><span style="font-size:12px;color:#374151;line-height:1.45">{{ d.deText }}</span></div>
+              <div onClick="{{ d.toggleActive }}" style="height:32px;box-sizing:border-box;padding:0 14px;border-radius:7px;display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:600;color:#0B1840;cursor:pointer;border:1px solid #0B1840;white-space:nowrap">{{ d.deBtn }}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:14px;padding:12px 14px;border-top:1px solid #EEF0F4">
+              <div style="flex:1;display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;font-weight:700;color:#B42318">Delete resource</span><span style="font-size:12px;color:#374151;line-height:1.45">{{ d.delText }}</span></div>
+              <div onClick="{{ d.del }}" style="height:32px;box-sizing:border-box;padding:0 14px;border-radius:7px;display:flex;align-items:center;font-size:12.5px;font-weight:600;color:#B42318;cursor:pointer;border:1px solid #F5C7CB;white-space:nowrap" style-hover="background:#FDEFF0">Delete…</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{ dIsProfile }}">
+          <sc-if value="{{ pf.loading }}"><div style="height:360px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#6B7280;font-size:12.5px">{{ bigSpin }}<span>Loading profile…</span></div></sc-if>
+          <sc-if value="{{ pf.error }}">
+            <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:10px;border:1px solid #F5C7CB;background:#FDEFF0;color:#B42318;font-size:12.5px"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 4.8v3.8M8 11v.2"></path></svg><span style="flex:1"><strong>Couldn't load the profile.</strong> The server didn't respond. Your data is safe.</span><span onClick="{{ pf.retry }}" style="font-weight:700;cursor:pointer;text-decoration:underline">Try again</span></div>
+          </sc-if>
+          <sc-if value="{{ pf.hasState }}">
+            <div style="padding:40px 24px;border:1px dashed #C9CDD3;border-radius:12px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+              <div style="width:44px;height:44px;border-radius:999px;background:#F3F4F6;color:#0B1840;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="6"></circle><path d="M8 4.8V8l2.2 1.4"></path></svg></div>
+              <span style="font-size:14px;font-weight:700;color:#0B1840">{{ pf.stTitle }}</span>
+              <span style="font-size:12.5px;color:#374151;line-height:1.55;max-width:440px;text-wrap:pretty">{{ pf.stText }}</span>
+              <sc-if value="{{ pf.stLink }}"><span onClick="{{ pf.goUnm }}" style="margin-top:6px;font-size:12.5px;font-weight:600;color:#0B1840;border:1px solid #DDE1E8;border-radius:8px;padding:7px 14px;cursor:pointer">Open Unmatched names ({{ pf.unmN }})</span></sc-if>
+            </div>
+          </sc-if>
+          <sc-if value="{{ pf.full }}">
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid #EEF0F4;border-radius:10px;flex-shrink:0">
+              <sc-for list="{{ pf.totals }}" as="tot"><div style="padding:12px 14px;border-left:1px solid {{ tot.bl }};display:flex;flex-direction:column;gap:3px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">{{ tot.k }}</span><span style="font-size:20px;font-weight:700;color:#0B1840;font-variant-numeric:tabular-nums">{{ tot.val }}</span></div></sc-for>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;font-size:11.5px;color:#6B7280;margin-top:-6px"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3"></path></svg><span>Last calculated <strong style="color:#374151">{{ pf.calc }}</strong>. Rebuilt in the background from uploaded actuals, every 10 minutes. Recent assignments appear after the next run.</span><span style="flex:1"></span><a href="#" style="font-weight:600;white-space:nowrap">Profile processing →</a></div>
+
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <span style="font-size:14px;font-weight:700;color:#0B1840">Topics</span>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;gap:6px;font-size:11.5px"><span style="font-weight:600;color:#374151">Direct experience</span><span style="color:#6B7280">tasks with logged hours</span></div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <sc-for list="{{ pf.direct }}" as="chip"><span title="{{ chip.tip }}" style="display:inline-flex;align-items:center;gap:7px;height:28px;box-sizing:border-box;padding:0 10px;border-radius:999px;background:{{ chip.bg }};border:1px solid {{ chip.b }};font-size:12px;cursor:help;white-space:nowrap"><span style="font-weight:700;color:#0B1840">{{ chip.label }}</span><span style="color:#374151;font-variant-numeric:tabular-nums">{{ chip.meta }}</span></span></sc-for>
+                </div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px">
+                <div style="display:flex;gap:6px;font-size:11.5px"><span style="font-weight:600;color:#374151">Project context</span><span style="color:#6B7280">from descriptions of projects they worked on</span></div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <sc-for list="{{ pf.context }}" as="chip"><span title="{{ chip.tip }}" style="display:inline-flex;align-items:center;gap:7px;height:28px;box-sizing:border-box;padding:0 10px;border-radius:999px;border:1px dashed #9AA0AC;font-size:12px;cursor:help;white-space:nowrap"><span style="font-weight:600;color:#0B1840">{{ chip.label }}</span><span style="color:#4B5563">{{ chip.meta }}</span></span></sc-for>
+                </div>
+              </div>
+            </div>
+
+            <sc-for list="{{ pf.dims }}" as="dm">
+              <div style="border:1px solid #EEF0F4;border-radius:10px;display:flex;flex-direction:column;flex-shrink:0">
+                <div style="display:flex;align-items:baseline;gap:10px;padding:12px 16px 8px"><span style="font-size:14px;font-weight:700;color:#0B1840">{{ dm.name }}</span><span style="font-size:11.5px;color:#6B7280">{{ dm.meta }}</span><span style="flex:1"></span><sc-if value="{{ dm.hasNone }}"><span style="font-size:11.5px;color:#6B7280">{{ dm.none }}</span></sc-if></div>
+                <div style="display:grid;grid-template-columns:16px minmax(0,1fr) 170px 64px 40px 76px 72px;gap:12px;padding:4px 16px 6px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280"><span></span><span>{{ dm.col }}</span><span>Share</span><span style="text-align:right">Hours</span><span style="text-align:right">%</span><span style="text-align:right">Projects</span><span style="text-align:right">Last</span></div>
+                <sc-for list="{{ dm.rows }}" as="row">
+                  <sc-if value="{{ row.isVal }}"><div onClick="{{ row.toggle }}" style="display:grid;grid-template-columns:16px minmax(0,1fr) 170px 64px 40px 76px 72px;gap:12px;padding:9px 16px;align-items:center;border-top:1px solid #F0F1F4;cursor:pointer;background:{{ row.bg }}" style-hover="background:#F7F8FA"><svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="#374151" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate({{ row.rot }})"><path d="M6 4l4 4-4 4"></path></svg><span style="font-size:13px;font-weight:600;color:#0B1840;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.label }}</span><div style="height:8px;border-radius:999px;background:#EEF0F4;overflow:hidden"><div style="height:100%;width:{{ row.barW }};background:#0B1840;border-radius:999px"></div></div><span style="font-size:12.5px;font-weight:700;color:#0B1840;text-align:right">{{ row.h }}</span><span style="font-size:12px;color:#374151;text-align:right">{{ row.pct }}</span><span style="font-size:12px;color:#374151;text-align:right">{{ row.proj }}</span><span style="font-size:12px;text-align:right;color:{{ row.lastC }};font-weight:{{ row.lastW }}">{{ row.last }}</span></div></sc-if>
+                  <sc-if value="{{ row.isProj }}"><div onClick="{{ row.toggle }}" style="display:grid;grid-template-columns:16px minmax(0,1fr) 64px 72px;gap:12px;padding:7px 16px 7px 44px;align-items:center;background:#FAFBFC;cursor:{{ row.cur }}" style-hover="background:#F3F4F6"><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="{{ row.chevC }}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="transform:rotate({{ row.rot }})"><path d="M6 4l4 4-4 4"></path></svg><div style="display:flex;align-items:baseline;gap:8px;min-width:0"><span style="font-size:12.5px;color:#0B1840;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ row.label }}</span><span style="font-size:11px;color:#6B7280;white-space:nowrap">{{ row.code }}</span></div><span style="font-size:12px;font-weight:600;color:#0B1840;text-align:right">{{ row.h }}</span><span style="font-size:11.5px;color:#6B7280;text-align:right">{{ row.last }}</span></div></sc-if>
+                  <sc-if value="{{ row.isTask }}"><div style="display:grid;grid-template-columns:minmax(0,1fr) 64px 72px;gap:12px;padding:4px 16px 4px 90px;font-size:12px;background:#FAFBFC"><span style="color:#374151;border-left:2px solid #DDE1E8;padding-left:12px;margin-left:-14px">{{ row.label }}</span><span style="color:#374151;text-align:right">{{ row.h }}</span><span></span></div></sc-if>
+                </sc-for>
+              </div>
+            </sc-for>
+          </sc-if>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ formOpen }}" hint-placeholder-val="{{ false }}">
+    <div onClick="{{ closeModal }}" style="position:absolute;inset:0;background:rgba(11,24,64,.28);z-index:50"></div>
+    <div style="position:absolute;top:0;right:0;bottom:0;width:480px;background:#fff;z-index:51;box-shadow:-12px 0 32px rgba(11,24,64,.18);display:flex;flex-direction:column">
+      <div style="display:flex;align-items:flex-start;gap:12px;padding:18px 20px 14px;border-bottom:1px solid #EEF0F4">
+        <div style="flex:1;display:flex;flex-direction:column;gap:4px"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#6B7280">{{ fm.kicker }}</span><span style="font-size:19px;font-weight:700;color:#0B1840">{{ fm.title }}</span><span style="font-size:12px;color:#6B7280;line-height:1.45">{{ fm.sub }}</span></div>
+        <div onClick="{{ closeModal }}" title="Close (Esc)" style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#6B7280;cursor:pointer" style-hover="background:#F3F4F6"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M4 4l8 8M12 4l-8 8"></path></svg></div>
+      </div>
+      <sc-if value="{{ fm.form }}">
+        <div style="flex:1;min-height:0;overflow-y:scroll;scrollbar-gutter:stable;overflow-x:hidden;padding:16px 20px;display:flex;flex-direction:column;gap:14px">
+          <sc-if value="{{ fm.hasErr }}"><div style="display:flex;gap:9px;padding:10px 12px;border-radius:8px;background:#FDEFF0;border:1px solid #F5C7CB;color:#B42318;font-size:12.5px;line-height:1.45"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" style="flex-shrink:0;margin-top:1px"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 4.8v3.8M8 11v.2"></path></svg><span>{{ fm.err }}</span></div></sc-if>
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px">
+            <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:11.5px;font-weight:600;color:#374151">First name</span><input value="{{ fm.first }}" onChange="{{ fm.onFirst }}" placeholder="e.g. Luca" style="height:36px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;outline:none;color:#0B1840;width:100%"></div>
+            <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:11.5px;font-weight:600;color:#374151">Last name</span><input value="{{ fm.last }}" onChange="{{ fm.onLast }}" placeholder="e.g. Neri" style="height:36px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;outline:none;color:#0B1840;width:100%"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:11.5px;font-weight:600;color:#374151">Email</span><input value="{{ fm.email }}" onChange="{{ fm.onEmail }}" placeholder="name@company.com" style="height:36px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 10px;font-size:13px;font-family:inherit;outline:none;color:#0B1840;width:100%"></div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <span style="font-size:11.5px;font-weight:600;color:#374151">Role <span style="color:#B42318">*</span></span>
+            <div style="position:relative;display:flex;align-items:center"><select value="{{ fm.role }}" onChange="{{ fm.onRole }}" style="height:36px;width:100%;box-sizing:border-box;border:1px solid {{ fm.roleB }};border-radius:8px;padding:0 30px 0 10px;font-size:13px;font-family:inherit;outline:none;color:{{ fm.roleC }};background:#fff;appearance:none;-webkit-appearance:none;box-shadow:{{ fm.roleSh }}"><option value="">Select a role…</option><sc-for list="{{ fm.roleOpts }}" as="o"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.full }}</option></sc-for></select><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;right:11px;pointer-events:none"><path d="M4 6l4 4 4-4"></path></svg></div>
+            <sc-if value="{{ fm.roleErr }}"><span style="font-size:11.5px;font-weight:600;color:#B42318">Role is required.</span></sc-if>
+            <span style="font-size:11px;color:#6B7280">Missing a role? Add it first in <a href="#">Master Data → Roles &amp; rates</a>.</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:11.5px;font-weight:600;color:#374151">Job description</span><textarea value="{{ fm.job }}" onChange="{{ fm.onJob }}" placeholder="What they do, clients or areas they cover…" style="height:84px;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;outline:none;color:#0B1840;width:100%;resize:vertical;line-height:1.45"></textarea></div>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <span style="font-size:11.5px;font-weight:600;color:#374151">Linked PDash user <span style="font-weight:400;color:#6B7280">(optional)</span></span>
+            <div style="position:relative;display:flex;align-items:center"><select value="{{ fm.user }}" onChange="{{ fm.onUser }}" style="height:36px;width:100%;box-sizing:border-box;border:1px solid #DDE1E8;border-radius:8px;padding:0 30px 0 10px;font-size:13px;font-family:inherit;outline:none;color:#0B1840;background:#fff;appearance:none;-webkit-appearance:none"><option value="">— None —</option><sc-for list="{{ fm.userOpts }}" as="o"><option value="{{ o.v }}" selected="{{ o.sel }}">{{ o.label }}</option></sc-for></select><svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="#6B7280" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" style="position:absolute;right:11px;pointer-events:none"><path d="M4 6l4 4 4-4"></path></svg></div>
+            <span style="font-size:11px;color:#6B7280">Only if this person signs in to PDash. Most resources don't need an account.</span>
+          </div>
+        
+        </div>
+      </sc-if>
+      <sc-if value="{{ fm.done }}">
+        <div style="flex:1;min-height:0;overflow-y:scroll;scrollbar-gutter:stable;overflow-x:hidden;padding:16px 20px"><div style="padding:22px 18px;border-radius:10px;background:#F3FAF5;border:1px solid #CDE9D6;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center">
+          <div style="width:40px;height:40px;border-radius:999px;background:#146C3A;color:#fff;display:flex;align-items:center;justify-content:center"><svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8.4l2.6 2.6L12 5.4"></path></svg></div>
+          <span style="font-size:14px;font-weight:700;color:#0B1840">{{ fm.doneName }} was created</span>
+          <span style="font-size:12px;color:#374151;line-height:1.5">{{ fm.doneRole }}. Their experience profile appears after the next background run, once actuals match their name.</span>
+          <span onClick="{{ fm.openCreated }}" style="margin-top:4px;font-size:12.5px;font-weight:600;color:#0B1840;cursor:pointer;text-decoration:underline">Open resource</span>
+        </div></div>
+      </sc-if>
+      <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:12px 20px;border-top:1px solid #EEF0F4">
+        <sc-if value="{{ fm.form }}"><span onClick="{{ closeModal }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:8px 6px">Cancel</span><div onClick="{{ fm.save }}" style="display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600;color:#fff;background:{{ fm.btnBg }};border-radius:8px;padding:0 16px;height:36px;cursor:pointer">{{ fm.spin }}{{ fm.btn }}</div></sc-if>
+        <sc-if value="{{ fm.done }}"><span onClick="{{ fm.createAnother }}" style="font-size:12.5px;font-weight:600;color:#0B1840;cursor:pointer;padding:8px 6px">Create another</span><div onClick="{{ closeModal }}" style="display:flex;align-items:center;font-size:12.5px;font-weight:600;color:#fff;background:#0B1840;border-radius:8px;padding:0 18px;height:36px;cursor:pointer">Close</div></sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ delOpen }}" hint-placeholder-val="{{ false }}">
+    <div style="position:absolute;inset:0;background:rgba(11,24,64,.42);z-index:50;display:flex;align-items:center;justify-content:center">
+      <div style="width:480px;background:#fff;border-radius:12px;box-shadow:0 24px 64px rgba(11,24,64,.28);padding:20px 22px;display:flex;flex-direction:column;gap:12px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="width:34px;height:34px;border-radius:999px;display:flex;align-items:center;justify-content:center;flex-shrink:0;background:#FDEFF0;color:#B42318"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5"></path></svg></div>
+          <span style="flex:1;font-size:16px;font-weight:700;color:#0B1840">{{ dl.title }}</span>
+          <span style="font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#B42318;background:#FDEFF0;border-radius:4px;padding:2px 7px">Irreversible</span>
+        </div>
+        <span style="font-size:12.5px;color:#374151;line-height:1.55;text-wrap:pretty">This can't be undone. The resource and its aliases are removed, and their names go back to Unmatched names.</span>
+        <div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px">
+          <div style="display:flex;flex-direction:column;gap:5px;background:#F7F8FA;border-radius:8px;padding:10px 12px;font-size:12px;color:#374151;line-height:1.45"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#B42318">Deleted</span><sc-for list="{{ dl.a }}" as="x"><span>{{ x }}</span></sc-for></div>
+          <div style="display:flex;flex-direction:column;gap:5px;background:#F7F8FA;border-radius:8px;padding:10px 12px;font-size:12px;color:#374151;line-height:1.45"><span style="font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8A4B08">Back to Unmatched names</span><sc-for list="{{ dl.b }}" as="x"><span>{{ x }}</span></sc-for></div>
+        </div>
+        <sc-if value="{{ dl.canDeact }}"><div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;border:1px solid #DDE1E8;font-size:12.5px;color:#0B1840;line-height:1.45"><svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" style="flex-shrink:0"><circle cx="8" cy="8" r="6.2"></circle><path d="M8 7.2v4M8 4.8v.2"></path></svg><span style="flex:1"><strong>Has this person left?</strong> Deactivate instead: their hours stay attributed and you can reactivate later.</span><span onClick="{{ dl.deact }}" style="font-weight:700;cursor:pointer;white-space:nowrap;text-decoration:underline">Deactivate</span></div></sc-if>
+        <div onClick="{{ dl.toggleAck }}" style="display:flex;align-items:center;gap:9px;cursor:pointer;font-size:12.5px;color:#0B1840;padding:2px 0"><div style="width:16px;height:16px;border-radius:4px;border:1.5px solid {{ dl.ackB }};background:{{ dl.ackBg }};box-sizing:border-box;display:flex;align-items:center;justify-content:center;color:#fff"><svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8.4l3 3L12.5 5"></path></svg></div>I understand this can't be undone.</div>
+        <div style="display:flex;justify-content:flex-end;gap:10px;padding-top:4px"><span onClick="{{ closeModal }}" style="font-size:12.5px;font-weight:600;color:#6B7280;cursor:pointer;padding:8px 6px">Cancel</span><span onClick="{{ dl.go }}" style="font-size:12.5px;font-weight:600;color:#fff;background:{{ dl.btnBg }};border-radius:8px;padding:9px 16px;cursor:{{ dl.btnCur }}">Delete resource</span></div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1400,&quot;height&quot;:1000},&quot;view&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;content&quot;,&quot;loading&quot;,&quot;empty&quot;,&quot;denied&quot;],&quot;default&quot;:&quot;content&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;screen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;team&quot;,&quot;unmatched&quot;,&quot;aliases&quot;],&quot;default&quot;:&quot;team&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;showInactive&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;menu&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;},&quot;panel&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;details&quot;,&quot;profile&quot;,&quot;loading&quot;,&quot;notcalc&quot;,&quot;noactuals&quot;,&quot;error&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;modal&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;new&quot;,&quot;newError&quot;,&quot;newDone&quot;,&quot;edit&quot;,&quot;delete&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;queueState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;default&quot;,&quot;combo&quot;,&quot;projects&quot;,&quot;assigned&quot;,&quot;error&quot;,&quot;empty&quot;,&quot;noresults&quot;],&quot;default&quot;:&quot;default&quot;,&quot;tsType&quot;:&quot;string&quot;},&quot;banner&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;none&quot;,&quot;success&quot;,&quot;error&quot;],&quot;default&quot;:&quot;none&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+const ROLES = [
+  ['Healthware Account Director', 'HWGACCSVS - DIRECTOR'], ['Project Manager', 'PM'], ['Senior Project Manager', 'SPM'], ['Medical Writer', 'MW'],
+  ['Copywriter', 'CW'], ['Art Director', 'AD'], ['Front-end Developer', 'DEV-FE'], ['Data Analyst', 'DA'], ['Account Executive', 'AE']
+];
+const FIRST = ['Alessandro', 'Anna', 'Beatrice', 'Carlo', 'Chiara', 'Daniele', 'Elena', 'Federico', 'Francesca', 'Giorgio', 'Giulia', 'Ilaria', 'Lorenzo', 'Luca', 'Marco', 'Martina', 'Matteo', 'Paola', 'Roberto', 'Sara', 'Simone', 'Stefano', 'Valentina', 'Vittoria'];
+const LAST = ['Bianchi', 'Colombo', 'Conti', 'De Luca', 'Esposito', 'Ferrari', 'Galli', 'Greco', 'Lombardi', 'Marino', 'Moretti', 'Rinaldi', 'Romano', 'Russo', 'Santoro', 'Villa'];
+const mail = (f, l) => (f + '.' + l).toLowerCase().replace(/[^a-z.]/g, '') + '@eversana.com';
+const RES0 = (() => {
+  const out = [
+    { id: 1, first: 'Alessia', last: 'Amato', role: 0, user: true, active: true, job: 'Leads the Healthware account for ophthalmology clients.\nOwns BERMITS maintenance and the Karomy launch programme.' },
+    { id: 2, first: 'Fabrizio', last: 'Fortini', role: 0, user: true, active: true },
+    { id: 3, first: 'Mario', last: 'Rossi', role: 1, user: false, active: true },
+    { id: 4, first: 'Mario', last: 'Rossi', role: 4, user: false, active: true, email: 'mario.rossi2@eversana.com' },
+    { id: 5, first: 'Andrea', last: 'Bassi', role: 6, user: false, active: false },
+    { id: 6, first: 'Bianca', last: 'Amodio', role: 3, user: false, active: true, fresh: true },
+    { id: 7, first: 'Agnese', last: 'Costa', role: 5, user: false, active: false }
+  ];
+  const seen = new Set(out.map(r => r.first + r.last));
+  for (let i = 0; out.length < 148; i++) {
+    const f = FIRST[(i * 7) % 24], l = LAST[(i * 5 + Math.floor(i / 24)) % 16];
+    if (seen.has(f + l)) continue; seen.add(f + l);
+    out.push({ id: 100 + i, first: f, last: l, role: (i * 5 + Math.floor(i / 24)) % ROLES.length, user: i % 4 === 0, active: i % 9 !== 4 });
+  }
+  return out.map(r => ({ ...r, email: r.email || mail(r.first, r.last) }));
+})();
+const PROJ = {
+  p1: ['BERMITS Maintenance 2026', 'HITA.000001201', 92, 'Oct 2026', [['Account management', 54], ['Client meetings', 22], ['Release coordination', 16]]],
+  p2: ['MEN 26 AURORA Platform Dev. – Overall Proj. MNGM', 'HITA.000001823.001', 32.5, 'Sep 2026', [['Project management', 24.5], ['Steering committee', 8]]],
+  p3: ['SIFI 26 AKANTIOR Karomy – Pharmacovigil. Feature dev & deploy', 'HITA.000002033.003', 12.5, 'Oct 2026', [['Requirements', 8], ['UAT', 4.5]]],
+  p4: ['SIFI 26 AKANTIOR Karomy – Spanish Launch Support', 'HITA.000002033.001', 6.5, 'Jun 2026', [['Launch coordination', 6.5]]],
+  p5: ['SIFI 26 AKANTIOR Karomy – Italian Launch Support', 'HITA.000002033.002', 5.5, 'May 2026', [['Launch coordination', 5.5]]],
+  p6: ['NH-26 Italian Hospital Rankings: Annual Multi-parametric Update', 'HITA.000001586.001', 3.5, 'Feb 2026', [['Data review', 3.5]]],
+  p7: ['SIFI 26 AKANTIOR – Karomy Promotional materials', 'HITA.000002102.001', 3.5, 'Dec 2025', [['Copy review', 3.5]]]
+};
+const RECENT = ['Oct 2026', 'Sep 2026', 'Aug 2026'];
+const DIMS = [
+  { name: 'Market', none: 0, values: [['Italy', ['p1', 'p3', 'p5', 'p6', 'p7']], ['Global', ['p2']], ['Spain', ['p4']]] },
+  { name: 'Brand', none: 3.5, values: [['Bermits', ['p1']], ['Aurora', ['p2']], ['Karomy', ['p3', 'p4', 'p5', 'p7']]] },
+  { name: 'Therapeutic Area', none: 95.5, values: [['Oncology', ['p2']], ['Ophthalmology', ['p3', 'p4', 'p5', 'p7']]] },
+  { name: 'Service Type', none: 0, values: [['Platform maintenance', ['p1']], ['Digital platform development', ['p2', 'p3']], ['Launch support', ['p4', 'p5']], ['Content', ['p7']], ['Data & analytics', ['p6']]] }
+];
+const ROLE_PROF = [['Healthware Account Director (HWGACCSVS - DIRECTOR)', [['p1', 92], ['p3', 12.5], ['p4', 6.5], ['p5', 5.5], ['p6', 3.5], ['p7', 3.5]]], ['Project Manager (PM)', [['p2', 32.5]]]];
+const DIRECT = [['Account management', ['p1'], 92], ['Platform development', ['p2', 'p3'], 45], ['Pharmacovigilance', ['p3'], 12.5], ['Launch support', ['p4', 'p5'], 12], ['Medical content review', ['p7'], 3.5], ['Hospital rankings', ['p6'], 3.5]];
+const CONTEXT = [['Ophthalmology', ['p3', 'p4', 'p5', 'p7']], ['Oncology', ['p2']], ['Market access', ['p6']], ['Patient support programmes', ['p3']]];
+const UNM0 = [
+  { id: 'u1', name: 'Flaviana Fortini', h: 193, pr: ['p1'] }, { id: 'u2', name: 'Daniela Casella', h: 146, pr: ['p1', 'p2', 'p6'] },
+  { id: 'u3', name: 'Michal Wadowski', h: 78.5, pr: ['p2', 'p3'] }, { id: 'u4', name: 'Rossi Mario', h: 64, pr: ['p3', 'p4'], amb: [3, 4] },
+  { id: 'u5', name: 'Maria Stillo', h: 61, pr: ['p1', 'p7'] }, { id: 'u6', name: 'Chiara Giamberini', h: 48.75, pr: ['p5'] },
+  { id: 'u7', name: 'Davide Muccioli', h: 34, pr: ['p2'] }, { id: 'u8', name: 'Bruno Urgo', h: 23, pr: ['p6'] },
+  { id: 'u9', name: 'Giovanni Spera', h: 20.5, pr: ['p1', 'p3', 'p4'] }, { id: 'u10', name: 'Michele Graziano', h: 19, pr: ['p7'] },
+  { id: 'u11', name: 'Simona Gioia', h: 16, pr: ['p2'] }, { id: 'u12', name: 'TBD', h: 12, pr: ['p1', 'p2', 'p4', 'p5'] },
+  { id: 'u13', name: "Tina Dell'Armi", h: 8.5, pr: ['p6'] }, { id: 'u14', name: 'Gianfranco Petraglia', h: 8, pr: ['p3'] }
+];
+const AL0 = [
+  { id: 'a1', name: 'Amato Alessia', res: 1, h: 98 }, { id: 'a2', name: 'A. Amato', res: 1, h: 41.5 }, { id: 'a3', name: 'Alessia Amato (ext)', res: 1, h: 16.5 },
+  { id: 'a4', name: 'Fortini Fabrizio', res: 2, h: 156 }, { id: 'a5', name: 'TBC', res: null, h: 22 }, { id: 'a6', name: 'Bassi Andrea', res: 5, h: 312 },
+  { id: 'a7', name: 'External vendor', res: null, h: 40 }, { id: 'a8', name: 'Costa A.', res: 7, h: 88 }, { id: 'a9', name: 'Conti Anna', res: 101, h: 64 },
+  { id: 'a10', name: 'Freelance – design', res: null, h: 18 }, { id: 'a11', name: 'L. Greco', res: 120, h: 27 }, { id: 'a12', name: 'Ferrari Marco', res: 114, h: 133 }
+];
+AL0.forEach(a => { if (a.res >= 100) a.res = RES0[{ 101: 8, 114: 12, 120: 20 }[a.res]].id; });
+const fh = n => (Math.round(n * 100) / 100).toLocaleString('en-US') + ' h';
+const ST = { active: ['#E7F5EC', '#146C3A', '#1F9D55'], inactive: ['#F0F1F4', '#4B5563', '#9AA0AC'] };
+const spinEl = (s, w) => React.createElement('span', { style: { width: s, height: s, boxSizing: 'border-box', border: w + 'px solid rgba(155,160,172,.35)', borderTopColor: '#F0287A', borderRadius: 999, display: 'inline-block', animation: 'ua-spin .8s linear infinite', flexShrink: 0 } });
+const spinW = () => React.createElement('span', { style: { width: 13, height: 13, boxSizing: 'border-box', border: '2px solid rgba(255,255,255,.4)', borderTopColor: '#fff', borderRadius: 999, display: 'inline-block', animation: 'ua-spin .8s linear infinite' } });
+const PAGE = 25;
+const seg = (on) => ({ bg: on ? '#fff' : 'transparent', sh: on ? '0 1px 2px rgba(11,24,64,.12)' : 'none', w: on ? 700 : 500, c: on ? '#0B1840' : '#4B5563', nc: on ? '#F0287A' : '#6B7280' });
+const DEF_OPEN = { 'Market|Italy': 1, 'Market|Italy|p1': 1, 'Service Type|Digital platform development': 1 };
+
+class Component extends DCLogic {
+  state = {};
+  componentDidMount() {
+    this._esc = e => { if (e.key === 'Escape') this.setState({ menu: null, combo: null, modal: null, ...(this.state.modal || this.props.modal && this.props.modal !== 'none' ? {} : { sel: null }) }); };
+    window.addEventListener('keydown', this._esc);
+  }
+  componentWillUnmount() { window.removeEventListener('keydown', this._esc); }
+  renderVals() {
+    const S = this.state, P = this.props;
+    const view = P.view ?? 'content';
+    const res = S.res ?? RES0;
+    const byId = id => res.find(r => r.id === id);
+    const nm = r => r.first + ' ' + r.last;
+    const nav = P.entryPoint ?? 'callout', navT = nav === 'tabs';
+    const tab = navT ? (S.tab ?? ((P.screen === 'unmatched' || P.screen === 'aliases') ? 'unm' : 'team')) : 'team';
+    const unmOpen = !navT && (S.unmOpen ?? (P.screen === 'unmatched' || P.screen === 'aliases'));
+    const mode = S.mode ?? (P.screen === 'aliases' ? 'aliases' : 'queue');
+    const queueP = P.queueState ?? 'default';
+    const unm = S.unm ?? (queueP === 'empty' ? [] : UNM0);
+    const aliases = S.aliases ?? AL0;
+    const resolved = S.resolved ?? (queueP === 'assigned' ? 3 : 0);
+    const totalQ = unm.length + resolved;
+
+    const stF = S.stF ?? (P.showInactive ? 'all' : (view === 'empty' ? 'inactive' : 'active'));
+    const roleF = S.roleF ?? 'all', linkF = S.linkF ?? (view === 'empty' ? 'linked' : 'any');
+    const q = S.q ?? (view === 'empty' ? 'giovanni' : '');
+    const sort = S.sort ?? { k: 'name', dir: 1 };
+    const page = S.page ?? 1;
+    const reset = p => this.setState({ ...p, page: 1 });
+
+    const base = res.filter(r => (roleF === 'all' || String(r.role) === roleF) && (linkF === 'any' || (linkF === 'linked') === !!r.user) &&
+      (!q || (nm(r) + ' ' + r.email + ' ' + ROLES[r.role][0] + ' ' + ROLES[r.role][1]).toLowerCase().includes(q.toLowerCase())));
+    const cnt = k => base.filter(r => k === 'all' || (k === 'active') === r.active).length;
+    let list = base.filter(r => stF === 'all' || (stF === 'active') === r.active);
+    const key = { name: r => nm(r).toLowerCase(), role: r => ROLES[r.role][0], status: r => (r.active ? 0 : 1) }[sort.k];
+    list = [...list].sort((a, b) => (key(a) > key(b) ? 1 : key(a) < key(b) ? -1 : a.id - b.id) * sort.dir);
+    const pages = Math.max(1, Math.ceil(list.length / PAGE)), pg = Math.min(page, pages);
+    const pageRows = list.slice((pg - 1) * PAGE, pg * PAGE);
+
+    const drawerP = P.panel ?? 'none';
+    const sel = S.sel !== undefined ? S.sel : (drawerP !== 'none' ? 1 : null);
+    const menu = S.menu !== undefined ? S.menu : (P.menu ? 1 : null);
+    const busy = S.busy ?? null;
+    const modalP = P.modal ?? 'none';
+    const modal = S.modal !== undefined ? S.modal : ({
+      new: { kind: 'form', first: '', last: '', email: '', role: '', job: '', user: '' },
+      newError: { kind: 'form', first: 'Luca', last: 'Neri', email: 'luca.neri@eversana.com', role: '', job: '', user: '', err: 'Role is required. Pick one from the list, or add it in Master Data first.', roleErr: true },
+      newDone: { kind: 'form', first: 'Luca', last: 'Neri', email: 'luca.neri@eversana.com', role: '1', job: '', user: '', done: true, newId: 6 },
+      edit: { kind: 'form', id: 1, first: 'Alessia', last: 'Amato', email: 'alessia.amato@eversana.com', role: '0', job: RES0[0].job, user: '1' },
+      delete: { kind: 'del', id: 1 }
+    }[modalP] ?? null);
+    const bannerP = { error: { kind: 'err', title: "Couldn't load resources.", text: 'The server didn\'t respond. Check your connection and reload the page.' }, success: { kind: 'ok', title: 'Alessia Amato was deactivated.', text: 'Her hours and 3 aliases stay attributed.' } }[P.banner];
+    const banner = S.banner !== undefined ? S.banner : (bannerP ?? null);
+
+    const toggleActive = r => {
+      this.setState({ menu: null, banner: null, busy: r.id, modal: null });
+      setTimeout(() => this.setState(s => ({ busy: null, res: (s.res ?? RES0).map(x => x.id === r.id ? { ...x, active: !x.active } : x),
+        banner: { kind: 'ok', title: nm(r) + (r.active ? ' was deactivated.' : ' is active again.'), text: r.active ? 'Their hours and aliases stay attributed. Find them under Inactive.' : '', undo: () => this.setState(s2 => ({ banner: null, res: (s2.res ?? RES0).map(x => x.id === r.id ? { ...x, active: r.active } : x) })) } })), 800);
+    };
+    const stop = e => e && e.stopPropagation && e.stopPropagation();
+    const aliasN = id => aliases.filter(a => a.res === id).length;
+
+    const overlay = sel != null || !!modal || (S.unmOpen ?? (P.screen === 'unmatched' || P.screen === 'aliases'));
+    const rows = view === 'loading' ? [] : (overlay ? pageRows.slice(0, 15) : pageRows).map((r, i) => {
+      const open = menu === r.id, on = sel === r.id, b = busy === r.id;
+      const up = i >= pageRows.length - 3 && pageRows.length > 5;
+      const n = aliasN(r.id);
+      return {
+        name: nm(r), email: r.email, ini: (r.first[0] + r.last[0]).toUpperCase(),
+        avBg: r.active ? '#EEF0F4' : '#fff', avC: r.active ? '#374151' : '#6B7280', nameC: r.active ? '#0B1840' : '#4B5563',
+        role: ROLES[r.role][0], code: ROLES[r.role][1], hasUser: !!r.user, noUser: !r.user, user: nm(r),
+        status: r.active ? 'active' : 'inactive', stBg: ST[r.active ? 'active' : 'inactive'][0], stC: ST[r.active ? 'active' : 'inactive'][1], stDot: ST[r.active ? 'active' : 'inactive'][2],
+        busy: b, notBusy: !b, op: b ? 0.7 : 1,
+        bg: on ? '#FFF5F9' : '#fff', bar: on ? 'inset 3px 0 0 #F0287A' : 'none',
+        open: () => this.setState({ sel: r.id, dtab: 'details', menu: null }),
+        toggleMenu: e => { stop(e); this.setState({ menu: open ? null : r.id }); },
+        mBg: open ? '#F3F4F6' : '#fff', mB: open ? '#C9CDD3' : '#DDE1E8', menuOpen: open, mTop: up ? 'auto' : '36px', mBot: up ? '36px' : 'auto',
+        items: open ? [
+          { iEdit: true, label: 'Edit', sub: 'Name, role, job description, linked user', c: '#0B1840', hov: '#F3F4F6', run: e => { stop(e); this.setState({ menu: null, modal: { kind: 'form', id: r.id, first: r.first, last: r.last, email: r.email, role: String(r.role), job: r.job || '', user: r.user ? String(r.id) : '' } }); } },
+          r.active
+            ? { iPower: true, label: 'Deactivate', hasTag: true, tag: 'Left the company', tagBg: '#E3E8F6', tagC: '#1E2F6B', sub: 'Hides them from lists. Hours and aliases stay. Reversible.', c: '#0B1840', hov: '#F3F4F6', run: e => { stop(e); toggleActive(r); } }
+            : { iPower: true, label: 'Activate', sub: 'Back in the active list', c: '#0B1840', hov: '#F3F4F6', run: e => { stop(e); toggleActive(r); } },
+          { sep: true, iTrash: true, label: 'Delete…', hasTag: true, tag: 'Irreversible', tagBg: '#FDEFF0', tagC: '#B42318', sub: 'Removes the resource and ' + n + (n === 1 ? ' alias' : ' aliases') + '.', subC: '#B42318', c: '#B42318', hov: '#FDEFF0', run: e => { stop(e); this.setState({ menu: null, modal: { kind: 'del', id: r.id } }); } }
+        ].map(x => ({ sep: false, hasTag: false, iEdit: false, iPower: false, iTrash: false, subC: '#6B7280', ...x })) : []
+      };
+    });
+    const mkHeads = (defs, cur, set) => defs.map(([label, k]) => {
+      const on = cur && cur.k === k;
+      return { label, sortable: !!k, tab: k ? '0' : '-1', aria: on ? (cur.dir > 0 ? 'ascending' : 'descending') : 'none', arrow: on ? (cur.dir > 0 ? '▲' : '▼') : '↕', ac: on ? '#0B1840' : '#9AA0AC', c: on ? '#0B1840' : '#6B7280', cur: k ? 'pointer' : 'default',
+        sort: k ? () => set({ k, dir: on ? -cur.dir : (k === 'h' ? -1 : 1) }) : () => {} };
+    });
+    const heads = mkHeads([['Name', 'name'], ['Role', 'role'], ['Linked PDash user'], ['Status', 'status'], ['']], sort, v => reset({ sort: v }));
+
+    // Unmatched
+    const uq = S.uq ?? (queueP === 'noresults' ? 'zanetti' : '');
+    const usort = S.usort ?? { k: 'h', dir: -1 };
+    const choice = S.choice ?? (queueP === 'combo' ? { u4: 3 } : queueP === 'default' || queueP === 'projects' ? { u2: 114 } : {});
+    const combo = S.combo !== undefined ? S.combo : (queueP === 'combo' ? 'u4' : null);
+    const projOpen = S.projOpen !== undefined ? S.projOpen : (queueP === 'projects' ? 'u2' : null);
+    const ubusy = S.ubusy ?? null;
+    const cq = S.cq ?? '';
+    const sbP = queueP === 'error' ? { kind: 'err', title: "Couldn't assign \u201cDaniela Casella\u201d.", text: 'The server didn\'t respond. Nothing was changed. Try again.' }
+      : queueP === 'assigned' ? { kind: 'ok', title: '\u201cRossi Mario\u201d assigned to Mario Rossi (PM).', text: 'Removed from the queue. Their profile updates in the next background run (about 10 minutes).' } : null;
+    const sbanner = S.sbanner !== undefined ? S.sbanner : sbP;
+    const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    let ulist = unm.filter(u => !uq || norm(u.name).includes(norm(uq)));
+    const ukey = { name: u => u.name.toLowerCase(), h: u => u.h, p: u => u.pr.length }[usort.k];
+    ulist = [...ulist].sort((a, b) => (ukey(a) > ukey(b) ? 1 : ukey(a) < ukey(b) ? -1 : 0) * usort.dir);
+    const maxH = Math.max(1, ...unm.map(u => u.h));
+    const resolve = (u, resId) => {
+      this.setState({ ubusy: { id: u.id, text: resId ? 'Assigning…' : 'Ignoring…' }, combo: null, sbanner: null });
+      setTimeout(() => {
+        const aid = 'n' + Date.now();
+        const r = resId ? byId(resId) : null;
+        this.setState(s => ({ ubusy: null, unm: (s.unm ?? unm).filter(x => x.id !== u.id), resolved: (s.resolved ?? resolved) + 1, aliases: [{ id: aid, name: u.name, res: resId, h: u.h }, ...(s.aliases ?? AL0)],
+          sbanner: { kind: 'ok', title: resId ? '\u201c' + u.name + '\u201d assigned to ' + nm(r) + ' (' + ROLES[r.role][1] + ').' : '\u201c' + u.name + '\u201d ignored.', text: resId ? 'Removed from the queue. Their profile updates in the next background run (about 10 minutes).' : 'Stored as an ignored alias. You can undo it under Existing aliases.',
+            undo: () => this.setState(s2 => ({ sbanner: null, unm: [...(s2.unm ?? unm), u], resolved: Math.max(0, (s2.resolved ?? 1) - 1), aliases: (s2.aliases ?? AL0).filter(a => a.id !== aid) })) } }));
+      }, 800);
+    };
+    const urows = ulist.map(u => {
+      const ch = choice[u.id], chR = ch ? byId(ch) : null, open = combo === u.id, pOpen = projOpen === u.id;
+      const b = ubusy && ubusy.id === u.id;
+      const setChoice = id => this.setState({ choice: { ...choice, [u.id]: id }, combo: null, cq: '' });
+      let groups = [], more = 0;
+      if (open) {
+        const f = r => !cq || norm(nm(r) + ' ' + ROLES[r.role][1]).includes(norm(cq));
+        const cands = (u.amb || []).map(byId).filter(f);
+        const act = res.filter(r => r.active && !(u.amb || []).includes(r.id) && f(r)).sort((a, b) => nm(a).localeCompare(nm(b)));
+        const ina = res.filter(r => !r.active && f(r)).sort((a, b) => nm(a).localeCompare(nm(b)));
+        const opt = (r, tag) => ({ label: nm(r) + (tag || ''), code: ROLES[r.role][1], on: ch === r.id, bg: ch === r.id ? '#F3F4F6' : 'transparent', c: r.active ? '#0B1840' : '#4B5563', pick: () => setChoice(r.id) });
+        const LIM = 5;
+        groups = [{ label: '', items: [{ label: '— none —', code: '', on: !ch, bg: 'transparent', c: '#6B7280', pick: () => setChoice(null) }] }];
+        if (cands.length) groups.push({ label: 'Same name · candidates', items: cands.map(r => opt(r)) });
+        if (act.length) groups.push({ label: 'Active resources', items: act.slice(0, LIM).map(r => opt(r)) });
+        if (ina.length) groups.push({ label: 'Inactive', items: ina.slice(0, 2).map(r => opt(r, ' (inactive)')) });
+        more = Math.max(0, act.length - LIM) + Math.max(0, ina.length - 2);
+      }
+      return {
+        name: u.name, w: u.h >= 40 ? 700 : 500, amb: !!u.amb, ambText: u.amb ? u.amb.length + ' active resources share this name. Pick the right one.' : '',
+        hours: fh(u.h), barW: Math.round(u.h / maxH * 100) + '%',
+        projLabel: u.pr.length + (u.pr.length === 1 ? ' project' : ' projects'), pRot: pOpen ? '180deg' : '0deg', pBg: pOpen ? '#F3F4F6' : '#fff', pB: pOpen ? '#C9CDD3' : '#DDE1E8',
+        toggleProj: () => this.setState({ projOpen: pOpen ? null : u.id }), projOpen: pOpen,
+        projects: u.pr.map((p, i) => ({ name: PROJ[p][0], code: PROJ[p][1], h: fh(Math.round(u.h / u.pr.length * (i === 0 ? 1.4 : 0.8) * 4) / 4) })),
+        cLabel: chR ? nm(chR) : 'Select a resource…', cC: chR ? '#0B1840' : '#6B7280', cW: chR ? 600 : 400, hasCode: !!chR, cCode: chR ? ROLES[chR.role][1] : '',
+        cB: open ? '#0B1840' : '#DDE1E8', cSh: open ? '0 0 0 3px rgba(11,24,64,.08)' : 'none',
+        toggleCombo: e => { stop(e); this.setState({ combo: open ? null : u.id, cq: '' }); }, comboOpen: open, groups, more: more > 0, moreText: more + ' more. Keep typing to narrow down.',
+        cands: (u.amb || []).map(id => { const r = byId(id), on = ch === id; return { label: nm(r), code: ROLES[r.role][1], bg: on ? '#0B1840' : '#fff', c: on ? '#fff' : '#0B1840', sc: on ? 'rgba(255,255,255,.8)' : '#6B7280', b: on ? '#0B1840' : '#DDE1E8', pick: () => setChoice(id) }; }),
+        busy: b, busyText: b ? ubusy.text : '', idle: !b, op: b ? 0.7 : 1, bg: open || pOpen ? '#FAFBFC' : '#fff',
+        aBg: chR ? '#0B1840' : '#F1F2F5', aC: chR ? '#fff' : '#9AA0AC', aCur: chR ? 'pointer' : 'not-allowed',
+        assign: () => { if (chR) resolve(u, ch); }, ignore: () => resolve(u, null)
+      };
+    });
+    const uheads = mkHeads([['Name in actuals', 'name'], ['Hours', 'h'], ['Projects', 'p'], ['Assign to'], ['']], usort, v => this.setState({ usort: v }));
+    const ambN = unm.filter(u => u.amb).length;
+    const leftH = unm.reduce((a, u) => a + u.h, 0);
+    const qEmpty = urows.length === 0;
+    const qe = unm.length === 0 ? { done: true, search: false, bg: '#E7F5EC', c: '#146C3A', title: 'No unmatched names.', text: 'Every name in uploaded actuals resolves to a resource or is ignored. New uploads may add names here.' }
+      : { done: false, search: true, bg: '#F3F4F6', c: '#6B7280', title: 'No unmatched names match the search.', text: 'Search ignores case and accents. Try part of the surname.' };
+
+    // Aliases view
+    const aF = S.aF ?? 'all', aq = S.aq ?? '';
+    const arows = aliases.filter(a => (aF === 'all' || (aF === 'res') === (a.res != null)) && (!aq || norm(a.name + ' ' + (a.res ? nm(byId(a.res)) : 'ignored')).includes(norm(aq)))).map(a => {
+      const r = a.res ? byId(a.res) : null;
+      return { name: a.name, isRes: !!r, isIgn: !r, res: r ? nm(r) + ' · ' + ROLES[r.role][1] : '', resInactive: !!(r && !r.active), h: fh(a.h),
+        remove: () => this.setState(s => ({ aliases: (s.aliases ?? AL0).filter(x => x.id !== a.id), unm: [...(s.unm ?? unm), { id: 'r' + a.id, name: a.name, h: a.h, pr: ['p1'] }] })) };
+    });
+
+    // Drawer
+    const selR = sel != null ? byId(sel) : null;
+    const dtab = S.dtab ?? (['profile', 'loading', 'notcalc', 'noactuals', 'error'].includes(drawerP) ? 'profile' : 'details');
+    let d = {}, pf = {};
+    if (selR) {
+      const st = selR.active ? 'active' : 'inactive', n = aliasN(selR.id);
+      const aOpen = S.aOpen ?? (drawerP === 'details');
+      const al = aliases.filter(a => a.res === selR.id);
+      d = { ini: (selR.first[0] + selR.last[0]).toUpperCase(), name: nm(selR), status: st, stBg: ST[st][0], stC: ST[st][1], stDot: ST[st][2], roleLine: ROLES[selR.role][0] + ' · ' + ROLES[selR.role][1],
+        fields: [
+          ['Name', nm(selR)], ['Email', selR.email], ['Role', ROLES[selR.role][0], 'Code ' + ROLES[selR.role][1]],
+          ['Linked user', selR.user ? nm(selR) : 'Not linked', selR.user ? selR.email : 'This person doesn\'t sign in to PDash.', !selR.user],
+          ['Status', selR.active ? 'Active' : 'Inactive', selR.active ? '' : 'Hidden from lists. Hours stay attributed.'],
+          ['Job description', selR.job || '—', '', !selR.job]
+        ].map(([k, v, sub, muted], i) => ({ k, v, sub, hasSub: !!sub, c: muted ? '#6B7280' : '#0B1840', bt: i ? '#EEF0F4' : 'transparent' })),
+        aRot: aOpen ? '90deg' : '0deg', aliasN: String(n), aliasesOpen: aOpen, noAliases: n === 0, toggleAliases: () => this.setState({ aOpen: !aOpen }),
+        aliases: al.map(a => ({ name: a.name, h: fh(a.h), remove: () => this.setState(s => ({ aliases: (s.aliases ?? AL0).filter(x => x.id !== a.id), unm: [...(s.unm ?? unm), { id: 'r' + a.id, name: a.name, h: a.h, pr: ['p1'] }] })) })),
+        deTitle: selR.active ? 'Deactivate' : 'Activate', deBtn: selR.active ? 'Deactivate' : 'Activate',
+        deText: selR.active ? 'The right choice when someone leaves. Hidden from lists; hours and aliases stay attributed. You can reactivate any time.' : 'Brings them back into the active list and the Assign to options.',
+        toggleActive: () => toggleActive(selR),
+        delText: 'Removes the resource and its ' + n + (n === 1 ? ' alias' : ' aliases') + '. Their names go back to Unmatched names. Can\'t be undone.',
+        del: () => this.setState({ modal: { kind: 'del', id: selR.id } }),
+        edit: () => this.setState({ modal: { kind: 'form', id: selR.id, first: selR.first, last: selR.last, email: selR.email, role: String(selR.role), job: selR.job || '', user: selR.user ? String(selR.id) : '' } })
+      };
+      const pState = S.pState ?? ({ loading: 'loading', notcalc: 'notcalc', noactuals: 'noactuals', error: 'error' }[drawerP] ?? (selR.fresh ? 'notcalc' : selR.id === 3 ? 'noactuals' : 'full'));
+      const openK = S.openK ?? DEF_OPEN;
+      const tog = k => this.setState({ openK: { ...openK, [k]: !openK[k] } });
+      const mkVal = (dim, label, projs, total) => {
+        const h = projs.reduce((a, p) => a + (Array.isArray(p) ? p[1] : PROJ[p][2]), 0);
+        const lasts = projs.map(p => PROJ[Array.isArray(p) ? p[0] : p][3]);
+        const last = lasts.find(l => RECENT.includes(l)) || lasts[0];
+        const k = dim + '|' + label, open = !!openK[k];
+        return { label, h: fh(h), pct: Math.round(h / total * 100) + '%', barW: Math.round(h / total * 100) + '%', proj: projs.length + (projs.length === 1 ? ' project' : ' projects'),
+          last, lastC: RECENT.includes(last) ? '#146C3A' : '#6B7280', lastW: RECENT.includes(last) ? 600 : 400, rot: open ? '90deg' : '0deg', open, bg: open ? '#FAFBFC' : '#fff', toggle: () => tog(k), _h: h,
+          projects: projs.map(p => {
+            const id = Array.isArray(p) ? p[0] : p, ph = Array.isArray(p) ? p[1] : PROJ[id][2], pk = k + '|' + id, po = !!openK[pk], hasT = dim !== 'Roles';
+            return { name: PROJ[id][0], code: PROJ[id][1], h: fh(ph), last: PROJ[id][3], hasTasks: hasT, noTasks: !hasT, cur: hasT ? 'pointer' : 'default', rot: po ? '90deg' : '0deg', open: hasT && po,
+              toggle: e => { stop(e); if (hasT) tog(pk); }, tasks: PROJ[id][4].map(([t, th]) => ({ name: t, h: fh(th) })) };
+          }) };
+      };
+      const flatRows = vals => { const out = []; vals.forEach(v => { out.push({ ...v, isVal: true, isProj: false, isTask: false }); if (v.open) v.projects.forEach(p => { out.push({ isVal: false, isProj: true, isTask: false, label: p.name, code: p.code, h: p.h, last: p.last, rot: p.rot, cur: p.cur, chevC: p.hasTasks ? '#6B7280' : 'transparent', toggle: p.toggle }); if (p.open) p.tasks.forEach(t => out.push({ isVal: false, isProj: false, isTask: true, label: t.name, h: t.h })); }); }); return out; };
+      const dims = DIMS.map(dm => {
+        const values = dm.values.map(([v, ps]) => mkVal(dm.name, v, ps, 156)).sort((a, b) => b._h - a._h);
+        return { name: dm.name, col: 'Value', meta: values.length + ' values', hasNone: dm.none > 0, none: fh(dm.none) + ' on projects without a value', rows: flatRows(values) };
+      });
+      dims.push({ name: 'Roles', col: 'Role', meta: 'Roles held in logged tasks', hasNone: false, none: '', rows: flatRows(ROLE_PROF.map(([rl, ps]) => mkVal('Roles', rl, ps, 156))) });
+      const tip = ps => ps.map(p => PROJ[p][0]).join(' · ');
+      pf = { loading: pState === 'loading', error: pState === 'error', full: pState === 'full', hasState: pState === 'notcalc' || pState === 'noactuals',
+        stTitle: pState === 'notcalc' ? 'Not calculated yet' : 'No actuals matched to this person yet',
+        stText: pState === 'notcalc' ? 'The profile is built in the background from uploaded actuals. New resources get one after the next run (about 10 minutes).' : 'Their name may appear in actuals in a different form. Assign it to this resource in Unmatched names and the profile will follow.',
+        stLink: pState === 'noactuals', unmN: unm.length, goUnm: () => this.setState({ sel: null, tab: 'unm', unmOpen: true, mode: 'queue' }),
+        retry: () => { this.setState({ pState: 'loading' }); setTimeout(() => this.setState({ pState: 'full' }), 700); },
+        calc: '4 Nov 2026, 22:30',
+        totals: [['Hours', '156'], ['Projects', '7'], ['First month', 'Dec 2025'], ['Last month', 'Oct 2026']].map(([k, v], i) => ({ k, val: v, bl: i ? '#EEF0F4' : 'transparent' })),
+        direct: DIRECT.map(([l, ps, h], i) => ({ label: l, meta: ps.length + (ps.length === 1 ? ' project' : ' projects') + ' · ' + fh(h), tip: tip(ps), bg: i < 2 ? '#E3E8F6' : '#fff', b: i < 2 ? '#C9D2EC' : '#DDE1E8' })),
+        context: CONTEXT.map(([l, ps]) => ({ label: l, meta: ps.length + (ps.length === 1 ? ' project' : ' projects'), tip: tip(ps) })),
+        dims };
+    }
+    const dIsDetails = !!selR && dtab === 'details', dIsProfile = !!selR && dtab === 'profile';
+    const pickDtab = k => {
+      if (k === 'profile' && dtab !== 'profile' && !S.pState) { this.setState({ dtab: k, pState: 'loading' }); setTimeout(() => this.setState({ pState: undefined }), 600); return; }
+      this.setState({ dtab: k });
+    };
+
+    // Modals
+    let fm = {}, dl = {};
+    if (modal && modal.kind === 'form') {
+      const set = p => this.setState({ modal: { ...modal, err: null, roleErr: false, ...p } });
+      fm = { roleOpts: ROLES.map(([l, c], i) => ({ v: String(i), full: l + ' (' + c + ')', sel: modal.role === String(i) })), userOpts: res.filter(r => r.user).slice(0, 30).map(r => ({ v: String(r.id), label: nm(r) + ' (' + r.email + ')', sel: modal.user === String(r.id) })), form: !modal.done, done: !!modal.done, kicker: modal.id ? 'Resource' : 'Team', doneName: ((modal.first || '') + ' ' + (modal.last || '')).trim(), doneRole: modal.role ? ROLES[+modal.role][0] + ' (' + ROLES[+modal.role][1] + ')' : '',
+        createAnother: () => this.setState({ modal: { kind: 'form', first: '', last: '', email: '', role: modal.role, job: '', user: '' } }), openCreated: () => this.setState({ modal: null, sel: modal.newId, dtab: 'details' }),
+        title: modal.id ? 'Edit resource' : 'New resource', sub: modal.id ? 'Changes apply to this resource only. Hours already attributed don\'t move.' : 'A person who works on projects. They don\'t need a PDash account.',
+        hasErr: !!modal.err, err: modal.err, first: modal.first, last: modal.last, email: modal.email, role: modal.role, job: modal.job, user: modal.user,
+        roleB: modal.roleErr ? '#D9534F' : '#DDE1E8', roleSh: modal.roleErr ? '0 0 0 3px rgba(217,83,79,.12)' : 'none', roleC: modal.role ? '#0B1840' : '#6B7280', roleErr: !!modal.roleErr,
+        onFirst: e => set({ first: e.target.value }), onLast: e => set({ last: e.target.value }), onEmail: e => set({ email: e.target.value }), onRole: e => set({ role: e.target.value }), onJob: e => set({ job: e.target.value }), onUser: e => set({ user: e.target.value }),
+        btn: modal.saving ? (modal.id ? 'Saving…' : 'Creating…') : (modal.id ? 'Save changes' : 'Create resource'), spin: modal.saving ? spinW() : null, btnBg: modal.saving ? '#E9A3C0' : '#F0287A',
+        save: () => {
+          if (modal.saving) return;
+          if (!modal.role) return this.setState({ modal: { ...modal, err: 'Role is required. Pick one from the list, or add it in Master Data first.', roleErr: true } });
+          this.setState({ modal: { ...modal, saving: true } });
+          setTimeout(() => this.setState(s => {
+            const list0 = s.res ?? RES0, isNew = !modal.id;
+            const rec = { first: modal.first || 'New', last: modal.last || 'resource', email: modal.email, role: +modal.role, job: modal.job, user: !!modal.user };
+            const nid = Date.now();
+            const nextRes = isNew ? [...list0, { id: nid, active: true, fresh: true, ...rec }] : list0.map(x => x.id === modal.id ? { ...x, ...rec } : x);
+            return isNew ? { res: nextRes, modal: { ...modal, saving: false, done: true, newId: nid } } : { modal: null, res: nextRes, banner: { kind: 'ok', title: 'Changes saved.', text: '' } };
+          }), 900);
+        } };
+    }
+    const delR = modal && modal.kind === 'del' ? byId(modal.id) : null;
+    if (delR) {
+      const ack = !!modal.ack, al = aliases.filter(a => a.res === delR.id);
+      dl = { title: 'Delete ' + nm(delR) + '?', a: ['Resource record', al.length + (al.length === 1 ? ' alias' : ' aliases')], b: al.length ? al.map(a => '\u201c' + a.name + '\u201d') : ['Nothing'],
+        canDeact: delR.active, deact: () => toggleActive(delR),
+        ackB: ack ? '#B42318' : '#C9CDD3', ackBg: ack ? '#B42318' : '#fff', toggleAck: () => this.setState({ modal: { ...modal, ack: !ack } }),
+        btnBg: ack ? '#B42318' : '#E7A8A2', btnCur: ack ? 'pointer' : 'not-allowed',
+        go: () => { if (!ack) return; this.setState(s => ({ modal: null, sel: null, res: (s.res ?? RES0).filter(x => x.id !== delR.id), aliases: (s.aliases ?? AL0).filter(a => a.res !== delR.id),
+          unm: [...(s.unm ?? unm), ...al.map(a => ({ id: 'r' + a.id, name: a.name, h: a.h, pr: ['p1'] }))],
+          banner: { kind: 'ok', title: nm(delR) + ' was deleted.', text: al.length ? al.length + ' names went back to Unmatched names.' : '' } })); } };
+    }
+
+    const mkBn = b => b ? { ok: b.kind === 'ok', err: b.kind === 'err', title: b.title, text: b.text, hasUndo: !!b.undo, undo: b.undo || (() => {}),
+      bg: b.kind === 'ok' ? '#F3FAF5' : '#FDEFF0', border: b.kind === 'ok' ? '#CDE9D6' : '#F5C7CB', c: b.kind === 'ok' ? '#146C3A' : '#B42318' } : {};
+    const denied = view === 'denied';
+    const nAct = res.filter(r => r.active).length;
+    return {
+      navAdmin: !denied, meIni: denied ? 'LN' : 'FF', meEmail: denied ? 'luca.neri@eversana.com' : 'fabrizio.fortini@eversana.com',
+      denied, allowed: !denied, loading: view === 'loading',
+      subtitle: view === 'loading' ? 'Loading…' : res.length + ' resources · ' + nAct + ' active · ' + (res.length - nAct) + ' inactive',
+      openNew: () => this.setState({ modal: { kind: 'form', first: '', last: '', email: '', role: '', job: '', user: '' } }),
+      tabs: [['team', 'Team', null], ['unm', 'Unmatched names', unm.length]].map(([k, label, n]) => { const on = tab === k; return { label, hasN: n != null && view !== 'loading', n, nBg: n ? '#FDE7F0' : '#EEF0F4', nC: n ? '#A3134F' : '#4B5563', w: on ? 700 : 500, c: on ? '#0B1840' : '#4B5563', sh: on ? 'inset 0 -2px 0 #F0287A' : 'none', pick: () => this.setState({ tab: k, sel: null, menu: null, combo: null }) }; }),
+      hasBanner: !!banner, bn: mkBn(banner), closeBanner: () => this.setState({ banner: null }),
+      isTeam: view !== 'loading' && tab === 'team', isUnm: view !== 'loading' && (navT ? tab === 'unm' : unmOpen),
+      showTabs: navT, hasCallout: nav === 'callout' && view === 'content' && unm.length > 0, headerBtn: nav === 'button' && !denied, unmN: unm.length,
+      co: { title: unm.length + (unm.length === 1 ? ' name' : ' names') + ' in uploaded actuals aren\u2019t matched to a resource', text: fh(leftH) + ' not attributed' + (ambN ? ' · ' + ambN + ' ambiguous' : '') },
+      openUnm: () => this.setState({ unmOpen: true, mode: 'queue', sel: null, menu: null }), openAliases: () => this.setState({ unmOpen: true, mode: 'aliases', sel: null, menu: null }),
+      uw: unmOpen ? { drawer: true, pos: 'absolute', w: '980px', z: 41, b: '0', r: '0', sh: '-12px 0 32px rgba(11,24,64,.18)', ov: 'scroll' } : { drawer: false, pos: 'static', w: 'auto', z: 'auto', b: '1px solid #DDE1E8', r: '12px', sh: 'none', ov: 'visible' },
+      unmBackdrop: unmOpen && view !== 'loading', closeUnm: () => this.setState({ unmOpen: false, combo: null }),
+      stFilters: [['active', 'Active'], ['inactive', 'Inactive'], ['all', 'All']].map(([k, label]) => ({ label, n: cnt(k), ...seg(stF === k), pick: () => reset({ stF: k }) })),
+      roleOpts: ROLES.map(([l, c], i) => ({ v: String(i), label: l, full: l + ' (' + c + ')' })),
+      userOpts: res.filter(r => r.user).slice(0, 30).map(r => ({ v: String(r.id), label: nm(r) + ' (' + r.email + ')' })),
+      roleF, onRole: e => reset({ roleF: e.target.value }), linkF, onLink: e => reset({ linkF: e.target.value }), q, onQ: e => reset({ q: e.target.value }),
+      heads, rows, teamEmpty: view !== 'loading' && list.length === 0,
+      emptyHint: 'Showing ' + stF + (stF === 'all' ? ' statuses' : ' resources') + (roleF !== 'all' ? ' · ' + ROLES[+roleF][0] : '') + (linkF !== 'any' ? ' · ' + (linkF === 'linked' ? 'linked to a PDash user' : 'not linked') : '') + (q ? ' · \u201c' + q + '\u201d' : ''),
+      clearFilters: () => reset({ stF: 'active', roleF: 'all', linkF: 'any', q: '' }),
+      hasPager: list.length > PAGE, pager: { range: ((pg - 1) * PAGE + 1) + '–' + Math.min(pg * PAGE, list.length) + ' of ' + list.length, page: pg, pages,
+        prevC: pg > 1 ? '#0B1840' : '#9AA0AC', prevCur: pg > 1 ? 'pointer' : 'not-allowed', nextC: pg < pages ? '#0B1840' : '#9AA0AC', nextCur: pg < pages ? 'pointer' : 'not-allowed',
+        prev: () => pg > 1 && this.setState({ page: pg - 1 }), next: () => pg < pages && this.setState({ page: pg + 1 }) },
+      spin: spinEl(14, 2), bigSpin: spinEl(28, 3), stop,
+      modes: [['queue', 'Queue', unm.length], ['aliases', 'Existing aliases', aliases.length]].map(([k, label, n]) => ({ label, n, ...seg(mode === k), pick: () => this.setState({ mode: k, combo: null }) })),
+      isQueue: mode === 'queue', isAliases: mode === 'aliases',
+      uq, onUq: e => this.setState({ uq: e.target.value }), rescanning: !!S.rescanning, notRescanning: !S.rescanning, rescanLabel: S.rescanning ? 'Rescanning…' : 'Rescan',
+      rescan: () => { if (S.rescanning) return; this.setState({ rescanning: true }); setTimeout(() => this.setState({ rescanning: false, sbanner: { kind: 'ok', title: 'Rescan complete.', text: 'Checked all uploaded actuals. ' + unm.length + ' names still need a match.' } }), 1200); },
+      qs: { left: String(unm.length), hours: fh(leftH), doneLabel: resolved + ' of ' + totalQ + ' resolved this session', ambLabel: ambN ? ambN + ' ambiguous' : '', pct: (totalQ ? Math.round(resolved / totalQ * 100) : 100) + '%' },
+      hasSb: !!sbanner, sb: mkBn(sbanner), closeSb: () => this.setState({ sbanner: null }),
+      uheads, urows, qEmpty, qe, cq, onCq: e => this.setState({ cq: e.target.value }),
+      aF, onAF: e => this.setState({ aF: e.target.value }), aq, onAq: e => this.setState({ aq: e.target.value }), arows, aEmpty: arows.length === 0,
+      popBackdrop: (menu != null && S.menu != null) || (combo != null && S.combo != null), closePops: () => this.setState({ menu: null, combo: null }),
+      drawerOpen: !!selR, closeDrawer: () => this.setState({ sel: null }), d, pf, dIsDetails, dIsProfile,
+      dtabs: [['details', 'Details'], ['profile', 'Experience profile']].map(([k, label]) => { const on = dtab === k; return { label, w: on ? 700 : 500, c: on ? '#0B1840' : '#4B5563', sh: on ? 'inset 0 -2px 0 #F0287A' : 'none', pick: () => pickDtab(k) }; }),
+      formOpen: !!(modal && modal.kind === 'form'), fm, delOpen: !!delR, dl, closeModal: () => this.setState({ modal: null })
+    };
+  }
+}
+</script>
+</body>
+</html>

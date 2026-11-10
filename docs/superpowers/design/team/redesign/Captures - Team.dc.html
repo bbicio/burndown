@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet><title>Captures — Team</title><style>html,body{margin:0;background:#F3F4F6}a{color:#0B1840}a:hover{color:#F0287A}</style></helmet>
+<div id="cap" style="width:{{ w }}px;height:{{ h }}px;overflow:hidden;position:relative">
+  <sc-if value="{{ isMain }}"><dc-import name="TeamAdmin" dc-props="{{ p }}" hint-size="1400px,1000px"></dc-import></sc-if>
+  <sc-if value="{{ isResp }}"><div style="margin-left:{{ off }}px"><dc-import name="TeamAdminResponsive" hint-size="3560px,980px"></dc-import></div></sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { c: 'main', p: {}, part: 0, k: 0 };
+  componentDidMount() {
+    window.__setCap = (c, p, part) => this.setState(s => ({ c: null }), () => setTimeout(() => this.setState({ c, p: p || {}, part: part || 0 }), 30));
+    window.addEventListener('resize', () => this.forceUpdate());
+  }
+  renderVals() {
+    const { c, p, part } = this.state;
+    const resp = c === 'resp';
+    const w = resp ? (part ? 1440 : 2140) : 1400, h = resp ? 980 : 1000;
+    return { isMain: c === 'main', isResp: resp, p, off: resp && part ? -2140 : 0, w, h, scale: Math.min(window.innerWidth / w, window.innerHeight / h) };
+  }
+}
+</script>
+</body>
+</html>
