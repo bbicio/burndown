@@ -200,7 +200,10 @@ router.post('/login', async (req, res, next) => {
   let judged = false;
   try {
     const { email, password } = req.body;
-    if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+    // Strings only, before a slot is reserved: bcrypt throws on anything else, and that error is refunded.
+    if (typeof email !== 'string' || typeof password !== 'string' || !email || !password) {
+      return res.status(400).json({ error: 'Email and password required' });
+    }
 
     const normalized = String(email).toLowerCase();
     const ipKey = req.ip;

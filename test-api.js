@@ -375,6 +375,11 @@ async function testTwoStep() {
   // At most 10 are tried (fewer when this IP's own limit was already partly used by an earlier run on a reused stack).
   ok(n401 >= 1 && n401 <= 10 && n401 + n429 === 25, `TS-15b 25 parallel failed logins: at most 10 are tried, the rest refused (got ${n401} × 401, ${n429} × 429)`);
 
+  // TS-15c: a body that is not two strings is refused before any slot is reserved or bcrypt is reached.
+  const odd = await Promise.all([{ email: EMAIL, password: 123 }, { email: 5, password: 'x' }, { email: EMAIL, password: { a: 1 } }]
+    .map(b => api('POST', '/api/auth/login', b)));
+  ok(odd.every(r => r.status === 400), `TS-15c a non-string email or password → 400 (got ${odd.map(r => r.status).join(', ')})`);
+
   // TS-16: two challenges of one user coexist, one per cookie; the CLI code is for the latest.
   const u3 = await makeTsUser('c');
   if (u3) {
