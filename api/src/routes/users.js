@@ -144,9 +144,11 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
     if (details.firstName !== undefined) { params.push(details.firstName); fields.push(`first_name = $${params.length}`); }
     if (details.lastName  !== undefined) { params.push(details.lastName);  fields.push(`last_name = $${params.length}`); }
     if (details.email     !== undefined) { params.push(details.email);     fields.push(`email = $${params.length}`); }
-    // The invite of a pending user went to the old address: it must not activate the corrected account.
-    if (details.email !== undefined && details.email !== target.email && target.status === 'pending') {
-      fields.push('invite_token = NULL', 'invite_expires = NULL');
+    // Links already mailed to the old address (a pending invite, a password reset) must not activate or
+    // reset the corrected account.
+    if (details.email !== undefined && details.email !== target.email) {
+      fields.push('reset_token = NULL', 'reset_expires = NULL');
+      if (target.status === 'pending') fields.push('invite_token = NULL', 'invite_expires = NULL');
     }
     if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
 

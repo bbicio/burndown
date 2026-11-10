@@ -27,7 +27,10 @@ test('detailsError: refuses the anonymized-address pattern (it would lock the ac
 });
 
 test('detailsError: refuses an over-long value', () => {
-  assert.deepEqual(detailsError({ firstName: 'x'.repeat(256) }), { field: 'firstName', error: 'First name is too long' });
+  // users.first_name / last_name are VARCHAR(100), email VARCHAR(255)
+  assert.deepEqual(detailsError({ firstName: 'x'.repeat(101) }), { field: 'firstName', error: 'First name is too long' });
+  assert.deepEqual(detailsError({ lastName: 'x'.repeat(101) }), { field: 'lastName', error: 'Last name is too long' });
+  assert.equal(detailsError({ firstName: 'x'.repeat(100) }), null);
   assert.equal(detailsError({ email: 'x'.repeat(251) + '@b.co' }).error, 'Email is too long');
 });
 

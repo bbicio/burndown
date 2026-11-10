@@ -4,13 +4,13 @@
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ANON_EMAIL_RE = /^anon_.+@deleted\.local$/;
-const MAX_LEN = 255;
 const RECTIFICATION_MAX = 2000;
 
+// max = the column sizes of users (001_initial.sql)
 const FIELDS = [
-  { key: 'firstName', label: 'First name' },
-  { key: 'lastName', label: 'Last name' },
-  { key: 'email', label: 'Email' },
+  { key: 'firstName', label: 'First name', max: 100 },
+  { key: 'lastName', label: 'Last name', max: 100 },
+  { key: 'email', label: 'Email', max: 255 },
 ];
 
 function normalizeDetails({ firstName, lastName, email } = {}) {
@@ -24,7 +24,7 @@ function normalizeDetails({ firstName, lastName, email } = {}) {
 function detailsError(normalized) {
   const present = FIELDS.filter(f => normalized[f.key] !== undefined);
   if (!present.length) return { field: null, error: 'Nothing to update' };
-  for (const { key, label } of present) {
+  for (const { key, label, max } of present) {
     const v = normalized[key];
     if (key === 'email') {
       if (!EMAIL_RE.test(v)) return { field: key, error: 'Invalid email address' };
@@ -33,7 +33,7 @@ function detailsError(normalized) {
     } else if (!v) {
       return { field: key, error: `${label} is required` };
     }
-    if (v.length > MAX_LEN) return { field: key, error: `${label} is too long` };
+    if (v.length > max) return { field: key, error: `${label} is too long` };
   }
   return null;
 }

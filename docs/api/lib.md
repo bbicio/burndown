@@ -44,7 +44,7 @@ The non-optimal greedy (rather than globally-optimal bipartite) assignment strat
 
 ## user-details.js (2026-11)
 
-`normalizeDetails`/`detailsError`: an admin's edit of a user's name and email (`PATCH /api/users/:id`) — names trimmed and required, email trimmed, lower-cased and matched against `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`; `{ field, error }` names the refused field; the anonymized address `ANON_EMAIL_RE` (`anon_…@deleted.local`, exported for `routes/users.js`) is refused as reserved. `rectificationError(message)` (`RECTIFICATION_MAX` characters after trim) for `POST /api/auth/rectification-request`; `escapeHtml(s)` for what that route interpolates into the admin email. `node:test`-covered (`user-details.test.js`).
+`normalizeDetails`/`detailsError`: an admin's edit of a user's name and email (`PATCH /api/users/:id`) — names trimmed, required and at most 100 characters, email (at most 255) trimmed, lower-cased and matched against `/^[^\s@]+@[^\s@]+\.[^\s@]+$/`; `{ field, error }` names the refused field; the anonymized address `ANON_EMAIL_RE` (`anon_…@deleted.local`, exported for `routes/users.js`) is refused as reserved. `rectificationError(message)` (`RECTIFICATION_MAX` characters after trim) for `POST /api/auth/rectification-request`; `escapeHtml(s)` for what that route interpolates into the admin email. `node:test`-covered (`user-details.test.js`).
 
 ## match-resource.js (2026-09, Cycle 3b)
 

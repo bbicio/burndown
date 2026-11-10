@@ -1417,6 +1417,12 @@ async function testUsers() {
       `AD-ED-12 changing a pending user's email voids the invite sent to the old address (got ${e12.status}, token ${tok?.[0]?.invite_token === null ? 'cleared' : 'kept'})`);
     const e13 = await api('PATCH', U(pid), { email: 'anon_x@deleted.local' }, sysadminCookie);
     ok(e13.status === 400 && e13.data?.field === 'email', `AD-ED-13 the anonymized-address pattern is refused → 400 (got ${e13.status})`);
+    // Any user: a reset link sent to the old address must not reset the corrected account.
+    await sql(`UPDATE users SET status = 'active', reset_token = $2, reset_expires = NOW() + interval '2 hours' WHERE id = $1`, [pid, `rst_${Date.now()}`]);
+    const e14 = await api('PATCH', U(pid), { email: `__test_reset_fixed_${Date.now()}@pdash.local` }, sysadminCookie);
+    const rst = await sql('SELECT reset_token, reset_expires FROM users WHERE id = $1', [pid]);
+    ok(e14.status === 200 && rst?.[0]?.reset_token === null && rst?.[0]?.reset_expires === null,
+      `AD-ED-14 changing an email voids a reset link sent to the old address (got ${e14.status}, token ${rst?.[0]?.reset_token === null ? 'cleared' : 'kept'})`);
     await sql('DELETE FROM users WHERE id = $1', [pid]);
   }
 }
