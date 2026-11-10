@@ -3,8 +3,10 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const { query } = require('../db/client');
 const { setAuthCookie, clearAuthCookie } = require('../services/jwt');
-const { sendInvite, sendPasswordReset } = require('../services/email');
+const { sendInvite, sendPasswordReset, sendAdminNotificationEmail } = require('../services/email');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { pushToUser } = require('./notifications');
+const { rectificationError, escapeHtml } = require('../lib/user-details');
 
 const router = express.Router();
 
@@ -29,7 +31,9 @@ function token2h() {
 router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await query(
-      'SELECT id, email, first_name, last_name, role, status, terms_version FROM users WHERE id = $1',
+      `SELECT id, email, first_name, last_name, role, status, terms_version,
+              created_at, terms_accepted_at, password_changed_at
+       FROM users WHERE id = $1`,
       [req.user.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'User not found' });
@@ -38,32 +42,53 @@ router.get('/me', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PATCH /api/auth/profile — update own name / email
-router.patch('/profile', requireAuth, async (req, res, next) => {
+// POST /api/auth/rectification-request — the user's details are managed by an admin; the user asks
+// for a correction instead. Recorded in rectification_requests and notified to every active admin.
+router.post('/rectification-request', requireAuth, async (req, res, next) => {
   try {
-    const { firstName, lastName, email } = req.body;
-    const fields = [], params = [];
+    const { message } = req.body || {};
+    const err = rectificationError(message);
+    if (err) return res.status(400).json({ error: err });
+    const text = message.trim();
 
-    if (firstName !== undefined) { params.push(firstName.trim()); fields.push(`first_name = $${params.length}`); }
-    if (lastName  !== undefined) { params.push(lastName.trim());  fields.push(`last_name = $${params.length}`); }
-    if (email     !== undefined) {
-      const normalized = email.trim().toLowerCase();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized))
-        return res.status(400).json({ error: 'Invalid email address' });
-      const dup = await query('SELECT id FROM users WHERE email = $1 AND id <> $2', [normalized, req.user.id]);
-      if (dup.rows[0]) return res.status(409).json({ error: 'Email already in use' });
-      params.push(normalized); fields.push(`email = $${params.length}`);
-    }
+    const me = (await query('SELECT first_name, last_name FROM users WHERE id = $1', [req.user.id])).rows[0];
+    if (!me) return res.status(404).json({ error: 'User not found' });
+    const { rows: [request] } = await query(
+      'INSERT INTO rectification_requests (user_id, message) VALUES ($1, $2) RETURNING id', [req.user.id, text]);
 
-    if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
-
-    params.push(req.user.id);
-    const { rows } = await query(
-      `UPDATE users SET ${fields.join(', ')} WHERE id = $${params.length}
-       RETURNING id, email, first_name, last_name, role`,
-      params
+    const title = `Profile change requested by ${me.first_name} ${me.last_name}`;
+    const { rows: admins } = await query(
+      `SELECT id, email, first_name FROM users
+       WHERE status = 'active' AND role IN ('admin','sysadmin') AND id <> $1`,
+      [req.user.id]
     );
-    res.json(rows[0]);
+    // Once the request is recorded the answer is 201: a failed delivery to one admin is logged, never a 500
+    // that a retry would turn into a second request.
+    for (const a of admins) {
+      try {
+        // Inserted already linked to the request (one statement), so anonymizing the requester deletes it
+        // (notifications.rectification_request_id ON DELETE CASCADE).
+        const { rows: [n] } = await query(
+          `INSERT INTO notifications (user_id, type, title, body, url, url_label, rectification_request_id)
+           VALUES ($1, 'info', $2, $3, '/admin.html', 'Open User Admin', $4)
+           RETURNING id, user_id, type, title, body, url, url_label, read_at, created_at`,
+          [a.id, title, text, request.id]
+        );
+        pushToUser(a.id, { event: 'notification', data: n });
+      } catch (e) {
+        // The email below still goes out: this admin hears of the request through one channel at least.
+        console.warn('[rectification] notification failed:', e.message);
+      }
+      // The email body is HTML: what the user typed is escaped here, the in-app notification stays text.
+      sendAdminNotificationEmail({
+        to: a.email,
+        firstName: escapeHtml(a.first_name),
+        title: escapeHtml(title),
+        body: escapeHtml(text),
+        url: '/admin.html',
+      }).catch(e => console.warn('[rectification] email send failed:', e.message));
+    }
+    res.status(201).json({ ok: true });
   } catch (err) { next(err); }
 });
 
@@ -180,7 +205,7 @@ router.post('/activate', async (req, res, next) => {
 
     const hash = await bcrypt.hash(password, 12);
     await query(
-      `UPDATE users SET password_hash = $1, status = 'active', invite_token = NULL, invite_expires = NULL WHERE id = $2`,
+      `UPDATE users SET password_hash = $1, password_changed_at = NOW(), status = 'active', invite_token = NULL, invite_expires = NULL WHERE id = $2`,
       [hash, rows[0].id]
     );
     res.json({ ok: true });
@@ -238,7 +263,7 @@ router.post('/reset-password', async (req, res, next) => {
 
     const hash = await bcrypt.hash(password, 12);
     await query(
-      `UPDATE users SET password_hash = $1, reset_token = NULL, reset_expires = NULL WHERE id = $2`,
+      `UPDATE users SET password_hash = $1, password_changed_at = NOW(), reset_token = NULL, reset_expires = NULL WHERE id = $2`,
       [hash, rows[0].id]
     );
     res.json({ ok: true });
@@ -255,10 +280,11 @@ router.post('/change-password', requireAuth, async (req, res, next) => {
 
     const { rows } = await query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
     const valid = await bcrypt.compare(currentPassword, rows[0].password_hash);
-    if (!valid) return res.status(401).json({ error: 'Current password is incorrect' });
+    // 400, not 401: the shared client treats a 401 as an expired session and redirects to login.
+    if (!valid) return res.status(400).json({ error: 'Current password is incorrect', field: 'currentPassword' });
 
     const hash = await bcrypt.hash(newPassword, 12);
-    await query('UPDATE users SET password_hash = $1 WHERE id = $2', [hash, req.user.id]);
+    await query('UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2', [hash, req.user.id]);
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

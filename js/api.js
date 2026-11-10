@@ -109,7 +109,11 @@ const Api = {
     me:             ()    => apiFetch('/auth/me'),
     logout:         ()    => apiFetch('/auth/logout', { method: 'POST' }),
     changePassword: (d)   => apiFetch('/auth/change-password', { method: 'POST', body: JSON.stringify(d) }),
-    updateProfile:  (d)   => apiFetch('/auth/profile', { method: 'PATCH', body: JSON.stringify(d) }),
+    rectificationRequest: (message) => apiFetch('/auth/rectification-request', { method: 'POST', body: JSON.stringify({ message }) }),
+  },
+
+  appSettings: {
+    privacyContact: () => apiFetch('/app-settings/privacy-contact'),
   },
 
   users: {

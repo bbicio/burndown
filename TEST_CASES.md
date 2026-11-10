@@ -24,8 +24,8 @@
 | A-09 | Duplicate invite email | Invite an email that already has an account | 409 or meaningful inline error — no duplicate created | |
 | A-10 | Password reset | Request reset → click link → set new password | Login succeeds with new password; old password rejected | |
 | A-11 | Reset token expired | Use reset link older than 2 h | 400/401 — "Token expired" error shown | |
-| A-12 | Change password — correct current | Supply correct current password + new password in modal | Password updated; old password no longer works | |
-| A-13 | Change password — wrong current | Supply an incorrect current password | 400/403 — password unchanged, error shown inline | |
+| A-12 | Change password — correct current | `/profile.html#password`: supply the correct current password + a new password, confirm it → Update password | "Password updated."; fields cleared; "Last changed on {today}." under the title; old password no longer works; `password_changed_at` set (`PW-01`) | ✓ |
+| A-13 | Change password — wrong current | Same, with an incorrect current password | "Current password is incorrect" under Current password; still signed in (400, not 401: `PW-02`); password unchanged | ✓ |
 | A-14 | Public pages look (pre-login restyling, 2026-10-06) | Open `/login.html`, `/reset-password.html` and `/activate.html` (no token) at 1440, 1024 and 390px | Navy page, white card centred (400px login, 420px reset/activate; `calc(100% - 32px)` on a phone), same "P / Dash / PROJECT DASHBOARD" logo on all three, "© <year> PDash" under the card, one magenta button per view, no emoji, no Bootstrap blue on hover/press | |
 | A-15 | Forgot password pre-fills the email | Type an email on Sign In → click "Forgot password?" → "← Back to sign in" → change the email in Sign In → "Forgot password?" again | The Forgot email shows the Sign In email the first time; an email already typed in Forgot is kept (never overwritten) | |
 | A-16 | Password strength meter | On the reset or activate form type `abcdefgh`, `abcdefgh1`, `Abcdefgh1`, `Abcdefgh1234!`, then clear the field | 4 segments coloured by position: Weak = 1 red; Fair = red + amber; Good = red + amber + green; Strong = all four (last two green); empty = all grey, label blank; the confirm field does not move | |
@@ -51,7 +51,7 @@
 | N-09 | Sidebar open by default (2026-10-02, Nav B2) | As user, admin and sysadmin, open any page at ≥ 1024px for the first time (clear `PDash_sidebarCollapsed`) | Left sidebar open (240px): logo, Pipeline/Portfolio/Planning, groups per role, initials + email + bell, "© 2026 PDash" at the bottom; no top navbar, no footer | |
 | N-10 | Collapse to the icon rail and remember it (Nav B2) | Click the collapse button, change page, reload, click it again | Rail (68px, icons only, no labels/email/copyright) persists across pages and reloads; expanding persists too; content shifts with the width | |
 | N-11 | Admin / Sysadmin sections by role (Nav B2, replaces AD-35) | Log in as role=user, admin, sysadmin | user: no ADMIN/SYSADMIN section and no stray separator. admin: ADMIN only (Master Data, Timesheets, User Admin, Team, Attribute Lists). sysadmin: both (SYSADMIN: DB Reset, Terms & Conditions). Sections are always expanded on wide screens | |
-| N-12 | Active highlighting (Nav B2, replaces AD-36) | Open `/team.html`, `/_db-reset.html`, `/privacy-notice.html`, `/profile-jobs.html` | Team / DB Reset entry highlighted (below 1024px the Admin / Sysadmin icon is highlighted); privacy-notice highlights nothing; profile-jobs highlights Timesheets | |
+| N-12 | Active highlighting (Nav B2, replaces AD-36) | Open `/team.html`, `/_db-reset.html`, `/privacy-notice.html`, `/profile-jobs.html` | Team / DB Reset entry highlighted (below 1024px the Admin / Sysadmin icon is highlighted); privacy-notice highlights nothing; profile-jobs highlights Timesheets; `/profile.html` highlights the account button | |
 | N-13 | Icon navbar below 1024px (Nav B2) | Resize below 1024px (and to 360px) as admin | Dark top bar: logo left; bell then initials right; icon-only entries; Admin and Sysadmin icons with a dot; no horizontal scroll; no breadcrumb | |
 | N-14 | Group panel on small screens (Nav B2) | Below 1024px tap the Admin icon, then Sysadmin; then Esc; then tap outside; then widen past 1024px with a panel open | Full-width card (10px side margins) with the uppercase title and icon + label rows, current page pink with magenta icon; only one panel open at a time; Esc / outside tap close it; widening shows the sidebar sections and closes the panel | |
 | N-15 | Account menu placement (Nav B2) | Open the account menu with the sidebar open, collapsed, and below 1024px | Open: to the right, anchored to the email row; rail: to the right of the rail; small: 230px wide under the avatar; never leaves the viewport | |
@@ -644,6 +644,10 @@
 | AD-15 | Anonymize — result | Confirm anonymization | Row reads "Anonymized user" with email `anon_<uuid>@deleted.local` and a "No actions" note; no button, no menu | |
 | AD-16 | Anonymize — operational data intact | Anonymize a user who owned cost grids | Cost grids still appear on pipeline board; proposals not deleted | |
 | AD-17 | Anonymize — cannot anonymize self | API call `POST /api/users/<own-id>/anonymize` | 400 "You cannot anonymize your own account" | |
+| AD-48 | Edit details (2026-11) | Row ⋯ → Edit details… on another user → change the first name → Save | Drawer closes; the row shows the new name; banner "Details updated for {name}."; Save stays disabled until a field changes and while a field is empty (`AD-ED-01`…`AD-ED-03`) | ✓ |
+| AD-49 | Edit details — duplicate email (2026-11) | Same drawer, enter another user's email in capitals with spaces → Save | "Email already in use" under Email, nothing saved (`AD-ED-04`) | ✓ |
+| AD-50 | Edit details — where it is offered (2026-11) | Look at the ⋯ menu of your own row, an anonymized row, and (as admin) a sysadmin row | No menu on any of them, so no Edit details; the API refuses the same edits (`AD-ED-05`, `AD-ED-06`, `AD-ED-09`) | ✓ |
+| AD-51 | Anonymize deletes rectification requests (2026-11) | User sends a request from `/profile.html` → admin disables and anonymizes that user → on the branch stack `SELECT count(*) FROM rectification_requests WHERE user_id = '<id>'` | 0 (`AD-ED-08`) | ✓ |
 | AD-18 | T&C editor removed from admin.html (2026-09) | Open admin.html | No Terms & Conditions section — moved to `_terms-editor.html` (sysadmin-exclusive, see §17a) | |
 
 ### 11a. Sysadmin role (2026-09)
@@ -692,10 +696,12 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | GD-04 | T&C page — checkbox enables button | Tick "I have read and understood" checkbox | Button becomes active | |
 | GD-05 | T&C page — accept and redirect | Tick checkbox → click Continue | POST /api/auth/accept-terms; redirect to original `?next` destination | |
 | GD-06 | T&C page — no redirect loop | Already accepted; open any page | No redirect to terms.html; page loads normally | |
-| GD-07 | Profile update — open modal | Account dropdown → 👤 My Profile | Modal opens with first name, last name, email pre-filled from session | |
-| GD-08 | Profile update — save valid | Change first name → Save | PATCH /api/auth/profile succeeds; navbar name updates immediately | |
-| GD-09 | Profile update — invalid email | Enter "notanemail" in email field → Save | 400 error shown inline; profile not saved | |
-| GD-10 | Profile update — duplicate email | Enter email already used by another user → Save | 409 "Email already in use" shown inline | |
+| GD-07 | My profile — sections by hash (2026-11) | Account menu → My Profile; then Change password; then type `#privacy`, `#foo` in the URL; use back/forward | My Profile opens `/profile.html` on Details, Change password on Password; `#privacy` shows Privacy & data, `#foo` shows Details; back/forward switch section; no modal opens; the account button is highlighted | |
+| GD-08 | My profile — details read-only (2026-11) | Open `/profile.html` | First name, last name, email (lock icon), role chip and member since are shown and none is editable; footer "Your details are managed by an admin." + Request a change. `PATCH /api/auth/profile` answers 404 (`PR-OF-01`) | ✓ |
+| GD-09 | My profile — request a change (2026-11) | Request a change → type a message → Send request | Drawer closes, "Request sent to the admins." shown, focus back on Request a change; every other active admin/sysadmin gets the notification "Profile change requested by {name}" linking to User Admin; a row in `rectification_requests`. Blank → Send request disabled; 2001 characters refused (`RR-01`…`RR-05`) | ✓ |
+| GD-10 | My profile — password form (2026-11) | On Password type a new password and a different confirmation; then `abc`, `abcdefgh`, `Abcdefgh1234!` as new password | Confirmation red with "Passwords don't match." and Update password disabled; the bar fills 1, 2 and 4 segments | |
+| GD-11 | My profile — privacy contact (2026-11) | With `PRIVACY_CONTACT_EMAIL` (and `PRIVACY_CONTACT_NAME`) set for the api container, open `#privacy`; then unset it and reload | Set: "Questions about your data?" card with the name and email, Write an email opens `mailto:` that address; unset: no card, no message (`PC-01` for the endpoint) | |
+| GD-12 | My profile — responsive (2026-11) | Open `/profile.html` at 1440, 820 and 390px | Sub-navigation as a column, a row of tabs, a section selector; no horizontal scroll; buttons at least 44px tall on the phone | |
 
 ---
 

@@ -17,3 +17,7 @@ Two more new sysadmin-exclusive routes: `GET /terms/versions` (list, no `content
 A shared `formatFullName(row)` helper (top of this file) null-safely formats the `first_name`/`last_name` LEFT JOIN used by all four version-related routes.
 
 See `docs/pages/terms-editor.md` for the `_terms-editor.html` UI this backs.
+
+## Privacy contact (2026-11)
+
+`GET /privacy-contact` (`requireAuth`): `{ name, email }` read from the `PRIVACY_CONTACT_EMAIL` / `PRIVACY_CONTACT_NAME` environment variables of the `api` container (`docker-compose.yml`, `.env.example`), trimmed. An empty email answers `{ name: null, email: null }` whatever the name, and `profile.html`'s Privacy & data section then hides its "Questions about your data?" card.

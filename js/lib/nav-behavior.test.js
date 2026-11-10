@@ -195,14 +195,34 @@ describe('initNav integration', () => {
     expect(document.querySelector('footer')).toBeNull();
     expect(document.body.style.paddingBottom).toBe('');
   });
-  it('has no emoji in the navigation or in the three modal titles', async () => {
+  it('has no emoji in the navigation or in the Send Notification modal title', async () => {
     await nav.initNav('pipeline');
     expect(document.getElementById('nav-container').innerHTML).not.toMatch(EMOJI);
-    for (const id of ['navChangePwdModal', 'navProfileModal', 'sendNotifModal']) {
+    for (const id of ['sendNotifModal']) {
       const title = document.querySelector(`#${id} .modal-title`);
       expect(title.textContent).not.toMatch(EMOJI);
       expect(title.querySelector('svg.nav-icon'), id).not.toBeNull();
     }
+  });
+  it('injects no My Profile or Change password modal', async () => {
+    await nav.initNav('pipeline');
+    expect(document.getElementById('navProfileModal')).toBeNull();
+    expect(document.getElementById('navChangePwdModal')).toBeNull();
+  });
+  it('My Profile and Change password link to profile.html and its Password section', async () => {
+    await nav.initNav('pipeline');
+    expect(document.getElementById('nav-profile-btn').getAttribute('href')).toBe('/profile.html');
+    expect(document.getElementById('nav-change-pwd-btn').getAttribute('href')).toBe('/profile.html#password');
+  });
+  it('marks the account button active on profile.html only', async () => {
+    await nav.initNav('profile');
+    let btn = document.getElementById('nav-account-btn');
+    expect(btn.classList.contains('active')).toBe(true);
+    expect(btn.getAttribute('aria-current')).toBe('page');
+    await nav.initNav('pipeline');
+    btn = document.getElementById('nav-account-btn');
+    expect(btn.classList.contains('active')).toBe(false);
+    expect(btn.hasAttribute('aria-current')).toBe(false);
   });
   it('returns null and renders nothing when the user is not authenticated', async () => {
     globalThis.Api = { auth: { me: async () => { throw new Error('401'); } } };

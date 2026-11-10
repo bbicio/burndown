@@ -109,6 +109,7 @@ Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page i
 | `_db-reset.html` | `/_db-reset.html` | **Sysadmin-exclusive** hidden page for bulk DB data deletion by scope, linked from the sysadmin-only navbar menu (`initNav('dbreset', ...)`); also has "Delete single proposal" widget (UUID input, cascade delete) and "Change proposal owner" widget (UUID + active-user dropdown). Full narrative: [docs/pages/db-reset.md](docs/pages/db-reset.md) |
 | `_terms-editor.html` | `/_terms-editor.html` | **Sysadmin-exclusive** hidden page — Terms & Conditions editor, linked from the sysadmin-only navbar menu (`initNav('termseditor', ...)`). Full narrative: [docs/pages/terms-editor.md](docs/pages/terms-editor.md) |
 | `privacy-notice.html` | `/privacy-notice.html` | Privacy Notice: opened from the account dropdown's "Privacy Notice"; read-only view of the latest published Terms & Conditions with their version and publication date in the footer, open to any authenticated user (replaced the blank `settings.html`). Full narrative: [docs/pages/privacy-notice.md](docs/pages/privacy-notice.md) |
+| `profile.html` | `/profile.html` | My profile: Details read-only with a rectification request, Password, Privacy & data; own stylesheet `css/profile.css`. Full narrative: [docs/pages/profile.md](docs/pages/profile.md) |
 | `team.html` | `/team.html` | Resource registry CRUD (name/email/role by id/job description, optional link to a PDash user) plus an "Unmatched names" drawer that links the free-text owner names found in uploaded actuals to resources (aliases), a resource side panel with an "Experience profile" tab showing the per-person hours tree; own stylesheet `css/team.css`; admin **or sysadmin**, linked from the ⚙ Admin dropdown. Full narrative: [docs/pages/team.md](docs/pages/team.md) |
 | `attribute-lists.html` | `/attribute-lists.html` | Generic, agnostic tag/taxonomy admin console — create lists and their items (Market/Brand/Therapeutic Area/Service Type seeded, more addable without code changes), admin **or sysadmin**, linked from the ⚙ Admin dropdown. Its lists/items are consumed by `costgrid.html`/`project-config.html`'s "🏷 Tags" sections via the shared `js/tags.js` helper; own stylesheet `css/attribute-lists.css`. Full narrative: [docs/pages/attribute-lists.md](docs/pages/attribute-lists.md) |
 | `profile-jobs.html` | `/profile-jobs.html` | **Hidden page, no menu entry** — profile-engine job console (queue/status list, force recalculation, worker schedule, run history), reached from the Timesheets sub-nav ("Profile processing", next to "Actuals") of `timesheets.html` and from the Experience profile tab of `team.html`; admin **or** sysadmin. Full narrative: [docs/pages/profile-jobs.md](docs/pages/profile-jobs.md) |
@@ -227,10 +228,10 @@ Navigation is URL-based — clicking a nav tab changes `window.location.href`. E
 
 Each page calls `initNav(activeTab)` from `nav.js` which:
 1. Injects the shared navigation (one `<aside class="pd-nav">`: a left sidebar at ≥ 1024px, a two-row icon navbar below; no footer — see [docs/js/nav.md](docs/js/nav.md) → "Current state")
-2. Injects the change-password modal, send-notification modal, and "My Profile" modal HTML (centralised — do NOT duplicate in page HTML)
+2. Injects the send-notification modal HTML (centralised — do NOT duplicate in page HTML); My Profile and Change password are links to `/profile.html`
 3. Calls `GET /api/auth/me` — redirects to `/login.html` on 401; redirects to `/terms.html` if `user.terms_version < user.current_terms_version`
 4. Stores the user object in `window.__navUser`
-5. Wires all navbar events (account dropdown, Privacy Notice link to `/privacy-notice.html`, change password, notifications)
+5. Wires all navbar events (account dropdown, Privacy Notice link to `/privacy-notice.html`, notifications)
 6. Calls `initNotifications(user)` from `notifications.js`
 7. Returns the user object
 

@@ -22,6 +22,14 @@ function formatFullName(row) {
 // GET /api/app-settings/terms — any authenticated user (needed by terms.html)
 // Returns the latest PUBLISHED version from terms_versions (not the draft in
 // app_settings — see GET /terms/draft for that). Response shape unchanged.
+// GET /api/app-settings/privacy-contact — who to write to about personal data (profile page).
+// From PRIVACY_CONTACT_EMAIL / PRIVACY_CONTACT_NAME; no email means no contact at all.
+router.get('/privacy-contact', requireAuth, (req, res) => {
+  const email = (process.env.PRIVACY_CONTACT_EMAIL || '').trim() || null;
+  const name = email ? ((process.env.PRIVACY_CONTACT_NAME || '').trim() || null) : null;
+  res.json({ name, email });
+});
+
 router.get('/terms', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await query(

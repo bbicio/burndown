@@ -53,6 +53,7 @@ Backend authorization has two middleware tiers (`api/src/middleware/auth.js`): `
 | Invite users | ✅ | ✅ | ❌ |
 | Disable / re-enable users | ✅ | ✅ (not on a sysadmin account — see below) | ❌ |
 | Anonymize users | ✅ | ✅ (not on a sysadmin account) | ❌ |
+| Edit user name / email | ✅ | ✅ (not on a sysadmin account, not on oneself) | ❌ (rectification request only) |
 | Modify a sysadmin's role/status, or anonymize/disable them | ✅ | ❌ | ❌ |
 | Manage clients | ✅ | ✅ | read-only |
 | Manage programs | ✅ | ✅ | read-only |
@@ -146,11 +147,14 @@ POST /api/auth/logout → clears JWT cookie
 ### 4.6 Profile Rectification (GDPR Art. 16)
 
 ```
-User opens account dropdown → "👤 My Profile"
-  → modal pre-filled with first_name, last_name, email from window.__navUser
-  → PATCH /api/auth/profile { firstName, lastName, email }
-  → server validates email format + uniqueness
-  → user row updated; navbar name updates immediately without reload
+User opens account dropdown → "My Profile" → /profile.html (Details, read-only)
+  → "Request a change" drawer → POST /api/auth/rectification-request { message }
+  → server records a rectification_requests row
+  → every other active admin/sysadmin gets a notification (+ email) linking to /admin.html
+
+Admin opens /admin.html → row menu ⋯ → "Edit details…"
+  → PATCH /api/users/:id { firstName, lastName, email }
+  → server validates names, email format + uniqueness (409); not on oneself, not on a sysadmin unless sysadmin
 ```
 
 ### 4.7 Terms & Conditions Acceptance (GDPR)
@@ -191,8 +195,18 @@ users (
   invited_by        UUID REFERENCES users(id),
   terms_version     INTEGER,          -- migration 014: last accepted T&C version (NULL = never accepted)
   terms_accepted_at TIMESTAMPTZ,      -- migration 014: timestamp of last acceptance
+  password_changed_at TIMESTAMPTZ,    -- migration 033: set by change-password, reset-password, activate
   created_at        TIMESTAMPTZ DEFAULT NOW()
 )
+
+rectification_requests (              -- migration 033: register of the corrections a user asks the admins for
+  id         UUID PRIMARY KEY,
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  message    TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+)
+-- Deleted by POST /api/users/:id/anonymize (the message is free text with personal data); the admins'
+-- notifications of a request reference it (notifications.rectification_request_id, indexed) and are deleted with it.
 
 app_settings (                        -- migration 015: generic key/value store for admin-managed config
   key        VARCHAR(100) PRIMARY KEY,
@@ -574,7 +588,8 @@ notifications (
   url        VARCHAR(500),          -- optional deep-link inside the app
   url_label  VARCHAR(100),
   read_at    TIMESTAMPTZ,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  rectification_request_id UUID REFERENCES rectification_requests(id) ON DELETE CASCADE  -- migration 033
 )
 ```
 
@@ -617,7 +632,7 @@ timesheets (
 |---|---|---|---|
 | POST | /api/auth/login | — | Login email + password |
 | POST | /api/auth/logout | ✅ | Clear JWT cookie |
-| GET | /api/auth/me | ✅ | Current user profile |
+| GET | /api/auth/me | ✅ | Current user profile, incl. `created_at`, `terms_accepted_at`, `password_changed_at` |
 | POST | /api/auth/invite | admin | Invite new user |
 | POST | /api/auth/:id/resend-invite | admin | Resend activation email to a pending user with a fresh 48h token |
 | GET | /api/auth/invite/:token | — | Validate invite token |
@@ -625,8 +640,8 @@ timesheets (
 | POST | /api/auth/forgot-password | — | Request password reset |
 | GET | /api/auth/reset-password/:token | — | Validate reset token |
 | POST | /api/auth/reset-password | — | Set new password |
-| POST | /api/auth/change-password | ✅ | Change password (authenticated) |
-| PATCH | /api/auth/profile | ✅ | Update own first name, last name, email (validates format + uniqueness) |
+| POST | /api/auth/change-password | ✅ | Change password (authenticated); writes `password_changed_at`. A wrong current password is `400 { error, field: 'currentPassword' }`, not 401 (the client would treat it as an expired session) |
+| POST | /api/auth/rectification-request | ✅ | `{ message }` (1–2000 characters after trim): records a `rectification_requests` row and notifies every other active admin/sysadmin (in-app + email); `201 { ok: true }`. The user's own details are not editable by the user |
 | POST | /api/auth/accept-terms | ✅ | Record current T&C version acceptance (writes `terms_version` + `terms_accepted_at`) |
 
 ### Users
@@ -637,7 +652,7 @@ timesheets (
 | GET | /api/users/active-list | ✅ | List of all active users (id/email/firstName/lastName/role) — used by share modal and notification target picker; returns `role` so frontend can filter out admins |
 | GET | /api/users | admin | List all users |
 | GET | /api/users/:id | admin | Get user detail |
-| PATCH | /api/users/:id | admin* | Update role or status. `role` accepts `admin`/`user`/`sysadmin` (2026-09) subject to `roleChangeError()`'s two-step promotion/demotion rules. *Mutating a target already `role='sysadmin'` — any field — additionally requires the actor to be sysadmin (`sysAdminTargetError()`, live DB role) |
+| PATCH | /api/users/:id | admin* | Update role, status, or `firstName`/`lastName`/`email` (trimmed, email lower-cased; 400 `{ error, field }` on an invalid field, 409 `{ error, field: 'email' }` on a duplicate, 400 on an anonymized user; one invalid field refuses the whole request). `role` accepts `admin`/`user`/`sysadmin` (2026-09) subject to `roleChangeError()`'s two-step promotion/demotion rules. *Mutating a target already `role='sysadmin'` — any field — additionally requires the actor to be sysadmin (`sysAdminTargetError()`, live DB role) |
 | DELETE | /api/users/:id | admin* | Disable user (soft delete). *Same sysadmin-target protection as PATCH above |
 | POST | /api/users/:id/anonymize | admin* | Permanently replace personal data with anonymous values (name → "[Deleted] User", email → `anon_<uuid>@deleted.local`); clears password hash and tokens; preserves operational records. *Same sysadmin-target protection as PATCH above |
 
@@ -830,6 +845,7 @@ Every POT route counts a proposal once, through its reference version (`pot_v`, 
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
+| GET | /api/app-settings/privacy-contact | ✅ | `{ name, email }` from `PRIVACY_CONTACT_NAME`/`PRIVACY_CONTACT_EMAIL`; both `null` when the email is unset |
 | GET | /api/app-settings/terms | ✅ | Returns `{ version, content, updatedAt, updatedBy }` for the **latest published** version (from `terms_versions`) — used by `terms.html`'s acceptance gate. Response shape unchanged from before this feature |
 | GET | /api/app-settings/terms/draft | **sysadmin** | The in-progress draft (`app_settings.terms_content`/`terms_version`), same response shape as above — what `_terms-editor.html` loads into its textarea |
 | GET | /api/app-settings/terms/versions | **sysadmin** | List of published versions, no `content` field: `[{ version, publishedAt, publishedBy }, ...]` DESC by version |
@@ -1092,5 +1108,5 @@ Current migrations:
 - All tokens (invite, reset) are **single-use** and time-limited
 - Locked cost grid versions are enforced at API level, not just UI
 - Soft-delete only — no data is permanently deleted from the database
-- **GDPR compliance** (internal tool): T&C acceptance gated at login (versioned; re-acceptance forced on publish); profile self-rectification via "My Profile" modal (`PATCH /api/auth/profile`); admin anonymization (`POST /api/users/:id/anonymize`) replaces all personal data while preserving operational records
+- **GDPR compliance** (internal tool): T&C acceptance gated at login (versioned; re-acceptance forced on publish); profile rectification by request (`POST /api/auth/rectification-request`, recorded in `rectification_requests`) and by an admin (`PATCH /api/users/:id`); admin anonymization (`POST /api/users/:id/anonymize`) replaces all personal data while preserving operational records
 - All user-facing errors use generic messages for auth failures

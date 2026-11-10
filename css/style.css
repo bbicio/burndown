@@ -316,6 +316,7 @@ html[data-sidebar="collapsed"] .pd-nav-collapse .nav-icon:last-child { display: 
 .pd-account { min-width: 0; }
 .pd-account-btn { display: flex; align-items: center; gap: 12px; min-width: 0; max-width: 100%; background: transparent; border: 0; border-radius: var(--radius-md); padding: 4px; color: var(--text-inverse); cursor: pointer; }
 .pd-account-btn:hover { background: var(--nav-item-hover-bg); }
+.pd-account-btn.active { background: var(--nav-item-active-bg); box-shadow: inset 3px 0 0 var(--brand-magenta); }
 .pd-avatar { width: 36px; height: 36px; flex: 0 0 auto; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; background: var(--nav-item-active-bg); color: var(--text-inverse); font-size: var(--text-sm); font-weight: 700; }
 .pd-account-email { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); font-weight: var(--weight-semibold); }
 .pd-bell-btn { position: relative; width: 36px; height: 36px; flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--nav-sep); border-radius: var(--radius-md); color: var(--text-inverse); cursor: pointer; }

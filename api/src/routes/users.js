@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { roleChangeError } = require('../lib/role-transition');
+const { ANON_EMAIL_RE, normalizeDetails, detailsError } = require('../lib/user-details');
 
 const router = express.Router();
 
@@ -93,10 +94,11 @@ router.get('/:id', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// PATCH /api/users/:id  — change role or status
+// PATCH /api/users/:id  — change role, status, or name / email (details are admin-managed)
 router.patch('/:id', requireAdmin, async (req, res, next) => {
   try {
-    const { role, status } = req.body;
+    const { role, status, firstName, lastName, email } = req.body;
+    const wantsDetails = [firstName, lastName, email].some(v => v !== undefined);
 
     if (req.params.id === req.user.id) {
       return res.status(400).json({ error: 'You cannot modify your own account' });
@@ -106,7 +108,7 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
     if (role && !allowed.role.includes(role)) return res.status(400).json({ error: 'Invalid role' });
     if (status && !allowed.status.includes(status)) return res.status(400).json({ error: 'Invalid status' });
 
-    const { rows: [target] } = await query('SELECT role FROM users WHERE id = $1', [req.params.id]);
+    const { rows: [target] } = await query('SELECT role, email, status FROM users WHERE id = $1', [req.params.id]);
     if (!target) return res.status(404).json({ error: 'User not found' });
 
     // A sysadmin row is only ever modifiable by another sysadmin — whatever
@@ -121,10 +123,33 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
       if (roleErr) return res.status(403).json({ error: roleErr });
     }
 
+    let details = {};
+    if (wantsDetails) {
+      // Live role: a demoted admin's JWT still says admin, and an email change is an account takeover.
+      if (!['admin', 'sysadmin'].includes(actorRole)) return res.status(403).json({ error: 'Admin rights required' });
+      if (ANON_EMAIL_RE.test(target.email)) return res.status(400).json({ error: 'This user has been anonymized' });
+      details = normalizeDetails({ firstName, lastName, email });
+      const detErr = detailsError(details);
+      if (detErr) return res.status(400).json(detErr);
+      if (details.email !== undefined) {
+        const dup = await query('SELECT id FROM users WHERE LOWER(email) = $1 AND id <> $2', [details.email, req.params.id]);
+        if (dup.rows[0]) return res.status(409).json({ error: 'Email already in use', field: 'email' });
+      }
+    }
+
     const fields = [];
     const params = [];
     if (role)   { params.push(role);   fields.push(`role = $${params.length}`); }
     if (status) { params.push(status); fields.push(`status = $${params.length}`); }
+    if (details.firstName !== undefined) { params.push(details.firstName); fields.push(`first_name = $${params.length}`); }
+    if (details.lastName  !== undefined) { params.push(details.lastName);  fields.push(`last_name = $${params.length}`); }
+    if (details.email     !== undefined) { params.push(details.email);     fields.push(`email = $${params.length}`); }
+    // Links already mailed to the old address (a pending invite, a password reset) must not activate or
+    // reset the corrected account.
+    if (details.email !== undefined && details.email !== target.email) {
+      fields.push('reset_token = NULL', 'reset_expires = NULL');
+      if (target.status === 'pending') fields.push('invite_token = NULL', 'invite_expires = NULL');
+    }
     if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
 
     params.push(req.params.id);
@@ -151,6 +176,9 @@ router.post('/:id/anonymize', requireAdmin, async (req, res, next) => {
     const protErr = sysAdminTargetError(actorRole, existing.role);
     if (protErr) return res.status(403).json({ error: protErr });
 
+    // The rectification requests are free text with personal data: they go with the rest, and the
+    // admins' notifications of them with them (notifications.rectification_request_id ON DELETE CASCADE).
+    await query('DELETE FROM rectification_requests WHERE user_id = $1', [req.params.id]);
     const { rows: [updated] } = await query(
       `UPDATE users SET
          email             = 'anon_' || id || '@deleted.local',
@@ -163,6 +191,7 @@ router.post('/:id/anonymize', requireAdmin, async (req, res, next) => {
          reset_expires     = NULL,
          terms_version     = NULL,
          terms_accepted_at = NULL,
+         password_changed_at = NULL,
          status            = 'disabled'
        WHERE id = $1
        RETURNING id, status`,

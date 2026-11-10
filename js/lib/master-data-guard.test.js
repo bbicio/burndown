@@ -119,7 +119,7 @@ describe.each(PAGES)('Master Data page: $file', ({ file, active, section, api, m
 
   it('loads the sub-nav module after the icon library', () => {
     const icons = html.indexOf('<script type="module" src="js/lib/icons.js');
-    const subnav = html.indexOf('<script type="module" src="js/lib/md-subnav.js?v=5"></script>');
+    const subnav = html.indexOf('<script type="module" src="js/lib/md-subnav.js?v=6"></script>');
     expect(icons).toBeGreaterThan(-1);
     expect(subnav).toBeGreaterThan(icons);
   });

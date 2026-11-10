@@ -163,6 +163,8 @@ async function testAuth() {
   const me = await api('GET', '/api/auth/me', null, adminCookie);
   ok(me.status === 200,           'A-me authenticated → 200');
   ok(me.data?.role === 'admin',   'A-me role = admin');
+  ok(['created_at', 'terms_accepted_at', 'password_changed_at'].every(k => me.data && k in me.data),
+    'A-me-2 /me carries created_at, terms_accepted_at, password_changed_at');
 
   // Sysadmin test account — needed for admin/reset/* (sysadmin-exclusive).
   const r2 = await api('POST', '/api/auth/login', { email: SYSADMIN_EMAIL, password: SYSADMIN_PASS });
@@ -173,6 +175,55 @@ async function testAuth() {
   ok(sysMe.data?.role === 'sysadmin', 'A-06 sysadmin role = sysadmin');
 
   return true;
+}
+
+// ── Profile ───────────────────────────────────────────────────────────────────
+
+async function testProfile() {
+  section('Profile');
+
+  const before = (await api('GET', '/api/auth/me', null, adminCookie)).data;
+  const p = await api('PATCH', '/api/auth/profile', { firstName: 'Hacked' }, adminCookie);
+  ok(p.status === 404, `PR-OF-01 PATCH /auth/profile no longer exists → 404 (got ${p.status})`);
+  const after = (await api('GET', '/api/auth/me', null, adminCookie)).data;
+  ok(after?.first_name === before?.first_name, 'PR-OF-01 first_name unchanged');
+
+  const RR = '/api/auth/rectification-request';
+  ok((await api('POST', RR, { message: 'x' })).status === 401, 'RR-01 without cookie → 401');
+  ok((await api('POST', RR, { message: '   ' }, adminCookie)).status === 400, 'RR-02 blank message → 400');
+  ok((await api('POST', RR, { message: 'x'.repeat(2001) }, adminCookie)).status === 400, 'RR-03 2001 characters → 400');
+
+  const msg = `__test_rr_${Date.now()}__ my last name is misspelt`;
+  const r4 = await api('POST', RR, { message: msg }, adminCookie);
+  ok(r4.status === 201 && r4.data?.ok === true, `RR-04 valid message → 201 (got ${r4.status})`);
+  const notifs = (await api('GET', '/api/notifications', null, sysadminCookie)).data;
+  const list = Array.isArray(notifs) ? notifs : (notifs?.notifications || []);
+  ok(list.some(n => n.title === `Profile change requested by ${before?.first_name} ${before?.last_name}` && n.body === msg),
+    'RR-04 the sysadmin receives the notification');
+  const rows = await sql('SELECT count(*)::int AS n FROM rectification_requests WHERE message = $1', [msg]);
+  if (rows) ok(rows[0].n === 1, 'RR-04 the request is recorded in rectification_requests');
+  const unlinked = await sql('SELECT count(*)::int AS n FROM notifications WHERE body = $1 AND rectification_request_id IS NULL', [msg]);
+  if (unlinked) ok(unlinked[0].n === 0, 'RR-04 every notification of the request is linked to it (anonymize can delete it)');
+
+  ok((await api('POST', RR, { message: '<b>x</b>' }, adminCookie)).status === 201, 'RR-05 HTML message → 201');
+
+  ok((await api('GET', '/api/app-settings/privacy-contact')).status === 401, 'PC-01 privacy-contact without cookie → 401');
+  const pc = await api('GET', '/api/app-settings/privacy-contact', null, adminCookie);
+  ok(pc.status === 200 && pc.data && 'name' in pc.data && 'email' in pc.data, 'PC-01 privacy-contact → 200 { name, email }');
+
+  const CP = '/api/auth/change-password';
+  const w1 = await api('POST', CP, { currentPassword: PASS, newPassword: PASS + 'x', newPasswordConfirm: PASS + 'x' }, adminCookie);
+  const w2 = await api('POST', CP, { currentPassword: PASS + 'x', newPassword: PASS, newPasswordConfirm: PASS }, adminCookie);
+  ok(w1.status === 200 && w2.status === 200, `PW-01 change-password and back → 200, 200 (got ${w1.status}, ${w2.status})`);
+  const pw = (await api('GET', '/api/auth/me', null, adminCookie)).data;
+  ok(!!pw?.password_changed_at, 'PW-01 /me.password_changed_at is set');
+
+  // A wrong current password is a refused field, not an expired session: a 401 would make the
+  // shared client (js/api.js) redirect to the login page.
+  const w3 = await api('POST', CP, { currentPassword: 'wrong-' + PASS, newPassword: PASS + 'y', newPasswordConfirm: PASS + 'y' }, adminCookie);
+  ok(w3.status === 400 && w3.data?.field === 'currentPassword' && w3.data?.error === 'Current password is incorrect',
+    `PW-02 wrong current password → 400 field currentPassword (got ${w3.status})`);
+  ok((await api('POST', '/api/auth/login', { email: EMAIL, password: PASS })).status === 200, 'PW-02 the password is unchanged');
 }
 
 // ── Security ─────────────────────────────────────────────────────────────────
@@ -1264,6 +1315,120 @@ async function testUsers() {
   const r1 = await api('GET', '/api/users', null, adminCookie);
   ok(r1.status === 200 && Array.isArray(r1.data), 'AD-01 GET /users → 200 array');
   ok(Array.isArray(r1.data) && r1.data.some(u => u.email === EMAIL), 'AD-01 test admin in user list');
+
+  // Edit details (name / email) — admin-managed since the My profile page.
+  const users = async () => (await api('GET', '/api/users', null, sysadminCookie)).data || [];
+  const byEmail = async e => (await users()).find(u => u.email === e);
+  const admin = await byEmail(EMAIL);
+  const sys = await byEmail(SYSADMIN_EMAIL);
+  if (!ok(admin && sys, 'AD-ED setup: test admin and sysadmin found')) return;
+  const U = id => `/api/users/${id}`;
+  const same = async () => {
+    const now = await byEmail(EMAIL);
+    return now && now.first_name === admin.first_name && now.last_name === admin.last_name;
+  };
+
+  const e1 = await api('PATCH', U(admin.id), { firstName: 'Tested' }, sysadminCookie);
+  ok(e1.status === 200 && e1.data?.first_name === 'Tested', `AD-ED-01 sysadmin renames the admin → 200 (got ${e1.status})`);
+  const e1b = await api('PATCH', U(admin.id), { firstName: admin.first_name }, sysadminCookie);
+  ok(e1b.status === 200 && (await same()), 'AD-ED-01 and back → 200');
+
+  const e2 = await api('PATCH', U(admin.id), { email: 'test-admin-ed@pdash.local' }, sysadminCookie);
+  const e2b = await api('PATCH', U(admin.id), { email: EMAIL }, sysadminCookie);
+  ok(e2.status === 200 && e2.data?.email === 'test-admin-ed@pdash.local' && e2b.status === 200 && !!(await byEmail(EMAIL)),
+    `AD-ED-02 sysadmin changes the admin's email and back → 200, 200 (got ${e2.status}, ${e2b.status})`);
+
+  const e3 = await api('PATCH', U(admin.id), { lastName: '  ' }, sysadminCookie);
+  ok(e3.status === 400 && e3.data?.field === 'lastName' && (await same()), `AD-ED-03 blank last name → 400 field lastName (got ${e3.status})`);
+
+  const e4 = await api('PATCH', U(admin.id), { email: ` ${SYSADMIN_EMAIL.toUpperCase()} ` }, sysadminCookie);
+  ok(e4.status === 409 && e4.data?.field === 'email' && !!(await byEmail(EMAIL)), `AD-ED-04 duplicate email (case, spaces) → 409 field email (got ${e4.status})`);
+
+  const e5 = await api('PATCH', U(admin.id), { firstName: 'Self' }, adminCookie);
+  ok(e5.status === 400 && (await same()), `AD-ED-05 admin edits own details → 400 (got ${e5.status})`);
+
+  const sysBefore = sys.first_name;
+  const e6 = await api('PATCH', U(sys.id), { firstName: 'Nope' }, adminCookie);
+  ok(e6.status === 403 && (await byEmail(SYSADMIN_EMAIL))?.first_name === sysBefore, `AD-ED-06 admin edits a sysadmin → 403 (got ${e6.status})`);
+
+  const e7 = await api('PATCH', U(admin.id), { firstName: 'Ok', email: 'not-an-email' }, sysadminCookie);
+  ok(e7.status === 400 && e7.data?.field === 'email' && (await same()), `AD-ED-07 one invalid field refuses the whole request (got ${e7.status})`);
+
+  // A throw-away user built by SQL (an invite needs SMTP): anonymizing it deletes its rectification
+  // requests, and an anonymized user's details can no longer be edited.
+  const tmp = await sql(
+    `INSERT INTO users (email, first_name, last_name, role, status)
+     VALUES ($1, 'Temp', 'Person', 'user', 'disabled') RETURNING id`, [`__test_anon_${Date.now()}@pdash.local`]);
+  if (tmp) {
+    const tid = tmp[0].id;
+    await sql(`INSERT INTO rectification_requests (user_id, message) VALUES ($1, 'my name is Temp Person')`, [tid]);
+    const an = await api('POST', `${U(tid)}/anonymize`, null, sysadminCookie);
+    const left = await sql('SELECT count(*)::int AS n FROM rectification_requests WHERE user_id = $1', [tid]);
+    ok(an.status === 200 && left && left[0].n === 0, `AD-ED-08 anonymize deletes the user's rectification requests (got ${an.status}, ${left?.[0]?.n} left)`);
+    const e9 = await api('PATCH', U(tid), { firstName: 'Back' }, sysadminCookie);
+    ok(e9.status === 400, `AD-ED-09 an anonymized user's details cannot be edited → 400 (got ${e9.status})`);
+  }
+
+  // A requester that can sign in (SQL user with a bcrypt hash): the admins' notifications of its
+  // request go with the anonymization too.
+  let bcrypt = null;
+  try { bcrypt = require('/tmp/node_modules/bcryptjs'); } catch (e) { fail(`bcryptjs unavailable (${e.message})`); }
+  const reqEmail = `__test_req_${Date.now()}@pdash.local`;
+  const reqRow = bcrypt && await sql(
+    `INSERT INTO users (email, first_name, last_name, role, status, password_hash)
+     VALUES ($1, 'Req', 'Uester', 'user', 'active', $2) RETURNING id`, [reqEmail, bcrypt.hashSync('ReqPass123!', 4)]);
+  if (reqRow) {
+    const rid = reqRow[0].id;
+    const login = await api('POST', '/api/auth/login', { email: reqEmail, password: 'ReqPass123!' });
+    const reqCookie = extractCookie(login.headers);
+    const msg = `__test_rr_anon_${Date.now()}__`;
+    const sent = await api('POST', '/api/auth/rectification-request', { message: msg }, reqCookie);
+    const before = await sql('SELECT count(*)::int AS n FROM notifications WHERE body = $1', [msg]);
+
+    // A demoted admin whose JWT still says admin cannot edit details (account takeover via email).
+    const down = await api('PATCH', U(admin.id), { role: 'user' }, sysadminCookie);
+    try {
+      const stale = await api('PATCH', U(rid), { email: 'stale-admin-takeover@pdash.local' }, adminCookie);
+      const row = await sql('SELECT email FROM users WHERE id = $1', [rid]);
+      ok(down.status === 200 && stale.status === 403 && row?.[0]?.email === reqEmail,
+        `AD-ED-11 a demoted admin with a stale token cannot edit details → 403 (got ${stale.status})`);
+    } finally {
+      const back = await api('PATCH', U(admin.id), { role: 'admin' }, sysadminCookie);
+      ok(back.status === 200, 'AD-ED-11 the test admin is restored to role admin');
+    }
+
+    await sql(`UPDATE users SET status = 'disabled', password_changed_at = NOW() WHERE id = $1`, [rid]);
+    const an = await api('POST', `${U(rid)}/anonymize`, null, sysadminCookie);
+    const after = await sql('SELECT count(*)::int AS n FROM notifications WHERE body = $1', [msg]);
+    ok(sent.status === 201 && before?.[0]?.n > 0 && an.status === 200 && after?.[0]?.n === 0,
+      `AD-ED-10 anonymize deletes the admins' notifications of the user's requests (got ${before?.[0]?.n} → ${after?.[0]?.n})`);
+    const pc = await sql('SELECT password_changed_at FROM users WHERE id = $1', [rid]);
+    ok(pc?.[0] && pc[0].password_changed_at === null, 'AD-ED-10 anonymize clears password_changed_at');
+    const idx = await sql(`SELECT 1 FROM pg_indexes WHERE tablename = 'notifications' AND indexdef LIKE '%(rectification_request_id)%'`);
+    if (idx) ok(idx.length === 1, 'AD-ED-15 notifications.rectification_request_id is indexed (the anonymize cascade)');
+  }
+
+  // A pending user's invite went to the old address: changing the email voids it (Resend invite issues a new one).
+  const pend = await sql(
+    `INSERT INTO users (email, first_name, last_name, role, status, invite_token, invite_expires)
+     VALUES ($1, 'Pen', 'Ding', 'user', 'pending', $2, NOW() + interval '48 hours') RETURNING id`,
+    [`__test_pending_${Date.now()}@pdash.local`, `tok_${Date.now()}`]);
+  if (pend) {
+    const pid = pend[0].id;
+    const e12 = await api('PATCH', U(pid), { email: `__test_pending_fixed_${Date.now()}@pdash.local` }, sysadminCookie);
+    const tok = await sql('SELECT invite_token, invite_expires FROM users WHERE id = $1', [pid]);
+    ok(e12.status === 200 && tok?.[0]?.invite_token === null && tok?.[0]?.invite_expires === null,
+      `AD-ED-12 changing a pending user's email voids the invite sent to the old address (got ${e12.status}, token ${tok?.[0]?.invite_token === null ? 'cleared' : 'kept'})`);
+    const e13 = await api('PATCH', U(pid), { email: 'anon_x@deleted.local' }, sysadminCookie);
+    ok(e13.status === 400 && e13.data?.field === 'email', `AD-ED-13 the anonymized-address pattern is refused → 400 (got ${e13.status})`);
+    // Any user: a reset link sent to the old address must not reset the corrected account.
+    await sql(`UPDATE users SET status = 'active', reset_token = $2, reset_expires = NOW() + interval '2 hours' WHERE id = $1`, [pid, `rst_${Date.now()}`]);
+    const e14 = await api('PATCH', U(pid), { email: `__test_reset_fixed_${Date.now()}@pdash.local` }, sysadminCookie);
+    const rst = await sql('SELECT reset_token, reset_expires FROM users WHERE id = $1', [pid]);
+    ok(e14.status === 200 && rst?.[0]?.reset_token === null && rst?.[0]?.reset_expires === null,
+      `AD-ED-14 changing an email voids a reset link sent to the old address (got ${e14.status}, token ${rst?.[0]?.reset_token === null ? 'cleared' : 'kept'})`);
+    await sql('DELETE FROM users WHERE id = $1', [pid]);
+  }
 }
 
 // ── Programs ───────────────────────────────────────────────────────────────────
@@ -3966,6 +4131,7 @@ async function main() {
       process.stdout.write(red('\nLogin failed — cannot continue. Run create-admin.js first.\n'));
       process.exit(1);
     }
+    await testProfile();
     await ensureTestCurrencies();
     await testSecurity();
     await testPipelineYears();
