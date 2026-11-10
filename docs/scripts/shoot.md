@@ -22,6 +22,8 @@ Prefer `--eval-file` for anything long — Windows shell quoting makes inline sn
 
 Put `SHOOT_EMAIL`/`SHOOT_PASSWORD` in the gitignored `.env` — the script parses that file itself, so do **not** `. ./.env` first (it holds non-shell-safe values and the source aborts midway, leaving the vars empty). `--email`/`--password` and exported env vars also work.
 
+The login asks for an email code, so a scripted login needs a trusted device: `docker exec pdash-api node src/trust-device.js <email>` prints its cookie value, to put in `.env` as `SHOOT_DEVICE` (or `--device`, or the environment). Without it the script stops with `login needs a trusted device`. A password change or an email change of that account removes the device: mint another.
+
 ## Gotchas that have actually bitten
 
 - **From Git Bash on Windows, prefix the command with `MSYS_NO_PATHCONV=1`** (2026-10-08). MSYS rewrites any argument that looks like a Unix path, so `--url /portfolio.html` reaches the script as `C:/Users/.../Git/portfolio.html`; the URL built from it 404s, nginx's `try_files … /index.html` serves the redirect stub instead, and the capture silently shows **pipeline.html** — a plausible-looking screenshot of the wrong page, with no error. Diagnosed from the nginx access log, where the referer reads `http://localhost:8081/C:/Users/…/portfolio.html`. The same `MSYS_NO_PATHCONV=1` guard already used for the `docker run` one-liner in CLAUDE.md.

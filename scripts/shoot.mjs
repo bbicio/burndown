@@ -6,8 +6,9 @@
 //   node scripts/shoot.mjs --url /costgrid.html?cgId=UUID --out shots/costgrid \
 //     --widths 1440,1024,768 --email me@x.com --password secret
 //
-// Credentials may also come from SHOOT_EMAIL / SHOOT_PASSWORD. Without them only
-// public pages (login, activate, reset-password) will render.
+// Credentials may also come from SHOOT_EMAIL / SHOOT_PASSWORD, plus SHOOT_DEVICE (a trusted-device
+// cookie value, see docs/scripts/shoot.md) so the login skips the email code. Without credentials
+// only public pages (login, activate, reset-password) will render.
 
 import { mkdirSync, writeFileSync, existsSync, rmSync, readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
@@ -39,7 +40,7 @@ const args = parseArgs(process.argv.slice(2));
 if (!args.url || args.help) {
   console.error('usage: node scripts/shoot.mjs --url <path-or-url> --out <dir> [--widths 1440,1024,768]');
   console.error('                              [--base http://localhost] [--height 900] [--full]');
-  console.error('                              [--email X --password Y] [--settle 1500]');
+  console.error('                              [--email X --password Y --device D] [--settle 1500]');
   console.error('                              [--eval "<js>" | --eval-file <path>] [--eval-settle 400]');
   console.error('  --eval / --eval-file run JavaScript in the page after the settle wait and');
   console.error('  before the capture, so interaction-dependent states (an open popover, a modal)');
@@ -79,6 +80,8 @@ function fromDotEnv(key) {
 
 const email = args.email || process.env.SHOOT_EMAIL || fromDotEnv('SHOOT_EMAIL');
 const password = args.password || process.env.SHOOT_PASSWORD || fromDotEnv('SHOOT_PASSWORD');
+// The value printed by `docker exec pdash-api node src/trust-device.js <email>`: the login then needs no code.
+const device = args.device || process.env.SHOOT_DEVICE || fromDotEnv('SHOOT_DEVICE');
 
 const chrome = CHROME_CANDIDATES.find(p => existsSync(p));
 if (!chrome) { console.error('No Chrome/Edge binary found. Checked:\n  ' + CHROME_CANDIDATES.join('\n  ')); process.exit(1); }
@@ -91,12 +94,15 @@ async function login() {
   if (!email || !password) return null;
   const res = await fetch(base + '/api/auth/login', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: { 'content-type': 'application/json', ...(device ? { cookie: 'pdash_device=' + device } : {}) },
     body: JSON.stringify({ email, password }),
     redirect: 'manual',
   });
   const raw = res.headers.getSetCookie ? res.headers.getSetCookie() : [res.headers.get('set-cookie')].filter(Boolean);
   const hit = raw.map(c => /(?:^|;\s*)pdash_token=([^;]+)/.exec(c)).find(Boolean);
+  if (res.ok && !hit && (await res.json().catch(() => ({}))).twoStep) {
+    throw new Error('login needs a trusted device: run docker exec pdash-api node src/trust-device.js <email> and set SHOOT_DEVICE');
+  }
   if (!res.ok || !hit) throw new Error(`login failed (HTTP ${res.status}) — no pdash_token cookie returned`);
   return hit[1];
 }
