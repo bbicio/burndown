@@ -1,7 +1,9 @@
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
-const { query } = require('../db/client');
+const { query, pool } = require('../db/client');
+const { withTransaction } = require('../db/transaction');
+const { notifyAdmins } = require('../services/users');
 const { setAuthCookie, clearAuthCookie } = require('../services/jwt');
 const { sendInvite, sendPasswordReset, sendAdminNotificationEmail, sendLoginCode } = require('../services/email');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
@@ -24,6 +26,8 @@ const loginIpLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 30 });
 const loginEmailLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
 // Every code sent (login that opens a challenge, resend): 10 per user per hour.
 const sendLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
+// Rectification requests: 5 per user per hour, each one notifies every admin.
+const rectificationLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 5 });
 
 const CHALLENGE_COOKIE = 'pdash_challenge';
 const DEVICE_COOKIE = 'pdash_device';
@@ -140,38 +144,39 @@ router.post('/rectification-request', requireAuth, async (req, res, next) => {
     if (err) return res.status(400).json({ error: err });
     const text = message.trim();
 
+    // Taken before the first await, and kept by a 409: asking again does not change the answer.
+    const slot = rectificationLimiter.hit(req.user.id);
+    if (!slot.allowed) return rateLimited(res, slot.retryInMs);
+
     const me = (await query('SELECT first_name, last_name FROM users WHERE id = $1', [req.user.id])).rows[0];
     if (!me) return res.status(404).json({ error: 'User not found' });
-    const { rows: [request] } = await query(
-      'INSERT INTO rectification_requests (user_id, message) VALUES ($1, $2) RETURNING id', [req.user.id, text]);
-
     const title = `Profile change requested by ${me.first_name} ${me.last_name}`;
-    const { rows: admins } = await query(
-      `SELECT id, email, first_name FROM users
-       WHERE status = 'active' AND role IN ('admin','sysadmin') AND id <> $1`,
-      [req.user.id]
-    );
-    // Once the request is recorded the answer is 201: a failed delivery to one admin is logged, never a 500
-    // that a retry would turn into a second request.
-    for (const a of admins) {
-      try {
-        // Inserted already linked to the request (one statement), so anonymizing the requester deletes it
-        // (notifications.rectification_request_id ON DELETE CASCADE).
-        const { rows: [n] } = await query(
-          `INSERT INTO notifications (user_id, type, title, body, url, url_label, rectification_request_id)
-           VALUES ($1, 'info', $2, $3, '/admin.html', 'Open User Admin', $4)
-           RETURNING id, user_id, type, title, body, url, url_label, read_at, created_at`,
-          [a.id, title, text, request.id]
-        );
-        pushToUser(a.id, { event: 'notification', data: n });
-      } catch (e) {
-        // The email below still goes out: this admin hears of the request through one channel at least.
-        console.warn('[rectification] notification failed:', e.message);
+
+    // The request and its notifications stand or fall together; with no admin to notify nothing is kept.
+    let admins;
+    try {
+      admins = await withTransaction(pool, async c => {
+        const { rows: [request] } = await c.query(
+          'INSERT INTO rectification_requests (user_id, message) VALUES ($1, $2) RETURNING id', [req.user.id, text]);
+        const rows = await notifyAdmins(c, request.id, title, text, req.user.id);
+        if (!rows.length) throw Object.assign(new Error('no recipient'), { code: 'NO_RECIPIENT' });
+        return rows;
+      });
+    } catch (e) {
+      if (e.code === 'NO_RECIPIENT') {
+        return res.status(409).json({ error: 'There is no other admin to send this request to.', code: 'NO_RECIPIENT' });
       }
+      throw e;
+    }
+
+    // Once committed the answer is 201: a failed email is logged, never a 500 that a retry would turn
+    // into a second request.
+    for (const { email, first_name: firstName, ...n } of admins) {
+      pushToUser(n.user_id, { event: 'notification', data: n });
       // The mailer escapes what it puts in the HTML; the in-app notification stays text.
       sendAdminNotificationEmail({
-        to: a.email,
-        firstName: a.first_name,
+        to: email,
+        firstName,
         title,
         body: text,
         url: '/admin.html',

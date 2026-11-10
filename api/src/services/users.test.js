@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { anonymizeUser } = require('./users');
+const { anonymizeUser, notifyAdmins } = require('./users');
 
 // A db that records the first words of each statement, and throws on the one that starts with `failOn`.
 function fakeDb({ failOn, rows = [{ id: 'u1', status: 'disabled' }] } = {}) {
@@ -32,4 +32,15 @@ test('anonymizeUser stops at a failed UPDATE: no two-step state is revoked', asy
   const db = fakeDb({ failOn: 'UPDATE users' });
   await assert.rejects(anonymizeUser(db, 'u1'), /UPDATE users failed/);
   assert.ok(!db.log.includes('DELETE FROM login_challenges'));
+});
+
+test('notifyAdmins creates every notification in one INSERT and returns its rows', async () => {
+  const calls = [];
+  const rows = [{ id: 'n1', user_id: 'a1', email: 'a@x', first_name: 'A' }];
+  const db = { query: async (text, params) => { calls.push({ text, params }); return { rows }; } };
+  const out = await notifyAdmins(db, 'r1', 'Title', 'Body', 'u1');
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].text, /INSERT INTO notifications/);
+  assert.deepEqual(calls[0].params, ['r1', 'Title', 'Body', 'u1']);
+  assert.deepEqual(out, rows);
 });

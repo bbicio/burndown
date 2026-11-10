@@ -28,4 +28,20 @@ async function anonymizeUser(db, id) {
   return updated;
 }
 
-module.exports = { anonymizeUser };
+// One notification per active admin/sysadmin other than the requester, in one statement, already linked
+// to the rectification request (anonymizing the requester deletes them). The rows carry the
+// notification and the admin's email and first name; none means no admin can read the request.
+async function notifyAdmins(db, requestId, title, body, requesterId) {
+  const { rows } = await db.query(
+    `WITH a AS (SELECT id, email, first_name FROM users
+                WHERE status = 'active' AND role IN ('admin','sysadmin') AND id <> $4),
+          n AS (INSERT INTO notifications (user_id, type, title, body, url, url_label, rectification_request_id)
+                SELECT a.id, 'info', $2::text, $3::text, '/admin.html', 'Open User Admin', $1::uuid FROM a
+                RETURNING id, user_id, type, title, body, url, url_label, read_at, created_at)
+     SELECT n.*, a.email, a.first_name FROM n JOIN a ON a.id = n.user_id`,
+    [requestId, title, body, requesterId]
+  );
+  return rows;
+}
+
+module.exports = { anonymizeUser, notifyAdmins };
