@@ -221,6 +221,72 @@ body {
   min-height: 1.5em;
 }
 
+/* ── Two-step: the code view and the locked view (login.html) ── */
+.auth-center { text-align: center; }
+.auth-title--lg { font-size: 18px; margin-top: 12px; }
+.auth-center .auth-subtitle { margin-bottom: 16px; }
+.auth-subtitle strong { color: var(--brand-navy); }
+.auth-field--left { text-align: left; margin-bottom: 12px; }
+
+/* Step indicator: ✓ Password — 2 Verification */
+.auth-steps { display: flex; align-items: center; justify-content: center; gap: 8px; margin-bottom: 16px; }
+.auth-step { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 600; }
+.auth-step--done { color: var(--color-success-text); }
+.auth-step--done .auth-step-check { color: var(--color-success-text); flex: none; }
+.auth-step--current { color: var(--brand-navy); font-weight: 700; }
+.auth-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--brand-magenta);
+  border-radius: 50%;
+  font-size: 9.5px;
+  font-weight: 700;
+  color: var(--brand-magenta);
+}
+.auth-step-line { width: 22px; height: 1px; background: var(--border-medium); }
+
+/* Round icon over the title */
+.auth-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface-subtle);
+  color: var(--brand-navy);
+}
+.auth-icon--danger {
+  width: 48px;
+  height: 48px;
+  background: color-mix(in srgb, var(--color-danger-bg) 35%, var(--surface-white));
+  color: var(--color-danger-text);
+}
+
+/* Status box over the input: icon + text, left aligned */
+.auth-alert { display: flex; align-items: flex-start; gap: 8px; text-align: left; margin-bottom: 14px; border: 1px solid transparent; }
+.auth-alert.alert-danger { border-color: var(--color-danger-bg); }
+.auth-alert.alert-success { border-color: var(--color-success-bg); }
+.auth-alert-icon { flex: none; margin-top: 2px; }
+
+.auth-trust { text-align: left; margin: 0 0 14px; font-size: 12.5px; color: var(--text-muted); }
+.auth-trust .form-check-input { border-color: var(--border-medium); }
+.auth-trust .form-check-input:checked { background-color: var(--brand-magenta); border-color: var(--brand-magenta); }
+.auth-trust .form-check-input:focus { border-color: var(--brand-magenta); box-shadow: 0 0 0 3px var(--focus-ring); }
+
+.auth-resend { margin-top: 14px; font-size: 12.5px; color: var(--text-muted); }
+.auth-resend-link {
+  color: var(--brand-navy);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.auth-resend-link:hover, .auth-resend-link:focus-visible { color: var(--brand-magenta); }
+.auth-back--center { display: flex; justify-content: center; margin: 14px 0 0; }
+
 /* ── Copyright ── */
 .auth-copyright { font-size: 11px; color: rgba(255,255,255,.45); }
 

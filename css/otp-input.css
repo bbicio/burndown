@@ -18,6 +18,7 @@
   border: 1px solid var(--border-medium);
   border-radius: var(--radius-md);
 }
+.otp-box--filled { border-color: var(--brand-navy); }
 /* A wider space between the third and the fourth digit. */
 .otp-box--gap { margin-left: 12px; }
 .otp-box:focus {

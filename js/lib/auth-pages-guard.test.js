@@ -103,7 +103,9 @@ describe('css/auth.css', () => {
       'auth-field--22', 'auth-field--24', 'auth-back', 'auth-state', 'auth-state-icon', 'auth-state-icon--danger',
       'auth-state-icon--success', 'user-chip', 'strength-meter', 'strength-1', 'strength-2', 'strength-3', 'strength-4',
       'strength-seg', 'strength-label', 'auth-copyright', 'form-label', 'form-control', 'invalid-feedback', 'btn-primary',
-      'link-muted', 'alert-success', 'alert-danger', 'spinner-border'];
+      'link-muted', 'alert-success', 'alert-danger', 'spinner-border', 'auth-steps', 'auth-step', 'auth-step--done',
+      'auth-step--current', 'auth-step-line', 'auth-step-num', 'auth-icon', 'auth-icon--danger', 'auth-center', 'auth-trust',
+      'auth-resend', 'auth-resend-link', 'auth-back--center', 'auth-alert', 'auth-title--lg'];
     const missing = classes.filter(c => !new RegExp(`\\.${c}(?![\\w-])`).test(css));
     expect(missing).toEqual([]);
   });
@@ -119,7 +121,7 @@ describe('migrated auth pages', () => {
       it('links Bootstrap, tokens.css then auth.css', () => {
         const bs = t.indexOf('bootstrap@5.3.2/dist/css/bootstrap.min.css');
         const tok = t.indexOf('css/tokens.css?v=14');
-        const auth = t.indexOf('css/auth.css?v=1');
+        const auth = t.indexOf('css/auth.css?v=2');
         expect(bs).toBeGreaterThanOrEqual(0);
         expect(tok).toBeGreaterThan(bs);
         expect(auth).toBeGreaterThan(tok);
@@ -223,8 +225,8 @@ describe('migrated auth pages', () => {
       const line = t.split('\n').find(l => l.includes('switchToForgot()'));
       expect(line).toContain('this.forgotEmail ||= this.email');
     });
-    it('compacts the logo in the Forgot view', () => {
-      expect(t).toContain("'auth-logo--compact': view === 'forgot'");
+    it('compacts the logo in every view but the sign-in form (Forgot, code, locked)', () => {
+      expect(t).toContain("'auth-logo--compact': view !== 'login'");
     });
   });
 });

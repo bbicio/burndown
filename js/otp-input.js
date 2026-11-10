@@ -75,7 +75,7 @@
     template: `
       <div class="otp-group" role="group" :aria-label="label">
         <input v-for="(d, i) in digits" :key="i" ref="box" type="text" inputmode="numeric"
-               class="otp-box" :class="{ 'otp-box--invalid': showInvalid, 'otp-box--gap': i === 3 }"
+               class="otp-box" :class="{ 'otp-box--invalid': showInvalid, 'otp-box--gap': i === 3, 'otp-box--filled': d }"
                :value="d" :disabled="disabled" :aria-label="'Digit ' + (i + 1) + ' of 6'"
                :aria-invalid="showInvalid ? 'true' : null"
                :autocomplete="i === 0 ? 'one-time-code' : 'off'"

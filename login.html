@@ -6,14 +6,15 @@
   <title>PDash — Sign In</title>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
   <link rel="stylesheet" href="css/tokens.css?v=14">
-  <link rel="stylesheet" href="css/auth.css?v=1">
+  <link rel="stylesheet" href="css/auth.css?v=2">
+  <link rel="stylesheet" href="css/otp-input.css?v=1">
 </head>
 <body>
   <div id="app" v-cloak>
     <div class="auth-stack">
     <div class="auth-card">
 
-      <div class="auth-logo" :class="{ 'auth-logo--compact': view === 'forgot' }">
+      <div class="auth-logo" :class="{ 'auth-logo--compact': view !== 'login' }">
         <div class="auth-logo-row">
           <span class="auth-logo-mark" aria-hidden="true">P</span>
           <span class="auth-logo-name">Dash</span>
@@ -46,6 +47,71 @@
         </button>
       </form>
 
+      <!-- ── EMAIL CODE ─────────────────────────────────────────── -->
+      <div v-else-if="view === 'code'" class="auth-center">
+        <div class="auth-steps" role="group" aria-label="Sign-in progress">
+          <span class="auth-step auth-step--done">
+            <svg class="auth-step-check" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="currentColor"/><path d="M4.6 8.2l2.3 2.3 4.5-4.7" fill="none" stroke="var(--text-inverse)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Password
+          </span>
+          <span class="auth-step-line" aria-hidden="true"></span>
+          <span class="auth-step auth-step--current"><span class="auth-step-num" aria-hidden="true">2</span>Verification</span>
+        </div>
+
+        <div class="auth-icon" aria-hidden="true">
+          <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="15" height="11" rx="2"/><path d="M3 6l7 5 7-5"/></svg>
+        </div>
+        <h6 class="auth-title auth-title--lg">Check your email</h6>
+        <p class="auth-subtitle">We sent a 6-digit code to <strong>{{ twoStep.destination }}</strong>. It expires in 10 minutes.</p>
+
+        <div v-if="codeBox" class="alert auth-alert" :class="codeBox.cls" role="alert">
+          <svg class="auth-alert-icon" viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="6.5"/><path v-if="codeBox.ok" d="M5 8.2l2 2 4-4.2"/><path v-else d="M8 4.6v4M8 11v.1"/></svg>
+          <span>{{ codeBox.text }}</span>
+        </div>
+
+        <form @submit.prevent="submitCode" novalidate>
+          <div class="auth-field auth-field--left">
+            <label class="form-label" id="codeLabel">Code from email</label>
+            <otp-input ref="otp" v-model="code" label="Code from email" :disabled="codeLocked" :invalid="codeState === 'wrong'" @complete="verify"></otp-input>
+          </div>
+
+          <div class="form-check auth-trust">
+            <input id="trustDevice" v-model="trust" type="checkbox" class="form-check-input" :disabled="codeLocked">
+            <label class="form-check-label" for="trustDevice">Trust this device for 30 days</label>
+          </div>
+
+          <button type="submit" class="btn btn-primary w-100" :disabled="primaryDisabled">
+            <span v-if="verifying || resending" class="spinner-border spinner-border-sm me-2" role="status"></span>
+            {{ primaryLabel }}
+          </button>
+        </form>
+
+        <div v-if="!codeLocked" class="auth-resend" aria-live="polite">
+          <span v-if="resendIn > 0">Resend in {{ resendIn }} s</span>
+          <a v-else class="auth-resend-link" role="button" tabindex="0" @click="resend" @keydown.enter="resend">Resend code</a>
+        </div>
+        <a class="link-muted auth-back auth-back--center" role="button" tabindex="0" @click="backToSignIn" @keydown.enter="backToSignIn">← Back to sign in</a>
+      </div>
+
+      <!-- ── LOCKED / EXPIRED SIGN-IN ──────────────────────────── -->
+      <div v-else-if="view === 'locked'" class="auth-center">
+        <div class="auth-steps" role="group" aria-label="Sign-in progress">
+          <span class="auth-step auth-step--done">
+            <svg class="auth-step-check" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="8" fill="currentColor"/><path d="M4.6 8.2l2.3 2.3 4.5-4.7" fill="none" stroke="var(--text-inverse)" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Password
+          </span>
+          <span class="auth-step-line" aria-hidden="true"></span>
+          <span class="auth-step auth-step--current"><span class="auth-step-num" aria-hidden="true">2</span>Verification</span>
+        </div>
+
+        <div class="auth-icon auth-icon--danger" aria-hidden="true">
+          <svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="9" width="12" height="8" rx="2"/><path d="M7 9V6.5a3 3 0 0 1 6 0V9"/></svg>
+        </div>
+        <h6 class="auth-title auth-title--lg">{{ lockedGone ? 'Sign-in expired' : 'Too many attempts' }}</h6>
+        <p class="auth-subtitle">{{ lockedGone ? 'Sign in again with your password to get a new code.' : 'For your security we stopped this sign-in. Sign in again with your password to get a new code.' }}</p>
+        <button type="button" class="btn btn-primary w-100" @click="backToSignIn">Back to sign in</button>
+      </div>
+
       <!-- ── FORGOT PASSWORD FORM ───────────────────────────────── -->
       <div v-else>
         <a class="link-muted auth-back" @click="switchToLogin">
@@ -76,11 +142,13 @@
   </div>
 
   <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script type="module" src="js/lib/otp.js?v=1"></script>
+  <script defer src="js/otp-input.js?v=1"></script>
   <script type="module">
-    Vue.createApp({
+    const app = Vue.createApp({
       data() {
         return {
-          view: 'login',
+          view: 'login',          // 'login' | 'code' | 'locked' | 'forgot'
           email: '',
           password: '',
           forgotEmail: '',
@@ -88,11 +156,141 @@
           error: null,
           success: null,
           year: new Date().getFullYear(),
+          // the code step
+          twoStep: null,
+          code: '',
+          trust: false,
+          codeState: 'idle',      // 'idle' | 'wrong' | 'resent' | 'expired' | 'sendError' | 'networkError' | 'rateLimited'
+          codeMessage: '',
+          attemptsLeft: 0,
+          resendIn: 0,
+          verifying: false,
+          resending: false,
+          lockedGone: false,
+          timer: null,
         };
+      },
+      computed: {
+        codeLocked() { return this.codeState === 'expired' || this.verifying; },
+        // The primary button resends when the code cannot be used any more.
+        primaryIsResend() { return this.codeState === 'expired' || this.codeState === 'sendError'; },
+        primaryLabel() {
+          if (this.primaryIsResend) return 'Send a new code';
+          return this.verifying ? 'Verifying…' : 'Verify';
+        },
+        primaryDisabled() {
+          if (this.verifying || this.resending) return true;
+          return this.primaryIsResend ? false : this.code.length !== 6;
+        },
+        codeBox() {
+          switch (this.codeState) {
+            case 'wrong':
+              return { cls: 'alert-danger', text: 'Incorrect code. ' + (this.attemptsLeft === 1 ? '1 attempt left.' : this.attemptsLeft + ' attempts left.') };
+            case 'resent':
+              return { cls: 'alert-success', ok: true, text: 'A new code has been sent. Use the latest one: earlier codes no longer work.' };
+            case 'expired':
+              return { cls: 'alert-danger', text: 'This code has expired. Send a new one to continue.' };
+            case 'sendError':
+              return { cls: 'alert-danger', text: 'We couldn\'t send the email. Check your connection and try again.' };
+            case 'networkError':
+              return { cls: 'alert-danger', text: 'Network error. Please try again.' };
+            case 'rateLimited':
+              return { cls: 'alert-danger', text: this.codeMessage };
+            default:
+              return null;
+          }
+        },
       },
       methods: {
         switchToForgot() { this.forgotEmail ||= this.email; this.view = 'forgot'; this.error = null; this.success = null; },
         switchToLogin()  { this.view = 'login';  this.error = null; this.success = null; },
+
+        rateLimitedText(retryIn) {
+          const n = Math.max(1, Math.ceil((retryIn || 60) / 60));
+          return 'Too many attempts. Try again in ' + n + (n === 1 ? ' minute.' : ' minutes.');
+        },
+
+        startTimer() {
+          this.stopTimer();
+          if (this.resendIn <= 0) return;
+          this.timer = setInterval(() => {
+            this.resendIn -= 1;
+            if (this.resendIn <= 0) this.stopTimer();
+          }, 1000);
+        },
+        stopTimer() { if (this.timer) { clearInterval(this.timer); this.timer = null; } },
+        focusCode() { this.$nextTick(() => this.$refs.otp && this.$refs.otp.focusFirst()); },
+
+        enterCode(ts) {
+          this.twoStep = ts;
+          this.code = '';
+          this.trust = false;
+          this.codeState = ts.sendFailed ? 'sendError' : 'idle';
+          this.resendIn = ts.resendIn || 0;
+          this.view = 'code';
+          this.startTimer();
+          this.focusCode();
+        },
+        lock(gone) { this.stopTimer(); this.lockedGone = gone; this.view = 'locked'; },
+        backToSignIn() {
+          fetch('/api/auth/two-step', { method: 'DELETE', credentials: 'same-origin' }).catch(() => {});
+          this.stopTimer();
+          this.view = 'login';
+          this.code = '';
+          this.password = '';
+          this.error = null;
+          this.codeState = 'idle';
+        },
+
+        submitCode() { return this.primaryIsResend ? this.resend() : this.verify(); },
+
+        async verify() {
+          if (this.verifying || this.code.length !== 6) return;
+          this.verifying = true;
+          try {
+            const res = await fetch('/api/auth/two-step/verify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'same-origin',
+              body: JSON.stringify({ code: this.code, trustDevice: this.trust }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) { window.location.href = '/'; return; }
+            if (res.status === 401 && data.code === 'NO_CHALLENGE') return this.lock(true);
+            if (res.status === 423) return this.lock(false);
+            if (res.status === 410) this.codeState = 'expired';
+            else if (res.status === 400 && data.code === 'WRONG_CODE') { this.codeState = 'wrong'; this.attemptsLeft = data.attemptsLeft; this.focusCode(); }
+            else this.codeState = 'networkError';
+          } catch {
+            this.codeState = 'networkError';
+          } finally {
+            this.verifying = false;
+          }
+        },
+
+        async resend() {
+          if (this.resending) return;
+          this.resending = true;
+          try {
+            const res = await fetch('/api/auth/two-step/resend', { method: 'POST', credentials: 'same-origin' });
+            const data = await res.json().catch(() => ({}));
+            if (res.ok) {
+              this.code = '';
+              this.codeState = 'resent';
+              this.resendIn = data.resendIn || 60;
+              this.startTimer();
+              this.focusCode();
+            } else if (res.status === 401 && data.code === 'NO_CHALLENGE') this.lock(true);
+            else if (res.status === 429 && data.code === 'COOLDOWN') { this.resendIn = data.retryIn; this.startTimer(); }
+            else if (res.status === 429) { this.codeState = 'rateLimited'; this.codeMessage = this.rateLimitedText(data.retryIn); }
+            else if (res.status === 502) { this.codeState = 'sendError'; this.resendIn = 0; }
+            else this.codeState = 'networkError';
+          } catch {
+            this.codeState = 'networkError';
+          } finally {
+            this.resending = false;
+          }
+        },
 
         async login() {
           this.loading = true;
@@ -105,7 +303,18 @@
               body: JSON.stringify({ email: this.email, password: this.password }),
             });
             const data = await res.json();
+            if (res.status === 429) { this.error = this.rateLimitedText(data.retryIn); return; }
             if (!res.ok) { this.error = data.error || 'Sign in failed. Please try again.'; return; }
+            if (data.twoStep) {
+              // Only the email method exists; anything else is a server this page does not know.
+              if (data.twoStep.method !== 'email') {
+                this.error = 'Sign in failed. Please try again.';
+                fetch('/api/auth/two-step', { method: 'DELETE', credentials: 'same-origin' }).catch(() => {});
+                return;
+              }
+              this.enterCode(data.twoStep);
+              return;
+            }
             window.location.href = '/';
           } catch {
             this.error = 'Network error. Please try again.';
@@ -134,7 +343,10 @@
           }
         },
       },
-    }).mount('#app');
+      beforeUnmount() { this.stopTimer(); },
+    });
+    app.component('otp-input', window.OtpInput);
+    app.mount('#app');
   </script>
 </body>
 </html>
