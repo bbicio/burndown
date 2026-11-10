@@ -15,8 +15,28 @@ describe('classifyGate5', () => {
     expect(classifyGate5(['TEST_CASES.md', 'js/lib/test-cases-parse.test.js'])).toBe('docs-only');
   });
 
-  it('the claude-md-guard pin is other', () => {
-    expect(classifyGate5(['docs/x.md', 'scripts/claude-md-guard.test.js'])).toBe('other');
+  it('the claude-md-guard pin is docs-and-script-tests', () => {
+    expect(classifyGate5(['docs/x.md', 'scripts/claude-md-guard.test.js'])).toBe('docs-and-script-tests');
+  });
+
+  it('only a scripts test is docs-and-script-tests', () => {
+    expect(classifyGate5(['scripts/x.test.js'])).toBe('docs-and-script-tests');
+  });
+
+  it('a nested scripts test is docs-and-script-tests', () => {
+    expect(classifyGate5(['CLAUDE.md', 'scripts/lib/x.test.js'])).toBe('docs-and-script-tests');
+  });
+
+  it('a scripts non-test file is other', () => {
+    expect(classifyGate5(['docs/x.md', 'scripts/x.mjs'])).toBe('other');
+  });
+
+  it('another js/lib test is other', () => {
+    expect(classifyGate5(['docs/x.md', 'js/lib/master-data-guard.test.js'])).toBe('other');
+  });
+
+  it('a test outside scripts/ is other', () => {
+    expect(classifyGate5(['docs/scripts/x.test.js'])).toBe('other');
   });
 
   it('an .html file is other', () => {
