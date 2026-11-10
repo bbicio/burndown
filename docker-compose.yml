@@ -43,8 +43,6 @@ services:
       ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-https://api.anthropic.com}
       PRIVACY_CONTACT_EMAIL: ${PRIVACY_CONTACT_EMAIL:-}
       PRIVACY_CONTACT_NAME: ${PRIVACY_CONTACT_NAME:-}
-    ports:
-      - "3000:3000"
     depends_on:
       db:
         condition: service_healthy
