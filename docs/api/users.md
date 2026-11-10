@@ -4,7 +4,7 @@ The three pieces that create and mutate accounts. `CLAUDE.md`'s File structure e
 
 ## api/src/routes/users.js
 
-`PATCH /:id` (role/status), `POST /:id/anonymize`, `DELETE /:id` — all gated `requireAdmin`, plus a shared `sysAdminTargetError()` check (2026-09): only a sysadmin may mutate a row whose current role is `sysadmin`, verified with a fresh DB read (`liveRole()`), **not** the JWT-cached claim.
+`PATCH /:id` (role/status), `POST /:id/anonymize`, `DELETE /:id` — all gated `requireAdmin`, plus a shared `sysAdminTargetError()` check (2026-09): only a sysadmin may mutate a row whose current role is `sysadmin`, verified with a fresh DB read (`liveRole()`).
 
 `PATCH /:id`'s role field additionally runs `roleChangeError()` (`api/src/lib/role-transition.js`) for two-step promotion/demotion.
 

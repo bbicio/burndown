@@ -527,6 +527,82 @@ async function testTwoStepRevocation() {
   }
 }
 
+// ── Session revocation ────────────────────────────────────────────────────────
+
+// A pdash_token signed with the suite's JWT_SECRET, for the claims no route would sign.
+function handSignedToken(claims) {
+  const crypto = require('crypto');
+  const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const iat = Math.floor(Date.now() / 1000);
+  const body = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ ...claims, iat, exp: iat + 3600 })}`;
+  const sig = crypto.createHmac('sha256', process.env.JWT_SECRET).update(body).digest('base64url');
+  return `pdash_token=${body}.${sig}`;
+}
+
+async function testSessionRevocation() {
+  section('Session revocation');
+  const U = id => `/api/users/${id}`;
+  const me = c => api('GET', '/api/auth/me', null, c);
+  const signedIn = async tag => {
+    const u = await makeTsUser(`se${tag}`);
+    return u && { ...u, session: await loginWithCode(u.email, TS_PASS) };
+  };
+
+  const a = await signedIn('a');
+  if (a) {
+    await api('DELETE', U(a.id), null, sysadminCookie);
+    const r = await me(a.session);
+    ok(r.status === 401, `SE-01 a disabled user's open session → 401 (got ${r.status})`);
+  }
+
+  const b = await signedIn('b');
+  if (b) {
+    await api('PATCH', U(b.id), { status: 'disabled' }, sysadminCookie);
+    const r = await me(b.session);
+    ok(r.status === 401, `SE-01b PATCH status disabled ends the open session → 401 (got ${r.status})`);
+  }
+
+  const c = await signedIn('c');
+  if (c) {
+    await api('POST', `${U(c.id)}/anonymize`, null, sysadminCookie);
+    const r = await me(c.session);
+    ok(r.status === 401, `SE-02 an anonymized user's open session → 401 (got ${r.status})`);
+  }
+
+  const d = await signedIn('d');
+  if (d) {
+    const other = await loginWithCode(d.email, TS_PASS);
+    const cp = await api('POST', '/api/auth/change-password',
+      { currentPassword: TS_PASS, newPassword: TS_PASS + 'x', newPasswordConfirm: TS_PASS + 'x' }, d.session);
+    const rb = await me(other);
+    ok(cp.status === 200 && rb.status === 401, `SE-03 change-password ends the other session → 401 (got ${cp.status}, ${rb.status})`);
+    const ra = await me(extractCookie(cp.headers));
+    ok(ra.status === 200, `SE-03 the session that changed the password keeps the reissued cookie → 200 (got ${ra.status})`);
+  }
+
+  const e = await makeTsUser('see');
+  if (e) {
+    await sql(`UPDATE users SET role = 'admin' WHERE id = $1`, [e.id]);
+    const session = await loginWithCode(e.email, TS_PASS);
+    await api('PATCH', U(e.id), { role: 'user' }, sysadminCookie);
+    const r = await api('GET', '/api/users', null, session);
+    ok(r.status === 403, `SE-04 a demoted admin's old session on an admin route → 403 (got ${r.status})`);
+  }
+
+  const f = await makeTsUser('sef');
+  if (f) {
+    const claims = { id: f.id, email: f.email, role: 'user' };
+    const r5 = await me(handSignedToken(claims));
+    ok(r5.status === 401, `SE-05 a token without the pwd claim → 401 (got ${r5.status})`);
+    const row = await sql('SELECT floor(extract(epoch FROM password_changed_at)*1000)::bigint AS pwd FROM users WHERE id = $1', [f.id]);
+    if (row) {
+      const pwd = row[0].pwd === null ? null : Number(row[0].pwd);
+      const r6 = await me(handSignedToken({ ...claims, pwd }));
+      ok(r6.status === 200, `SE-06 the same token with the right pwd claim → 200 (got ${r6.status})`);
+    }
+  }
+}
+
 // ── Profile ───────────────────────────────────────────────────────────────────
 
 async function testProfile() {
@@ -557,13 +633,42 @@ async function testProfile() {
 
   ok((await api('POST', RR, { message: '<b>x</b>' }, adminCookie)).status === 201, 'RR-05 HTML message → 201');
 
+  const limited = await makeTsUser('rr6');
+  if (limited) {
+    const session = await loginWithCode(limited.email, TS_PASS);
+    const statuses = [];
+    for (let i = 0; i < 5; i++) statuses.push((await api('POST', RR, { message: `__test_rr6_${i}__` }, session)).status);
+    const sixth = await api('POST', RR, { message: '__test_rr6_5__' }, session);
+    ok(statuses.every(s => s === 201) && sixth.status === 429 && sixth.data?.code === 'RATE_LIMITED' && sixth.data?.retryIn > 0,
+      `RR-06 the sixth request in an hour → 429 RATE_LIMITED with retryIn (got ${statuses.join(',')} then ${sixth.status} ${sixth.data?.code})`);
+  }
+
+  const lone = await makeTsUser('rr7');
+  if (lone) {
+    await sql(`UPDATE users SET role = 'admin' WHERE id = $1`, [lone.id]);
+    const session = await loginWithCode(lone.email, TS_PASS);
+    const others = await sql(
+      `UPDATE users SET status = 'disabled' WHERE status = 'active' AND role IN ('admin','sysadmin') AND id <> $1 RETURNING id`, [lone.id]);
+    try {
+      const r = await api('POST', RR, { message: '__test_rr7__' }, session);
+      const rows = await sql('SELECT count(*)::int AS n FROM rectification_requests WHERE user_id = $1', [lone.id]);
+      ok(r.status === 409 && r.data?.code === 'NO_RECIPIENT' && rows?.[0]?.n === 0,
+        `RR-07 no other active admin → 409 NO_RECIPIENT, nothing recorded (got ${r.status} ${r.data?.code}, ${rows?.[0]?.n} rows)`);
+    } finally {
+      if (others?.length) await sql(`UPDATE users SET status = 'active' WHERE id = ANY($1::uuid[])`, [others.map(o => o.id)]);
+    }
+  }
+
   ok((await api('GET', '/api/app-settings/privacy-contact')).status === 401, 'PC-01 privacy-contact without cookie → 401');
   const pc = await api('GET', '/api/app-settings/privacy-contact', null, adminCookie);
   ok(pc.status === 200 && pc.data && 'name' in pc.data && 'email' in pc.data, 'PC-01 privacy-contact → 200 { name, email }');
 
   const CP = '/api/auth/change-password';
+  // A password change ends every older session and reissues this one: carry the new cookie on.
   const w1 = await api('POST', CP, { currentPassword: PASS, newPassword: PASS + 'x', newPasswordConfirm: PASS + 'x' }, adminCookie);
+  adminCookie = extractCookie(w1.headers) || adminCookie;
   const w2 = await api('POST', CP, { currentPassword: PASS + 'x', newPassword: PASS, newPasswordConfirm: PASS }, adminCookie);
+  adminCookie = extractCookie(w2.headers) || adminCookie;
   ok(w1.status === 200 && w2.status === 200, `PW-01 change-password and back → 200, 200 (got ${w1.status}, ${w2.status})`);
   const pw = (await api('GET', '/api/auth/me', null, adminCookie)).data;
   ok(!!pw?.password_changed_at, 'PW-01 /me.password_changed_at is set');
@@ -666,11 +771,10 @@ async function testPipelineYears() {
   const offersFor = async (cookie, year) =>
     ((await api('GET', '/api/pipeline-years', null, cookie)).data || []).find(r => r.year === year)?.offers;
 
-  const me = await api('GET', '/api/auth/me', null, adminCookie);
-  const plain = await getPlainUserCookie();
+  const { id: plainId, cookie: plain } = await getPlainUser();
   const base = { admin: await offersFor(adminCookie, offYear), plain: await offersFor(plain, offYear) };
 
-  // Fixtures are owned by the sysadmin so the (demoted) test admin is neither owner nor shared.
+  // Fixtures are owned by the sysadmin so the plain user is neither owner nor shared.
   const mkCg = async (tag, published = true) => {
     const g = await api('POST', '/api/cost-grids', { name: `__test_py_offers_${tag}__` }, sysadminCookie);
     const cgId = g.data?.id;
@@ -696,7 +800,7 @@ async function testPipelineYears() {
   ok((await offersFor(plain, offYear)) - base.plain === 0,
     'PY-12 plain user offers delta = 0 for CGs neither owned nor shared');
   const sh = await api('POST', `/api/cost-grids/${A.cgId}/shares`,
-    { userId: me.data?.id, permission: 'viewer' }, sysadminCookie);
+    { userId: plainId, permission: 'viewer' }, sysadminCookie);
   ok(sh.status === 200 || sh.status === 201, 'PY-13 setup share to plain user');
   ok((await offersFor(plain, offYear)) - base.plain === 1,
     'PY-13 plain user offers delta = 1 after the proposal is shared with them');
@@ -1516,8 +1620,8 @@ async function testPotReferenceVersion() {
     .find(s => s.pipeline === st)?.count || 0;
   const offers = async (cookie = adminCookie) => ((await api('GET', '/api/pipeline-years', null, cookie)).data || [])
     .find(y => Number(y.year) === year)?.offers || 0;
-  // The test admin demoted to role user: a non-admin who owns every proposal this section creates.
-  const plain = await getPlainUserCookie();
+  // A non-admin; POT-20 makes it the owner of its proposal.
+  const { id: plainId, cookie: plain } = await getPlainUser();
 
   // POT-18 / POT-19 — v1 Expected (200), v2 Committed (400): counted once, in Committed
   const ytBefore = await yearTotals();
@@ -1547,7 +1651,8 @@ async function testPotReferenceVersion() {
   const plainBefore = plain ? await offers(plain) : null;
   const p20 = await proposal('__test_pot_ref_20__', ['Committed', 3], ['Anticipated', 5]);
   if (!p20) { fail('POT-20: proposal setup failed — skipping'); return; }
-  const pj = await api('POST', '/api/projects', { name: '__test_pot_ref_20_project__', cgVersionId: p20.v1, currency: 'EUR' }, sysadminCookie);
+  if (plainId) await sql('UPDATE cost_grids SET owner_id = $1 WHERE id = $2', [plainId, p20.cgId]);
+  const pj =await api('POST', '/api/projects', { name: '__test_pot_ref_20_project__', cgVersionId: p20.v1, currency: 'EUR' }, sysadminCookie);
   if (pj.data?.id) later('DELETE', `/api/projects/${pj.data.id}`);
   ok(pj.status === 201, `POT-20 setup: project linked to v1 → 201 (got ${pj.status})`);
   const row20 = ((await details()).proposals || []).filter(r => r.cg_id === p20.cgId);
@@ -1780,6 +1885,19 @@ async function testUsers() {
       `AD-ED-14 changing an email voids a reset link sent to the old address (got ${e14.status}, token ${rst?.[0]?.reset_token === null ? 'cleared' : 'kept'})`);
     await sql('DELETE FROM users WHERE id = $1', [pid]);
   }
+
+  // Two admins give the same new address to two users at once: the loser gets the 409 of the duplicate
+  // check, never the 500 of the unique constraint.
+  const race = [];
+  for (let i = 0; i < 10; i++) {
+    const [x, y] = [await makeTsUser(`race${i}x`), await makeTsUser(`race${i}y`)];
+    if (!x || !y) break;
+    const email = `__test_race_${i}_${Date.now()}@pdash.local`;
+    const rs = await Promise.all([x, y].map(u => api('PATCH', U(u.id), { email }, sysadminCookie)));
+    race.push(rs.map(r => r.status === 409 ? `409${r.data?.field === 'email' ? '' : '!'}` : String(r.status)).sort().join('/'));
+  }
+  ok(race.length === 10 && race.every(p => p === '200/409'),
+    `AD-ED-16 concurrent PATCHes to one new email → one 200 and one 409 field email, never 500 (got ${race.join(' ')})`);
 }
 
 // ── Programs ───────────────────────────────────────────────────────────────────
@@ -2787,21 +2905,15 @@ async function testProfileEngineHooks() {
 // emailed token, so the sysadmin demotes the test admin to 'user', we log in (JWT role = user) and
 // the admin is promoted back at once. requireAdmin trusts the JWT role claim, so the existing
 // adminCookie keeps working throughout; the run-tests.sh stack is disposable.
+// A throw-away user with role user, signed in. Not the test admin demoted and restored: the session
+// carries the role in the database, so a cookie taken while demoted is an admin's again once restored.
+async function getPlainUser() {
+  const u = await makeTsUser('plain');
+  return u ? { id: u.id, cookie: await loginWithCode(u.email, TS_PASS) } : { id: null, cookie: '' };
+}
+
 async function getPlainUserCookie() {
-  const me = await api('GET', '/api/auth/me', null, adminCookie);
-  const adminId = me.data?.id;
-  if (!adminId || !sysadminCookie) return '';
-  let cookie = '';
-  try {
-    const down = await api('PATCH', `/api/users/${adminId}`, { role: 'user' }, sysadminCookie);
-    if (down.status !== 200) return '';
-    const login = await api('POST', '/api/auth/login', { email: EMAIL, password: PASS }, ADMIN_DEVICE);
-    cookie = login.status === 200 && login.data?.role === 'user' ? extractCookie(login.headers) : '';
-  } finally {
-    const back = await api('PATCH', `/api/users/${adminId}`, { role: 'admin' }, sysadminCookie);
-    ok(back.status === 200 && back.data?.role === 'admin', 'PJ-setup the test admin is restored to role admin');
-  }
-  return cookie;
+  return (await getPlainUser()).cookie;
 }
 
 // GET the console state, with the project rows indexed by code.
@@ -3374,7 +3486,7 @@ async function testPlanningModel() {
   ok(r2.data?.roles?.find(x => x.role === 'Consultant')?.actuals === 15, 'PM-06 a new upload is visible right away (cache invalidated)');
 
   // PM-07: a non-admin who neither owns nor was shared the project gets an empty result, not an error
-  // The plain user is the demoted test admin (getPlainUserCookie); the project the
+  // The plain user comes from getPlainUserCookie; the project the
   // plain user must NOT see is created by the sysadmin (a different account) with its own actuals.
   const code7 = `TPLANX${ts}`;
   const r7 = sysadminCookie ? await api('POST', '/api/projects', { name: `__plan_${code7}__`, code: code7, startDate: '209901', endDate: '209903' }, sysadminCookie) : null;
@@ -4484,6 +4596,7 @@ async function main() {
     }
     await testTwoStep();
     await testTwoStepRevocation();
+    await testSessionRevocation();
     await testProfile();
     await ensureTestCurrencies();
     await testSecurity();
