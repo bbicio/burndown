@@ -1,0 +1,44 @@
+/* ── Six-box code input (js/otp-input.js, used by login.html) ───────────────── */
+.otp-group {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.otp-box {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 48px;
+  height: 52px;
+  padding: 0;
+  text-align: center;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-bold, 700);
+  color: var(--brand-navy);
+  background: var(--surface-white);
+  border: 1px solid var(--border-medium);
+  border-radius: var(--radius-md);
+}
+/* A wider space between the third and the fourth digit. */
+.otp-box--gap { margin-left: 12px; }
+.otp-box:focus {
+  outline: none;
+  border-color: var(--brand-magenta);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.otp-box--invalid {
+  color: var(--color-danger-text);
+  border-color: var(--color-danger);
+  background: color-mix(in srgb, var(--color-danger-bg) 35%, var(--surface-white));
+}
+.otp-box--invalid:focus {
+  border-color: var(--color-danger);
+  box-shadow: none;
+}
+.otp-box:disabled {
+  color: var(--text-disabled);
+  background: var(--surface-light);
+  border-color: var(--border-light);
+}
+@media (max-width: 575.98px) {
+  .otp-box { height: 54px; }
+}
