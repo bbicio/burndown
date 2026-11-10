@@ -72,11 +72,11 @@
         <form @submit.prevent="submitCode" novalidate>
           <div class="auth-field auth-field--left">
             <label class="form-label" id="codeLabel">Code from email</label>
-            <otp-input ref="otp" v-model="code" label="Code from email" :disabled="codeLocked" :invalid="codeState === 'wrong'" @complete="verify"></otp-input>
+            <otp-input ref="otp" v-model="code" label="Code from email" :disabled="boxesDisabled" :invalid="codeState === 'wrong'" @complete="verify"></otp-input>
           </div>
 
           <div class="form-check auth-trust">
-            <input id="trustDevice" v-model="trust" type="checkbox" class="form-check-input" :disabled="codeLocked">
+            <input id="trustDevice" v-model="trust" type="checkbox" class="form-check-input" :disabled="boxesDisabled">
             <label class="form-check-label" for="trustDevice">Trust this device for 30 days</label>
           </div>
 
@@ -86,7 +86,7 @@
           </button>
         </form>
 
-        <div v-if="!codeLocked" class="auth-resend" aria-live="polite">
+        <div v-if="!resendHidden" class="auth-resend" aria-live="polite">
           <span v-if="resendIn > 0">Resend in {{ resendIn }} s</span>
           <a v-else class="auth-resend-link" role="button" tabindex="0" @click="resend" @keydown.enter="resend">Resend code</a>
         </div>
@@ -171,7 +171,11 @@
         };
       },
       computed: {
-        codeLocked() { return this.codeState === 'expired' || this.verifying; },
+        // No usable code (expired, or the mail never left): the boxes wait for a new one.
+        noCode() { return this.codeState === 'expired' || this.codeState === 'sendError'; },
+        boxesDisabled() { return this.noCode || this.verifying; },
+        // The primary button already offers "Send a new code" then.
+        resendHidden() { return this.noCode; },
         // The primary button resends when the code cannot be used any more.
         primaryIsResend() { return this.codeState === 'expired' || this.codeState === 'sendError'; },
         primaryLabel() {
