@@ -26,3 +26,7 @@ Two consumers:
 
 - The integration test suite's bootstrap — `docker-compose.yml`'s `test` service runs both scripts, the second for a dedicated `TEST_SYSADMIN_EMAIL` account.
 - The first real sysadmin promotion after a deploy. **No user starts as sysadmin:** `018_sysadmin_role.sql` widens the `role` CHECK constraint with no backfill, by design. Someone must run this script once by hand; after that an existing sysadmin can use `admin.html`'s "⬆ Grant sysadmin" toggle for anyone else.
+
+## Two-step CLIs and revocation (2026-11-10)
+
+`create-admin.js` on an existing user now also sets `password_changed_at` and calls `revokeTwoStepState`. `api/src/trust-device.js <email> [--days N]` prints the value of a `pdash_device` cookie for an active user (label `Automation (CLI)`); `api/src/two-step-code.js <email>` prints a fresh 6-digit code for the user's most recent open challenge (exit 1 without one). Both load `api/src/cli-env.js`. `PATCH /:id` (new email or `status: 'disabled'`), `DELETE /:id` and `/anonymize` revoke challenges and trusted devices.

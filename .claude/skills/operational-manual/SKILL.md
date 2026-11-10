@@ -71,6 +71,7 @@ This is the living answer to Step 5 for this project — not a fixed checklist, 
 
 **§2 Getting started**
 - **Saving overlay (PRD §13 "Slow saves", 2026-11-06, from `PRD.md`).** A save still running after about 0.4 s covers the page with "Saving changes… — Please don't close this page." until it ends; clicks and keys do nothing meanwhile. Background autosaves in the offer editor, tag ticks and marking a notification read never show it.
+- **Two-step sign-in (PRD §15.1, `docs/prd/access.md`, 2026-11-10).** After the password the sign-in page asks for a 6-digit code mailed to the account (10 minutes, five attempts, resend after 60 s); "Trust this device for 30 days" skips it, and Profile → Trusted devices lists and removes devices.
 - **Login and password recovery — anti-enumeration behavior.** Both login failures and password-reset requests respond identically whether or not the email matches a real account, specifically so no one can use either form to discover which emails are registered. Worth a short `<details>` even with little extra prose to add, since it's a real applicative flow worth keeping in scope.
 - **Password recovery and setting a password (PRD §15.1/§15.3, 2026-10-06).** "Forgot password?" switches the sign-in page to a recovery view (back with "← Back to sign in") and pre-fills the email already typed; on the activation and reset pages a four-segment strength indicator (Weak/Fair/Good/Strong) is guidance only — the button enables at 8 characters with a matching confirmation.
 

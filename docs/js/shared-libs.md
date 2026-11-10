@@ -71,3 +71,7 @@ Not cached: each consumer page calls it once per page load. The UI it feeds: [do
 No longer loaded by `portfolio.html` (its rendering logic was folded into that page's Vue rewrite). It is still loaded by `planning.html`, which relies on exactly two of its exports — `getMonthRangeFromCfg(cfg)` and `fmtProjectTitle(cfg)` — consumed directly by that page's Vue instance (formerly by `js/planning.js`, now deleted).
 
 The rest of the file (`renderPortfolioSummary`, `buildProjectCard`, `buildProgramSummary`, `renderPortfolioView`, `showPortfolioView`, `showDashboardView`, and the dead duplicate `showPortfolioPlanningView`) is unreachable now that no page's script list wires it up.
+
+## otp-input.js (2026-11-10, two-step login)
+
+Classic script, `defer`: the Vue component `window.OtpInput`, registered as `<otp-input>` by `login.html` only (styles `css/otp-input.css`). Props `modelValue`, `label`, `disabled`, `invalid`; emits `update:modelValue` (digits only) on user input and `complete` on the sixth digit; `focusFirst()`. Six `input`s with `inputmode="numeric"`, `aria-label="Digit n of 6"`, `autocomplete="one-time-code"` on the first only; paste is handled by the component, autofill arrives as an input event. `invalid` reddens the boxes until the next edit, and only a change of `invalid` to true re-arms it, so a page must put its state back to idle on the first edit (`login.html`'s `onCodeEdit`). Logic: `js/lib/otp.js`.
