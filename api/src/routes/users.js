@@ -191,6 +191,7 @@ router.post('/:id/anonymize', requireAdmin, async (req, res, next) => {
          reset_expires     = NULL,
          terms_version     = NULL,
          terms_accepted_at = NULL,
+         password_changed_at = NULL,
          status            = 'disabled'
        WHERE id = $1
        RETURNING id, status`,

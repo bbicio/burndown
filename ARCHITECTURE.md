@@ -206,7 +206,7 @@ rectification_requests (              -- migration 033: register of the correcti
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 )
 -- Deleted by POST /api/users/:id/anonymize (the message is free text with personal data); the admins'
--- notifications of a request reference it (notifications.rectification_request_id) and are deleted with it.
+-- notifications of a request reference it (notifications.rectification_request_id, indexed) and are deleted with it.
 
 app_settings (                        -- migration 015: generic key/value store for admin-managed config
   key        VARCHAR(100) PRIMARY KEY,

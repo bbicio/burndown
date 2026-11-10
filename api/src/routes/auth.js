@@ -76,8 +76,8 @@ router.post('/rectification-request', requireAuth, async (req, res, next) => {
         );
         pushToUser(a.id, { event: 'notification', data: n });
       } catch (e) {
+        // The email below still goes out: this admin hears of the request through one channel at least.
         console.warn('[rectification] notification failed:', e.message);
-        continue;
       }
       // The email body is HTML: what the user typed is escaped here, the in-app notification stays text.
       sendAdminNotificationEmail({

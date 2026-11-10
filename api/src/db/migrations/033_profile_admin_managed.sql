@@ -17,5 +17,6 @@ CREATE INDEX IF NOT EXISTS idx_rectification_requests_user ON rectification_requ
 -- The admins' notifications of a request carry its text: they go when the request goes (anonymize).
 ALTER TABLE notifications ADD COLUMN IF NOT EXISTS rectification_request_id UUID
   REFERENCES rectification_requests(id) ON DELETE CASCADE;
+CREATE INDEX IF NOT EXISTS idx_notifications_rectification_request ON notifications(rectification_request_id);
 
 COMMIT;

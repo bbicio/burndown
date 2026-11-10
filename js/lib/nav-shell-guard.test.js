@@ -41,7 +41,7 @@ describe('sidebar-state head snippet', () => {
 
 const PAGES = ['pipeline','portfolio','planning','costgrid','project-config','team',
   'master-clients','master-pipelines','master-roles','master-currencies',
-  'timesheets','admin','attribute-lists','profile-jobs','privacy-notice','_db-reset','_terms-editor','program'];
+  'timesheets','admin','attribute-lists','profile-jobs','privacy-notice','_db-reset','_terms-editor','program','profile'];
 const readPage = n => readFileSync(join(process.cwd(), n + '.html'), 'utf8');
 const OPEN = '<div id="app-shell">';
 const CLOSE = '<!-- /#app-shell -->';

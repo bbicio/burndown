@@ -963,8 +963,11 @@
               return;
             }
             const user = this.users.find(u => u.id === d.userId);
+            // The server voids the invite sent to the old address (PATCH /api/users/:id).
+            const inviteVoided = body.email !== undefined && user?.status === 'pending';
             if (user) Object.assign(user, { first_name: data.first_name, last_name: data.last_name, email: data.email });
-            this.setBanner('success', `Details updated for ${data.first_name} ${data.last_name}.`, '');
+            this.setBanner('success', `Details updated for ${data.first_name} ${data.last_name}.`,
+              inviteVoided ? 'Their invite was cancelled: use Resend invite to send it to the new address.' : '');
             detailsDrawer.hide();
           } catch {
             d.error = 'Network error. Please try again.';

@@ -1397,11 +1397,15 @@ async function testUsers() {
       ok(back.status === 200, 'AD-ED-11 the test admin is restored to role admin');
     }
 
-    await sql(`UPDATE users SET status = 'disabled' WHERE id = $1`, [rid]);
+    await sql(`UPDATE users SET status = 'disabled', password_changed_at = NOW() WHERE id = $1`, [rid]);
     const an = await api('POST', `${U(rid)}/anonymize`, null, sysadminCookie);
     const after = await sql('SELECT count(*)::int AS n FROM notifications WHERE body = $1', [msg]);
     ok(sent.status === 201 && before?.[0]?.n > 0 && an.status === 200 && after?.[0]?.n === 0,
       `AD-ED-10 anonymize deletes the admins' notifications of the user's requests (got ${before?.[0]?.n} → ${after?.[0]?.n})`);
+    const pc = await sql('SELECT password_changed_at FROM users WHERE id = $1', [rid]);
+    ok(pc?.[0] && pc[0].password_changed_at === null, 'AD-ED-10 anonymize clears password_changed_at');
+    const idx = await sql(`SELECT 1 FROM pg_indexes WHERE tablename = 'notifications' AND indexdef LIKE '%(rectification_request_id)%'`);
+    if (idx) ok(idx.length === 1, 'AD-ED-15 notifications.rectification_request_id is indexed (the anonymize cascade)');
   }
 
   // A pending user's invite went to the old address: changing the email voids it (Resend invite issues a new one).
