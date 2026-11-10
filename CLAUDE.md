@@ -194,7 +194,7 @@ api/src/create-admin.js  — CLI bootstrap script (admin user create/reset); alw
 api/src/promote-sysadmin.js — CLI script to promote an existing user to `role='sysadmin'` — the separate step needed after `create-admin.js`. See [docs/api/users.md](docs/api/users.md).
 api/src/db/migrations/   — numbered SQL migration files
 scripts/test-branch.sh   — isolated Docker Compose stack for testing the current feature branch before merge; up/down/status subcommands. Full narrative: [docs/scripts/test-branch.md](docs/scripts/test-branch.md).
-scripts/run-tests.sh     — ephemeral, fully isolated Docker Compose stack for the integration-test profile (no host ports, disposable volume, auto-teardown via trap). Full narrative: [docs/scripts/run-tests.md](docs/scripts/run-tests.md).
+scripts/run-tests.sh     — ephemeral, fully isolated Docker Compose stack for the integration-test profile, plus the backend unit tests (no host ports, disposable volume, auto-teardown via trap). Full narrative: [docs/scripts/run-tests.md](docs/scripts/run-tests.md).
 scripts/backup-db.sh     — pg_dump -Fc snapshot of the main stack's pdash-db into backups/ (gitignored), timestamped to the second, keeps only the 3 most recent dumps; non-blocking (warns + exits 0 if pdash-db isn't running). Run standalone, or by /finish-cycle Gate 4 when the stack is about to be touched — see "Database backup & full recreation" above.
 scripts/classify-cycle.mjs — classifies a branch for `/finish-cycle`'s Gate 2 (`no-code` vs `ordinary`,
                             plus the paths judged); the rule is pinned by its own `.test.js`, not by prose.

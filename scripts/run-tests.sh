@@ -121,6 +121,9 @@ $COMPOSE up -d $API_BUILD_FLAG api
 wait_healthy "$API_CONTAINER"
 echo "$CURRENT_HASH" > "$IMAGE_HASH_FILE"
 
+echo "Running backend unit tests (node --test)..."
+docker exec "$API_CONTAINER" node --test 'src/**/*.test.js'
+
 set +e
 $COMPOSE --profile test run --rm --use-aliases test
 exit_code=$?

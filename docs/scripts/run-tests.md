@@ -15,3 +15,7 @@ The duplicated `$COMPOSE down -v --remove-orphans` command is now a single share
 ## LLM stub for topic extraction (2026-09-29, profile descriptions cycle)
 
 The integration suite exercises topic extraction against a local stub instead of the real Anthropic API. The `test` service is started with `run --rm --use-aliases test` (the `--use-aliases` flag gives the one-off container its service name as a network alias), so the isolated `api` container can reach the stub that `test-api.js` starts inside the test container, at `http://test:4010`. The generated `docker-compose.test.yml` override therefore also sets, for `api`, `ANTHROPIC_API_KEY: test-key` and `ANTHROPIC_BASE_URL: http://test:4010`, and for `test`, `LLM_STUB_ENABLED=1` (the stub only starts when it is set). Nothing in this stack can reach the real Anthropic API. Without these settings the extraction tests (`TX-*`, `PT-*`) cannot run: the API would skip extraction (no key) or call the real service.
+
+## Backend unit tests (2026-11-10, gate1-tests)
+
+After the `api` container is healthy and before the `test` service starts, the script runs `docker exec "$API_CONTAINER" node --test 'src/**/*.test.js'`. The glob is single-quoted, so Node expands it at any depth. The container mounts `./api/src` of the checkout the script runs from, so in a worktree it tests the branch's code, with `api/`'s dependencies. A red exits the script with a non-zero code before the integration suite runs; `cleanup` still tears the stack down.

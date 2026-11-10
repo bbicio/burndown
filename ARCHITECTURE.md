@@ -1027,7 +1027,7 @@ burndown/
   vitest.config.js
   scripts/
     test-branch.sh        ← isolated Docker Compose stack (up/down/status) for the current branch. Detail: docs/scripts/test-branch.md
-    run-tests.sh          ← ephemeral isolated stack for the integration-test profile; Gate 1's test command. Detail: docs/scripts/run-tests.md
+    run-tests.sh          ← ephemeral isolated stack for the backend unit tests and the integration-test profile; Gate 1's test command. Detail: docs/scripts/run-tests.md
     backup-db.sh          ← pg_dump -Fc snapshot of pdash-db into backups/ (gitignored), non-blocking; see "Docker main-stack safety" above
     classify-cycle.mjs    ← classifies a branch for /finish-cycle's Gate 2 (no-code vs ordinary); the rule is code here, pinned by scripts/classify-cycle.test.js, never prose
     architecture-guard.test.js ← fails when §5/§6 of this file drift from the code (routes, tables, added columns); its own header names what it deliberately does not check
