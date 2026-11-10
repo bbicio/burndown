@@ -105,7 +105,7 @@ Accanto alla guardia infrastrutturale di §4, che è una regola di condotta, ci 
 Due conseguenze operative — la prima specifica di `architecture-guard`, la seconda valida per tutti i cicli:
 
 1. **Un rosso di `architecture-guard` si corregge sul branch, mai al Gate 5.** Il guard blocca il Gate 1; lo step che aggiorna `ARCHITECTURE.md` (`/sync-docs` §1) gira al Gate 5, cioè *dopo* il merge. Chi aggiunge un endpoint o una migrazione documenta §5/§6 prima di chiudere, altrimenti il Gate 1 non diventa verde.
-2. **Il Gate 5 esegue i test prima di mostrare il diff; quali, lo decide `node scripts/gate5-scope.mjs`** (la regola sta nello script e nello step 3 del gate). È lo step che modifica i numeri che i guard pinnano, ed è anche quello che pusha su `main`. Un rosso lì si corregge su `main` e si rientra dallo step 3 — non è un "rilancia `/finish-cycle` da capo", perché il merge è già avvenuto.
+2. **Il Gate 5 esegue i test prima di mostrare il diff; quali, lo decide `node scripts/gate5-scope.mjs`** (la regola sta nello script e nello step 3 del gate). È lo step che modifica i numeri che i guard pinnano, ed è anche quello che pusha su `main`. Un rosso lì si corregge su `main` e si rientra dallo step 3.
 
 **Il valore corrente dei pin non sta qui, sta nei test.** Questa sezione non riporta nessun valore pinnato e nessun conteggio che possa invecchiare. Chi deve sapere cosa un guard accetta oggi legge il file, mai una parafrasi — e ogni guard dichiara nella propria intestazione i limiti che **non** copre, che è la parte più facile da scambiare per copertura.
 
@@ -161,7 +161,7 @@ Le regole sotto valgono per tutti e tre gli scenari.
 ### 6.2 Test
 - Con Node dell'host ≥ 20.12 `npm test` gira nativo. Il comando Docker `node:22` di `CLAUDE.md` resta solo come fallback per un host con Node vecchio.
 - Un worktree nuovo non ha `node_modules`: subito dopo averlo creato, eseguire `npm ci` una volta (insieme alla copia di `.env`).
-- **Durante i task si lanciano solo i file di test toccati o aggiunti** (`npx vitest run <file>`; backend: `docker exec pdash-api node --test src/<file>`). La suite completa gira **dentro `/finish-cycle`, in due punti, entrambi bloccanti**: al Gate 1 step 1, prima di qualunque verifica, e al Gate 5 step 3, sulle modifiche di `/sync-docs` e prima del push, dove `node scripts/gate5-scope.mjs` può ridurla a un subset (la regola sta nello script e nel comando). Dentro `/finish-cycle`, `/sync-docs` non lancia test. Mai due suite complete in parallelo, e quando una è verde non si rileggono i suoi log: l'esito è l'esito.
+- **Durante i task si lanciano solo i file di test toccati o aggiunti** (`npx vitest run <file>`; backend: `docker exec pdash-api node --test src/<file>`). La suite frontend completa (`npm test`) gira **dentro `/finish-cycle`, in due punti, entrambi bloccanti**: al Gate 1 step 1, prima di qualunque verifica, e al Gate 5 step 3, sulle modifiche di `/sync-docs` e prima del push, dove `node scripts/gate5-scope.mjs` può ridurla a un subset (la regola sta nello script e nel comando). Mai due suite complete in parallelo, e quando una è verde non si rileggono i suoi log: l'esito è l'esito.
 - **Nel coordinatore non si fa una passata di fine esecuzione:** il Gate 1 ritesta lo stesso albero all'apertura di `/finish-cycle`.
 
 ### 6.3 Una sola verifica visiva per ciclo
