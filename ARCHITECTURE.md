@@ -660,11 +660,11 @@ timesheets (
 | GET | /api/auth/trusted-devices | ✅ | The user's unexpired trusted devices, `current` from the `pdash_device` cookie |
 | DELETE | /api/auth/trusted-devices/:id | ✅ | Remove one of the user's own devices; 404 for another user's |
 | DELETE | /api/auth/trusted-devices | ✅ | Remove all of the user's devices |
-| POST | /api/auth/invite | admin | Invite new user |
-| POST | /api/auth/:id/resend-invite | admin | Resend activation email to a pending user with a fresh 48h token |
+| POST | /api/auth/invite | admin | Invite new user; `201 { id, emailSent }` — a refused email keeps the pending user and answers `emailSent: false` |
+| POST | /api/auth/:id/resend-invite | admin | Resend activation email to a pending user with a fresh 48h token; a refused email → `502 SEND_FAILED` |
 | GET | /api/auth/invite/:token | — | Validate invite token |
 | POST | /api/auth/activate | — | Set password, activate account |
-| POST | /api/auth/forgot-password | — | Request password reset |
+| POST | /api/auth/forgot-password | — | Request password reset; always `200`, a refused email included |
 | GET | /api/auth/reset-password/:token | — | Validate reset token |
 | POST | /api/auth/reset-password | — | Set new password |
 | POST | /api/auth/change-password | ✅ | Change password (authenticated); writes `password_changed_at`. A wrong current password is `400 { error, field: 'currentPassword' }`, not 401 (the client would treat it as an expired session) |
@@ -693,7 +693,7 @@ timesheets (
 | POST | /api/programs | ✅ | Create (2026-09: relaxed from admin — a non-admin proposal owner/editor can establish a program via costgrid.html's Generate Project flow) |
 | PATCH | /api/programs/:id | ✅ | Update name (2026-09: relaxed from admin, same reason; if the program already has ≥1 linked project, caller must be admin or owner/editor on at least one of them) |
 | DELETE | /api/programs/:id | admin | Delete (blocked while any project is still linked) |
-| POST | /api/programs/:id/share | ✅ | Share every project in a program with a user; caller must be admin or owner/editor on at least one of the program's projects (2026-09 — this pre-existing route previously had no ownership check at all) |
+| POST | /api/programs/:id/share | ✅ | Share every project in a program with a user; caller must be admin or owner/editor on at least one of the program's projects (2026-09 — this pre-existing route previously had no ownership check at all); answers `201 { ok, shared, emailSent }`, a refused email keeps the shares and the notifications |
 | GET/POST | /api/roles | admin | List / create — `GET` returns `rate_overrides` JSONB field; (2026-10-29) `POST` stores `rateOverrides`, and an `hourlyRate` or override value that is not a number ≥ 0 with its currency's decimals answers **400 `{ code: 'MONEY_RULE' }`** (`docs/api/lib.md` → `money-rules.js`) |
 | PATCH/DELETE | /api/roles/:id | admin | Update / delete — `PATCH` accepts `rateOverrides` body field (saved to `rate_overrides` column); (2026-10-29) the `hourlyRate`/`rateOverrides` present in the body are checked, **400 `MONEY_RULE`**. `DELETE` → 400 if the role is used in cost grids (`task_roles`) or, since 2026-09-25, assigned to a team resource (`resources.role_id`; a race that trips the `resources` FK is mapped to the same 400, any other FK error falls through) |
 | GET | /api/ratecards | ✅ | List (all authenticated users) |
@@ -770,7 +770,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | GET/PUT | /api/cost-grids/:id/versions/:vId/structure | owner/admin | Get / save bulk structure. (2026-10-23) A `PUT` that would drop a task linked to a project answers **400 `{ code: 'STRUCTURE_RULE' }`** and changes nothing — see §5's `structure-rules.js`; (2026-10-24) an invalid or inverted task date answers **400 `{ code: 'DATE_RULE' }`**; (2026-10-26) a task outside the stored version period answers **400 `DATE_RULE`** and changes nothing (`taskPeriodError`, checked inside the transaction after the version lock); (2026-10-28) the body may carry `period: { startDate?, endDate? }`, written in the same transaction, and the tasks are then checked against that period (`docs/api/lib.md`); (2026-10-29) a `roles[].rate` that is not a number ≥ 0 with the version currency's decimals answers **400 `MONEY_RULE`** before any write (`null` = unset), and a rate of 0 is stored as 0 |
 | GET/POST | /api/cost-grids/:id/versions/:vId/linked-projects | owner/admin | List / link projects |
 | DELETE | /api/cost-grids/:id/versions/:vId/linked-projects/:projectId | owner/admin | Unlink one project (refused for non-sysadmin by the project currency lock — see §5's `project-rules.js`) |
-| GET/POST | /api/cost-grids/:id/shares | owner/admin | List shares / grant one; `POST` emails and in-app-notifies the recipient (2026-09: in-app notification added — was email-only before) |
+| GET/POST | /api/cost-grids/:id/shares | owner/admin | List shares / grant one; `POST` emails and in-app-notifies the recipient (2026-09: in-app notification added — was email-only before); answers `201 { ok, emailSent }`, a refused email keeps the share and the notification |
 | DELETE | /api/cost-grids/:id/shares/:userId | owner/admin | Revoke one share — sends neither email nor in-app notification, unlike the equivalent project-share revoke |
 | PATCH | /api/cost-grids/:id/reassign-owner | admin/sysadmin | Reassign the proposal's owner (2026-09); also grants the new owner `editor` on every linked project and both emails and in-app-notifies them (2026-09: in-app notification added — was email-only before) — see its own note above |
 | ANY | /api/cost-grids/:id/versions/:vId/... | per route | (2026-09-30) Every route with a `:vId` passes through a router-level guard (`versionScope`, registered after `requireAuth`): a version that is not in grid `:id`, or a non-UUID `:id`/`:vId`, answers **404 `Version not found`**. Order: 401 → 404 → 403 (`canEdit`/`canAccess` stay in each handler). Covers PATCH, DELETE, `duplicate`, `publish`, `structure` GET/PUT, `linked-projects` GET/POST/DELETE, `refresh-rate`, `tags` GET/PUT |
@@ -787,7 +787,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | PATCH | /api/projects/:id/ptc | owner/admin | Update PTC |
 | PATCH | /api/projects/:id/planning | owner/admin | Update monthly hour planning |
 | PATCH | /api/projects/:id/groups | owner/admin | Update functional role groups |
-| GET/POST | /api/projects/:id/shares | owner/admin | List shares / grant one; `POST` emails + in-app-notifies the recipient |
+| GET/POST | /api/projects/:id/shares | owner/admin | List shares / grant one; `POST` emails + in-app-notifies the recipient; answers `201 { ok, emailSent }`, a refused email keeps the share and the notification |
 | DELETE | /api/projects/:id/shares/:userId | owner/admin | Revoke one share — emails + in-app-notifies the affected user (2026-09: previously sent neither) |
 | GET/PUT | /api/projects/:id/tags | owner/admin | (2026-09, Cycle 2) Get / replace-all the project's own `attribute_lists` tags — `PUT` body `{ itemIds: string[] }`. **Since Cycle 3a (2026-09-25) a linked project's tags are directly editable — the former 409 is gone** — `project_tags` is the sole source of a project's tags, seeded once by `copyVersionTagsToProject` (see `POST`/`PATCH /api/projects`). Bulk `unnest($2::uuid[])` insert; 400 on an unknown `itemId` (FK `23503`) or a non-UUID one (`22P02`) |
 
@@ -814,9 +814,9 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| POST | /api/exports/portfolio | ✅ | CSV of all accessible projects → emailed as attachment + self-notified in-app (2026-09) |
-| POST | /api/exports/cost-grids | ✅ | Pivoted CSV of all accessible cost grids (one row per task, role-code columns) → emailed + self-notified in-app (2026-09) |
-| POST | /api/exports/ratecards | admin | Pivoted CSV of all ratecards (roles × clients) → emailed + self-notified in-app (2026-09) |
+| POST | /api/exports/portfolio | ✅ | CSV of all accessible projects → emailed as attachment + self-notified in-app (2026-09); a refused email → `502 SEND_FAILED`, no in-app notification |
+| POST | /api/exports/cost-grids | ✅ | Pivoted CSV of all accessible cost grids (one row per task, role-code columns) → emailed + self-notified in-app (2026-09); a refused email → `502 SEND_FAILED`, no in-app notification |
+| POST | /api/exports/ratecards | admin | Pivoted CSV of all ratecards (roles × clients) → emailed + self-notified in-app (2026-09); a refused email → `502 SEND_FAILED`, no in-app notification |
 | GET | /api/exports/phasing?year= | admin | Direct XLS download (not emailed) of the phasing breakdown for a pipeline year |
 
 ### Pipeline Years
