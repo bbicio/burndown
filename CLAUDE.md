@@ -82,7 +82,7 @@ Still no linter on the frontend or backend.
 
 ## Architecture
 
-Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page is Vue 3 (loaded via CDN, no build step) except the `index.html` and `config.html` redirects. The shared library files in `js/*.js` are classic scripts loaded as globals by the Vue pages (`js/cg-controls.js` and `js/share-list-component.js` define Vue components) — for which pages load which, see [docs/js/shared-libs.md](docs/js/shared-libs.md) and the per-file `docs/js/` files pointed at from the File structure block below.
+Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page is Vue 3 (loaded via CDN, no build step) except the `index.html`, `config.html` and `master-client-groups.html` redirects. The shared library files in `js/*.js` are classic scripts loaded as globals by the Vue pages (`js/cg-controls.js` and `js/share-list-component.js` define Vue components) — for which pages load which, see [docs/js/shared-libs.md](docs/js/shared-libs.md) and the per-file `docs/js/` files pointed at from the File structure block below.
 
 ### Pages
 
@@ -209,6 +209,8 @@ scripts/doc-paths-guard.test.js — fails when a live document cites a repo file
                             not exist and is not in its `GONE` allowlist. Limits: own header.
 scripts/decision-ledger-guard.test.js — fails when a Spec or Plan dated 2026-10-12+
                             lacks its PROCESS.md §6b ledger (Specs from 10-14: `Brief started`). Limits: own header.
+scripts/handbook-guard.test.js — fails when `handbook/manifest.json` and `handbook/` disagree or help.html
+                            could not show a document.
 scripts/lib/live-docs.mjs — the walk (`liveMarkdown`, `SKIP_DIRS`) and the citation matcher shared by
                             `claude-md-guard` and `doc-paths-guard`, so the scanned scope has one definition.
 scripts/nginx-serve.test.js — fails when `nginx.conf` would serve a non-site path or stop serving a

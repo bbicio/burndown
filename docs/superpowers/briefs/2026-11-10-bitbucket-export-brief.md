@@ -61,7 +61,7 @@
 2. **`nginx.conf`:** su Bitbucket il blocco "DEV-ONLY TOOLCHAIN" e il suo commento non servono. Si esporta così com'è (innocuo) o lo si separa?
 3. **`api/package.json`:** gli script `dev`/`test` e `nodemon` in `devDependencies` puntano a file esclusi. Si esporta così com'è o lo si riduce?
 4. **`.env.example`:** la sezione delle porte di `scripts/test-branch.sh` riguarda un file escluso. Si tiene o la si toglie dall'export?
-5. **`js/lib/test-cases-parse.js`:** chiusa (2026-11-11, handbook viewer): il suo consumatore è `help.html`, che è incluso, quindi il file è incluso.
+5. **`js/lib/test-cases-parse.js`:** chiusa (2026-11-11, handbook viewer): i suoi consumatori, `help.html` e `js/lib/handbook.js`, sono inclusi, quindi il file è incluso.
 6. **Meccanismo dell'export:** clone di lavoro del repo Bitbucket fuori dal repo, oppure ramo orfano locale (per esempio `bitbucket-export`) con push `ramo:main`. Dove vive il clone e come si chiama il remote.
 7. **Formato dell'elenco:** un file dedicato (stile gitignore) oppure `export-ignore` in `.gitattributes` + `git archive`. Il guard deve poter leggere lo stesso formato.
 8. **Da quale commit si esporta:** sempre `HEAD` di `main` oppure un ref a scelta (tag di rilascio). Si crea un tag su GitHub a ogni export?
