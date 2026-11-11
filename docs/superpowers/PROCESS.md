@@ -66,7 +66,7 @@ Le fasi centrali (Spec → `/writing-plans` → Piano) sono **identiche** nei tr
 - **Raccomandato come pratica standing**, a prescindere dalla generazione del manuale, con una cadenza indicativa di circa ogni 10 cicli `/finish-cycle` chiusi o ogni ~2 mesi, quale che venga prima.
 - **L'audit può essere incrementale:** l'unità di audit è il file d'area; `PRD.md`'s Indice mappa ogni `§N` al file che lo contiene.
 
-**Cadenza raccomandata — audit handbook/restricted/ARCHITECTURE.md/CLAUDE.md vs codice:** lo stesso schema, esteso ai due documenti di architettura/riferimento operativo. Un audit `domain-audit` con questi due file come ground truth (scope: "l'intero codebase vs ARCHITECTURE.md/CLAUDE.md, entrambe le direzioni") va considerato:
+**Cadenza raccomandata — audit ARCHITECTURE.md/CLAUDE.md vs codice** (`handbook/restricted/ARCHITECTURE.md`, `CLAUDE.md`)**:** lo stesso schema, esteso ai due documenti di architettura/riferimento operativo. Un audit `domain-audit` con questi due file come ground truth (scope: "l'intero codebase vs ARCHITECTURE.md/CLAUDE.md, entrambe le direzioni") va considerato:
 - **Raccomandato come pratica standing**, con la stessa cadenza indicativa di `PRD.md` — circa ogni 10 cicli `/finish-cycle` chiusi o ogni ~2 mesi, quale che venga prima.
 
 ---
