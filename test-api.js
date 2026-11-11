@@ -616,6 +616,70 @@ async function testSessionRevocation() {
   }
 }
 
+// ── SSE revocation ────────────────────────────────────────────────────────────
+
+// An open notification stream: `status` on the response, `ended` when the server ends it, `heartbeat` on
+// the first heartbeat.
+function openStream(cookie) {
+  let req;
+  const s = {};
+  s.status = new Promise(resolveStatus => {
+    s.ended = new Promise(resolveEnd => {
+      s.heartbeat = new Promise(resolveBeat => {
+        req = http.get(`${BASE}/api/notifications/stream`, { headers: { Cookie: cookie } }, res => {
+          resolveStatus(res.statusCode);
+          res.on('data', chunk => { if (String(chunk).includes(': heartbeat')) resolveBeat(); });
+          res.on('end', resolveEnd);
+        });
+        req.on('error', () => resolveStatus(0));
+      });
+    });
+  });
+  s.close = () => req.destroy();
+  return s;
+}
+
+// true when `p` settles within `ms`.
+const within = (p, ms) => new Promise(r => {
+  const t = setTimeout(() => r(false), ms);
+  p.then(() => { clearTimeout(t); r(true); });
+});
+
+async function testSseRevocation() {
+  section('SSE revocation');
+  const signedIn = async tag => {
+    const u = await makeTsUser(tag);
+    return u && { ...u, session: await loginWithCode(u.email, TS_PASS) };
+  };
+  const a = await signedIn('ssa');
+  const b = await signedIn('ssb');
+  const d = await signedIn('ssd');
+  if (!a || !b || !d) return;
+  const d2 = await loginWithCode(d.email, TS_PASS);
+
+  const sa = openStream(a.session), sb = openStream(b.session), sd = openStream(d2);
+  const opened = await Promise.all([sa.status, sb.status, sd.status]);
+  if (!ok(opened.every(s => s === 200), `SSE-00 the three streams open → 200 (got ${opened})`)) {
+    for (const s of [sa, sb, sd]) s.close();
+    return;
+  }
+  await api('DELETE', `/api/users/${a.id}`, null, sysadminCookie);
+  const cp = await api('POST', '/api/auth/change-password',
+    { currentPassword: TS_PASS, newPassword: TS_PASS + 'x', newPasswordConfirm: TS_PASS + 'x' }, d.session);
+  const sr = openStream(extractCookie(cp.headers));
+
+  const [aEnded, dEnded, bBeat] = await Promise.all([
+    within(sa.ended, 40000), within(sd.ended, 40000), within(sb.heartbeat, 40000),
+  ]);
+  const bEnded = await within(sb.ended, 0);
+  ok(aEnded, "SSE-01 a disabled user's open stream ends within a heartbeat");
+  ok(bBeat && !bEnded, "SSE-02 an active user's stream stays open and gets a heartbeat");
+  ok(cp.status === 200 && dEnded, `SSE-03 change-password ends the other session's stream (got ${cp.status})`);
+  const rs = await sr.status;
+  ok(rs === 200, `SSE-03 a stream opened with the reissued cookie → 200 (got ${rs})`);
+  for (const s of [sa, sb, sd, sr]) s.close();
+}
+
 // ── Profile ───────────────────────────────────────────────────────────────────
 
 async function testProfile() {
@@ -4999,6 +5063,7 @@ async function main() {
     await testTwoStep();
     await testTwoStepRevocation();
     await testSessionRevocation();
+    await testSseRevocation();
     await testProfile();
     await ensureTestCurrencies();
     await testSecurity();

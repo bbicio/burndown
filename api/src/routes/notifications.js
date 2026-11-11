@@ -1,6 +1,6 @@
 const express = require('express');
 const { query } = require('../db/client');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin, sessionRowError } = require('../middleware/auth');
 const { isAdminRole } = require('../lib/is-admin');
 const { sendAdminNotificationEmail } = require('../services/email');
 
@@ -46,19 +46,37 @@ router.get('/stream', requireAuth, (req, res) => {
   if (!sseClients.has(userId)) sseClients.set(userId, new Set());
   sseClients.get(userId).add(res);
 
-  // Heartbeat every 25 s to keep the connection alive through proxies
-  const heartbeat = setInterval(() => {
-    try { res.write(': heartbeat\n\n'); } catch (_) {}
-  }, 25000);
-
-  req.on('close', () => {
+  let closed = false;
+  let checking = false;
+  const drop = () => {
+    if (closed) return;
+    closed = true;
     clearInterval(heartbeat);
     const conns = sseClients.get(userId);
     if (conns) {
       conns.delete(res);
       if (conns.size === 0) sseClients.delete(userId);
     }
-  });
+  };
+
+  // Heartbeat every 25 s to keep the connection alive through proxies. The session is checked again on
+  // every heartbeat, so a revocation ends the stream within one interval; a failed check keeps it.
+  const beat = () => { if (!closed) try { res.write(': heartbeat\n\n'); } catch (_) {} };
+  const heartbeat = setInterval(() => {
+    if (checking) return;
+    checking = true;
+    sessionRowError(req.user).then(({ error }) => {
+      if (closed) return;
+      if (!error) return beat();
+      drop();
+      try { res.end(); } catch (_) {}
+    }, err => {
+      console.warn('[sse] session check failed:', err.message);
+      beat();
+    }).finally(() => { checking = false; });
+  }, 25000);
+
+  req.on('close', drop);
 });
 
 // ── GET /api/notifications ────────────────────────────────────────────────────
