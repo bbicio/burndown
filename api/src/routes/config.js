@@ -402,16 +402,16 @@ router.patch('/ratecards/:id', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const { isUuid } = require('../lib/input-rules');
 
 router.patch('/ratecards/:id/entries', requireAdmin, async (req, res, next) => {
   try {
     const entries = req.body;
-    if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid ratecard id' });
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid ratecard id' });
     if (!Array.isArray(entries)) return res.status(400).json({ error: 'Body must be an array' });
 
     for (let i = 0; i < entries.length; i++) {
-      if (typeof entries[i]?.roleId !== 'string' || !UUID_RE.test(entries[i].roleId)) {
+      if (typeof entries[i]?.roleId !== 'string' || !isUuid(entries[i].roleId)) {
         return res.status(400).json({ error: `Entry ${i + 1} needs a valid roleId` });
       }
       const moneyErr = ratecardEntryError(entries[i], `Entry ${i + 1}`);

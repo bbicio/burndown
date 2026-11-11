@@ -357,11 +357,11 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
 // whatever the handler below does (2026-09-30 hardening; closes the tag-cycle ":vId not checked against :id"
 // finding for structure, linked-projects, duplicate, patch, delete and refresh-rate). Registered after
 // requireAuth so an anonymous request still gets 401; canEdit/canAccess stay in each handler.
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const { isUuid } = require('../lib/input-rules');
 async function versionScope(req, res, next) {
   try {
     const { id, vId } = req.params;
-    if (!UUID_RE.test(id) || !UUID_RE.test(vId)) return res.status(404).json({ error: 'Version not found' });
+    if (!isUuid(id) || !isUuid(vId)) return res.status(404).json({ error: 'Version not found' });
     const { rows } = await query(
       'SELECT 1 FROM cost_grid_versions WHERE id = $1 AND cost_grid_id = $2', [vId, id]
     );

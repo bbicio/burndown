@@ -1,6 +1,7 @@
 const express = require('express');
 const { query, pool } = require('../db/client');
 const { requireAuth, liveRole } = require('../middleware/auth');
+const { isUuid } = require('../lib/input-rules');
 const rules = require('../lib/project-rules');
 const { withVersionLock, lockVersion } = require('../lib/version-lock');
 const { sendShareNotification, sendShareRevokedEmail } = require('../services/email');
@@ -160,9 +161,8 @@ router.post('/', requireAuth, async (req, res, next) => {
     const periodErr = periodError(startDate, endDate, { kind: 'month', label: 'project' });
     if (periodErr) return res.status(400).json({ error: periodErr, code: DATE_RULE });
 
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const safeClientId    = clientId    && uuidRe.test(clientId)    ? clientId    : null;
-    const safeCgVersionId = cgVersionId && uuidRe.test(cgVersionId) ? cgVersionId : null;
+    const safeClientId    = clientId    && isUuid(clientId)    ? clientId    : null;
+    const safeCgVersionId = cgVersionId && isUuid(cgVersionId) ? cgVersionId : null;
 
     const role = await liveRole(req.user.id);
     const createErr = rules.projectCreateError({ role, versionId: safeCgVersionId });
@@ -210,10 +210,9 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     for (const key of ['cgVersionId', 'clientId']) {
       const v = req.body[key];
-      if (v && (typeof v !== 'string' || !uuidRe.test(v))) {
+      if (v && (typeof v !== 'string' || !isUuid(v))) {
         return res.status(400).json({ error: `${key} must be a valid UUID` });
       }
     }
