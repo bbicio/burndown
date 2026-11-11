@@ -64,6 +64,21 @@ describe('classifyNameStatus', () => {
     expect(classifyNameStatus(Z('R100', 'handbook/public/a.md', 'handbook/public/b.md')).kind).toBe('no-code');
   });
 
+  it('7d: a copy between audiences is ordinary, a copy within one is not', () => {
+    expect(classifyNameStatus(Z('C100', 'handbook/restricted/a.md', 'handbook/public/a.md')).kind).toBe('ordinary');
+    expect(classifyNameStatus(Z('C100', 'handbook/public/a.md', 'handbook/public/b.md')).kind).toBe('no-code');
+  });
+
+  it('7e: a delete and an add of the same basename in different audiences is ordinary', () => {
+    expect(classifyNameStatus(Z('D', 'handbook/restricted/a.md', 'A', 'handbook/public/a.md')).kind).toBe('ordinary');
+    expect(classifyNameStatus(Z('A', 'handbook/public/a.md', 'D', 'handbook/restricted/a.md')).kind).toBe('ordinary');
+  });
+
+  it('7f: a delete and an add with different basenames, or in the same audience, stay no-code', () => {
+    expect(classifyNameStatus(Z('D', 'handbook/restricted/a.md', 'A', 'handbook/public/b.md')).kind).toBe('no-code');
+    expect(classifyNameStatus(Z('D', 'handbook/public/x/a.md', 'A', 'handbook/public/y/a.md')).kind).toBe('no-code');
+  });
+
   it('8: an empty diff does not qualify vacuously', () => {
     expect(classifyNameStatus('').kind).toBe('ordinary');
     expect(classifyNameStatus('').paths).toEqual([]);
@@ -192,6 +207,20 @@ describe('classify-cycle.mjs end to end', () => {
     expect(firstLine(r.stdout)).toBe('ordinary');
     expect(r.stdout).toContain('api/src/foo.js');
     expect(r.stdout).toContain('docs/foo.md');
+  }, E2E_TIMEOUT);
+
+  it('sees a pure copy of a handbook document from restricted to public as ordinary', () => {
+    const d = repo();
+    write(d, 'handbook/restricted/a.md', 'secret notes\nline two\nline three\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'base');
+    write(d, 'handbook/public/a.md', 'secret notes\nline two\nline three\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'copy');
+
+    const r = run(d, 'HEAD~1...HEAD');
+    expect(firstLine(r.stdout)).toBe('ordinary');
+    expect(r.stdout).toContain('handbook/restricted/a.md');
   }, E2E_TIMEOUT);
 
   it('judges only the given two-dot range, not earlier commits', () => {

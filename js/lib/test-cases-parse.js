@@ -1,4 +1,4 @@
-// Parses handbook/restricted/TEST_CASES.md into the data model test-cases.html renders.
+// Parses handbook/restricted/TEST_CASES.md into the data model help.html renders (via js/lib/handbook.js).
 // The page fetches the Markdown at runtime, so this file is the only copy of
 // the test cases' structure — there is no inline duplicate to keep in sync.
 //

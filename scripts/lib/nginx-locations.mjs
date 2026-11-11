@@ -5,8 +5,9 @@
 // What it models: the `=`, `^~`, `~`, `~*` and plain-prefix modifiers and their
 // precedence (an `=` match beats every regex; among regexes the first in file
 // order wins); what a block does (serves files, proxies, answers 404, redirects
-// with `return 301|302`), whether it carries `auth_request` (`auth`) and that
-// subrequest's target (`authBy`, or null). What it does not: nested `location` blocks, `if`,
+// with `return 301|302|307|308`), whether it carries an `auth_request` directive
+// (`auth`, true exactly when `authBy` is not null; `auth_request_set` does not
+// count) and that subrequest's target (`authBy`, or null). What it does not: nested `location` blocks, `if`,
 // `alias`, `try_files` resolution, named and `internal` locations (skipped, a
 // client cannot select them). A config it cannot read makes it throw rather
 // than return a wrong answer.
@@ -36,12 +37,12 @@ export function parseLocations(confText) {
 
     if (pattern.startsWith('@') || /\binternal\s*;/.test(body)) continue;
     const action = /\breturn\s+404\b/.test(body) ? '404'
-      : /\breturn\s+30[12]\b/.test(body) ? 'redirect'
+      : /\breturn\s+30[1278]\b/.test(body) ? 'redirect'
       : /\bproxy_pass\b/.test(body) ? 'proxy'
       : /\broot\b/.test(body) ? 'serve'
       : 'other';
     const authBy = body.match(/\bauth_request\s+(\S+?)\s*;/)?.[1] ?? null;
-    locations.push({ modifier, pattern, action, auth: /\bauth_request\b/.test(body), authBy });
+    locations.push({ modifier, pattern, action, auth: authBy !== null, authBy });
   }
   return locations;
 }

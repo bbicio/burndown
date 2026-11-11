@@ -120,6 +120,9 @@ describe('docProblems', () => {
   it('flags a mermaid block with an unknown type', () => {
     expect(docProblems('```mermaid\nfoo\n```', 'markdown')).toHaveLength(1);
   });
+  it('accepts a kanban mermaid block', () => {
+    expect(docProblems('```mermaid\nkanban\n  todo[Todo]\n```', 'markdown')).toEqual([]);
+  });
   it('accepts a mermaid block after a %% comment', () => {
     expect(docProblems('```mermaid\n%% c\nflowchart LR\n```', 'markdown')).toEqual([]);
   });

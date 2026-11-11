@@ -232,7 +232,7 @@ The pure logic of `help.html` (document visibility, payload and fence checks, te
 
 ## test-cases-parse.js (2026-10-09, TEST_CASES.md as the single source)
 
-Turns `handbook/restricted/TEST_CASES.md` into the data `help.html` renders for the `test-cases` renderer (`js/lib/handbook.js` also imports it). Loaded by that page, as a module (`import { parseTestCases, formatCell } from './js/lib/test-cases-parse.js?v=2'`) — the one `js/lib/` module with **no** `window.` bridge, since its consumers (`help.html`, `js/lib/handbook.js`) are modules.
+Turns `handbook/restricted/TEST_CASES.md` into the data `help.html` renders for the `test-cases` renderer (`js/lib/handbook.js` also imports it). Loaded by that page, as a module (`import { parseTestCases, formatCell } from './js/lib/test-cases-parse.js?v=3'`) — the one `js/lib/` module with **no** `window.` bridge, since its consumers (`help.html`, `js/lib/handbook.js`) are modules.
 
 `parseTestCases(markdown)` returns `{ updated, sections, warnings }`: `updated` is the `**Updated:**` line of the preamble, `sections` is `{ id, title, cases }` with `id` a slug of the title (deduplicated; used only for the sidebar filter and the block's DOM id, never persisted), and each case is `{ id, scenario, steps, expected, auto, sub }`. `auto` is `'api'` for a bare ✓, `'vitest'` for `✓ (vitest)`, `null` for an empty cell — the page renders the two as different badges. A `###` heading is not a section: it sets `case.sub`, which the page turns into a sub-title when it changes. Both table shapes present in the file are accepted, with and without `Steps`, read from the header row rather than assumed. The input is BOM-stripped, split on `/\r?\n/` (CRLF-safe) and cleared of HTML comments, which a Markdown reader never shows.
 

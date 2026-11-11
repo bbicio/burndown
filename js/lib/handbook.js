@@ -1,11 +1,12 @@
 // Pure logic of help.html, the documentation viewer. No DOM, no fetch.
 
-import { parseTestCases } from './test-cases-parse.js?v=2';
+import { parseTestCases } from './test-cases-parse.js?v=3';
 
 export const MERMAID_TYPES = [
-  'flowchart', 'graph', 'sequenceDiagram', 'classDiagram', 'stateDiagram', 'stateDiagram-v2',
+  'flowchart', 'graph', 'sequenceDiagram', 'classDiagram', 'classDiagram-v2', 'stateDiagram', 'stateDiagram-v2',
   'erDiagram', 'journey', 'gantt', 'pie', 'mindmap', 'timeline', 'gitGraph', 'quadrantChart',
-  'requirementDiagram', 'C4Context', 'block-beta', 'architecture-beta', 'sankey-beta', 'xychart-beta',
+  'requirementDiagram', 'C4Context', 'C4Container', 'C4Component', 'C4Dynamic', 'C4Deployment',
+  'block-beta', 'architecture-beta', 'sankey-beta', 'xychart-beta', 'packet-beta', 'kanban',
 ];
 
 const TEST_CASES_TITLE = '# PDash — Test Cases';

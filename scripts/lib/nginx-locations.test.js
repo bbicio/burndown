@@ -37,6 +37,18 @@ describe('parseLocations', () => {
     ]);
   });
 
+  it('reads 307 and 308 as redirects', () => {
+    const conf = `
+      location = /t { return 307 /y; }
+      location = /p { return 308 /y; }`;
+    expect(parseLocations(conf)).toEqual([loc('=', '/t', 'redirect'), loc('=', '/p', 'redirect')]);
+  });
+
+  it('a location with only auth_request_set has no auth', () => {
+    const conf = 'location = /q { auth_request_set $u $upstream_http_x; root /x; }';
+    expect(parseLocations(conf)).toEqual([loc('=', '/q', 'serve', null)]);
+  });
+
   it('throws on a pattern with a brace quantifier', () => {
     expect(() => parseLocations('location ~ ^/a{2}$ { root /x; }')).toThrow();
   });

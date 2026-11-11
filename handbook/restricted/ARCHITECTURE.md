@@ -702,7 +702,7 @@ timesheets (
 | POST | /api/ratecards | admin | Create; `clientId` required (400, also for an unknown client). Under a client-row lock it returns the client's existing card (200, with `entries`) instead of creating a second one; a new card answers 201 with `version: 0` |
 | GET | /api/ratecards/:id | ✅ | Detail (all authenticated users) |
 | PATCH | /api/ratecards/:id | admin | Rename / update the rate card itself |
-| PATCH | /api/ratecards/:id/entries | admin | Replaces the whole entry set in one transaction (2026-10-30): roles missing from the body lose their entry. `hourlyRate` may be `null` (agency default) when the entry has a currency override; every entry is checked first — an invalid amount or an entry with neither answers **400 `MONEY_RULE`** and changes nothing. (2026-11-11) The body is `{ version, entries }`: a bare array or a `version` other than the stored one → **409 `RATECARD_STALE`**, a non-integer `version` or a repeated role → 400, entries of a role that no longer exists are dropped; the response is `{ ok, version }` with `version` incremented. Malformed ids → 400, unknown card → 404. Detail: [docs/api/config.md](docs/api/config.md) |
+| PATCH | /api/ratecards/:id/entries | admin | Replaces the whole entry set in one transaction (2026-10-30): roles missing from the body lose their entry. `hourlyRate` may be `null` (agency default) when the entry has a currency override; every entry is checked first — an invalid amount or an entry with neither answers **400 `MONEY_RULE`** and changes nothing. (2026-11-11) The body is `{ version, entries }`: a bare array or a `version` other than the stored one → **409 `RATECARD_STALE`**, a non-integer `version` or a repeated role → 400, entries of a role that no longer exists are dropped; the response is `{ ok, version }` with `version` incremented. Malformed ids → 400, unknown card → 404. Detail: `docs/api/config.md` |
 | DELETE | /api/ratecards/:id | admin | Delete |
 
 ### Resources & Attribute Lists (2026-09)
@@ -1090,7 +1090,7 @@ All server data (cost grids, projects, clients, programs, roles, timesheets) is 
 
 ### DB migrations
 
-> **The maintained per-file index is [docs/db/migrations.md](docs/db/migrations.md)** (moved out of `CLAUDE.md` on 2026-10-10). The list below is an older parallel copy kept for the architectural narrative around each migration; it is **known to lag** — `027` and `028` are missing from it as of 2026-10-10. Prefer the `docs/db/` table for "what exists and what it did".
+> **The maintained per-file index is `docs/db/migrations.md`** (moved out of `CLAUDE.md` on 2026-10-10). The list below is an older parallel copy kept for the architectural narrative around each migration; it is **known to lag** — `027` and `028` are missing from it as of 2026-10-10. Prefer the `docs/db/` table for "what exists and what it did".
 
 Numbered SQL files in `api/src/db/migrations/`. Apply individually via:
 

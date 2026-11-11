@@ -1,6 +1,7 @@
 // Guard: handbook/manifest.json and the Markdown files under handbook/ agree,
 // every file sits in the folder of its audience (the folder is what nginx
-// protects), and every document is renderable by js/lib/handbook.js.
+// protects), every document is renderable by js/lib/handbook.js, and every .png
+// sits in an audience folder and is referenced by a document of that audience.
 // The checks are pure functions over in-memory data so the negative cases
 // below never touch the disk.
 
@@ -14,15 +15,42 @@ const HANDBOOK = join(ROOT, 'handbook');
 const AUDIENCES = ['public', 'restricted'];
 const RENDERERS = ['markdown', 'test-cases'];
 
-function walkMd(dir) {
+function walk(dir, ext) {
   if (!existsSync(dir)) return [];
   const out = [];
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
-    if (e.isDirectory()) out.push(...walkMd(p));
-    else if (e.name.endsWith('.md')) out.push(relative(HANDBOOK, p).split(sep).join('/'));
+    if (e.isDirectory()) out.push(...walk(p, ext));
+    else if (e.name.endsWith(ext)) out.push(relative(HANDBOOK, p).split(sep).join('/'));
   }
   return out;
+}
+const walkMd = (dir) => walk(dir, '.md');
+const walkPng = (dir) => walk(dir, '.png');
+
+/**
+ * Every way a .png under handbook/ can sit wrong: outside an audience folder,
+ * or not referenced (by relative path or basename) by a manifest document of
+ * its own audience. `readDoc(file)` returns a document's text.
+ */
+export function imageViolations(manifest, pngPaths, readDoc) {
+  const v = [];
+  const docs = (manifest && manifest.documents) || [];
+  for (const png of pngPaths) {
+    const audience = AUDIENCES.find((a) => png.startsWith(a + '/'));
+    if (!audience) {
+      v.push(`handbook/${png} is not under public/ or restricted/`);
+      continue;
+    }
+    const name = png.slice(png.lastIndexOf('/') + 1);
+    const referenced = docs.some((d) => {
+      if (d.audience !== audience) return false;
+      const text = readDoc(d.file);
+      return text.includes(png.slice(audience.length + 1)) || text.includes(name);
+    });
+    if (!referenced) v.push(`handbook/${png} is not referenced by any ${audience} document`);
+  }
+  return v;
 }
 
 /** Every way the manifest and the .md files under handbook/ can disagree. */
@@ -60,12 +88,41 @@ describe('handbook manifest', () => {
     expect(v.filter((x) => !/not listed|does not exist/.test(x))).toEqual([]);
   });
 
+  it('every .png sits in an audience folder and is referenced by a document of that audience', () => {
+    const v = imageViolations(manifest, walkPng(HANDBOOK), (f) => readFileSync(join(HANDBOOK, f), 'utf8'));
+    expect(v).toEqual([]);
+  });
+
   it('every document renders', () => {
     for (const d of manifest.documents) {
       const text = readFileSync(join(HANDBOOK, d.file), 'utf8');
       const problems = docProblems(text, d.renderer);
       expect(problems, `${d.file}: ${problems.join('; ')}`).toEqual([]);
     }
+  });
+});
+
+describe('imageViolations (negative controls, in memory)', () => {
+  const m = {
+    documents: [
+      { id: 'a', audience: 'public', renderer: 'markdown', file: 'public/a.md' },
+      { id: 'b', audience: 'restricted', renderer: 'markdown', file: 'restricted/b.md' },
+    ],
+  };
+  const docs = { 'public/a.md': '![x](img/pic.png)', 'restricted/b.md': 'no images' };
+  const read = (f) => docs[f];
+
+  it('accepts an image referenced by a document of its audience', () => {
+    expect(imageViolations(m, ['public/img/pic.png'], read)).toEqual([]);
+  });
+  it('flags an image outside an audience folder', () => {
+    expect(imageViolations(m, ['loose/pic.png'], read)).toHaveLength(1);
+  });
+  it('flags an image referenced only by a document of the other audience', () => {
+    expect(imageViolations(m, ['restricted/img/pic.png'], read)).toHaveLength(1);
+  });
+  it('flags an unreferenced image', () => {
+    expect(imageViolations(m, ['public/img/other.png'], read)).toHaveLength(1);
   });
 });
 

@@ -10,7 +10,10 @@
 // A path qualifies when it is a .md file under .claude/, a .md file under
 // docs/, a root-level .md, or a .md/.png file under handbook/. A rename or copy
 // that moves a file between handbook audiences (public/restricted/outside) makes
-// the whole cycle ordinary.
+// the whole cycle ordinary, and so does a delete in one audience plus an add of
+// the same basename in the other (a heavily edited move). The diff runs with
+// copy detection that also considers unmodified sources (-C -C), so a pure copy
+// across audiences is a C record.
 //
 // Why each guard exists (this is the rationale the gate no longer carries):
 //
@@ -61,6 +64,8 @@ export function classifyNameStatus(z) {
   // A rename or copy that changes a document's audience changes who can read
   // it, which the running app enforces: never a no-code cycle.
   let audienceMove = false;
+  const deleted = [];
+  const added = [];
 
   for (let i = 0; i < fields.length; ) {
     const status = fields[i++];
@@ -74,8 +79,16 @@ export function classifyNameStatus(z) {
     }
     const record = fields.slice(i, i + take);
     if (take === 2 && audienceOf(record[0]) !== audienceOf(record[1])) audienceMove = true;
+    // A heavily edited move shows up as a delete plus an add, not as R.
+    if (status === 'D' || status === 'A') {
+      const aud = audienceOf(record[0]);
+      if (aud) (status === 'D' ? deleted : added).push({ aud, name: basename(record[0]) });
+    }
     for (let n = 0; n < take; n++) paths.push(fields[i++]);
   }
+
+  // Same basename deleted in one audience and added in the other.
+  if (deleted.some((d) => added.some((a) => a.aud !== d.aud && a.name === d.name))) audienceMove = true;
 
   // An empty diff must not qualify vacuously: "every path qualifies" is true of
   // no paths at all. Pre-flight check 3 only guarantees that commits exist, not
@@ -85,6 +98,10 @@ export function classifyNameStatus(z) {
     : 'ordinary';
 
   return { kind, paths };
+}
+
+function basename(path) {
+  return path.slice(path.lastIndexOf('/') + 1);
 }
 
 function qualifies(path) {
@@ -108,7 +125,7 @@ function qualifies(path) {
 
 export function main(argv = process.argv) {
   const range = argv[2] ?? 'main...HEAD';
-  const z = execFileSync('git', ['diff', '--name-status', '--find-renames', '-z', range], {
+  const z = execFileSync('git', ['diff', '--name-status', '--find-renames', '-C', '-C', '-z', range], {
     encoding: 'utf8',
     // Capture the child's stderr instead of letting it through: execFileSync
     // forwards it to the parent even with the default 'pipe', so git's own

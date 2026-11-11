@@ -66,7 +66,7 @@ Le fasi centrali (Spec → `/writing-plans` → Piano) sono **identiche** nei tr
 - **Raccomandato come pratica standing**, a prescindere dalla generazione del manuale, con una cadenza indicativa di circa ogni 10 cicli `/finish-cycle` chiusi o ogni ~2 mesi, quale che venga prima.
 - **L'audit può essere incrementale:** l'unità di audit è il file d'area; `PRD.md`'s Indice mappa ogni `§N` al file che lo contiene.
 
-**Cadenza raccomandata — audit ARCHITECTURE.md/CLAUDE.md vs codice:** lo stesso schema, esteso ai due documenti di architettura/riferimento operativo. Un audit `domain-audit` con questi due file come ground truth (scope: "l'intero codebase vs ARCHITECTURE.md/CLAUDE.md, entrambe le direzioni") va considerato:
+**Cadenza raccomandata — audit handbook/restricted/ARCHITECTURE.md/CLAUDE.md vs codice:** lo stesso schema, esteso ai due documenti di architettura/riferimento operativo. Un audit `domain-audit` con questi due file come ground truth (scope: "l'intero codebase vs ARCHITECTURE.md/CLAUDE.md, entrambe le direzioni") va considerato:
 - **Raccomandato come pratica standing**, con la stessa cadenza indicativa di `PRD.md` — circa ogni 10 cicli `/finish-cycle` chiusi o ogni ~2 mesi, quale che venga prima.
 
 ---
@@ -97,7 +97,7 @@ Accanto alla guardia infrastrutturale di §4, che è una regola di condotta, ci 
 
 | Guard | Diventa rosso quando |
 |---|---|
-| `scripts/architecture-guard.test.js` | un route handler, una tabella creata da una migrazione o una colonna aggiunta da un `ALTER TABLE` non è documentata in `ARCHITECTURE.md` §5/§6 |
+| `scripts/architecture-guard.test.js` | un route handler, una tabella creata da una migrazione o una colonna aggiunta da un `ALTER TABLE` non è documentata in `handbook/restricted/ARCHITECTURE.md` §5/§6 |
 | `scripts/claude-md-guard.test.js` | `CLAUDE.md` supera il proprio tetto, il blocco File structure si scosta dal pin esatto, o un documento vivo punta a una sua sezione che non esiste più |
 | `scripts/doc-paths-guard.test.js` | un documento vivo cita un path di file del repo che non esiste e non è nella allowlist `GONE` |
 | `scripts/handbook-guard.test.js` | un documento del manifest manca, un `.md` di `handbook/` non è elencato, un pubblico non coincide con la cartella, o il viewer non saprebbe mostrare un documento |
@@ -105,7 +105,7 @@ Accanto alla guardia infrastrutturale di §4, che è una regola di condotta, ci 
 
 Due conseguenze operative — la prima specifica di `architecture-guard`, la seconda valida per tutti i cicli:
 
-1. **Un rosso di `architecture-guard` si corregge sul branch, mai al Gate 5.** Il guard blocca il Gate 1; lo step che aggiorna `ARCHITECTURE.md` (`/sync-docs` §1) gira al Gate 5, cioè *dopo* il merge. Chi aggiunge un endpoint o una migrazione documenta §5/§6 prima di chiudere, altrimenti il Gate 1 non diventa verde.
+1. **Un rosso di `architecture-guard` si corregge sul branch, mai al Gate 5.** Il guard blocca il Gate 1; lo step che aggiorna `handbook/restricted/ARCHITECTURE.md` (`/sync-docs` §1) gira al Gate 5, cioè *dopo* il merge. Chi aggiunge un endpoint o una migrazione documenta §5/§6 prima di chiudere, altrimenti il Gate 1 non diventa verde.
 2. **Il Gate 5 esegue i test prima di mostrare il diff; quali, lo decide `node scripts/gate5-scope.mjs`** (la regola sta nello script e nello step 3 del gate). È lo step che modifica i numeri che i guard pinnano, ed è anche quello che pusha su `main`. Un rosso lì si corregge su `main` e si rientra dallo step 3.
 
 **Il valore corrente dei pin non sta qui, sta nei test.** Questa sezione non riporta nessun valore pinnato e nessun conteggio che possa invecchiare. Chi deve sapere cosa un guard accetta oggi legge il file, mai una parafrasi — e ogni guard dichiara nella propria intestazione i limiti che **non** copre, che è la parte più facile da scambiare per copertura.
