@@ -41,7 +41,7 @@ Three tiers (2026-09, `018_sysadmin_role.sql` widened the `role` CHECK constrain
 
 No user is promoted to `sysadmin` automatically — the migration is a pure constraint widening with no backfill. The first sysadmin must be set directly via SQL (`UPDATE users SET role='sysadmin' WHERE ...`) or the `api/src/promote-sysadmin.js` CLI script; every subsequent promotion goes through `admin.html`'s "⬆ Grant sysadmin" toggle (sysadmin viewers only). Promotion is two-step by design: `user → admin` (any admin/sysadmin) then `admin → sysadmin` (sysadmin only) — never a direct `user → sysadmin` jump, and demotion mirrors it (`sysadmin → admin` only, never straight to `user`), enforced by `api/src/lib/role-transition.js`'s `roleChangeError()`.
 
-Backend authorization has two middleware tiers (`api/src/middleware/auth.js`), both built on `requireAuth`, which after the JWT signature reads the user's `status`, `role` and `password_changed_at` from the DB on every request: `401 Session expired` when the row is gone, the account is not `active`, or the token's `pwd` claim (`password_changed_at` in ms, `api/src/lib/session.js`) differs from the row's — so disabling, anonymizing or a password change ends every older session at its next request — and otherwise `req.user.role` is the DB's role. `requireAdmin` (`role === 'admin' || role === 'sysadmin'`) and `requireSysAdmin` (`role === 'sysadmin'` exclusive, no query of its own — used only for `reset.js` and the Terms editor routes of `app-settings.js`: `PUT /terms`, `GET /terms/draft`, `GET /terms/versions[/:version]`) check that role. `change-password` reissues the caller's `pdash_token` with the new `pwd`. A shared `isAdminRole(role)` helper (`api/src/lib/is-admin.js`) backs every route-local `role === 'admin'` check that isn't behind the `requireAdmin` middleware itself (cost-grids, projects, timesheets, exports, reporting, notifications, pipeline-years) — added after a live-verified gap where several such literals were missed by the initial sysadmin rollout, leaving a real sysadmin account unable to see any projects/grids/timesheets.
+Backend authorization has two middleware tiers (`api/src/middleware/auth.js`), both built on `requireAuth`, which after the JWT signature reads the user's `status`, `role` and `password_changed_at` from the DB on every request: `401 Session expired` when the row is gone, the account is not `active`, or the token's `pwd` claim (`password_changed_at` in ms, `api/src/lib/session.js`) differs from the row's — so disabling, anonymizing or a password change ends every older session at its next request; an open notification stream re-runs the same check (`sessionRowError`) on every 25 s heartbeat and ends on a refusal — and otherwise `req.user.role` is the DB's role. `requireAdmin` (`role === 'admin' || role === 'sysadmin'`) and `requireSysAdmin` (`role === 'sysadmin'` exclusive, no query of its own — used only for `reset.js` and the Terms editor routes of `app-settings.js`: `PUT /terms`, `GET /terms/draft`, `GET /terms/versions[/:version]`) check that role. `change-password` reissues the caller's `pdash_token` with the new `pwd`. A shared `isAdminRole(role)` helper (`api/src/lib/is-admin.js`) backs every route-local `role === 'admin'` check that isn't behind the `requireAdmin` middleware itself (cost-grids, projects, timesheets, exports, reporting, notifications, pipeline-years) — added after a live-verified gap where several such literals were missed by the initial sysadmin rollout, leaving a real sysadmin account unable to see any projects/grids/timesheets.
 
 ### 3.2 Permission Matrix
 
@@ -859,7 +859,7 @@ Every POT route counts a proposal once, through its reference version (`pot_v`, 
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | /api/notifications/stream | ✅ | SSE stream — real-time push for the current user |
+| GET | /api/notifications/stream | ✅ | SSE stream — real-time push for the current user; the session is re-checked on every 25 s heartbeat and a revoked one ends the stream |
 | GET | /api/notifications | ✅ | Last 50 notifications for current user |
 | GET | /api/notifications/unread-count | ✅ | `{ count: N }` |
 | PATCH | /api/notifications/read-all | ✅ | Mark all as read |
@@ -989,7 +989,7 @@ burndown/
     src/
       routes/             ← app-settings, attribute-lists, auth, client-groups, config, cost-grids, currencies, exports, notifications, pipeline-years, planning, planning-assistant, pots, profile-jobs, projects, reporting, reset, resources, timesheets, topics, users
       lib/                ← pure functions for unit testing (node:test), mirroring the frontend's js/lib/. Detail: docs/api/lib.md
-      middleware/         ← auth guard: requireAuth, requireAdmin, requireSysAdmin (see §3.1), liveRole(userId)
+      middleware/         ← auth guard: requireAuth, requireAdmin, requireSysAdmin (see §3.1), liveRole(userId), sessionRowError(claims)
       db/                 ← PostgreSQL pool client, migrations/
       services/           ← email, jwt, resource-matching, profile-engine/worker, llm, planning-assistant, planning-data, topic-extraction. Index: docs/api/services.md
       create-admin.js     ← CLI bootstrap: create/reset admin user (always role='admin')

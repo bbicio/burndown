@@ -45,6 +45,7 @@
 | A-30 | Open sessions end with the account (2026-11-11) | Sign the user in; an admin disables it (or deletes or anonymizes it), or the user changes the password from another browser; act in the first browser | 401 "Session expired", the page goes to the login; the browser that changed its own password stays signed in (`SE-01`..`SE-03`) | ✓ |
 | A-31 | Demoted admin and token without `pwd` (2026-11-11) | An admin's role is lowered to user while signed in, then the old session opens an admin route; a token signed without the `pwd` claim (as before this cycle) opens `/api/auth/me` | 403 on the admin route; 401 for the old token, so everyone signs in again once after the deploy (`SE-04`, `SE-05`) | ✓ |
 | A-32 | Password change after an admin changed the email (2026-11-11) | An admin changes the user's email; the user, still signed in, changes the password | 200; the reissued session carries the new email, not the one the old session was signed with (`SE-07`) | ✓ |
+| A-33 | Open notification stream ends with the session (2026-11-11) | Sign the user in and keep a page open; an admin disables the user, or the user changes the password from another browser | Within one heartbeat (25 s) the page's `/api/notifications/stream` closes and its reconnection gets 401; an active user's stream stays open; the browser that changed its own password reconnects with 200 (`SSE-01`..`SSE-03`) | ✓ |
 
 ---
 

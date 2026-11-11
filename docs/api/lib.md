@@ -168,7 +168,7 @@ Tests: `money-rules.test.js`, `money-format.test.js`; `test-api.js` `MR-01..MR-1
 
 ## session.js (2026-11-11, backlog cycle 1)
 
-`sessionClaims(user)` → `{ id, email, role, pwd }`, `pwd` = `password_changed_at` in whole ms (`Date.getTime()`) or `null`; signed by `login`, `two-step/verify` and `change-password` (which reissues the caller's cookie). `sessionError(claims, row)` → `'Session expired'` or `null`: refused when the row is missing, `status` is not `active`, the claim has no `pwd`, or `pwd` differs from the row's (`row.pwd` is the bigint string of `floor(extract(epoch FROM password_changed_at) * 1000)`, converted with `Number`; `null` equals only `null`). `requireAuth` runs that query on every request and takes `req.user.role` from the row. Tests: `session.test.js`; `test-api.js` `SE-01..SE-06`.
+`sessionClaims(user)` → `{ id, email, role, pwd }`, `pwd` = `password_changed_at` in whole ms (`Date.getTime()`) or `null`; signed by `login`, `two-step/verify` and `change-password` (which reissues the caller's cookie). `sessionError(claims, row)` → `'Session expired'` or `null`: refused when the row is missing, `status` is not `active`, the claim has no `pwd`, or `pwd` differs from the row's (`row.pwd` is the bigint string of `floor(extract(epoch FROM password_changed_at) * 1000)`, converted with `Number`; `null` equals only `null`). `requireAuth` runs that query on every request, through `sessionRowError(claims)` (`api/src/middleware/auth.js`), and takes `req.user.role` from the row; the notification stream calls the same function on every heartbeat ([notifications.md](notifications.md)). Tests: `session.test.js`; `test-api.js` `SE-01..SE-06`.
 
 ## input-rules.js (2026-11-11, backlog cycle 2)
 
