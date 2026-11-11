@@ -15,6 +15,23 @@ async function recipientOf(userId) {
   return rows[0] || null;
 }
 
+// The email is the export itself: a refused one answers 502 SEND_FAILED, and no "Your export is ready"
+// notification follows. False when the response has been sent.
+async function emailExport(res, me, filename, content) {
+  try {
+    await sendExportEmail({
+      to: me.email,
+      firstName: me.first_name,
+      exports: [{ filename, content, type: 'text/csv' }],
+    });
+    return true;
+  } catch (e) {
+    console.warn('[export] email send failed:', e.message);
+    res.status(502).json({ error: 'The email could not be sent', code: 'SEND_FAILED' });
+    return false;
+  }
+}
+
 // ── CSV HELPERS ───────────────────────────────────────────────────────────────
 
 function csvCell(v) {
@@ -70,11 +87,7 @@ router.post('/portfolio', requireAuth, async (req, res, next) => {
 
     const me = await recipientOf(req.user.id);
     if (!me) return res.status(404).json({ error: 'User not found' });
-    await sendExportEmail({
-      to: me.email,
-      firstName: me.first_name,
-      exports: [{ filename, content, type: 'text/csv' }],
-    });
+    if (!await emailExport(res, me, filename, content)) return;
 
     if (!_createNotification) _createNotification = require('./notifications').createNotification;
     _createNotification(req.user.id, {
@@ -165,11 +178,7 @@ router.post('/cost-grids', requireAuth, async (req, res, next) => {
 
     const me = await recipientOf(req.user.id);
     if (!me) return res.status(404).json({ error: 'User not found' });
-    await sendExportEmail({
-      to: me.email,
-      firstName: me.first_name,
-      exports: [{ filename, content, type: 'text/csv' }],
-    });
+    if (!await emailExport(res, me, filename, content)) return;
 
     if (!_createNotification) _createNotification = require('./notifications').createNotification;
     _createNotification(req.user.id, {
@@ -237,11 +246,7 @@ router.post('/ratecards', requireAdmin, async (req, res, next) => {
 
     const me = await recipientOf(req.user.id);
     if (!me) return res.status(404).json({ error: 'User not found' });
-    await sendExportEmail({
-      to: me.email,
-      firstName: me.first_name,
-      exports: [{ filename, content, type: 'text/csv' }],
-    });
+    if (!await emailExport(res, me, filename, content)) return;
 
     if (!_createNotification) _createNotification = require('./notifications').createNotification;
     _createNotification(req.user.id, {
