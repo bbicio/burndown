@@ -1,5 +1,6 @@
-// Guard: nginx.conf serves only the site — the root *.html pages and the .css/.js
-// files under css/ and js/ (tests excluded). docker-compose.yml mounts the whole
+// Guard: nginx.conf serves only the site — the root *.html pages, the root files a
+// page fetches (RUNTIME_FETCHED below) and the .css/.js files under css/ and js/
+// (tests excluded). docker-compose.yml mounts the whole
 // repo root into nginx, so anything else a location serves is downloadable:
 // .env, backups/, .git/, docs. Every tracked file is checked, plus a fixed list
 // of untracked paths that exist on a developer machine.
@@ -23,8 +24,9 @@ const ALWAYS_404 = [
   '/.env', '/backups/pdash.dump', '/.claude/worktrees/x/.env', '/.git/HEAD', '/shots/x.png',
   '/.superpowers_up.log', '/node_modules/vue/package.json', '/favicon.ico', '/.well-known/x.json',
   '/css/', '/js/lib/', '/docs', '/assets/chart.umd.min.js',
-  // The repo sits on a case-insensitive filesystem: a case variant reaches the real test file.
-  '/js/lib/money.Test.js', '/js/lib/money.test.JS',
+  // The repo can sit on a case-insensitive filesystem with Windows short (8.3) names:
+  // a case variant or a short name reaches the real test file.
+  '/js/lib/money.Test.js', '/js/lib/money.test.JS', '/js/lib/MONEYT~1.js', '/js/MONEY-~1.js',
 ];
 
 // Root files a page fetches at runtime: test-cases.html renders TEST_CASES.md.
