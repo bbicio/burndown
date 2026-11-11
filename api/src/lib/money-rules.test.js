@@ -102,7 +102,14 @@ test('phasingError', () => {
   assert.equal(phasingError({}, 'EUR'), null);
   assert.equal(phasingError({ '202601': 1120.3 }, 'EUR'), null);
   for (const v of [null, [], 'x']) assert.equal(phasingError(v, 'EUR'), 'Phasing must be an object.');
-  for (const v of [{ '202601': 1120.304347826087 }, { '202601': -1 }, { '202601': '5' }, { '202601': 1e8 }]) {
+  for (const v of [{ '202601': 1120.304347826087 }, { '202601': -1 }, { '202601': '5' }, { '202601': 1e12 }]) {
     assert.notEqual(phasingError(v, 'EUR'), null);
   }
+});
+
+test('ptcRowsError and phasingError cap at NUMERIC(14,2)', () => {
+  assert.equal(phasingError({ '2026-01': 100000000 }, 'EUR'), null);
+  assert.equal(ptcRowsError([{ amount: 100000000 }], 'EUR'), null);
+  assert.match(phasingError({ '2026-01': 1000000000000 }, 'EUR'), /must not exceed 999999999999\.99 EUR/);
+  assert.match(ptcRowsError([{ amount: 1000000000000 }], 'EUR'), /must not exceed 999999999999\.99 EUR/);
 });

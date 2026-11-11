@@ -1113,6 +1113,21 @@ async function testServerValidation() {
   }
   const nok = (await curList()).find(c => c.code === 'NOK');
   ok(!!nok && nok.active === false, 'SV-06 NOK is still inactive after the refusals');
+
+  // NUMERIC columns reach the client as JSON numbers (B-193)
+  const roleCode = `TESTROLESV${Date.now()}`;
+  const sr = await api('POST', '/api/roles', { label: `__test_role_sv_${Date.now()}__`, code: roleCode, hourlyRate: 123.45 }, adminCookie);
+  if (sr.data?.id) later('DELETE', `/api/roles/${sr.data.id}`);
+  const roles = (await api('GET', '/api/roles', null, adminCookie)).data || [];
+  const myRole = roles.find(r => r.code === roleCode);
+  ok(!!myRole && typeof myRole.hourly_rate === 'number' && myRole.hourly_rate === 123.45,
+    `SV-07 GET roles → hourly_rate is a number (got ${typeof myRole?.hourly_rate})`);
+  const sp = await api('POST', '/api/pots', { specialLabel: 'New Biz', year: 2096, amount: 750.5 }, adminCookie);
+  if (sp.data?.id) later('DELETE', `/api/pots/${sp.data.id}`);
+  const spl = (await api('GET', '/api/pots?year=2096', null, adminCookie)).data || [];
+  const myPot = spl.find(p => p.id === sp.data?.id);
+  ok(!!myPot && typeof myPot.amount === 'number' && myPot.amount === 750.5,
+    `SV-08 GET pots → amount is a number (got ${typeof myPot?.amount})`);
 }
 
 // ── POT Targets ───────────────────────────────────────────────────────────────

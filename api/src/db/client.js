@@ -1,4 +1,7 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
+
+// B-193: NUMERIC (OID 1700) reaches every reader as a JS number, not a string.
+types.setTypeParser(1700, v => (v === null ? null : parseFloat(v)));
 
 const pool = new Pool({
   connectionString:       process.env.DATABASE_URL,
