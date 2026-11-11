@@ -121,7 +121,7 @@ describe('cache-busting', () => {
         const t = read(f);
         // Only real asset references (src/href attributes), not comments or prose that mention the file.
         for (const m of t.matchAll(new RegExp('(?:src|href)="[^"]*' + file.replace('.', '\\.') + '(\\?v=(\\d+))?', 'g'))) {
-          if (m[2]) versions.add(Number(m[2])); else if (f !== 'test-cases.html') unversioned.push(f);
+          if (m[2]) versions.add(Number(m[2])); else unversioned.push(f);
         }
       }
       expect(unversioned).toEqual([]);

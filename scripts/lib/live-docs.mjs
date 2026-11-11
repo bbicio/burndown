@@ -27,7 +27,7 @@ export const SKIP_DIRS = new Set([
 // (`routes/projects.js`, `middleware/auth.js`, `services/llm.js`) that are
 // abbreviations rather than resolvable paths; resolving those would mean
 // guessing a base directory, which is a judgment about content.
-const ROOTED = /^(?:docs|js|css|api|scripts|backups|\.claude)\//;
+const ROOTED = /^(?:docs|js|css|api|scripts|backups|handbook|\.claude)\//;
 const EXT = 'md|html|js|mjs|css|sql|sh|json|png';
 // Both anchors are deliberately tight: a closing backtick, or `](` ... `)`,
 // immediately after the extension. See this module's consumers for the two

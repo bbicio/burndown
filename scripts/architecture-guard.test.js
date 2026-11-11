@@ -63,7 +63,7 @@ const read = (p) => readFileSync(resolve(ROOT, p), 'utf8');
 
 // ─── ARCHITECTURE.md sections ────────────────────────────────────────────────
 
-const archLines = read('ARCHITECTURE.md').split(/\r?\n/);
+const archLines = read('handbook/restricted/ARCHITECTURE.md').split(/\r?\n/);
 
 /** Lines of the top-level section whose heading matches `start`, up to `end`. */
 function section(startRe, endRe) {

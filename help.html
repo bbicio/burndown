@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>try{if(localStorage.getItem('PDash_sidebarCollapsed')==='1')document.documentElement.setAttribute('data-sidebar','collapsed')}catch(e){}</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDash — Help</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="css/tokens.css?v=14">
+  <link rel="stylesheet" href="css/style.css?v=38">
+  <link rel="stylesheet" href="css/help.css?v=1">
+</head>
+<body>
+
+<!-- Navbar (injected by nav.js) -->
+<div id="app-shell">
+<div id="nav-container"></div>
+<div id="app-main">
+
+<div id="app" v-cloak>
+
+  <div v-if="ready" class="page app-container">
+    <div class="ph">
+      <div class="ph-main">
+        <div class="ph-title-row"><h1 class="ph-title">Help</h1></div>
+      </div>
+    </div>
+
+    <div v-if="manifestError" class="alert alert-danger">{{ manifestError }}</div>
+
+    <div v-else-if="!manifest" class="d-flex justify-content-center py-5">
+      <div class="spinner-border text-secondary"></div>
+    </div>
+
+    <div v-else class="hb-layout">
+
+      <!-- Document list: two groups at 1024px and above, a select below -->
+      <nav class="hb-nav" aria-label="Documents">
+        <div v-if="guides.length" class="hb-group">
+          <div class="hb-group-title">Guides</div>
+          <button v-for="d in guides" :key="d.id" type="button" class="hb-doc-link" :class="{ active: current && current.id === d.id }" @click="selectDoc(d.id)">{{ d.title }}</button>
+        </div>
+        <div v-if="adminDocs.length" class="hb-group">
+          <div class="hb-group-title">Admin</div>
+          <button v-for="d in adminDocs" :key="d.id" type="button" class="hb-doc-link" :class="{ active: current && current.id === d.id }" @click="selectDoc(d.id)">{{ d.title }}</button>
+        </div>
+      </nav>
+      <select class="form-select hb-select" aria-label="Document" :value="current ? current.id : ''" @change="selectDoc($event.target.value)">
+        <optgroup v-if="guides.length" label="Guides">
+          <option v-for="d in guides" :key="d.id" :value="d.id">{{ d.title }}</option>
+        </optgroup>
+        <optgroup v-if="adminDocs.length" label="Admin">
+          <option v-for="d in adminDocs" :key="d.id" :value="d.id">{{ d.title }}</option>
+        </optgroup>
+      </select>
+
+      <div class="hb-main">
+        <div v-if="notice" class="alert alert-warning">{{ notice }}</div>
+
+        <div v-if="loading" class="d-flex justify-content-center py-5">
+          <div class="spinner-border text-secondary"></div>
+        </div>
+        <div v-else-if="docError" class="alert alert-danger">{{ docError }}</div>
+        <div v-else-if="!current" class="hb-message">No documents are available.</div>
+
+        <!-- Renderer: markdown -->
+        <article v-else-if="current.renderer === 'markdown'" class="hb-doc">
+          <div ref="body" class="hb-body" v-html="html"></div>
+        </article>
+
+        <!-- Renderer: test-cases -->
+        <section v-else-if="current.renderer === 'test-cases'" class="hb-tc">
+          <div v-if="warnings.length" class="hb-warn">
+            <strong>TEST_CASES.md has {{ warnings.length }} problem(s):</strong>
+            <ul><li v-for="(w, i) in warnings" :key="i" v-html="fc(w)"></li></ul>
+          </div>
+
+          <div class="hb-tc-top">
+            <div class="hb-tc-stats">
+              <span class="hb-stat pass">{{ stats.p }} passed</span>
+              <span class="hb-stat fail">{{ stats.f }} failed</span>
+              <span class="hb-stat un">{{ stats.u }} untested</span>
+              <span class="hb-stat-pct">{{ pct(stats) }}% complete</span>
+              <span v-if="updatedLabel" class="hb-stat-pct" v-html="'Updated: ' + fc(updatedLabel)"></span>
+            </div>
+            <div class="hb-prog"><div class="hb-prog-fill" :style="{ width: pct(stats) + '%' }"></div></div>
+            <div class="hb-tc-filters">
+              <span class="hb-filter-label">Filter:</span>
+              <button v-for="f in statusFilters" :key="f.key" type="button" class="hb-pill" :class="[{ active: statusFilter === f.key }, 'p-' + f.key]" @click="statusFilter = f.key">{{ f.label }}</button>
+              <button type="button" class="hb-reset" @click="resetAll">Reset all</button>
+            </div>
+          </div>
+
+          <div class="hb-secs">
+            <button type="button" class="hb-sec-link" :class="{ active: sectionFilter === 'all' }" @click="sectionFilter = 'all'">
+              <span class="hb-dot hb-dot-all"></span>
+              <span class="hb-sec-name">All sections</span>
+              <span class="hb-sec-cnt">{{ stats.p }}/{{ stats.total }}</span>
+            </button>
+            <button v-for="sec in sections" :key="sec.id" type="button" class="hb-sec-link" :class="{ active: sectionFilter === sec.id }" @click="sectionFilter = sec.id">
+              <span class="hb-dot" :class="dotClass(sec)"></span>
+              <span class="hb-sec-name" v-html="fc(sec.title)"></span>
+              <span class="hb-sec-cnt">{{ secStats(sec).p }}/{{ secStats(sec).total }}</span>
+            </button>
+          </div>
+
+          <div v-for="sec in visibleSections" :key="sec.id" class="hb-sec">
+            <div class="hb-sec-head">
+              <h2 v-html="fc(sec.title)"></h2>
+              <div class="hb-mini">
+                <div class="hb-mini-bar"><div class="hb-mini-fill" :style="{ width: pct(secStats(sec)) + '%' }"></div></div>
+                <span class="hb-mini-txt">{{ secStats(sec).p }}/{{ secStats(sec).total }}</span>
+              </div>
+            </div>
+            <template v-for="(c, i) in sec.cases" :key="c.id">
+              <div v-if="c.sub && (i === 0 || sec.cases[i - 1].sub !== c.sub)" class="hb-sub" v-html="fc(c.sub)"></div>
+              <div v-show="statusFilter === 'all' || statusFilter === stateOf(c.id)" class="hb-case" :class="'s-' + stateOf(c.id)">
+                <button type="button" class="hb-tog" :class="stateOf(c.id)" title="Click to toggle: untested → pass → fail" @click="toggle(c.id)">{{ togIcon(stateOf(c.id)) }}</button>
+                <div class="hb-cb">
+                  <div class="hb-ch">
+                    <span class="hb-cid" v-html="fc(c.id)"></span>
+                    <span class="hb-sc" v-html="fc(c.scenario)"></span>
+                    <span v-if="c.auto === 'api'" class="hb-auto">API auto</span>
+                    <span v-if="c.auto === 'vitest'" class="hb-auto vitest">vitest</span>
+                  </div>
+                  <div v-if="c.steps" class="hb-steps" v-html="fc(c.steps)"></div>
+                  <div class="hb-exp" v-html="fc(c.expected)"></div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div v-else class="d-flex align-items-center justify-content-center" style="height:60vh">
+    <div class="spinner-border text-secondary"></div>
+  </div>
+
+</div>
+
+</div><!-- /#app-main -->
+</div><!-- /#app-shell -->
+
+<script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
+<script defer src="js/api.js?v=15"></script>
+<script defer src="js/core.js?v=16"></script>
+<script type="module" src="js/lib/notif-browser.js?v=2"></script>
+<script defer src="js/notifications.js?v=4"></script>
+<script type="module" src="js/lib/icons.js?v=7"></script>
+<script type="module" src="js/lib/dates.js?v=4"></script>
+<script defer src="js/nav.js?v=24"></script>
+<script type="module" src="js/lib/handbook.js?v=4"></script>
+<script type="module">
+  import { parseTestCases, formatCell } from './js/lib/test-cases-parse.js?v=3';
+
+  const LOAD_ERROR = 'Could not load this document. Reload the page; if you are signed out, sign in first.';
+  const STATE_KEY = 'pdash_test_state_v1';
+  const MERMAID_URL = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs';
+  let mermaidPromise = null;
+
+  function readState() {
+    try {
+      const s = JSON.parse(localStorage.getItem(STATE_KEY) || '{}');
+      return s && typeof s === 'object' ? s : {};
+    } catch (e) { return {}; }
+  }
+  function writeState(s) {
+    try { localStorage.setItem(STATE_KEY, JSON.stringify(s)); } catch (e) { /* storage unavailable: the ticks last for this page view only */ }
+  }
+
+  // The server answers a signed-out fetch with the login page (200, HTML), so a
+  // response is judged by its payload as well as by its status.
+  async function fetchText(path) {
+    const res = await fetch(path, { cache: 'no-store' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.text();
+  }
+
+  async function renderMermaid(root, isCurrent) {
+    const codes = [...root.querySelectorAll('code.language-mermaid')];
+    if (!codes.length) return;
+    mermaidPromise = mermaidPromise || import(MERMAID_URL);
+    const mod = await mermaidPromise;
+    if (!isCurrent()) return;
+    const mermaid = mod.default;
+    mermaid.initialize({ startOnLoad: false, securityLevel: 'strict' });
+    const nodes = codes.map((code) => {
+      const pre = document.createElement('pre');
+      pre.className = 'mermaid';
+      pre.textContent = code.textContent;
+      (code.closest('pre') || code).replaceWith(pre);
+      return pre;
+    });
+    await mermaid.run({ nodes });
+  }
+
+  Vue.createApp({
+    data() {
+      return {
+        ready: false, role: '', manifest: null, manifestError: '',
+        current: null, notice: '', loading: false, docError: '', loadToken: 0,
+        html: '',
+        sections: [], warnings: [], updatedLabel: null,
+        testState: readState(), sectionFilter: 'all', statusFilter: 'all',
+        statusFilters: [
+          { key: 'all', label: 'All' }, { key: 'pass', label: 'Passed' },
+          { key: 'fail', label: 'Failed' }, { key: 'untested', label: 'Untested' },
+        ],
+      };
+    },
+    computed: {
+      docs() { return visibleDocs(this.manifest, this.role); },
+      guides() { return this.docs.filter((d) => d.audience === 'public'); },
+      adminDocs() { return this.docs.filter((d) => d.audience === 'restricted'); },
+      allCases() { return this.sections.flatMap((s) => s.cases); },
+      stats() { return testStats(this.allCases, this.testState); },
+      visibleSections() {
+        return this.sectionFilter === 'all' ? this.sections : this.sections.filter((s) => s.id === this.sectionFilter);
+      },
+    },
+    methods: {
+      fc: formatCell,
+      stateOf(id) { return this.testState[id] || 'untested'; },
+      togIcon(s) { return s === 'pass' ? '✓' : s === 'fail' ? '✗' : '○'; },
+      secStats(sec) { return testStats(sec.cases, this.testState); },
+      pct(st) { return st.total > 0 ? Math.round(st.p / st.total * 100) : 0; },
+      dotClass(sec) {
+        const st = this.secStats(sec);
+        return st.p === st.total ? 'ok' : st.f > 0 ? 'bad' : '';
+      },
+      toggle(id) {
+        this.testState = { ...this.testState, [id]: nextTestState(this.stateOf(id)) };
+        writeState(this.testState);
+      },
+      resetAll() {
+        showConfirm('Reset all test results? This cannot be undone.', () => {
+          this.testState = {};
+          writeState(this.testState);
+        });
+      },
+      selectDoc(id) {
+        const { doc, notice } = resolveDoc(this.manifest, id, this.role);
+        this.notice = notice;
+        this.openDoc(doc, true);
+      },
+      async openDoc(doc, pushUrl) {
+        const token = ++this.loadToken;
+        this.current = doc;
+        this.docError = '';
+        this.html = '';
+        this.sections = []; this.warnings = []; this.updatedLabel = null;
+        this.sectionFilter = 'all'; this.statusFilter = 'all';
+        if (!doc) { this.loading = false; return; }
+        if (pushUrl) {
+          try { history.replaceState(null, '', '?doc=' + encodeURIComponent(doc.id)); } catch (e) { /* the link just stays as it was */ }
+        }
+        this.loading = true;
+        let text = '';
+        try {
+          text = (await fetchText('handbook/' + doc.file)); // a leading BOM is tolerated by isHandbookPayload; strip it below
+          text = text.charCodeAt(0) === 0xFEFF ? text.slice(1) : text;
+          if (!isHandbookPayload(text, doc)) throw new Error('unexpected payload');
+        } catch (e) {
+          if (token !== this.loadToken) return;
+          this.loading = false;
+          this.docError = LOAD_ERROR;
+          return;
+        }
+        if (token !== this.loadToken) return;
+        if (doc.renderer === 'test-cases') {
+          const parsed = parseTestCases(text);
+          this.sections = parsed.sections;
+          this.updatedLabel = parsed.updated;
+          this.warnings = parsed.warnings;
+          this.loading = false;
+          return;
+        }
+        this.html = marked.parse(text);
+        this.loading = false;
+        await this.$nextTick();
+        if (token !== this.loadToken || !this.$refs.body || !hasMermaid(text)) return;
+        try { await renderMermaid(this.$refs.body, () => token === this.loadToken); } catch (e) { console.error('Mermaid could not render a diagram', e); }
+      },
+    },
+    async created() {
+      const user = await initNav('help', { breadcrumbs: [
+        { label: 'Home', href: '/pipeline.html' },
+        { label: 'Help' },
+      ]});
+      if (!user) return;
+      this.role = user.role;
+      this.ready = true;
+      try {
+        const text = await fetchText('handbook/manifest.json');
+        if (text.trimStart().startsWith('<')) throw new Error('unexpected payload');
+        const manifest = JSON.parse(text);
+        if (!manifest || !Array.isArray(manifest.documents)) throw new Error('unexpected payload');
+        this.manifest = manifest;
+      } catch (e) {
+        this.manifestError = LOAD_ERROR;
+        return;
+      }
+      const wanted = new URLSearchParams(location.search).get('doc');
+      const { doc, notice } = resolveDoc(this.manifest, wanted, this.role);
+      this.notice = notice;
+      this.openDoc(doc, !!wanted || !!notice);
+    },
+  }).mount('#app');
+</script>
+</body>
+</html>

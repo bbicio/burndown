@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { classifyNameStatus, RUNTIME_LOADED_ROOT_MD } from './classify-cycle.mjs';
+import { classifyNameStatus } from './classify-cycle.mjs';
 
 // Builds the exact shape of `git diff --name-status --find-renames -z` stdout:
 // NUL-separated fields, trailing NUL. Verified byte-for-byte 2026-10-09:
@@ -42,12 +42,41 @@ describe('classifyNameStatus', () => {
     expect(r.paths).toEqual(['docs/a.md', 'docs/b.md']);
   });
 
-  it('7: TEST_CASES.md is runtime-loaded code, other root .md files are not', () => {
-    // test-cases.html fetches it and parses it at load (2026-10-09), so a cycle
-    // touching only this file still changes what a page renders.
-    expect(RUNTIME_LOADED_ROOT_MD).toEqual(['TEST_CASES.md']);
-    expect(classifyNameStatus(Z('M', 'TEST_CASES.md')).kind).toBe('ordinary');
+  it('7: a root .md is no-code, TEST_CASES.md included (the app no longer loads it from there)', () => {
+    expect(classifyNameStatus(Z('M', 'TEST_CASES.md')).kind).toBe('no-code');
     expect(classifyNameStatus(Z('M', 'PRD.md')).kind).toBe('no-code');
+  });
+
+  it('7a: handbook/ markdown and images are no-code', () => {
+    expect(classifyNameStatus(Z('M', 'handbook/public/manual.md')).kind).toBe('no-code');
+    expect(classifyNameStatus(Z('A', 'handbook/public/img/x.png')).kind).toBe('no-code');
+    expect(classifyNameStatus(Z('M', 'handbook/restricted/TEST_CASES.md')).kind).toBe('no-code');
+    expect(classifyNameStatus(Z('D', 'handbook/public/old.md')).kind).toBe('no-code');
+  });
+
+  it('7b: handbook/manifest.json is code', () => {
+    expect(classifyNameStatus(Z('M', 'handbook/manifest.json')).kind).toBe('ordinary');
+  });
+
+  it('7c: a move between audiences is ordinary, a move within one is not', () => {
+    expect(classifyNameStatus(Z('R100', 'handbook/restricted/a.md', 'handbook/public/a.md')).kind).toBe('ordinary');
+    expect(classifyNameStatus(Z('R100', 'ARCHITECTURE.md', 'handbook/restricted/ARCHITECTURE.md')).kind).toBe('ordinary');
+    expect(classifyNameStatus(Z('R100', 'handbook/public/a.md', 'handbook/public/b.md')).kind).toBe('no-code');
+  });
+
+  it('7d: a copy between audiences is ordinary, a copy within one is not', () => {
+    expect(classifyNameStatus(Z('C100', 'handbook/restricted/a.md', 'handbook/public/a.md')).kind).toBe('ordinary');
+    expect(classifyNameStatus(Z('C100', 'handbook/public/a.md', 'handbook/public/b.md')).kind).toBe('no-code');
+  });
+
+  it('7e: a delete and an add of the same basename in different audiences is ordinary', () => {
+    expect(classifyNameStatus(Z('D', 'handbook/restricted/a.md', 'A', 'handbook/public/a.md')).kind).toBe('ordinary');
+    expect(classifyNameStatus(Z('A', 'handbook/public/a.md', 'D', 'handbook/restricted/a.md')).kind).toBe('ordinary');
+  });
+
+  it('7f: a delete and an add with different basenames, or in the same audience, stay no-code', () => {
+    expect(classifyNameStatus(Z('D', 'handbook/restricted/a.md', 'A', 'handbook/public/b.md')).kind).toBe('no-code');
+    expect(classifyNameStatus(Z('D', 'handbook/public/x/a.md', 'A', 'handbook/public/y/a.md')).kind).toBe('no-code');
   });
 
   it('8: an empty diff does not qualify vacuously', () => {
@@ -97,11 +126,6 @@ describe('classifyNameStatus', () => {
     // browser question. Today the shared .md check covers it; this pins it
     // against a later refactor that splits the clauses and relaxes docs/.
     expect(classifyNameStatus(Z('M', 'docs/OPERATIONAL_MANUAL.html')).kind).toBe('ordinary');
-  });
-
-  it('treats a named exception as code', () => {
-    const r = classifyNameStatus(Z('M', 'TEST_CASES.md'), ['TEST_CASES.md']);
-    expect(r.kind).toBe('ordinary');
   });
 });
 
@@ -183,6 +207,34 @@ describe('classify-cycle.mjs end to end', () => {
     expect(firstLine(r.stdout)).toBe('ordinary');
     expect(r.stdout).toContain('api/src/foo.js');
     expect(r.stdout).toContain('docs/foo.md');
+  }, E2E_TIMEOUT);
+
+  it('does not judge the untouched source of a copy (-C -C) as a changed path', () => {
+    const d = repo();
+    write(d, 'api/src/README.md', 'some notes\nline two\nline three\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'base');
+    write(d, 'docs/notes.md', 'some notes\nline two\nline three\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'copy');
+
+    const r = run(d, 'HEAD~1...HEAD');
+    expect(firstLine(r.stdout)).toBe('no-code');
+    expect(r.stdout).not.toContain('api/src/README.md');
+  }, E2E_TIMEOUT);
+
+  it('sees a pure copy of a handbook document from restricted to public as ordinary', () => {
+    const d = repo();
+    write(d, 'handbook/restricted/a.md', 'secret notes\nline two\nline three\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'base');
+    write(d, 'handbook/public/a.md', 'secret notes\nline two\nline three\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'copy');
+
+    const r = run(d, 'HEAD~1...HEAD');
+    expect(firstLine(r.stdout)).toBe('ordinary');
+    expect(r.stdout).toContain('handbook/public/a.md');
   }, E2E_TIMEOUT);
 
   it('judges only the given two-dot range, not earlier commits', () => {
@@ -269,4 +321,28 @@ describe('classify-cycle.mjs end to end', () => {
     expect(r.status).not.toBe(0);
     expect(r.stderr).not.toBe('');
   }, E2E_TIMEOUT);
+});
+
+describe('classifyNameStatus: copies and delete+add pairs (Gate 3 round 2)', () => {
+  it('a copy from an untouched code file judges only the destination', () => {
+    // -C -C takes any unmodified tracked file as the source; the cycle never touched it.
+    const r = classifyNameStatus(Z('C100', 'api/src/README.md', 'docs/notes.md'));
+    expect(r.kind).toBe('no-code');
+    expect(r.paths).toEqual(['docs/notes.md']);
+  });
+  it('a copy into code is still ordinary', () => {
+    expect(classifyNameStatus(Z('C100', 'docs/a.md', 'api/src/a.md')).kind).toBe('ordinary');
+  });
+  it('a rename keeps both paths', () => {
+    expect(classifyNameStatus(Z('R90', 'api/src/a.md', 'docs/a.md')).paths).toEqual(['api/src/a.md', 'docs/a.md']);
+  });
+  it('D in an audience plus A of the same name outside handbook/ is an audience move', () => {
+    expect(classifyNameStatus(Z('D', 'handbook/public/a.md', 'A', 'handbook/a.md')).kind).toBe('ordinary');
+  });
+  it('D outside handbook/ plus A of the same name in an audience is an audience move', () => {
+    expect(classifyNameStatus(Z('D', 'docs/x.md', 'A', 'handbook/public/x.md')).kind).toBe('ordinary');
+  });
+  it('D plus A of the same name in the same audience stays no-code', () => {
+    expect(classifyNameStatus(Z('D', 'handbook/public/a.md', 'A', 'handbook/public/sub/a.md')).kind).toBe('no-code');
+  });
 });

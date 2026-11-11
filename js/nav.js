@@ -101,6 +101,7 @@ function buildNavHtml(user, activeTab) {
         <ul class="dropdown-menu pd-account-menu">
           <li><a class="dropdown-item" id="nav-profile-btn" href="/profile.html">${navIcon('user')}My Profile</a></li>
           <li><button class="dropdown-item" id="nav-privacy-btn">${navIcon('terms')}Privacy Notice</button></li>
+          <li><a class="dropdown-item" id="nav-help-link" href="/help.html">${navIcon('info')}Help</a></li>
           <li><hr class="dropdown-divider"></li>
           <li><button class="dropdown-item" id="nav-send-notif-btn">${navIcon('notify')}Send Notification</button></li>
           <li><hr class="dropdown-divider"></li>

@@ -3,8 +3,11 @@
 // running nginx.
 //
 // What it models: the `=`, `^~`, `~`, `~*` and plain-prefix modifiers and their
-// precedence; what a block does (serves files, proxies, answers 404) and whether
-// it carries `auth_request`. What it does not: nested `location` blocks, `if`,
+// precedence (an `=` match beats every regex; among regexes the first in file
+// order wins); what a block does (serves files, proxies, answers 404, redirects
+// with `return 301|302|303|307|308`), whether it carries an `auth_request` directive
+// (`auth`, true exactly when `authBy` is not null; `auth_request_set` does not
+// count and `auth_request off;` is no auth) and that subrequest's target (`authBy`, or null). What it does not: nested `location` blocks, `if`,
 // `alias`, `try_files` resolution, named and `internal` locations (skipped, a
 // client cannot select them). A config it cannot read makes it throw rather
 // than return a wrong answer.
@@ -13,7 +16,7 @@ const HEADER = /\blocation\s+(=|\^~|~\*|~)?\s*(\S+)\s*\{/g;
 
 /**
  * @param {string} confText the text of an nginx.conf
- * @returns {{ modifier: string, pattern: string, action: 'serve'|'404'|'proxy'|'other', auth: boolean }[]}
+ * @returns {{ modifier: string, pattern: string, action: 'serve'|'404'|'redirect'|'proxy'|'other', auth: boolean, authBy: string|null }[]}
  *   the client-selectable location blocks, in file order
  */
 export function parseLocations(confText) {
@@ -34,10 +37,14 @@ export function parseLocations(confText) {
 
     if (pattern.startsWith('@') || /\binternal\s*;/.test(body)) continue;
     const action = /\breturn\s+404\b/.test(body) ? '404'
+      : /\breturn\s+30[12378]\b/.test(body) ? 'redirect'
       : /\bproxy_pass\b/.test(body) ? 'proxy'
       : /\broot\b/.test(body) ? 'serve'
       : 'other';
-    locations.push({ modifier, pattern, action, auth: /\bauth_request\b/.test(body) });
+    // `auth_request off;` switches the subrequest off: that is no auth at all.
+    const rawAuth = body.match(/\bauth_request\s+(\S+?)\s*;/)?.[1] ?? null;
+    const authBy = rawAuth === 'off' ? null : rawAuth;
+    locations.push({ modifier, pattern, action, auth: authBy !== null, authBy });
   }
   return locations;
 }

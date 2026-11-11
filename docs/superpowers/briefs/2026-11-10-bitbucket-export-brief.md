@@ -6,7 +6,7 @@
 ## Contesto (stato di oggi, per chi progetta)
 
 - Un solo remote: `origin` → GitHub (`git remote -v`).
-- File di processo e file del sito stanno insieme: i `*.test.js` sono accanto ai sorgenti in `js/`, `js/lib/`, `api/src/`; nella root ci sono `CLAUDE.md`, `ARCHITECTURE.md`, `PRD.md`, `TEST_CASES.md`, `test-cases.html`, `test-api.js`, `vitest.config.js`, `package.json`.
+- File di processo e file del sito stanno insieme: i `*.test.js` sono accanto ai sorgenti in `js/`, `js/lib/`, `api/src/`; nella root ci sono `CLAUDE.md`, `PRD.md`, `test-api.js`, `vitest.config.js`, `package.json`; i documenti del viewer stanno sotto `handbook/` (`ARCHITECTURE.md`, `TEST_CASES.md`, la checklist di produzione) e la pagina è `help.html` (updated 2026-11-11, handbook viewer).
 - `docker-compose.yml` fa servire a nginx tutta la root del repo (`./:/usr/share/nginx/html:ro`); il servizio `test` (profilo `test`) monta `./test-api.js`. I file dev non vengono serviti solo grazie alle regole `return 404` in `nginx.conf` (blocco "DEV-ONLY TOOLCHAIN").
 - `api/package.json` ha gli script `dev` (nodemon) e `test` (`node --test src/**/*.test.js`) e `nodemon` in `devDependencies`. `api/Dockerfile` copia tutto `src/`.
 - `.env.example` contiene una sezione per le porte di `scripts/test-branch.sh`.
@@ -15,13 +15,14 @@
 
 1. Un comando lanciato a mano (script + voce eseguibile da VS Code, per esempio `npm run` o un task) esporta un commit di `main` verso il repo Bitbucket.
 2. L'export contiene **solo** i file elencati in un elenco unico e versionato, con regole di inclusione ed esclusione per path:
-   - **Inclusi:** le pagine `*.html` dell'app; `js/`, `css/` (`assets/` was deleted on 2026-11-11, B-448); `api/` (`Dockerfile`, `package.json`, `package-lock.json`, `src/` con routes, services, lib, middleware, db/migrations, `create-admin.js`, `promote-sysadmin.js`); `nginx.conf`, `docker-compose.yml` (vedi domande aperte), `.env.example`, `.gitignore`.
-   - **Esclusi:** `docs/`, `.claude/`, `.superpowers/`, `scripts/` (compreso `backup-db.sh`), `CLAUDE.md`, `ARCHITECTURE.md`, `PRD.md`, `TEST_CASES.md`, `test-cases.html`, `test-api.js`, `vitest.config.js`, i `package.json`/`package-lock.json` della root, ogni `*.test.js`/`*.spec.js`, `api/src/scripts/`, `api/nodemon.json`.
+   - **Inclusi:** le pagine `*.html` dell'app (`help.html` compresa); `handbook/`; `js/` (`js/lib/test-cases-parse.js` compreso), `css/` (`assets/` was deleted on 2026-11-11, B-448); `api/` (`Dockerfile`, `package.json`, `package-lock.json`, `src/` con routes, services, lib, middleware, db/migrations, `create-admin.js`, `promote-sysadmin.js`); `nginx.conf`, `docker-compose.yml` (vedi domande aperte), `.env.example`, `.gitignore`.
+   - **Esclusi:** `docs/`, `.claude/`, `.superpowers/`, `scripts/` (compreso `backup-db.sh`), `CLAUDE.md`, `PRD.md`, `test-api.js`, `vitest.config.js`, i `package.json`/`package-lock.json` della root, ogni `*.test.js`/`*.spec.js`, `api/src/scripts/`, `api/nodemon.json`.
 3. Su Bitbucket ogni export produce **un commit**, il cui messaggio riporta l'hash del commit GitHub di partenza. Un export senza differenze rispetto al precedente non crea un commit vuoto.
 4. I file eliminati dal sito tra un export e l'altro spariscono anche su Bitbucket: l'export rispecchia l'elenco, non si limita ad aggiungere.
 5. L'export parte da un commit, non dal working tree: modifiche non committate e file gitignored (`.env`, `backups/`, `node_modules/`) non possono finire su Bitbucket.
 6. Un guard test fallisce quando un file tracciato non è coperto da nessuna regola dell'elenco: un file nuovo va classificato come sito o come processo, non entra o resta fuori in silenzio.
 7. Il push su GitHub resta quello di oggi, senza nessun cambiamento.
+8. **Accettato dall'utente (2026-11-11, handbook viewer):** architettura e checklist di produzione, sotto `handbook/restricted/`, sono visibili a chi accede al repo Bitbucket.
 
 ## Vincoli
 
@@ -60,7 +61,7 @@
 2. **`nginx.conf`:** su Bitbucket il blocco "DEV-ONLY TOOLCHAIN" e il suo commento non servono. Si esporta così com'è (innocuo) o lo si separa?
 3. **`api/package.json`:** gli script `dev`/`test` e `nodemon` in `devDependencies` puntano a file esclusi. Si esporta così com'è o lo si riduce?
 4. **`.env.example`:** la sezione delle porte di `scripts/test-branch.sh` riguarda un file escluso. Si tiene o la si toglie dall'export?
-5. **`js/lib/test-cases-parse.js`:** il suo unico consumatore è `test-cases.html`, che è escluso. Va escluso anche lui?
+5. **`js/lib/test-cases-parse.js`:** chiusa (2026-11-11, handbook viewer): i suoi consumatori, `help.html` e `js/lib/handbook.js`, sono inclusi, quindi il file è incluso.
 6. **Meccanismo dell'export:** clone di lavoro del repo Bitbucket fuori dal repo, oppure ramo orfano locale (per esempio `bitbucket-export`) con push `ramo:main`. Dove vive il clone e come si chiama il remote.
 7. **Formato dell'elenco:** un file dedicato (stile gitignore) oppure `export-ignore` in `.gitattributes` + `git archive`. Il guard deve poter leggere lo stesso formato.
 8. **Da quale commit si esporta:** sempre `HEAD` di `main` oppure un ref a scelta (tag di rilascio). Si crea un tag su GitHub a ogni export?

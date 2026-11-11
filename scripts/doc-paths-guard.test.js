@@ -65,8 +65,8 @@ const GONE = new Map([
 ]);
 
 const DOCS = [
-  ...liveMarkdown('docs'), ...liveMarkdown('.claude'),
-  'CLAUDE.md', 'ARCHITECTURE.md', 'PRD.md', 'TEST_CASES.md',
+  ...liveMarkdown('docs'), ...liveMarkdown('.claude'), ...liveMarkdown('handbook'),
+  'CLAUDE.md', 'PRD.md',
 ];
 
 /** path -> the documents citing it, so a failure can name both. */

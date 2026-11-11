@@ -4,7 +4,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseLocations, selectLocation } from './nginx-locations.mjs';
 
-const loc = (modifier, pattern, action = 'serve', auth = false) => ({ modifier, pattern, action, auth });
+const loc = (modifier, pattern, action = 'serve', authBy = null) => ({ modifier, pattern, action, auth: authBy !== null, authBy });
 
 describe('parseLocations', () => {
   it('reads modifier, pattern, action and auth, skipping named and internal locations', () => {
@@ -18,11 +18,43 @@ describe('parseLocations', () => {
         location / { return 404; }
       }`;
     expect(parseLocations(conf)).toEqual([
-      loc('=', '/a', 'serve', false),
-      loc('~', '^/b\\.html$', 'serve', true),
-      loc('', '/api/', 'proxy', false),
-      loc('', '/', '404', false),
+      loc('=', '/a', 'serve'),
+      loc('~', '^/b\\.html$', 'serve', '/i'),
+      loc('', '/api/', 'proxy'),
+      loc('', '/', '404'),
     ]);
+  });
+
+  it('reads the auth_request target and the redirect action', () => {
+    const conf = `
+      location = /r { return 301 /y; }
+      location = /s { return 302 /y; }
+      location = /c { auth_request /admin-check; root /x; }`;
+    expect(parseLocations(conf)).toEqual([
+      loc('=', '/r', 'redirect'),
+      loc('=', '/s', 'redirect'),
+      loc('=', '/c', 'serve', '/admin-check'),
+    ]);
+  });
+
+  it('reads 307 and 308 as redirects', () => {
+    const conf = `
+      location = /t { return 307 /y; }
+      location = /p { return 308 /y; }`;
+    expect(parseLocations(conf)).toEqual([loc('=', '/t', 'redirect'), loc('=', '/p', 'redirect')]);
+  });
+
+  it('reads 303 as a redirect', () => {
+    expect(parseLocations('location = /o { return 303 /y; }')).toEqual([loc('=', '/o', 'redirect')]);
+  });
+
+  it('auth_request off is no auth', () => {
+    expect(parseLocations('location = /n { auth_request off; root /x; }')).toEqual([loc('=', '/n', 'serve', null)]);
+  });
+
+  it('a location with only auth_request_set has no auth', () => {
+    const conf = 'location = /q { auth_request_set $u $upstream_http_x; root /x; }';
+    expect(parseLocations(conf)).toEqual([loc('=', '/q', 'serve', null)]);
   });
 
   it('throws on a pattern with a brace quantifier', () => {

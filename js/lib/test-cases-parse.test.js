@@ -146,7 +146,7 @@ describe('formatCell', () => {
 // The page renders this exact file, so these are the tests that stop a future
 // /sync-docs from breaking it by writing malformed Markdown.
 describe('the real TEST_CASES.md', () => {
-  const parsed = parseTestCases(readFileSync('TEST_CASES.md', 'utf8'));
+  const parsed = parseTestCases(readFileSync('handbook/restricted/TEST_CASES.md', 'utf8'));
   const allCases = parsed.sections.flatMap((s) => s.cases);
 
   it('parses with no warnings', () => {

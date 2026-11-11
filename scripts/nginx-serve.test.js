@@ -1,6 +1,6 @@
-// nginx.conf serves only the site — the root *.html pages, the root files a
-// page fetches (RUNTIME_FETCHED below) and the .css/.js files under css/ and js/
-// (tests excluded). docker-compose.yml mounts the whole
+// nginx.conf serves only the site — the root *.html pages, handbook/ (the manifest
+// and the .md/.png under public/ and restricted/, the latter admin-only) and the
+// .css/.js files under css/ and js/ (tests excluded). docker-compose.yml mounts the whole
 // repo root into nginx, so anything else a location serves is downloadable:
 // .env, backups/, .git/, docs. Every tracked file is checked, plus a fixed list
 // of untracked paths that exist on a developer machine.
@@ -27,22 +27,28 @@ const ALWAYS_404 = [
   '/.env', '/backups/pdash.dump', '/.claude/worktrees/x/.env', '/.git/HEAD', '/shots/x.png',
   '/.superpowers_up.log', '/node_modules/vue/package.json', '/favicon.ico', '/.well-known/x.json',
   '/css/', '/js/lib/', '/docs', '/assets/chart.umd.min.js',
+  // handbook/: only the two audience folders and the manifest; case variants and
+  // 8.3 names must not reach restricted/.
+  '/handbook/', '/handbook/RESTRICTED/TEST_CASES.md', '/handbook/RESTRI~1/TEST_CASES.md',
+  '/handbook/public/x.txt', '/handbook/x.md',
   // The repo can sit on a case-insensitive filesystem with Windows short (8.3) names:
   // a case variant or a short name reaches the real test file.
   '/js/lib/money.Test.js', '/js/lib/money.test.JS', '/js/lib/MONEYT~1.js', '/js/MONEY-~1.js',
 ];
 
-// Root files a page fetches at runtime: test-cases.html renders TEST_CASES.md.
-const RUNTIME_FETCHED = ['TEST_CASES.md'];
+// Root pages answered by a redirect, not served.
+const REDIRECTS = ['test-cases.html'];
 
 function isSite(path) {
-  if (!path.includes('/')) return path.endsWith('.html') || RUNTIME_FETCHED.includes(path);
+  if (!path.includes('/')) return path.endsWith('.html');
   if (path.startsWith('css/')) return path.endsWith('.css');
   if (path.startsWith('js/')) return path.endsWith('.js') && !/\.(test|spec)\.js$/.test(path);
-  return false;
+  if (path === 'handbook/manifest.json') return true;
+  return /^handbook\/(public|restricted)\/.+\.(md|png)$/.test(path);
 }
 
 function expected(path) {
+  if (REDIRECTS.includes(path)) return 'redirect';
   if (isSite(path)) return 'serve';
   return path.startsWith('api/') ? 'proxy' : '404';
 }
@@ -57,6 +63,16 @@ function violations(confText, trackedPaths) {
     .map(([uri, want]) => [uri, want, selectLocation(locations, uri)?.action ?? 'none'])
     .filter(([, want, got]) => got !== want)
     .map(([uri, want, got]) => `${uri} → ${got}, attesa ${want}`);
+}
+
+function handbookAuthViolations(confText, trackedPaths) {
+  const locations = parseLocations(confText);
+  return trackedPaths
+    .filter((p) => p.startsWith('handbook/restricted/'))
+    .filter((p) => {
+      const loc = selectLocation(locations, '/' + p);
+      return !(loc && loc.action === 'serve' && loc.authBy === '/admin-check');
+    });
 }
 
 const pick = (uri) => selectLocation(parseLocations(CONF), uri);
@@ -77,9 +93,44 @@ describe('nginx.conf serves only site files', () => {
   });
 
   it('the other root pages require auth', () => {
-    for (const uri of ['/pipeline.html', '/_db-reset.html', '/TEST_CASES.md']) {
+    for (const uri of ['/pipeline.html', '/_db-reset.html']) {
       expect(pick(uri), uri).toMatchObject({ action: 'serve', auth: true });
     }
+  });
+
+  it('reports the auth_request target of each location', () => {
+    expect(pick('/pipeline.html').authBy).toBe('/auth-check');
+    expect(pick('/login.html').authBy).toBeNull();
+    const [redirect] = parseLocations('location = /x { return 301 /y; }');
+    expect(redirect.action).toBe('redirect');
+  });
+
+  it('every tracked handbook/restricted/ file is behind /admin-check', () => {
+    const files = TRACKED.filter((p) => p.startsWith('handbook/restricted/'));
+    expect(files.length).toBeGreaterThan(0);
+    expect(handbookAuthViolations(CONF, TRACKED)).toEqual([]);
+  });
+
+  it('the rest of handbook/ is behind /auth-check', () => {
+    const files = TRACKED.filter((p) => p.startsWith('handbook/') && !p.startsWith('handbook/restricted/'));
+    expect(files.length).toBeGreaterThan(0);
+    for (const p of files) {
+      expect(pick('/' + p), p).toMatchObject({ action: 'serve', authBy: '/auth-check' });
+    }
+  });
+
+  it('/test-cases.html redirects', () => {
+    expect(pick('/test-cases.html')).toMatchObject({ modifier: '=', action: 'redirect' });
+  });
+
+  it('is red when restricted uses /auth-check', () => {
+    const weakened = CONF.replace(/(handbook\/restricted[^{]*\{\s*)auth_request\s+\/admin-check;/,
+      '$1auth_request /auth-check;');
+    expect(weakened).not.toBe(CONF);
+    const loc = selectLocation(parseLocations(weakened), '/handbook/restricted/TEST_CASES.md');
+    expect(loc.authBy).toBe('/auth-check');
+    expect(loc.authBy).not.toBe('/admin-check');
+    expect(handbookAuthViolations(weakened, TRACKED)).not.toEqual([]);
   });
 
   it('is red without the final catch-all 404', () => {

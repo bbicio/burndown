@@ -655,6 +655,7 @@ timesheets (
 | POST | /api/auth/login | — | Login email + password |
 | POST | /api/auth/logout | ✅ | Clear JWT cookie |
 | GET | /api/auth/me | ✅ | Current user profile, incl. `created_at`, `terms_accepted_at`, `password_changed_at`, `two_step { method, destination }` |
+| GET | /api/auth/admin-check | ✅ admin | 204 for admin/sysadmin, 403 otherwise; nginx's auth_request for handbook/restricted/ |
 | POST | /api/auth/two-step/verify | — | `{ code, trustDevice }` against the `pdash_challenge` cookie: 400 `WRONG_CODE` (with `attemptsLeft`), 410 `CODE_EXPIRED`, 423 `LOCKED`, 401 `NO_CHALLENGE`; success sets the JWT cookie (and `pdash_device`) |
 | POST | /api/auth/two-step/resend | — | New code for the open challenge: 429 `COOLDOWN` / `RATE_LIMITED`, 502 `SEND_FAILED` |
 | DELETE | /api/auth/two-step | — | Drops the open challenge ("Back to sign in"); always 200 |
@@ -701,7 +702,7 @@ timesheets (
 | POST | /api/ratecards | admin | Create; `clientId` required (400, also for an unknown client). Under a client-row lock it returns the client's existing card (200, with `entries`) instead of creating a second one; a new card answers 201 with `version: 0` |
 | GET | /api/ratecards/:id | ✅ | Detail (all authenticated users) |
 | PATCH | /api/ratecards/:id | admin | Rename / update the rate card itself |
-| PATCH | /api/ratecards/:id/entries | admin | Replaces the whole entry set in one transaction (2026-10-30): roles missing from the body lose their entry. `hourlyRate` may be `null` (agency default) when the entry has a currency override; every entry is checked first — an invalid amount or an entry with neither answers **400 `MONEY_RULE`** and changes nothing. (2026-11-11) The body is `{ version, entries }`: a bare array or a `version` other than the stored one → **409 `RATECARD_STALE`**, a non-integer `version` or a repeated role → 400, entries of a role that no longer exists are dropped; the response is `{ ok, version }` with `version` incremented. Malformed ids → 400, unknown card → 404. Detail: [docs/api/config.md](docs/api/config.md) |
+| PATCH | /api/ratecards/:id/entries | admin | Replaces the whole entry set in one transaction (2026-10-30): roles missing from the body lose their entry. `hourlyRate` may be `null` (agency default) when the entry has a currency override; every entry is checked first — an invalid amount or an entry with neither answers **400 `MONEY_RULE`** and changes nothing. (2026-11-11) The body is `{ version, entries }`: a bare array or a `version` other than the stored one → **409 `RATECARD_STALE`**, a non-integer `version` or a repeated role → 400, entries of a role that no longer exists are dropped; the response is `{ ok, version }` with `version` incremented. Malformed ids → 400, unknown card → 404. Detail: `docs/api/config.md` |
 | DELETE | /api/ratecards/:id | admin | Delete |
 
 ### Resources & Attribute Lists (2026-09)
@@ -1044,7 +1045,7 @@ burndown/
   team.html               ← resource registry CRUD, admin or sysadmin; own stylesheet css/team.css. Detail: docs/pages/team.md
   attribute-lists.html    ← generic tag/taxonomy admin console (lists + items, no physical delete); its items feed the Tags sections via js/tags.js; own stylesheet css/attribute-lists.css. Detail: docs/pages/attribute-lists.md
   profile-jobs.html       ← profile-engine job console, hidden (reached from the Timesheets sub-menu of timesheets.html); adds js/lib/profile-jobs-ui.js. Detail: docs/pages/profile-jobs.md
-  test-cases.html         ← dev-only manual test checklist; fetches TEST_CASES.md and renders it via js/lib/test-cases-parse.js, which is why that file counts as code. Detail: docs/js/lib.md
+  help.html               ← documentation viewer: renders the documents of handbook/ (manifest.json, public/, restricted/ for admin/sysadmin) through js/lib/handbook.js and js/lib/test-cases-parse.js; own stylesheet css/help.css. Detail: docs/pages/help.md
   nginx.conf              ← serves only the listed site paths even though it bind-mounts the repo root
   docker-compose.yml
   .env.example
@@ -1089,7 +1090,7 @@ All server data (cost grids, projects, clients, programs, roles, timesheets) is 
 
 ### DB migrations
 
-> **The maintained per-file index is [docs/db/migrations.md](docs/db/migrations.md)** (moved out of `CLAUDE.md` on 2026-10-10). The list below is an older parallel copy kept for the architectural narrative around each migration; it is **known to lag** — `027` and `028` are missing from it as of 2026-10-10. Prefer the `docs/db/` table for "what exists and what it did".
+> **The maintained per-file index is `docs/db/migrations.md`** (moved out of `CLAUDE.md` on 2026-10-10). The list below is an older parallel copy kept for the architectural narrative around each migration; it is **known to lag** — `027` and `028` are missing from it as of 2026-10-10. Prefer the `docs/db/` table for "what exists and what it did".
 
 Numbered SQL files in `api/src/db/migrations/`. Apply individually via:
 

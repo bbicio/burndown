@@ -96,11 +96,20 @@ describe('buildNavHtml', () => {
     expect(el.querySelector('#nav-settings-btn')).toBeNull();
     expect(el.querySelector('.pd-account-menu').textContent).not.toContain('Settings');
   });
+  it.each(['user', 'admin', 'sysadmin'])('the account menu has a Help link right after Privacy Notice for %s', (role) => {
+    const el = build(role);
+    const link = el.querySelector('#nav-help-link');
+    expect(link).not.toBeNull();
+    expect(link.getAttribute('href')).toBe('/help.html');
+    expect(link.textContent.trim()).toBe('Help');
+    expect(link.querySelector('svg')).not.toBeNull();
+    expect(el.querySelector('#nav-privacy-btn').closest('li').nextElementSibling).toBe(link.closest('li'));
+  });
   it('keeps every existing element id', () => {
     const el = build('user');
     for (const id of ['nav-notif-btn', 'nav-notif-badge', 'navNotifWrapper', 'nav-notif-list', 'nav-notif-read-all',
       'nav-notif-browser-banner', 'nav-notif-browser-label', 'nav-notif-browser-enable', 'nav-account-btn',
-      'nav-profile-btn', 'nav-privacy-btn', 'nav-send-notif-btn', 'nav-change-pwd-btn', 'nav-logout-btn']) {
+      'nav-profile-btn', 'nav-privacy-btn', 'nav-help-link', 'nav-send-notif-btn', 'nav-change-pwd-btn', 'nav-logout-btn']) {
       expect(el.querySelector('#' + id), id).not.toBeNull();
     }
   });

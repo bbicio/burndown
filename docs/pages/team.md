@@ -44,7 +44,7 @@ The detail panel's second tab (formerly a placeholder) shows the cached profile 
 
 **Aliases moved** (same day): they no longer have their own tab. A collapsed-by-default `<details>` "Aliases" accordion with a count badge sits at the bottom of the **Details** tab; behaviour (Remove, `unmatchedError` display) is unchanged. The panel therefore has two tabs: Details and Experience profile.
 
-The profile is asynchronous (10-minute default cycle), so a fresh upload, tag edit or alias change shows up only after the next worker run. The Unmatched names list still updates immediately. Design and known limits: `docs/api/profile-engine.md`. Manual checks: TEST_CASES.md section "Profile engine (Cycle 3c)".
+The profile is asynchronous (10-minute default cycle), so a fresh upload, tag edit or alias change shows up only after the next worker run. The Unmatched names list still updates immediately. Design and known limits: `docs/api/profile-engine.md`. Manual checks: handbook/restricted/TEST_CASES.md section "Profile engine (Cycle 3c)".
 
 ## Topics block in the Experience profile (profile descriptions cycle, 2026-09-29)
 

@@ -1,0 +1,6 @@
+{ "documents": [
+  { "id": "manual", "title": "User manual", "audience": "public", "renderer": "markdown", "file": "public/manual.md" },
+  { "id": "architecture", "title": "Architecture", "audience": "restricted", "renderer": "markdown", "file": "restricted/ARCHITECTURE.md" },
+  { "id": "test-cases", "title": "Test cases", "audience": "restricted", "renderer": "test-cases", "file": "restricted/TEST_CASES.md" },
+  { "id": "production-checklist", "title": "Production checklist", "audience": "restricted", "renderer": "markdown", "file": "restricted/production-checklist.md" }
+] }

@@ -219,6 +219,12 @@ async function testAuth() {
   const sysMe = await api('GET', '/api/auth/me', null, sysadminCookie);
   ok(sysMe.data?.role === 'sysadmin', 'A-06 sysadmin role = sysadmin');
 
+  ok((await api('GET', '/api/auth/admin-check')).status === 401, 'A-07 admin-check without session → 401');
+  ok((await api('GET', '/api/auth/admin-check', null, adminCookie)).status === 204, 'A-07 admin-check as admin → 204');
+  ok((await api('GET', '/api/auth/admin-check', null, sysadminCookie)).status === 204, 'A-07 admin-check as sysadmin → 204');
+  const plainForCheck = await getPlainUserCookie();
+  ok((await api('GET', '/api/auth/admin-check', null, plainForCheck)).status === 403, 'A-07 admin-check as user → 403');
+
   return true;
 }
 
