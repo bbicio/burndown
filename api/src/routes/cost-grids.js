@@ -688,11 +688,14 @@ router.get('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
 
 // PUT /api/cost-grids/:id/versions/:vId/structure
 router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) => {
+  try {
   if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
     return res.status(403).json({ error: 'Access denied' });
   }
-  const locked = await query('SELECT locked, currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
-  if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
+  if (!isUuid(req.params.vId)) return res.status(400).json({ error: 'Invalid version id' });
+  const locked = await query('SELECT locked FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+  if (!locked.rows[0]) return res.status(404).json({ error: 'Version not found' });
+  if (locked.rows[0].locked) return res.status(400).json({ error: 'Version is locked' });
 
   const { phases = [], roles: rolesBody = [], period: periodBody } = req.body;
 
@@ -719,34 +722,6 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
     }
   }
 
-  // Role rates: an absent rate is tolerated (stored as NULL); a given one is checked in the version's currency.
-  for (const r of rolesBody) {
-    if (r?.rate != null) {
-      const err = amountError(r.rate, locked.rows[0]?.currency, `Rate for role "${r.roleCode || ''}"`, { max: MAX_DECIMAL_10_2 });
-      if (err) return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
-    }
-  }
-
-  // Task PTC and (second body shape) per-role rate overrides: absent/null is tolerated, a given one is checked in the version's currency.
-  for (const ph of phases) {
-    for (const tk of (ph?.tasks || [])) {
-      if (!tk) continue;
-      const tkLabel = tk.taskName || tk.title || '';
-      if (tk.ptc != null) {
-        const err = amountError(tk.ptc, locked.rows[0]?.currency, `PTC of task "${tkLabel}"`, { max: MAX_DECIMAL_10_2 });
-        if (err) return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
-      }
-      if (!(tk.hours && typeof tk.hours === 'object')) {
-        for (const tr of (tk.roles || [])) {
-          if (tr?.rateOverride != null) {
-            const err = amountError(tr.rateOverride, locked.rows[0]?.currency, `Rate override in task "${tkLabel}"`, { max: MAX_DECIMAL_10_2 });
-            if (err) return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
-          }
-        }
-      }
-    }
-  }
-
   // Preload all roles for code→id lookup
   const { rows: allRoles } = await query('SELECT id, code FROM roles');
   const roleByCode = Object.fromEntries(allRoles.map(r => [r.code, r.id]));
@@ -760,7 +735,7 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
     if (r.roleCode && r.rate != null) {
       rateByCode[r.roleCode] = r.rate;
     }
-    if (r.roleCode) customByCode[r.roleCode] = r.rateIsCustom === true;
+    if (r.roleCode) customByCode[r.roleCode] = r.rateIsCustom === true && r.rate != null;
   }
 
   // Use a dedicated client for the transaction so BEGIN/COMMIT share the same connection
@@ -769,7 +744,49 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
     await client.query('BEGIN');
     // The version lock makes the check below and the DELETE see the same links (a link write takes it too).
     await lockVersion(client, req.params.vId);
-    const stored = (await client.query('SELECT start_date, end_date FROM cost_grid_versions WHERE id = $1', [req.params.vId])).rows[0];
+    const stored = (await client.query('SELECT start_date, end_date, currency FROM cost_grid_versions WHERE id = $1', [req.params.vId])).rows[0];
+    if (!stored) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Version not found' });
+    }
+    const currency = stored.currency;
+    // Role rates: an absent rate is tolerated (stored as NULL); a given one is checked in the version's currency.
+    for (const r of rolesBody) {
+      if (r?.rate != null) {
+        const err = amountError(r.rate, currency, `Rate for role "${r.roleCode || ''}"`, { max: MAX_DECIMAL_10_2 });
+        if (err) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
+        }
+      }
+    }
+
+    // Task PTC and (second body shape) per-role rate overrides: absent/null is tolerated, a given one is checked in the version's currency.
+    for (const ph of phases) {
+      for (const tk of (ph?.tasks || [])) {
+        if (!tk) continue;
+        const tkLabel = tk.taskName || tk.title || '';
+        if (tk.ptc != null) {
+          const err = amountError(tk.ptc, currency, `PTC of task "${tkLabel}"`, { max: MAX_DECIMAL_10_2 });
+          if (err) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
+        }
+        }
+        if (!(tk.hours && typeof tk.hours === 'object')) {
+          for (const tr of (tk.roles || [])) {
+            if (tr?.rateOverride != null) {
+              const err = amountError(tr.rateOverride, currency, `Rate override in task "${tkLabel}"`, { max: MAX_DECIMAL_10_2 });
+              if (err) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
+        }
+            }
+          }
+        }
+      }
+    }
+
     // Optional version period carried with the tasks: an absent side keeps the stored value, '' clears it.
     const hasPeriod = periodBody !== null && typeof periodBody === 'object';
     let next = { start: stored?.start_date, end: stored?.end_date };
@@ -895,6 +912,7 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
   } finally {
     client.release();
   }
+  } catch (err) { next(err); }
 });
 
 // ── LINKED PROJECTS ───────────────────────────────────────────────────────────

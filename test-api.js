@@ -1140,6 +1140,34 @@ async function testServerValidation() {
   const g4 = await api('PATCH', '/api/projects/not-a-uuid/phasing', { phasing: {} }, adminCookie);
   ok(g4.status === 400, `SV-13 PATCH phasing with a non-UUID id → 400 (got ${g4.status})`);
 
+  // Cost grid structure PUT (B-189, B-192, B-229)
+  const sg = await api('POST', '/api/cost-grids', { name: '__test_sv_structure__' }, adminCookie);
+  const sgId = sg.data?.id;
+  if (sgId) later('POST', `/api/admin/reset/cost-grid/${sgId}`);
+  const sgv = sgId ? await api('POST', `/api/cost-grids/${sgId}/versions`, { label: 'sv', currency: 'EUR' }, adminCookie) : null;
+  const svId = sgv?.data?.id;
+  if (!ok(!!svId && !!myRole, `SV-20 setup: grid, version and role (got ${sgv?.status})`)) {
+    // fall through to the project checks
+  } else {
+    const putS = (vid, body) => api('PUT', `/api/cost-grids/${sgId}/versions/${vid}/structure`, body, adminCookie);
+    const s20 = await putS(someUuid, { phases: [], roles: [{ roleCode: 'X', rate: 10 }] });
+    ok(s20.status === 404 && s20.data?.error === 'Version not found', `SV-20 structure PUT on a missing version → 404 (got ${s20.status})`);
+    const s21 = await putS('not-a-uuid', { phases: [], roles: [] });
+    ok(s21.status === 400, `SV-21 structure PUT with a non-UUID version id → 400 (got ${s21.status})`);
+    const task = { taskName: 'T1', hours: { [myRole.code]: 8 } };
+    const s22 = await putS(svId, { phases: [{ phaseName: 'P1', tasks: [task] }], roles: [{ roleCode: myRole.code, rate: null, rateIsCustom: true }] });
+    ok(s22.status === 200, `SV-22 structure PUT with a custom flag and no rate → 200 (got ${s22.status}: ${s22.data?.error})`);
+    const st = (await api('GET', `/api/cost-grids/${sgId}/versions/${svId}/structure`, null, adminCookie)).data;
+    const tr = st?.phases?.[0]?.tasks?.[0]?.roles?.find(r => r.code === myRole.code);
+    ok(!!tr && tr.rate_is_custom === false, `SV-22 the stored role has rate_is_custom false (got ${tr?.rate_is_custom})`);
+    const s22b = await putS(svId, { phases: [{ phaseName: 'P1', tasks: [task] }], roles: [{ roleCode: myRole.code, rate: 50, rateIsCustom: true }] });
+    ok(s22b.status === 200, `SV-22 a valid structure PUT afterwards → 200 (got ${s22b.status})`);
+    const s23 = await putS(svId, { phases: [{ phaseName: 'P1', tasks: [task] }], roles: [{ roleCode: myRole.code, rate: -1 }] });
+    ok(s23.status === 400 && s23.data?.code === 'MONEY_RULE', `SV-23 structure PUT with rate -1 → 400 MONEY_RULE (got ${s23.status})`);
+    const s23b = await putS(svId, { phases: [{ phaseName: 'P1', tasks: [task] }], roles: [{ roleCode: myRole.code, rate: 60 }] });
+    ok(s23b.status === 200, `SV-23 a valid structure PUT right after the refusal → 200 (got ${s23b.status}: ${s23b.data?.error})`);
+  }
+
   // On a real project: an empty resource entry is a 400 and does not leak the pool client
   if (!sysadminCookie) { ok(false, 'SV-14 sysadmin account unavailable'); return; }
   const tp = await api('POST', '/api/projects', { name: '__test_sv_project__' }, sysadminCookie);
