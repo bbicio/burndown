@@ -425,7 +425,7 @@ router.patch('/ratecards/:id/entries', requireAdmin, async (req, res, next) => {
       if (kept.length) {
         await client.query(`
           INSERT INTO ratecard_entries (ratecard_id, role_id, hourly_rate, rate_overrides)
-          SELECT $1, t.role_id, t.hourly_rate, t.rate_overrides
+          SELECT $1::uuid, t.role_id, t.hourly_rate, t.rate_overrides
           FROM unnest($2::uuid[], $3::numeric[], $4::jsonb[]) AS t(role_id, hourly_rate, rate_overrides)
           ON CONFLICT (ratecard_id, role_id) DO UPDATE
             SET hourly_rate = EXCLUDED.hourly_rate, rate_overrides = EXCLUDED.rate_overrides

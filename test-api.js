@@ -1071,10 +1071,14 @@ async function testRatecards() {
         const r13 = await api('PATCH', '/api/ratecards/00000000-0000-4000-8000-000000000000/entries', { version: 0, entries: [] }, adminCookie);
         ok(r13.status === 404, 'RC-12 unknown ratecard id → 404');
         const r14 = await putEntries([{ roleId: 'not-a-uuid', hourlyRate: 1 }]);
-        const r15 = await putEntries([{ roleId: '00000000-0000-4000-8000-000000000000', hourlyRate: 1 }]);
         const e4 = await entriesOf();
-        ok(r14.status === 400 && r15.status === 400 && e4.some(e => rid(e) === String(B) && Number(rate(e)) === 120),
-          'RC-13 malformed or unknown roleId → 400, entries unchanged');
+        ok(r14.status === 400 && e4.some(e => rid(e) === String(B) && Number(rate(e)) === 120),
+          'RC-13 malformed roleId → 400, entries unchanged');
+        const unknownRole = '00000000-0000-4000-8000-000000000000';
+        const r15 = await putEntries([{ roleId: unknownRole, hourlyRate: 1 }]);
+        const e5 = await entriesOf();
+        ok(r15.status === 200 && !e5.some(e => rid(e) === unknownRole) && !e5.some(e => rid(e) === String(B)),
+          'RC-13b unknown (valid uuid) roleId → 200, dropped; the role omitted from the body loses its entry');
       }
     } else if (rcPerClientId) {
       ok(true, 'RC-05 skipped — role creation failed');
