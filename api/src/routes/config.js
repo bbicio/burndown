@@ -368,15 +368,22 @@ router.post('/ratecards', requireAdmin, async (req, res, next) => {
         'SELECT id, name, client_id, version FROM ratecards WHERE client_id = $1 ORDER BY created_at, id LIMIT 1', [clientId]
       );
       if (existing.rows[0]) {
+        // Same shape as GET /ratecards/:id, so a caller never shows an existing card as empty.
+        const ents = await client.query(
+          `SELECT re.role_id AS "roleId", ro.label, re.hourly_rate AS "hourlyRate",
+                  COALESCE(re.rate_overrides, '{}') AS "rateOverrides"
+           FROM ratecard_entries re JOIN roles ro ON ro.id = re.role_id
+           WHERE re.ratecard_id = $1 ORDER BY ro.label`, [existing.rows[0].id]
+        );
         await client.query('COMMIT');
-        return res.status(200).json(existing.rows[0]);
+        return res.status(200).json({ ...existing.rows[0], entries: ents.rows });
       }
       const { rows } = await client.query(
         'INSERT INTO ratecards (name, client_id) VALUES ($1, $2) RETURNING id, name, client_id, version',
         [name.trim(), clientId]
       );
       await client.query('COMMIT');
-      res.status(201).json(rows[0]);
+      res.status(201).json({ ...rows[0], entries: [] });
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
       throw err;

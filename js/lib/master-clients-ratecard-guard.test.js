@@ -27,6 +27,13 @@ describe('master-clients rate card sub-view', () => {
     expect(body).toMatch(/Api\.roles\.list\(\)/);
     expect(body).not.toMatch(/this\.roles\.map/);
   });
+  // POST /api/ratecards returns the client's existing card (with its entries) when one exists: the
+  // create path must not replace those entries with an empty list, or a save would wipe them.
+  it('openClientRatecard does not hard-code empty entries for a created card', () => {
+    const body = method('openClientRatecard');
+    expect(body).not.toMatch(/entries:\s*\[\]\s*\}/);
+    expect(body).toMatch(/entries:\s*rc\.entries\s*\?\?\s*\[\]/);
+  });
   it('has no hand-written zero rule and keeps zero through keepZero', () => {
     expect(html).not.toMatch(/===\s*0\s*\?\s*'0'/);
     expect(html).toContain('keepZero: true');

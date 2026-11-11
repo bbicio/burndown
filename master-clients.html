@@ -1182,7 +1182,7 @@ window.__cfgApp = Vue.createApp({
         let rc = allRc.find(r => r.client_id === client.id);
         if (!rc) {
           rc = await Api.ratecards.create(`${client.name}`, client.id);
-          rc = { ...rc, entries: [] };
+          rc = { ...rc, entries: rc.entries ?? [] };
         }
 
         const entryOf = {};

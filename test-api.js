@@ -1288,8 +1288,16 @@ async function testServerValidation() {
       if (a.data?.id) later('DELETE', `/api/ratecards/${a.data.id}`);
       if (b.data?.id && b.data.id !== a.data?.id) later('DELETE', `/api/ratecards/${b.data.id}`);
       ok(!!a.data?.id && a.data?.id === b.data?.id, `SV-48 two concurrent POST ratecards for one client → the same id (got ${a.status}/${b.status})`);
+      const svOnceRole = await makeTestRole('SVO' + Date.now());
+      if (svOnceRole.id) {
+        const pe = await api('PATCH', `/api/ratecards/${a.data?.id}/entries`, { version: a.data?.version ?? 0, entries: [{ roleId: svOnceRole.id, hourlyRate: 77 }] }, adminCookie);
+        ok(pe.status === 200, `SV-48 setup: an entry put on the card (got ${pe.status})`);
+      }
       const c = await api('POST', '/api/ratecards', { name: '__test_sv_rc_once__', clientId: rcC.data.id }, adminCookie);
       ok(c.status === 200 && c.data?.id === a.data?.id && typeof c.data?.version === 'number', `SV-48 a later POST → 200 with the existing card (got ${c.status})`);
+      ok(!svOnceRole.id || (Array.isArray(c.data?.entries) && c.data.entries.some(e => e.roleId === svOnceRole.id && Number(e.hourlyRate) === 77)),
+        'SV-48 the later POST response carries the existing card entries');
+      ok(Array.isArray(a.data?.entries) || Array.isArray(b.data?.entries), 'SV-48 a create response carries entries');
       const all = (await api('GET', '/api/ratecards', null, adminCookie)).data || [];
       ok(all.filter(r => r.client_id === rcC.data.id).length === 1, 'SV-48 GET ratecards shows one card for that client');
       const bv = await api('PATCH', `/api/ratecards/${a.data?.id}/entries`, { version: '3', entries: [] }, adminCookie);
