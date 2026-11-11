@@ -655,6 +655,7 @@ timesheets (
 | POST | /api/auth/login | — | Login email + password |
 | POST | /api/auth/logout | ✅ | Clear JWT cookie |
 | GET | /api/auth/me | ✅ | Current user profile, incl. `created_at`, `terms_accepted_at`, `password_changed_at`, `two_step { method, destination }` |
+| GET | /api/auth/admin-check | ✅ admin | 204 for admin/sysadmin, 403 otherwise; nginx's auth_request for handbook/restricted/ |
 | POST | /api/auth/two-step/verify | — | `{ code, trustDevice }` against the `pdash_challenge` cookie: 400 `WRONG_CODE` (with `attemptsLeft`), 410 `CODE_EXPIRED`, 423 `LOCKED`, 401 `NO_CHALLENGE`; success sets the JWT cookie (and `pdash_device`) |
 | POST | /api/auth/two-step/resend | — | New code for the open challenge: 429 `COOLDOWN` / `RATE_LIMITED`, 502 `SEND_FAILED` |
 | DELETE | /api/auth/two-step | — | Drops the open challenge ("Back to sign in"); always 200 |

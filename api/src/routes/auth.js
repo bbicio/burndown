@@ -135,6 +135,10 @@ router.get('/me', requireAuth, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /api/auth/admin-check — 204 for admin/sysadmin, 403 for a user, 401 without a session.
+// Target of nginx's auth_request for handbook/restricted/.
+router.get('/admin-check', requireAuth, requireAdmin, (req, res) => res.sendStatus(204));
+
 // POST /api/auth/rectification-request — the user's details are managed by an admin; the user asks
 // for a correction instead. Recorded in rectification_requests and notified to every active admin.
 router.post('/rectification-request', requireAuth, async (req, res, next) => {
