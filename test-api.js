@@ -1254,6 +1254,86 @@ async function testServerValidation() {
       `SV-45 an admin GET client-groups: every row has an array pots (got ${cgAdmin.status})`);
   }
 
+  // Review round 1 additions
+  // Structure PUT: a malformed body is a 400 and writes nothing
+  {
+    const g = await api('POST', '/api/cost-grids', { name: '__test_sv_structure__' }, adminCookie);
+    if (g.data?.id) later('POST', `/api/admin/reset/cost-grid/${g.data.id}`);
+    const gv = await api('POST', `/api/cost-grids/${g.data?.id}/versions`, { label: 'v1' }, adminCookie);
+    if (ok(!!g.data?.id && !!gv.data?.id, `SV-46 setup: grid and version (got ${g.status}, ${gv.status})`)) {
+      const stPath = `/api/cost-grids/${g.data.id}/versions/${gv.data.id}/structure`;
+      const good = await api('PUT', stPath, { phases: [{ title: 'SV keep phase', tasks: [] }], roles: [] }, adminCookie);
+      const titles = async () => ((await api('GET', stPath, null, adminCookie)).data?.phases || []).map(p => p.title).join('|');
+      ok(good.status === 200 && await titles() === 'SV keep phase', `SV-46 setup: a valid structure PUT → 200 (got ${good.status})`);
+      const b1 = await api('PUT', stPath, { phases: 'abc' }, adminCookie);
+      ok(b1.status === 400 && await titles() === 'SV keep phase', `SV-46 structure PUT with phases 'abc' → 400, phases unchanged (got ${b1.status})`);
+      const b2 = await api('PUT', stPath, { roles: [null] }, adminCookie);
+      ok(b2.status === 400, `SV-47 structure PUT with roles [null] → 400 (got ${b2.status})`);
+      const b3 = await api('PUT', stPath, { phases: {} }, adminCookie);
+      ok(b3.status === 400, `SV-47 structure PUT with phases {} → 400 (got ${b3.status})`);
+      const b4 = await api('PUT', stPath, { phases: [{ tasks: [{ roles: {} }] }] }, adminCookie);
+      ok(b4.status === 400 && await titles() === 'SV keep phase', `SV-47 structure PUT with task roles {} → 400, phases unchanged (got ${b4.status})`);
+    }
+  }
+
+  // Rate card per client: a second POST for the same client returns the first card
+  {
+    const rcC = await api('POST', '/api/clients', { name: `__test_sv_rc_once_${Date.now()}__` }, adminCookie);
+    if (rcC.data?.id) later('DELETE', `/api/clients/${rcC.data.id}`);
+    if (ok(!!rcC.data?.id, `SV-48 setup: client (got ${rcC.status})`)) {
+      const [a, b] = await Promise.all([
+        api('POST', '/api/ratecards', { name: '__test_sv_rc_once__', clientId: rcC.data.id }, adminCookie),
+        api('POST', '/api/ratecards', { name: '__test_sv_rc_once__', clientId: rcC.data.id }, adminCookie),
+      ]);
+      if (a.data?.id) later('DELETE', `/api/ratecards/${a.data.id}`);
+      if (b.data?.id && b.data.id !== a.data?.id) later('DELETE', `/api/ratecards/${b.data.id}`);
+      ok(!!a.data?.id && a.data?.id === b.data?.id, `SV-48 two concurrent POST ratecards for one client → the same id (got ${a.status}/${b.status})`);
+      const c = await api('POST', '/api/ratecards', { name: '__test_sv_rc_once__', clientId: rcC.data.id }, adminCookie);
+      ok(c.status === 200 && c.data?.id === a.data?.id && typeof c.data?.version === 'number', `SV-48 a later POST → 200 with the existing card (got ${c.status})`);
+      const all = (await api('GET', '/api/ratecards', null, adminCookie)).data || [];
+      ok(all.filter(r => r.client_id === rcC.data.id).length === 1, 'SV-48 GET ratecards shows one card for that client');
+      const bv = await api('PATCH', `/api/ratecards/${a.data?.id}/entries`, { version: '3', entries: [] }, adminCookie);
+      ok(bv.status === 400 && bv.data?.error === 'version must be an integer', `SV-49 entries PATCH with version '3' → 400 (got ${bv.status})`);
+      const bv2 = await api('PATCH', `/api/ratecards/${a.data?.id}/entries`, { entries: [] }, adminCookie);
+      ok(bv2.status === 400, `SV-49 entries PATCH without a version → 400 (got ${bv2.status})`);
+    }
+  }
+
+  // POT routes: malformed ids and values are a 400
+  {
+    const pc = await api('POST', '/api/pots', { clientId: 'x', year: 2097, amount: 1 }, adminCookie);
+    if (pc.data?.id) later('DELETE', `/api/pots/${pc.data.id}`);
+    ok(pc.status === 400, `SV-50 POST pots with clientId 'x' → 400 (got ${pc.status})`);
+    const pg = await api('POST', '/api/pots', { clientGroupId: 'x', year: 2097, amount: 1 }, adminCookie);
+    if (pg.data?.id) later('DELETE', `/api/pots/${pg.data.id}`);
+    ok(pg.status === 400, `SV-50 POST pots with clientGroupId 'x' → 400 (got ${pg.status})`);
+    const py = await api('POST', '/api/pots', { specialLabel: 'New Biz', year: 'abc', amount: 1 }, adminCookie);
+    if (py.data?.id) later('DELETE', `/api/pots/${py.data.id}`);
+    ok(py.status === 400, `SV-50 POST pots with year 'abc' → 400 (got ${py.status})`);
+    for (const [m, p] of [['GET', '/api/pots/not-a-uuid/history'], ['GET', '/api/pots/not-a-uuid/details?year=2026'],
+      ['PATCH', '/api/pots/not-a-uuid'], ['DELETE', '/api/pots/not-a-uuid']]) {
+      const r = await api(m, p, m === 'PATCH' ? { amount: 1, note: 'x' } : null, adminCookie);
+      ok(r.status === 400, `SV-51 ${m} ${p} → 400 (got ${r.status})`);
+    }
+    const dm = await api('DELETE', `/api/pots/${someUuid}`, null, adminCookie);
+    ok(dm.status === 404, `SV-51 DELETE of a valid but missing POT id → 404 (got ${dm.status})`);
+    const ps = await api('GET', '/api/pots/pipeline-summary?year=abc', null, adminCookie);
+    ok(ps.status === 400, `SV-51 pipeline-summary with year 'abc' → 400 (got ${ps.status})`);
+  }
+
+  // Currency rate must be a JSON number
+  {
+    const uBefore = ((await api('GET', '/api/currencies', null, adminCookie)).data || []).find(c => c.code === 'USD');
+    const rs = await api('PATCH', '/api/currencies/USD/rate', { rate: '1.2abc' }, adminCookie);
+    ok(rs.status === 400, `SV-52 PATCH rate '1.2abc' → 400 (got ${rs.status})`);
+    const rs2 = await api('PATCH', '/api/currencies/USD/rate', { rate: '1.2' }, adminCookie);
+    ok(rs2.status === 400, `SV-52 PATCH rate as a string '1.2' → 400 (got ${rs2.status})`);
+    const ra = await api('POST', '/api/currencies/NOK/activate', { rate: '1.2abc' }, adminCookie);
+    ok(ra.status === 400, `SV-52 activate with rate '1.2abc' → 400 (got ${ra.status})`);
+    const uAfter = ((await api('GET', '/api/currencies', null, adminCookie)).data || []).find(c => c.code === 'USD');
+    ok(!!uBefore && !!uAfter && parseFloat(uAfter.current_rate) === parseFloat(uBefore.current_rate), 'SV-52 the stored USD rate is unchanged');
+  }
+
   // On a real project: an empty resource entry is a 400 and does not leak the pool client
   if (!sysadminCookie) { ok(false, 'SV-14 sysadmin account unavailable'); return; }
   const tp = await api('POST', '/api/projects', { name: '__test_sv_project__' }, sysadminCookie);
@@ -1271,6 +1351,10 @@ async function testServerValidation() {
   const bp = await api('PATCH', `/api/projects/${tpId}/phasing`, { phasing: { '2026-01': -1 } }, adminCookie);
   ok(bp.status === 400, `SV-15 PATCH phasing with an invalid amount → 400 (got ${bp.status})`);
   ok(JSON.stringify(await phasingOf()) === phBefore, 'SV-15 the stored phasing is unchanged after the refusal');
+  const t1 = await api('PUT', `/api/projects/${tpId}/tasks`, [{ name: 'T', resources: {} }], adminCookie);
+  ok(t1.status === 400, `SV-53 PUT tasks with resources {} → 400 (got ${t1.status})`);
+  const t2 = await api('PUT', `/api/projects/${tpId}/tasks`, [null], adminCookie);
+  ok(t2.status === 400, `SV-53 PUT tasks with [null] → 400 (got ${t2.status})`);
 }
 
 // ── POT Targets ───────────────────────────────────────────────────────────────
