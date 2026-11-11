@@ -100,7 +100,7 @@ services:
   mailpit:
     image: ${MAILPIT_IMAGE}
     container_name: pdash-mailpit-${SANITIZED}
-    ports: ["${MAIL_PORT}:8025"]
+    ports: ["127.0.0.1:${MAIL_PORT}:8025"]
     environment:
       MP_ENABLE_CHAOS: "true"
       MP_SMTP_AUTH_ACCEPT_ANY: "1"

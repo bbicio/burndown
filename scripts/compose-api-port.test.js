@@ -20,10 +20,24 @@ describe('docker-compose.yml', () => {
     expect(block).not.toMatch(/^\s+ports:/m);
   });
 
+  it('has no mailpit service: only the test stacks\' overrides define it', () => {
+    expect(serviceBlock(readFileSync('docker-compose.yml', 'utf8'), 'mailpit')).toBeNull();
+  });
+
   it('finds a service header followed by trailing spaces, and still sees its ports', () => {
     const yaml = 'services:\n  api:  \n    build: ./api\n    ports:\n      - "3000:3000"\n  db:\n    image: x\n';
     const block = serviceBlock(yaml, 'api');
     expect(block).toBeTruthy();
     expect(block).toMatch(/^\s+ports:/m);
+  });
+});
+
+// Mailpit's web interface has no authentication and shows a branch stack's login codes and reset
+// links: test-branch.sh publishes it on the loopback interface only.
+describe('scripts/test-branch.sh override', () => {
+  it('publishes the Mailpit interface on 127.0.0.1 only', () => {
+    const block = serviceBlock(readFileSync('scripts/test-branch.sh', 'utf8'), 'mailpit');
+    expect(block).toBeTruthy();
+    expect(block).toMatch(/ports: \["127\.0\.0\.1:\$\{MAIL_PORT\}:8025"\]/);
   });
 });
