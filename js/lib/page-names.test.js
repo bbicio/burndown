@@ -38,7 +38,7 @@ describe('menu entry = <title> = breadcrumb', () => {
 });
 
 describe('no breadcrumb or in-page text keeps an old page name', () => {
-  const files = [...readdirSync(process.cwd()).filter(f => /\.html$/.test(f) && f !== 'test-cases.html'),
+  const files = [...readdirSync(process.cwd()).filter(f => /\.html$/.test(f)),
     ...readdirSync(join(process.cwd(), 'js')).filter(f => /\.js$/.test(f)).map(f => 'js/' + f)];
   const OLD = [/label:\s*'Project Portfolio'/, /label:\s*'Resource Planning'/, /label:\s*'Configuration'/,
     /label:\s*'Administration'/, /label:\s*'Database Reset'/, /label:\s*'Project Reporting'/,

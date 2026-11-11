@@ -173,12 +173,12 @@ describe('navRefreshAccount', () => {
 });
 
 describe('initNav integration', () => {
-  it('renders the aside into #nav-container, wires the 5 account entries and the collapse button', async () => {
+  it('renders the aside into #nav-container, wires the 6 account entries and the collapse button', async () => {
     await nav.initNav('pipeline', { breadcrumbs: [{ label: 'Home' }, { label: 'Pipeline' }] });
     const c = document.getElementById('nav-container');
     expect(c.querySelector('aside.pd-nav')).not.toBeNull();
     expect(document.getElementById('nav-avatar').textContent).toBe('UX');
-    expect(c.querySelectorAll('.pd-account-menu .dropdown-item').length).toBe(5);
+    expect(c.querySelectorAll('.pd-account-menu .dropdown-item').length).toBe(6);
     document.getElementById('nav-collapse-btn').click();
     expect(document.documentElement.getAttribute('data-sidebar')).toBe('collapsed');
     document.getElementById('nav-collapse-btn').click();
