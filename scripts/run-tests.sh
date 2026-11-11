@@ -45,6 +45,9 @@ COMPOSE="docker compose -p $PROJECT -f docker-compose.yml -f $OVERRIDE_FILE"
 
 DB_CONTAINER="pdash-db-test"
 API_CONTAINER="pdash-api-test"
+# The stack's mail goes to Mailpit, defined only in the override: docker-compose.yml never has it.
+MAILPIT_IMAGE="axllent/mailpit:v1.27"
+MAILPIT_CONTAINER="pdash-mailpit-test"
 
 write_override() {
   cat > "$OVERRIDE_FILE" <<EOF
@@ -58,9 +61,22 @@ services:
     environment:
       ANTHROPIC_API_KEY: test-key
       ANTHROPIC_BASE_URL: http://test:4010
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+    depends_on:
+      mailpit:
+        condition: service_started
   test:
     environment:
       LLM_STUB_ENABLED: "1"
+      MAILPIT_URL: http://mailpit:8025
+  mailpit:
+    image: ${MAILPIT_IMAGE}
+    container_name: ${MAILPIT_CONTAINER}
+    environment:
+      MP_ENABLE_CHAOS: "true"
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
 EOF
 }
 

@@ -4613,7 +4613,7 @@ async function mailpit(method, path, body) {
   }
 }
 
-const chaos = on => mailpit('PUT', '/api/v1/chaos', { Recipient: { ErrorCode: on ? 451 : 0, Probability: on ? 100 : 0 } });
+const chaos = on => mailpit('PUT', '/api/v1/chaos', { Recipient: { ErrorCode: 451, Probability: on ? 100 : 0 } });
 
 async function testMailFailures() {
   section('Mail failures');
