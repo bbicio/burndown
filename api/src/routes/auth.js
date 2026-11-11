@@ -16,7 +16,7 @@ const twoStep = require('../services/two-step');
 
 const router = express.Router();
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const { isUuid } = require('../lib/input-rules');
 
 // Failed password attempts only: a successful login does not count, so a shared NAT or the test suite
 // can sign in as often as it likes while guessing stays capped. A slot is reserved with hit before the
@@ -371,7 +371,7 @@ router.delete('/trusted-devices', requireAuth, async (req, res, next) => {
 // DELETE /api/auth/trusted-devices/:id
 router.delete('/trusted-devices/:id', requireAuth, async (req, res, next) => {
   try {
-    if (!UUID_RE.test(req.params.id)) return res.status(404).json({ error: 'Device not found' });
+    if (!isUuid(req.params.id)) return res.status(404).json({ error: 'Device not found' });
     const r = await twoStep.removeDevice(req.user.id, req.params.id, req.cookies && req.cookies[DEVICE_COOKIE]);
     if (!r.removed) return res.status(404).json({ error: 'Device not found' });
     if (r.wasCurrent) clearDeviceCookie(res);
@@ -423,7 +423,7 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
 // POST /api/auth/:id/resend-invite  (admin only) — fresh 48h token, still-pending users only
 router.post('/:id/resend-invite', requireAdmin, async (req, res, next) => {
   try {
-    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(req.params.id)) {
+    if (!isUuid(req.params.id)) {
       return res.status(404).json({ error: 'User not found' });
     }
     const { rows } = await query(

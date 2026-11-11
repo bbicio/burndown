@@ -976,10 +976,13 @@ async function testRatecards() {
   const r1 = await api('GET', '/api/ratecards', null, adminCookie);
   ok(r1.status === 200 && Array.isArray(r1.data), 'RC-01 GET /ratecards → 200 array');
 
-  // Create global ratecard
+  // Create a ratecard (a client is required)
+  const rc2ClientRes = await api('POST', '/api/clients', { name: `__test_rc2_client_${Date.now()}__` }, adminCookie);
+  const rc2ClientId = rc2ClientRes.data?.id;
+  if (rc2ClientId) later('DELETE', `/api/clients/${rc2ClientId}`);
   const rcName = `__test_rc_${Date.now()}__`;
-  const r2 = await api('POST', '/api/ratecards', { name: rcName, clientId: null }, adminCookie);
-  ok(r2.status === 201, 'RC-02 POST create global ratecard → 201');
+  const r2 = await api('POST', '/api/ratecards', { name: rcName, clientId: rc2ClientId }, adminCookie);
+  ok(r2.status === 201, 'RC-02 POST create ratecard for a client → 201');
   const rcId = r2.data?.id;
   ok(!!rcId, 'RC-02 response has id');
   if (rcId) later('DELETE', `/api/ratecards/${rcId}`);
@@ -1001,6 +1004,13 @@ async function testRatecards() {
     ok(r4.status === 201, 'RC-04 POST per-client ratecard → 201');
     ok(r4.data?.client_id === rcClientId, 'RC-04 ratecard linked to correct client');
     const rcPerClientId = r4.data?.id;
+    let rcVer = r4.data?.version;
+    // Entries PATCH carrying the card's version; follows the version the server returns
+    const putEntries = async body => {
+      const r = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, { version: rcVer, entries: body }, adminCookie);
+      if (r.status === 200 && typeof r.data?.version === 'number') rcVer = r.data.version;
+      return r;
+    };
     if (rcPerClientId) later('DELETE', `/api/ratecards/${rcPerClientId}`);
 
     // Update entries (PATCH /api/ratecards/:id/entries) — core of Costgrid modal save
@@ -1009,7 +1019,7 @@ async function testRatecards() {
     const rcRoles = rcPerClientId ? [await makeTestRole('RCA' + rcTag), await makeTestRole('RCB' + rcTag)].filter(r => r.id) : [];
     if (rcPerClientId && rcRoles.length === 2) {
       const entries = [{ roleId: rcRoles[0].id, hourlyRate: 150 }];
-      const r5 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, entries, adminCookie);
+      const r5 = await putEntries(entries);
       ok(r5.status === 200, 'RC-05 PATCH /ratecards/:id/entries → 200');
 
       // Verify the entry is persisted
@@ -1023,7 +1033,7 @@ async function testRatecards() {
       );
 
       // Clear entries (empty array = fall back to agency default)
-      const r7 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [], adminCookie);
+      const r7 = await putEntries([]);
       ok(r7.status === 200, 'RC-06 PATCH entries with empty array → 200 (clear all custom rates)');
       const entriesOf = async () => {
         const g = await api('GET', `/api/ratecards/${rcPerClientId}`, null, adminCookie);
@@ -1037,34 +1047,38 @@ async function testRatecards() {
       {
         await ensureTestCurrencies();
         const A = rcRoles[0].id, B = rcRoles[1].id;
-        const r8 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [{ roleId: A, hourlyRate: null, rateOverrides: { USD: 175.5 } }], adminCookie);
+        const r8 = await putEntries([{ roleId: A, hourlyRate: null, rateOverrides: { USD: 175.5 } }]);
         const eA = (await entriesOf()).filter(e => rid(e) === String(A));
         ok(r8.status === 200 && eA.length === 1 && rate(eA[0]) === null && Number(ovr(eA[0]).USD) === 175.5
           && !eA.some(e => rate(e) !== null && Number(rate(e)) === 0),
           'RC-07 null EUR rate + USD override saved; EUR reads back null, not 0');
         const before = JSON.stringify(await entriesOf());
-        const r9 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [{ roleId: A, hourlyRate: null, rateOverrides: {} }], adminCookie);
+        const r9 = await putEntries([{ roleId: A, hourlyRate: null, rateOverrides: {} }]);
         ok(r9.status === 400 && r9.data?.code === 'MONEY_RULE' && JSON.stringify(await entriesOf()) === before,
           'RC-08 empty entry → 400 MONEY_RULE, no write');
-        const r10 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [{ roleId: A, hourlyRate: 0 }, { roleId: B, hourlyRate: 120 }], adminCookie);
+        const r10 = await putEntries([{ roleId: A, hourlyRate: 0 }, { roleId: B, hourlyRate: 120 }]);
         const e2 = await entriesOf();
         const a2 = e2.find(e => rid(e) === String(A)), b2 = e2.find(e => rid(e) === String(B));
         ok(r10.status === 200 && a2 && Number(rate(a2)) === 0 && b2 && Number(rate(b2)) === 120,
           'RC-09 hourlyRate 0 stored as 0, other role at 120');
-        const r11 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [{ roleId: B, hourlyRate: 120 }], adminCookie);
+        const r11 = await putEntries([{ roleId: B, hourlyRate: 120 }]);
         const e3 = await entriesOf();
         ok(r11.status === 200 && !e3.some(e => rid(e) === String(A)) && e3.some(e => rid(e) === String(B) && Number(rate(e)) === 120),
           'RC-10 role omitted from the body loses its entry');
 
-        const r12 = await api('PATCH', '/api/ratecards/not-a-uuid/entries', [], adminCookie);
+        const r12 = await api('PATCH', '/api/ratecards/not-a-uuid/entries', { version: 0, entries: [] }, adminCookie);
         ok(r12.status === 400, 'RC-11 malformed ratecard id → 400, not 500');
-        const r13 = await api('PATCH', '/api/ratecards/00000000-0000-4000-8000-000000000000/entries', [], adminCookie);
+        const r13 = await api('PATCH', '/api/ratecards/00000000-0000-4000-8000-000000000000/entries', { version: 0, entries: [] }, adminCookie);
         ok(r13.status === 404, 'RC-12 unknown ratecard id → 404');
-        const r14 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [{ roleId: 'not-a-uuid', hourlyRate: 1 }], adminCookie);
-        const r15 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [{ roleId: '00000000-0000-4000-8000-000000000000', hourlyRate: 1 }], adminCookie);
+        const r14 = await putEntries([{ roleId: 'not-a-uuid', hourlyRate: 1 }]);
         const e4 = await entriesOf();
-        ok(r14.status === 400 && r15.status === 400 && e4.some(e => rid(e) === String(B) && Number(rate(e)) === 120),
-          'RC-13 malformed or unknown roleId → 400, entries unchanged');
+        ok(r14.status === 400 && e4.some(e => rid(e) === String(B) && Number(rate(e)) === 120),
+          'RC-13 malformed roleId → 400, entries unchanged');
+        const unknownRole = '00000000-0000-4000-8000-000000000000';
+        const r15 = await putEntries([{ roleId: unknownRole, hourlyRate: 1 }]);
+        const e5 = await entriesOf();
+        ok(r15.status === 200 && !e5.some(e => rid(e) === unknownRole) && !e5.some(e => rid(e) === String(B)),
+          'RC-13b unknown (valid uuid) roleId → 200, dropped; the role omitted from the body loses its entry');
       }
     } else if (rcPerClientId) {
       ok(true, 'RC-05 skipped — role creation failed');
@@ -1072,6 +1086,283 @@ async function testRatecards() {
       ok(true, 'RC-06 PATCH entries with empty array — skipped');
     }
   }
+}
+
+// ── Server validation (cycle 2) ───────────────────────────────────────────────
+// A plain sequence of checks; later tasks of the cycle append to it.
+
+async function testServerValidation() {
+  section('Server validation (cycle 2)');
+  const someUuid = '00000000-0000-4000-8000-000000000001';
+
+  // POT summary: malformed query values are a 400, not a database error
+  const s1 = await api('GET', '/api/pots/summary?year=2026&clientId=not-a-uuid', null, adminCookie);
+  ok(s1.status === 400, `SV-01 pots summary with a non-UUID clientId → 400 (got ${s1.status})`);
+  const s2 = await api('GET', '/api/pots/summary?year=2026&clientGroupId=not-a-uuid', null, adminCookie);
+  ok(s2.status === 400, `SV-02 pots summary with a non-UUID clientGroupId → 400 (got ${s2.status})`);
+  const s3 = await api('GET', `/api/pots/summary?year=abc&clientId=${someUuid}`, null, adminCookie);
+  ok(s3.status === 400, `SV-03 pots summary with a non-integer year → 400 (got ${s3.status})`);
+  const s3b = await api('GET', `/api/pots/summary?year=%20&clientId=${someUuid}`, null, adminCookie);
+  ok(s3b.status === 400, `SV-03b pots summary with a blank year → 400 (got ${s3b.status})`);
+
+  // POT creation: a special label must be one of the known labels, exactly
+  const p1 = await api('POST', '/api/pots', { specialLabel: 'New Biz ', year: 2097, amount: 1 }, adminCookie);
+  if (p1.data?.id) later('DELETE', `/api/pots/${p1.data.id}`);
+  const pl = await api('GET', '/api/pots?year=2097', null, adminCookie);
+  ok(p1.status === 400 && Array.isArray(pl.data) && !pl.data.some(p => p.special_label === 'New Biz '),
+    `SV-04 POST pots with an unknown special label → 400, nothing stored (got ${p1.status})`);
+
+  // Currency rates: outside 0.000001 … 9999.999999 is a 400 and changes nothing
+  const rateMsg = 'Rate must be between 0.000001 and 9999.999999';
+  const curList = async () => (await api('GET', '/api/currencies', null, adminCookie)).data || [];
+  const before = (await curList()).find(c => c.code === 'USD');
+  for (const bad of [0.0000001, 16500]) {
+    const r = await api('PATCH', '/api/currencies/USD/rate', { rate: bad }, adminCookie);
+    ok(r.status === 400 && r.data?.error === rateMsg, `SV-05 PATCH rate ${bad} → 400 with the range message (got ${r.status})`);
+  }
+  const after = (await curList()).find(c => c.code === 'USD');
+  ok(!!before && !!after && parseFloat(after.current_rate) === parseFloat(before.current_rate),
+    'SV-05 the stored USD rate is unchanged after the refusals');
+  for (const bad of [0.0000001, 16500]) {
+    const r = await api('POST', '/api/currencies/NOK/activate', { rate: bad }, adminCookie);
+    ok(r.status === 400 && r.data?.error === rateMsg, `SV-06 activate with rate ${bad} → 400 with the range message (got ${r.status})`);
+  }
+  const nok = (await curList()).find(c => c.code === 'NOK');
+  ok(!!nok && nok.active === false, 'SV-06 NOK is still inactive after the refusals');
+
+  // NUMERIC columns reach the client as JSON numbers (B-193)
+  const roleCode = `TESTROLESV${Date.now()}`;
+  const sr = await api('POST', '/api/roles', { label: `__test_role_sv_${Date.now()}__`, code: roleCode, hourlyRate: 123.45 }, adminCookie);
+  if (sr.data?.id) later('DELETE', `/api/roles/${sr.data.id}`);
+  const roles = (await api('GET', '/api/roles', null, adminCookie)).data || [];
+  const myRole = roles.find(r => r.code === roleCode);
+  ok(!!myRole && typeof myRole.hourly_rate === 'number' && myRole.hourly_rate === 123.45,
+    `SV-07 GET roles → hourly_rate is a number (got ${typeof myRole?.hourly_rate})`);
+  const sp = await api('POST', '/api/pots', { specialLabel: 'New Biz', year: 2096, amount: 750.5 }, adminCookie);
+  if (sp.data?.id) later('DELETE', `/api/pots/${sp.data.id}`);
+  const spl = (await api('GET', '/api/pots?year=2096', null, adminCookie)).data || [];
+  const myPot = spl.find(p => p.id === sp.data?.id);
+  ok(!!myPot && typeof myPot.amount === 'number' && myPot.amount === 750.5,
+    `SV-08 GET pots → amount is a number (got ${typeof myPot?.amount})`);
+
+  // Project writes on a project that does not exist, or with a malformed id (B-189, B-191, B-192)
+  const ghost = '00000000-0000-4000-8000-0000000000aa';
+  const g1 = await api('PATCH', `/api/projects/${ghost}/phasing`, { phasing: { '2026-01': 10 } }, adminCookie);
+  ok(g1.status === 404 && g1.data?.error === 'Project not found', `SV-10 PATCH phasing on a missing project → 404 (got ${g1.status})`);
+  const g2 = await api('PATCH', `/api/projects/${ghost}/ptc`, { ptc: [{ amount: 10 }] }, adminCookie);
+  ok(g2.status === 404 && g2.data?.error === 'Project not found', `SV-11 PATCH ptc on a missing project → 404 (got ${g2.status})`);
+  const g3 = await api('PUT', `/api/projects/${ghost}/tasks`, [], adminCookie);
+  ok(g3.status === 404, `SV-12 PUT tasks on a missing project → 404 (got ${g3.status})`);
+  const g4 = await api('PATCH', '/api/projects/not-a-uuid/phasing', { phasing: {} }, adminCookie);
+  ok(g4.status === 400, `SV-13 PATCH phasing with a non-UUID id → 400 (got ${g4.status})`);
+  const g5 = await api('PUT', '/api/projects/not-a-uuid/tasks', [], adminCookie);
+  ok(g5.status === 400, `SV-13b PUT tasks with a non-UUID id → 400 (got ${g5.status})`);
+  const g6 = await api('PATCH', '/api/projects/not-a-uuid/ptc', { ptc: [] }, adminCookie);
+  ok(g6.status === 400, `SV-13c PATCH ptc with a non-UUID id → 400 (got ${g6.status})`);
+
+  // Cost grid structure PUT (B-189, B-192, B-229)
+  const sg = await api('POST', '/api/cost-grids', { name: '__test_sv_structure__' }, adminCookie);
+  const sgId = sg.data?.id;
+  if (sgId) later('POST', `/api/admin/reset/cost-grid/${sgId}`);
+  const sgv = sgId ? await api('POST', `/api/cost-grids/${sgId}/versions`, { label: 'sv', currency: 'EUR' }, adminCookie) : null;
+  const svId = sgv?.data?.id;
+  if (!ok(!!svId && !!myRole, `SV-20 setup: grid, version and role (got ${sgv?.status})`)) {
+    // fall through to the project checks
+  } else {
+    const putS = (vid, body) => api('PUT', `/api/cost-grids/${sgId}/versions/${vid}/structure`, body, adminCookie);
+    const s20 = await putS(someUuid, { phases: [], roles: [{ roleCode: 'X', rate: 10 }] });
+    ok(s20.status === 404 && s20.data?.error === 'Version not found', `SV-20 structure PUT on a missing version → 404 (got ${s20.status})`);
+    const s21 = await putS('not-a-uuid', { phases: [], roles: [] });
+    ok(s21.status === 404 && s21.data?.error === 'Version not found', `SV-21 structure PUT with a non-UUID version id → 404 from the versionScope middleware (got ${s21.status})`);
+    const task = { taskName: 'T1', hours: { [myRole.code]: 8 } };
+    const s22 = await putS(svId, { phases: [{ phaseName: 'P1', tasks: [task] }], roles: [{ roleCode: myRole.code, rate: null, rateIsCustom: true }] });
+    ok(s22.status === 200, `SV-22 structure PUT with a custom flag and no rate → 200 (got ${s22.status}: ${s22.data?.error})`);
+    const st = (await api('GET', `/api/cost-grids/${sgId}/versions/${svId}/structure`, null, adminCookie)).data;
+    const tr = st?.phases?.[0]?.tasks?.[0]?.roles?.find(r => r.code === myRole.code);
+    ok(!!tr && tr.rate_is_custom === false, `SV-22 the stored role has rate_is_custom false (got ${tr?.rate_is_custom})`);
+    const s22b = await putS(svId, { phases: [{ phaseName: 'P1', tasks: [task] }], roles: [{ roleCode: myRole.code, rate: 50, rateIsCustom: true }] });
+    ok(s22b.status === 200, `SV-22 a valid structure PUT afterwards → 200 (got ${s22b.status})`);
+    const s23 = await putS(svId, { phases: [{ phaseName: 'P1', tasks: [task] }], roles: [{ roleCode: myRole.code, rate: -1 }] });
+    ok(s23.status === 400 && s23.data?.code === 'MONEY_RULE', `SV-23 structure PUT with rate -1 → 400 MONEY_RULE (got ${s23.status})`);
+    const s23b = await putS(svId, { phases: [{ phaseName: 'P1', tasks: [task] }], roles: [{ roleCode: myRole.code, rate: 60 }] });
+    ok(s23b.status === 200, `SV-23 a valid structure PUT right after the refusal → 200 (got ${s23b.status}: ${s23b.data?.error})`);
+  }
+
+  // Rate cards: a client is required, clone is gone, stale saves are refused by version
+  const svRcClient = await api('POST', '/api/clients', { name: `__test_sv_rc_client_${Date.now()}__` }, adminCookie);
+  if (svRcClient.data?.id) later('DELETE', `/api/clients/${svRcClient.data.id}`);
+  const s30 = await api('POST', '/api/ratecards', { name: '__test_sv_rc__' }, adminCookie);
+  ok(s30.status === 400, `SV-30 POST ratecard without clientId → 400 (got ${s30.status})`);
+  const s31 = await api('POST', '/api/ratecards', { name: '__test_sv_rc__', clientId: '00000000-0000-4000-8000-0000000000aa' }, adminCookie);
+  ok(s31.status === 400, `SV-31 POST ratecard with an unknown clientId → 400 (got ${s31.status})`);
+  const s32 = await api('POST', '/api/ratecards/clone', { clientId: svRcClient.data?.id, name: 'x' }, adminCookie);
+  ok(s32.status === 404, `SV-32 POST /ratecards/clone → 404 (got ${s32.status})`);
+  const svRc = await api('POST', '/api/ratecards', { name: '__test_sv_rc__', clientId: svRcClient.data?.id }, adminCookie);
+  const svRcId = svRc.data?.id;
+  if (svRcId) later('DELETE', `/api/ratecards/${svRcId}`);
+  const svRole1 = await makeTestRole('SVA' + Date.now());
+  const svRole2 = await makeTestRole('SVB' + Date.now());
+  if (svRcId && svRole1.id && svRole2.id) {
+    const svEntries = async () => (await api('GET', `/api/ratecards/${svRcId}`, null, adminCookie)).data?.entries || [];
+    const svPatch = body => api('PATCH', `/api/ratecards/${svRcId}/entries`, body, adminCookie);
+    const s33 = await svPatch([{ roleId: svRole1.id, hourlyRate: 10 }]);
+    ok(s33.status === 409 && s33.data?.code === 'RATECARD_STALE' && (await svEntries()).length === 0,
+      `SV-33 entries PATCH with a bare array → 409 RATECARD_STALE, entries unchanged (got ${s33.status})`);
+    const s34 = await svPatch({ version: 0, entries: [{ roleId: svRole1.id, hourlyRate: 10 }] });
+    ok(s34.status === 200 && s34.data?.version === 1, `SV-34 version 0 on a fresh card → 200 { version: 1 } (got ${s34.status}, ${JSON.stringify(s34.data)})`);
+    const afterS34 = JSON.stringify(await svEntries());
+    const s35 = await svPatch({ version: 0, entries: [{ roleId: svRole2.id, hourlyRate: 20 }] });
+    ok(s35.status === 409 && s35.data?.code === 'RATECARD_STALE' && JSON.stringify(await svEntries()) === afterS34,
+      `SV-35 version 0 again → 409, entries as after SV-34 (got ${s35.status})`);
+    const s36 = await svPatch({ version: 1, entries: [{ roleId: svRole1.id, hourlyRate: 10 }, { roleId: svRole1.id, hourlyRate: 11 }] });
+    ok(s36.status === 400 && JSON.stringify(await svEntries()) === afterS34, `SV-36 duplicate roleId → 400, entries unchanged (got ${s36.status})`);
+    await api('DELETE', `/api/roles/${svRole2.id}`, null, adminCookie);
+    const s37 = await svPatch({ version: 1, entries: [{ roleId: svRole1.id, hourlyRate: 12 }, { roleId: svRole2.id, hourlyRate: 20 }] });
+    const s37e = await svEntries();
+    ok(s37.status === 200 && s37e.length === 1 && String(s37e[0].roleId) === String(svRole1.id),
+      `SV-37 an entry whose role was deleted → 200, that role absent (got ${s37.status}, ${s37e.length} entries)`);
+  } else ok(false, 'SV-33..37 setup failed');
+
+  // Pipeline years: admins see the proposals that use a year, Drafts included (B-297)
+  const hidYear = 2093;
+  const hidPy = await api('POST', '/api/pipeline-years', { year: hidYear }, adminCookie);
+  if (hidPy.data?.id) later('DELETE', `/api/pipeline-years/${hidPy.data.id}`);
+  const hidCg = await api('POST', '/api/cost-grids', { name: '__test_sv_hidden_proposal__' }, adminCookie);
+  if (hidCg.data?.id) later('POST', `/api/admin/reset/cost-grid/${hidCg.data.id}`);
+  const hidV = await api('POST', `/api/cost-grids/${hidCg.data?.id}/versions`, { label: 'v1', pipelineYear: hidYear }, adminCookie);
+  if (ok(!!hidPy.data?.id && !!hidCg.data?.id && !!hidV.data?.id, `SV-40 setup: year, grid and Draft version (got ${hidPy.status}, ${hidCg.status}, ${hidV.status})`)) {
+    const pyRows = (await api('GET', '/api/pipeline-years', null, adminCookie)).data || [];
+    const hidRow = pyRows.find(r => r.year === hidYear);
+    ok(pyRows.length > 0 && pyRows.every(r => Number.isInteger(r.proposals)),
+      'SV-40 admin GET pipeline-years: every row has a numeric proposals');
+    ok(!!hidRow && hidRow.offers === 0 && hidRow.proposals === 1,
+      `SV-40 a year with only a Draft version → offers 0, proposals 1 (got ${hidRow?.offers}, ${hidRow?.proposals})`);
+    const { cookie: svPlain } = await getPlainUser();
+    const plainRows = (await api('GET', '/api/pipeline-years', null, svPlain)).data || [];
+    ok(Array.isArray(plainRows) && plainRows.every(r => !('proposals' in r)),
+      'SV-41 a plain user GET pipeline-years: no proposals key');
+  }
+
+  // client-groups: the pots subquery runs for admins only
+  {
+    const { cookie: svPlain2 } = await getPlainUser();
+    const cgPlain = await api('GET', '/api/client-groups', null, svPlain2);
+    ok(cgPlain.status === 200 && Array.isArray(cgPlain.data) && cgPlain.data.every(g => !('pots' in g)),
+      `SV-45 a plain user GET client-groups: no row has pots (got ${cgPlain.status})`);
+    const cgAdmin = await api('GET', '/api/client-groups', null, adminCookie);
+    ok(cgAdmin.status === 200 && Array.isArray(cgAdmin.data) && cgAdmin.data.every(g => Array.isArray(g.pots)),
+      `SV-45 an admin GET client-groups: every row has an array pots (got ${cgAdmin.status})`);
+  }
+
+  // Review round 1 additions
+  // Structure PUT: a malformed body is a 400 and writes nothing
+  {
+    const g = await api('POST', '/api/cost-grids', { name: '__test_sv_structure__' }, adminCookie);
+    if (g.data?.id) later('POST', `/api/admin/reset/cost-grid/${g.data.id}`);
+    const gv = await api('POST', `/api/cost-grids/${g.data?.id}/versions`, { label: 'v1' }, adminCookie);
+    if (ok(!!g.data?.id && !!gv.data?.id, `SV-46 setup: grid and version (got ${g.status}, ${gv.status})`)) {
+      const stPath = `/api/cost-grids/${g.data.id}/versions/${gv.data.id}/structure`;
+      const good = await api('PUT', stPath, { phases: [{ title: 'SV keep phase', tasks: [] }], roles: [] }, adminCookie);
+      const titles = async () => ((await api('GET', stPath, null, adminCookie)).data?.phases || []).map(p => p.title).join('|');
+      ok(good.status === 200 && await titles() === 'SV keep phase', `SV-46 setup: a valid structure PUT → 200 (got ${good.status})`);
+      const b1 = await api('PUT', stPath, { phases: 'abc' }, adminCookie);
+      ok(b1.status === 400 && await titles() === 'SV keep phase', `SV-46 structure PUT with phases 'abc' → 400, phases unchanged (got ${b1.status})`);
+      const b2 = await api('PUT', stPath, { roles: [null] }, adminCookie);
+      ok(b2.status === 400, `SV-47 structure PUT with roles [null] → 400 (got ${b2.status})`);
+      const b3 = await api('PUT', stPath, { phases: {} }, adminCookie);
+      ok(b3.status === 400, `SV-47 structure PUT with phases {} → 400 (got ${b3.status})`);
+      const b4 = await api('PUT', stPath, { phases: [{ tasks: [{ roles: {} }] }] }, adminCookie);
+      ok(b4.status === 400 && await titles() === 'SV keep phase', `SV-47 structure PUT with task roles {} → 400, phases unchanged (got ${b4.status})`);
+    }
+  }
+
+  // Rate card per client: a second POST for the same client returns the first card
+  {
+    const rcC = await api('POST', '/api/clients', { name: `__test_sv_rc_once_${Date.now()}__` }, adminCookie);
+    if (rcC.data?.id) later('DELETE', `/api/clients/${rcC.data.id}`);
+    if (ok(!!rcC.data?.id, `SV-48 setup: client (got ${rcC.status})`)) {
+      const [a, b] = await Promise.all([
+        api('POST', '/api/ratecards', { name: '__test_sv_rc_once__', clientId: rcC.data.id }, adminCookie),
+        api('POST', '/api/ratecards', { name: '__test_sv_rc_once__', clientId: rcC.data.id }, adminCookie),
+      ]);
+      if (a.data?.id) later('DELETE', `/api/ratecards/${a.data.id}`);
+      if (b.data?.id && b.data.id !== a.data?.id) later('DELETE', `/api/ratecards/${b.data.id}`);
+      ok(!!a.data?.id && a.data?.id === b.data?.id, `SV-48 two concurrent POST ratecards for one client → the same id (got ${a.status}/${b.status})`);
+      const svOnceRole = await makeTestRole('SVO' + Date.now());
+      if (svOnceRole.id) {
+        const pe = await api('PATCH', `/api/ratecards/${a.data?.id}/entries`, { version: a.data?.version ?? 0, entries: [{ roleId: svOnceRole.id, hourlyRate: 77 }] }, adminCookie);
+        ok(pe.status === 200, `SV-48 setup: an entry put on the card (got ${pe.status})`);
+      }
+      const c = await api('POST', '/api/ratecards', { name: '__test_sv_rc_once__', clientId: rcC.data.id }, adminCookie);
+      ok(c.status === 200 && c.data?.id === a.data?.id && typeof c.data?.version === 'number', `SV-48 a later POST → 200 with the existing card (got ${c.status})`);
+      ok(!svOnceRole.id || (Array.isArray(c.data?.entries) && c.data.entries.some(e => e.roleId === svOnceRole.id && Number(e.hourlyRate) === 77)),
+        'SV-48 the later POST response carries the existing card entries');
+      ok(Array.isArray(a.data?.entries) || Array.isArray(b.data?.entries), 'SV-48 a create response carries entries');
+      const all = (await api('GET', '/api/ratecards', null, adminCookie)).data || [];
+      ok(all.filter(r => r.client_id === rcC.data.id).length === 1, 'SV-48 GET ratecards shows one card for that client');
+      const bv = await api('PATCH', `/api/ratecards/${a.data?.id}/entries`, { version: '3', entries: [] }, adminCookie);
+      ok(bv.status === 400 && bv.data?.error === 'version must be an integer', `SV-49 entries PATCH with version '3' → 400 (got ${bv.status})`);
+      const bv2 = await api('PATCH', `/api/ratecards/${a.data?.id}/entries`, { entries: [] }, adminCookie);
+      ok(bv2.status === 400, `SV-49 entries PATCH without a version → 400 (got ${bv2.status})`);
+    }
+  }
+
+  // POT routes: malformed ids and values are a 400
+  {
+    const pc = await api('POST', '/api/pots', { clientId: 'x', year: 2097, amount: 1 }, adminCookie);
+    if (pc.data?.id) later('DELETE', `/api/pots/${pc.data.id}`);
+    ok(pc.status === 400, `SV-50 POST pots with clientId 'x' → 400 (got ${pc.status})`);
+    const pg = await api('POST', '/api/pots', { clientGroupId: 'x', year: 2097, amount: 1 }, adminCookie);
+    if (pg.data?.id) later('DELETE', `/api/pots/${pg.data.id}`);
+    ok(pg.status === 400, `SV-50 POST pots with clientGroupId 'x' → 400 (got ${pg.status})`);
+    const py = await api('POST', '/api/pots', { specialLabel: 'New Biz', year: 'abc', amount: 1 }, adminCookie);
+    if (py.data?.id) later('DELETE', `/api/pots/${py.data.id}`);
+    ok(py.status === 400, `SV-50 POST pots with year 'abc' → 400 (got ${py.status})`);
+    for (const [m, p] of [['GET', '/api/pots/not-a-uuid/history'], ['GET', '/api/pots/not-a-uuid/details?year=2026'],
+      ['PATCH', '/api/pots/not-a-uuid'], ['DELETE', '/api/pots/not-a-uuid']]) {
+      const r = await api(m, p, m === 'PATCH' ? { amount: 1, note: 'x' } : null, adminCookie);
+      ok(r.status === 400, `SV-51 ${m} ${p} → 400 (got ${r.status})`);
+    }
+    const dm = await api('DELETE', `/api/pots/${someUuid}`, null, adminCookie);
+    ok(dm.status === 404, `SV-51 DELETE of a valid but missing POT id → 404 (got ${dm.status})`);
+    const ps = await api('GET', '/api/pots/pipeline-summary?year=abc', null, adminCookie);
+    ok(ps.status === 400, `SV-51 pipeline-summary with year 'abc' → 400 (got ${ps.status})`);
+  }
+
+  // Currency rate must be a JSON number
+  {
+    const uBefore = ((await api('GET', '/api/currencies', null, adminCookie)).data || []).find(c => c.code === 'USD');
+    const rs = await api('PATCH', '/api/currencies/USD/rate', { rate: '1.2abc' }, adminCookie);
+    ok(rs.status === 400, `SV-52 PATCH rate '1.2abc' → 400 (got ${rs.status})`);
+    const rs2 = await api('PATCH', '/api/currencies/USD/rate', { rate: '1.2' }, adminCookie);
+    ok(rs2.status === 400, `SV-52 PATCH rate as a string '1.2' → 400 (got ${rs2.status})`);
+    const ra = await api('POST', '/api/currencies/NOK/activate', { rate: '1.2abc' }, adminCookie);
+    ok(ra.status === 400, `SV-52 activate with rate '1.2abc' → 400 (got ${ra.status})`);
+    const uAfter = ((await api('GET', '/api/currencies', null, adminCookie)).data || []).find(c => c.code === 'USD');
+    ok(!!uBefore && !!uAfter && parseFloat(uAfter.current_rate) === parseFloat(uBefore.current_rate), 'SV-52 the stored USD rate is unchanged');
+  }
+
+  // On a real project: an empty resource entry is a 400 and does not leak the pool client
+  if (!sysadminCookie) { ok(false, 'SV-14 sysadmin account unavailable'); return; }
+  const tp = await api('POST', '/api/projects', { name: '__test_sv_project__' }, sysadminCookie);
+  const tpId = tp.data?.id;
+  if (tpId) later('DELETE', `/api/projects/${tpId}`);
+  if (!ok(!!tpId, `SV-14 setup: project created (got ${tp.status})`)) return;
+  const e1 = await api('PUT', `/api/projects/${tpId}/tasks`, [{ name: 'T', resources: [null] }], adminCookie);
+  ok(e1.status === 400 && e1.data?.error === 'Task "T" has an empty resource entry.',
+    `SV-14 PUT tasks with a null resource → 400 (got ${e1.status}: ${e1.data?.error})`);
+  const e2 = await api('PUT', `/api/projects/${tpId}/tasks`, [{ name: 'T', resources: [{ role: 'R', hourlyRate: 10 }] }], adminCookie);
+  ok(e2.status === 200, `SV-14 a valid PUT tasks right after the refusal → 200 (got ${e2.status}: ${e2.data?.error})`);
+
+  const phasingOf = async () => ((await api('GET', '/api/projects', null, adminCookie)).data || []).find(p => p.id === tpId)?.phasing;
+  const phBefore = JSON.stringify(await phasingOf());
+  const bp = await api('PATCH', `/api/projects/${tpId}/phasing`, { phasing: { '2026-01': -1 } }, adminCookie);
+  ok(bp.status === 400, `SV-15 PATCH phasing with an invalid amount → 400 (got ${bp.status})`);
+  ok(JSON.stringify(await phasingOf()) === phBefore, 'SV-15 the stored phasing is unchanged after the refusal');
+  const t1 = await api('PUT', `/api/projects/${tpId}/tasks`, [{ name: 'T', resources: {} }], adminCookie);
+  ok(t1.status === 400, `SV-53 PUT tasks with resources {} → 400 (got ${t1.status})`);
+  const t2 = await api('PUT', `/api/projects/${tpId}/tasks`, [null], adminCookie);
+  ok(t2.status === 400, `SV-53 PUT tasks with [null] → 400 (got ${t2.status})`);
 }
 
 // ── POT Targets ───────────────────────────────────────────────────────────────
@@ -1434,12 +1725,12 @@ async function testMoneyRules() {
     `MR-18a phasing {'202601': 1000.5} → 200, read back equal; {} → 200 (got ${ph1.status}, ${JSON.stringify(ph1s)}, ${ph2.status})`);
 
   await patchPhasing(mrProj, { '202601': 1000.5 });
-  const badPhasing = [{ '202601': -1 }, { '202601': '5' }, { '202601': 1120.304347826087 }, { '202601': 1e8 }, [], null];
+  const badPhasing = [{ '202601': -1 }, { '202601': '5' }, { '202601': 1120.304347826087 }, { '202601': 1e12 }, [], null];
   const badPhRes = [];
   for (const b of badPhasing) badPhRes.push(await patchPhasing(mrProj, b));
   const phAfter = await readProj(mrProj, 'phasing');
   ok(badPhRes.every(isMoneyRefusal) && same(phAfter, { '202601': 1000.5 }),
-    `MR-18b phasing -1 / '5' / 1120.304347826087 / 1e8 / [] / null → MONEY_RULE, read back unchanged (got ${badPhRes.map(r => r.status).join(',')}, ${JSON.stringify(phAfter)})`);
+    `MR-18b phasing -1 / '5' / 1120.304347826087 / 1e12 / [] / null → MONEY_RULE, read back unchanged (got ${badPhRes.map(r => r.status).join(',')}, ${JSON.stringify(phAfter)})`);
 
   const jpy = await api('POST', '/api/projects', { name: '__test_mr_project_jpy__', currency: 'JPY' }, sysadminCookie);
   const jpyProj = jpy.data?.id;
@@ -1494,11 +1785,18 @@ async function testMoneyRules() {
       `MR-11 role PATCH hourlyRate "100" / rateOverrides [1] → MONEY_RULE, role unchanged (got ${r11a.status}, ${r11b.status})`);
   } else fail('MR-11: MR-09 role missing — skipping');
 
-  const rc = await api('POST', '/api/ratecards', { name: `__test_mr_rc_${Date.now()}__`, clientId: null }, adminCookie);
+  const mrRcClient = await api('POST', '/api/clients', { name: `__test_mr_rc_client_${Date.now()}__` }, adminCookie);
+  if (mrRcClient.data?.id) later('DELETE', `/api/clients/${mrRcClient.data.id}`);
+  const rc = await api('POST', '/api/ratecards', { name: `__test_mr_rc_${Date.now()}__`, clientId: mrRcClient.data?.id }, adminCookie);
   const rcId = rc.data?.id;
+  let mrVer = rc.data?.version;
   if (rcId) later('DELETE', `/api/ratecards/${rcId}`);
   if (rcId && r9Id) {
-    const patchEntries = body => api('PATCH', `/api/ratecards/${rcId}/entries`, body, adminCookie);
+    const patchEntries = async body => {
+      const r = await api('PATCH', `/api/ratecards/${rcId}/entries`, { version: mrVer, entries: body }, adminCookie);
+      if (r.status === 200 && typeof r.data?.version === 'number') mrVer = r.data.version;
+      return r;
+    };
     const entryRate = async () => ((await api('GET', `/api/ratecards/${rcId}`, null, adminCookie)).data?.entries || [])
       .find(e => e.roleId === mrRole.id)?.hourlyRate;
     const e0 = await patchEntries([{ roleId: mrRole.id, hourlyRate: 80, rateOverrides: {} }]);
@@ -4709,6 +5007,7 @@ async function main() {
     await testClientGroups();
     await testRoles();
     await testRatecards();
+    await testServerValidation();
     await testPots();
     await testCostGridBudgets();
     await testUsers();

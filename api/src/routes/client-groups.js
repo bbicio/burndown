@@ -15,18 +15,18 @@ router.get('/', requireAuth, async (req, res, next) => {
                 json_agg(json_build_object('id', c.id, 'name', c.name) ORDER BY c.name)
                 FILTER (WHERE c.id IS NOT NULL),
                 '[]'
-              ) AS clients,
+              ) AS clients${isAdmin ? `,
               COALESCE(
                 (SELECT json_agg(json_build_object('id', p.id, 'year', p.year) ORDER BY p.year DESC)
                  FROM pots p WHERE p.client_group_id = cg.id),
                 '[]'
-              ) AS pots
+              ) AS pots` : ''}
        FROM client_groups cg
        LEFT JOIN clients c ON c.group_id = cg.id
        GROUP BY cg.id, cg.name, cg.created_at
        ORDER BY cg.name`
     );
-    res.json(isAdmin ? rows : rows.map(({ pots, ...group }) => group));
+    res.json(rows);
   } catch (err) { next(err); }
 });
 

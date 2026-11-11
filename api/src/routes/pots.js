@@ -3,11 +3,15 @@ const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { potVersionsCte } = require('../lib/pot-fee-sql');
 const { amountError, MONEY_RULE_CODE, MAX_NUMERIC_14_2 } = require('../lib/money-rules');
+const { isUuid, specialLabelError } = require('../lib/input-rules');
 
 const router = express.Router();
 
 // Every route reads proposals through `pot_v`: one reference version per proposal, with its fee
 // computed once. Stage, year, client and value of a proposal are those of its reference version.
+
+// A year reaching Postgres must be four digits; null when valid.
+const yearError = y => (/^\d{4}$/.test(String(y)) ? null : 'year must be an integer');
 
 const zeroTotals = () => ({ pot_total: 0, committed_total: 0, anticipated_total: 0, expected_total: 0, sip_total: 0 });
 
@@ -18,6 +22,7 @@ router.get('/pipeline-summary', requireAuth, requireAdmin, async (req, res, next
   try {
     const { year } = req.query;
     if (!year) return res.status(400).json({ error: 'year is required' });
+    if (yearError(year)) return res.status(400).json({ error: yearError(year) });
     const yr = parseInt(year);
 
     const { rows } = await query(
@@ -89,6 +94,9 @@ router.get('/summary', requireAuth, async (req, res, next) => {
     if (!year || (!clientId && !clientGroupId)) {
       return res.status(400).json({ error: 'year and clientId or clientGroupId are required' });
     }
+    if (yearError(year)) return res.status(400).json({ error: yearError(year) });
+    if (clientId && !isUuid(clientId)) return res.status(400).json({ error: 'clientId must be a valid UUID' });
+    if (clientGroupId && !isUuid(clientGroupId)) return res.status(400).json({ error: 'clientGroupId must be a valid UUID' });
     const yr = parseInt(year);
 
     // Resolve the POT target
@@ -188,6 +196,7 @@ router.get('/', requireAuth, async (req, res, next) => {
     const { year } = req.query;
     const params = [];
     let whereClause = '';
+    if (year && yearError(year)) return res.status(400).json({ error: yearError(year) });
     if (year) {
       params.push(parseInt(year));
       whereClause = 'WHERE p.year = $1';
@@ -243,12 +252,19 @@ router.post('/', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { clientGroupId, clientId, specialLabel, year, amount } = req.body;
     if (!year || amount == null) return res.status(400).json({ error: 'year and amount are required' });
+    if (yearError(year)) return res.status(400).json({ error: yearError(year) });
+    if (clientId && !isUuid(clientId)) return res.status(400).json({ error: 'clientId must be a valid UUID' });
+    if (clientGroupId && !isUuid(clientGroupId)) return res.status(400).json({ error: 'clientGroupId must be a valid UUID' });
     const moneyErr = amountError(amount, 'EUR', 'POT amount', { max: MAX_NUMERIC_14_2 });
     if (moneyErr) return res.status(400).json({ error: moneyErr, code: MONEY_RULE_CODE });
     // Must have exactly one of: clientGroupId, clientId, or specialLabel
     const targets = [clientGroupId, clientId, specialLabel].filter(Boolean);
     if (targets.length !== 1) {
       return res.status(400).json({ error: 'Exactly one of clientGroupId, clientId, or specialLabel is required' });
+    }
+    if (specialLabel) {
+      const labelErr = specialLabelError(specialLabel);
+      if (labelErr) return res.status(400).json({ error: labelErr });
     }
     const { rows } = await query(
       `INSERT INTO pots (client_group_id, client_id, special_label, year, amount)
@@ -274,7 +290,9 @@ router.post('/', requireAuth, requireAdmin, async (req, res, next) => {
 router.get('/:id/details', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { year } = req.query;
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid POT id' });
     if (!year) return res.status(400).json({ error: 'year is required' });
+    if (yearError(year)) return res.status(400).json({ error: yearError(year) });
     const yr = parseInt(year);
 
     const potRes = await query(
@@ -361,6 +379,7 @@ router.get('/:id/details', requireAuth, requireAdmin, async (req, res, next) => 
 // GET /api/pots/:id/history (admin only)
 router.get('/:id/history', requireAuth, requireAdmin, async (req, res, next) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid POT id' });
     const { rows } = await query(
       `SELECT ph.id, ph.old_value, ph.new_value, ph.note, ph.changed_at,
               u.first_name || ' ' || u.last_name AS changed_by_name
@@ -377,6 +396,7 @@ router.get('/:id/history', requireAuth, requireAdmin, async (req, res, next) => 
 // PATCH /api/pots/:id (admin only)
 router.patch('/:id', requireAuth, requireAdmin, async (req, res, next) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid POT id' });
     const { amount, note } = req.body;
     if (amount == null) return res.status(400).json({ error: 'amount is required' });
     const moneyErr = amountError(amount, 'EUR', 'POT amount', { max: MAX_NUMERIC_14_2 });
@@ -399,6 +419,7 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res, next) => {
 // DELETE /api/pots/:id (admin only)
 router.delete('/:id', requireAuth, requireAdmin, async (req, res, next) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid POT id' });
     const { rows } = await query('DELETE FROM pots WHERE id = $1 RETURNING id', [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'POT not found' });
     res.json({ ok: true });

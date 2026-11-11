@@ -26,7 +26,7 @@ function ptcRowsError(rows, currencyCode) {
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     if (!row || typeof row !== 'object' || Array.isArray(row)) return `PTC row ${i + 1} must be an object.`;
-    const err = amountError(row.amount, currencyCode, `PTC row ${i + 1}`, { max: MAX_DECIMAL_10_2 });
+    const err = amountError(row.amount, currencyCode, `PTC row ${i + 1}`, { max: MAX_NUMERIC_14_2 });
     if (err) return err;
   }
   return null;
@@ -35,7 +35,7 @@ function ptcRowsError(rows, currencyCode) {
 function phasingError(phasing, currencyCode) {
   if (!phasing || typeof phasing !== 'object' || Array.isArray(phasing)) return 'Phasing must be an object.';
   for (const [key, v] of Object.entries(phasing)) {
-    const err = amountError(v, currencyCode, `Phasing ${key}`, { max: MAX_DECIMAL_10_2 });
+    const err = amountError(v, currencyCode, `Phasing ${key}`, { max: MAX_NUMERIC_14_2 });
     if (err) return err;
   }
   return null;

@@ -357,11 +357,11 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
 // whatever the handler below does (2026-09-30 hardening; closes the tag-cycle ":vId not checked against :id"
 // finding for structure, linked-projects, duplicate, patch, delete and refresh-rate). Registered after
 // requireAuth so an anonymous request still gets 401; canEdit/canAccess stay in each handler.
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const { isUuid, structureBodyError } = require('../lib/input-rules');
 async function versionScope(req, res, next) {
   try {
     const { id, vId } = req.params;
-    if (!UUID_RE.test(id) || !UUID_RE.test(vId)) return res.status(404).json({ error: 'Version not found' });
+    if (!isUuid(id) || !isUuid(vId)) return res.status(404).json({ error: 'Version not found' });
     const { rows } = await query(
       'SELECT 1 FROM cost_grid_versions WHERE id = $1 AND cost_grid_id = $2', [vId, id]
     );
@@ -688,213 +688,232 @@ router.get('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
 
 // PUT /api/cost-grids/:id/versions/:vId/structure
 router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) => {
-  if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
-    return res.status(403).json({ error: 'Access denied' });
-  }
-  const locked = await query('SELECT locked, currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
-  if (locked.rows[0]?.locked) return res.status(400).json({ error: 'Version is locked' });
-
-  const { phases = [], roles: rolesBody = [], period: periodBody } = req.body;
-
-  // Reject the whole request — no partial writes — if any role's sold hours
-  // fall outside the allowed set. No automatic rounding.
-  for (const ph of phases) {
-    for (const tk of (ph?.tasks || [])) {
-      if (tk?.hours && typeof tk.hours === 'object') {
-        for (const [code, days] of Object.entries(tk.hours)) {
-          if (!isValidSoldHours(days)) {
-            return res.status(400).json({
-              error: `Invalid sold hours "${days}" for role "${code}" in task "${tk.taskName || tk.title || ''}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`,
-            });
-          }
-        }
-      }
-      for (const tr of (tk?.roles || [])) {
-        if (tr?.days != null && !isValidSoldHours(tr.days)) {
-          return res.status(400).json({
-            error: `Invalid sold hours "${tr.days}" in task "${tk.taskName || tk.title || ''}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`,
-          });
-        }
-      }
-    }
-  }
-
-  // Role rates: an absent rate is tolerated (stored as NULL); a given one is checked in the version's currency.
-  for (const r of rolesBody) {
-    if (r?.rate != null) {
-      const err = amountError(r.rate, locked.rows[0]?.currency, `Rate for role "${r.roleCode || ''}"`, { max: MAX_DECIMAL_10_2 });
-      if (err) return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
-    }
-  }
-
-  // Task PTC and (second body shape) per-role rate overrides: absent/null is tolerated, a given one is checked in the version's currency.
-  for (const ph of phases) {
-    for (const tk of (ph?.tasks || [])) {
-      if (!tk) continue;
-      const tkLabel = tk.taskName || tk.title || '';
-      if (tk.ptc != null) {
-        const err = amountError(tk.ptc, locked.rows[0]?.currency, `PTC of task "${tkLabel}"`, { max: MAX_DECIMAL_10_2 });
-        if (err) return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
-      }
-      if (!(tk.hours && typeof tk.hours === 'object')) {
-        for (const tr of (tk.roles || [])) {
-          if (tr?.rateOverride != null) {
-            const err = amountError(tr.rateOverride, locked.rows[0]?.currency, `Rate override in task "${tkLabel}"`, { max: MAX_DECIMAL_10_2 });
-            if (err) return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
-          }
-        }
-      }
-    }
-  }
-
-  // Preload all roles for code→id lookup
-  const { rows: allRoles } = await query('SELECT id, code FROM roles');
-  const roleByCode = Object.fromEntries(allRoles.map(r => [r.code, r.id]));
-
-  // Snapshot rate for every role so the DB budget query always uses the same
-  // rate the editor sees, regardless of whether the rate was explicitly customised.
-  const rateByCode = {};
-  // Custom = the rate was written by hand; only the literal true counts.
-  const customByCode = {};
-  for (const r of rolesBody) {
-    if (r.roleCode && r.rate != null) {
-      rateByCode[r.roleCode] = r.rate;
-    }
-    if (r.roleCode) customByCode[r.roleCode] = r.rateIsCustom === true;
-  }
-
-  // Use a dedicated client for the transaction so BEGIN/COMMIT share the same connection
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-    // The version lock makes the check below and the DELETE see the same links (a link write takes it too).
-    await lockVersion(client, req.params.vId);
-    const stored = (await client.query('SELECT start_date, end_date FROM cost_grid_versions WHERE id = $1', [req.params.vId])).rows[0];
-    // Optional version period carried with the tasks: an absent side keeps the stored value, '' clears it.
-    const hasPeriod = periodBody !== null && typeof periodBody === 'object';
-    let next = { start: stored?.start_date, end: stored?.end_date };
-    if (hasPeriod) {
-      const bodyStart = periodBody.startDate;
-      const bodyEnd = periodBody.endDate;
-      const periodErr = periodChangeError({ start: bodyStart, end: bodyEnd },
-        { start: stored?.start_date, end: stored?.end_date }, { kind: 'month', label: 'version' });
-      if (periodErr) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: periodErr, code: DATE_RULE });
-      }
-      next = {
-        start: bodyStart === undefined ? stored?.start_date : bodyStart,
-        end: bodyEnd === undefined ? stored?.end_date : bodyEnd,
-      };
+    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied' });
     }
-    for (const ph of phases) {
-      for (const tk of (ph?.tasks || [])) {
-        const taskErr = taskPeriodError(tk?.taskStartDate || tk?.start_date, tk?.taskEndDate || tk?.end_date,
-          next.start, next.end, { label: tk?.taskName || tk?.title || '', parent: 'version' });
-        if (taskErr) {
-          await client.query('ROLLBACK');
-          return res.status(400).json({ error: taskErr, code: DATE_RULE });
-        }
-      }
-    }
-    // Task order (end before start): after the period check, so a task outside the period gets the period wording.
-    for (const ph of phases) {
-      for (const tk of (ph?.tasks || [])) {
-        const dateErr = periodError(tk?.taskStartDate || tk?.start_date, tk?.taskEndDate || tk?.end_date,
-          { kind: 'day', label: `task "${tk?.taskName || tk?.title || ''}"` });
-        if (dateErr) {
-          await client.query('ROLLBACK');
-          return res.status(400).json({ error: dateErr, code: DATE_RULE });
-        }
-      }
-    }
-    if (hasPeriod) {
-      const col = v => (v === undefined || v === null || String(v).trim() === '' ? null : String(v).trim());
-      await client.query('UPDATE cost_grid_versions SET start_date = $1, end_date = $2 WHERE id = $3',
-        [col(next.start), col(next.end), req.params.vId]);
-    }
-    const linkedRows = await client.query(
-      'SELECT task_ids FROM cg_version_projects WHERE cost_grid_version_id = $1', [req.params.vId]
-    );
-    const currentTasks = (await client.query(
-      'SELECT t.id, t.title FROM tasks t JOIN phases p ON p.id = t.phase_id WHERE p.version_id = $1', [req.params.vId]
-    )).rows;
-    const payloadTaskIds = phases.flatMap(ph => (ph?.tasks || []).map(tk => tk?.taskId || tk?.id).filter(Boolean));
-    const missing = missingLinkedTasks({
-      linkedTaskIds: linkedRows.rows.flatMap(r => r.task_ids || []),
-      currentTasks,
-      payloadTaskIds,
-    });
-    if (missing.length) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({
-        error: `Cannot save: tasks linked to a project would be removed: ${missing.map(t => `"${t.title}"`).join(', ')}`,
-        code: STRUCTURE_RULE_CODE,
-      });
-    }
-    await client.query('DELETE FROM phases WHERE version_id = $1', [req.params.vId]);
+    const locked = await query('SELECT locked FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+    if (!locked.rows[0]) return res.status(404).json({ error: 'Version not found' });
+    if (locked.rows[0].locked) return res.status(400).json({ error: 'Version is locked' });
 
-    for (let pi = 0; pi < phases.length; pi++) {
-      const ph = phases[pi];
-      if (!ph) continue;
-      const phTitle = (ph.phaseName || ph.title || '').trim() || 'New Phase';
-      const newPh = await client.query(
-        'INSERT INTO phases (version_id, title, sort_order) VALUES ($1, $2, $3) RETURNING id',
-        [req.params.vId, phTitle, pi]
-      );
-      for (let ti = 0; ti < (ph.tasks || []).length; ti++) {
-        const tk = ph.tasks[ti];
-        if (!tk) continue;
-        const tkTitle = (tk.taskName || tk.title || '').trim() || 'New Task';
-        const tkDesc  = tk.taskDescription || tk.description || '';
-        const normDate = v => toYmd(v) ?? '';
-        const tkStart = normDate(tk.taskStartDate || tk.start_date  || '');
-        const tkEnd   = normDate(tk.taskEndDate   || tk.end_date    || '');
-        const tkId = tk.taskId || tk.id || null;
-        const newTk = tkId
-          ? await client.query(
-              'INSERT INTO tasks (id, phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
-              [tkId, newPh.rows[0].id, tkTitle, tkDesc, tkStart, tkEnd, tk.ptc ?? 0, ti]
-            )
-          : await client.query(
-              'INSERT INTO tasks (phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
-              [newPh.rows[0].id, tkTitle, tkDesc, tkStart, tkEnd, tk.ptc ?? 0, ti]
-            );
-        // Accept both hours map {roleCode: days} and roles array [{roleId, days}]
-        const taskRoles = [];
-        if (tk.hours && typeof tk.hours === 'object') {
+    const shapeErr = structureBodyError(req.body);
+    if (shapeErr) return res.status(400).json({ error: shapeErr });
+    const { phases = [], roles: rolesBody = [], period: periodBody } = req.body;
+
+    // Reject the whole request — no partial writes — if any role's sold hours
+    // fall outside the allowed set. No automatic rounding.
+    for (const ph of phases) {
+      for (const tk of (ph?.tasks || [])) {
+        if (tk?.hours && typeof tk.hours === 'object') {
           for (const [code, days] of Object.entries(tk.hours)) {
-            const roleId = roleByCode[code];
-            if (roleId && days > 0) taskRoles.push({
-              roleId,
-              days,
-              rateOverride: rateByCode[code] ?? null,
-              rateIsCustom: customByCode[code] === true,
-              months: null,
+            if (!isValidSoldHours(days)) {
+              return res.status(400).json({
+                error: `Invalid sold hours "${days}" for role "${code}" in task "${tk.taskName || tk.title || ''}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`,
+              });
+            }
+          }
+        }
+        for (const tr of (tk?.roles || [])) {
+          if (tr?.days != null && !isValidSoldHours(tr.days)) {
+            return res.status(400).json({
+              error: `Invalid sold hours "${tr.days}" in task "${tk.taskName || tk.title || ''}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`,
             });
           }
-        } else {
-          for (const tr of (tk.roles || [])) {
-            const roleId = tr.roleId || roleByCode[tr.roleCode || tr.code];
-            if (roleId) taskRoles.push({ roleId, days: tr.days || 0, rateOverride: tr.rateOverride ?? null, rateIsCustom: tr.rateIsCustom === true, months: tr.months || null });
-          }
-        }
-        for (const tr of taskRoles) {
-          await client.query(
-            'INSERT INTO task_roles (task_id, role_id, days, rate_override, months, rate_is_custom) VALUES ($1, $2, $3, $4, $5, $6)',
-            [newTk.rows[0].id, tr.roleId, tr.days, tr.rateOverride, tr.months, tr.rateIsCustom]
-          );
         }
       }
     }
-    await client.query('COMMIT');
-    res.json({ ok: true });
-  } catch (err) {
-    await client.query('ROLLBACK').catch(() => {});
-    next(err);
-  } finally {
-    client.release();
-  }
+
+    // Preload all roles for code→id lookup
+    const { rows: allRoles } = await query('SELECT id, code FROM roles');
+    const roleByCode = Object.fromEntries(allRoles.map(r => [r.code, r.id]));
+
+    // Snapshot rate for every role so the DB budget query always uses the same
+    // rate the editor sees, regardless of whether the rate was explicitly customised.
+    const rateByCode = {};
+    // Custom = the rate was written by hand; only the literal true counts.
+    const customByCode = {};
+    for (const r of rolesBody) {
+      if (r.roleCode && r.rate != null) {
+        rateByCode[r.roleCode] = r.rate;
+      }
+      if (r.roleCode) customByCode[r.roleCode] = r.rateIsCustom === true && r.rate != null;
+    }
+
+    // Use a dedicated client for the transaction so BEGIN/COMMIT share the same connection
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // The version lock makes the check below and the DELETE see the same links (a link write takes it too).
+      await lockVersion(client, req.params.vId);
+      const stored = (await client.query('SELECT start_date, end_date, currency FROM cost_grid_versions WHERE id = $1', [req.params.vId])).rows[0];
+      if (!stored) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Version not found' });
+      }
+      const currency = stored.currency;
+      // Role rates: an absent rate is tolerated (stored as NULL); a given one is checked in the version's currency.
+      for (const r of rolesBody) {
+        if (r?.rate != null) {
+          const err = amountError(r.rate, currency, `Rate for role "${r.roleCode || ''}"`, { max: MAX_DECIMAL_10_2 });
+          if (err) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
+          }
+        }
+      }
+
+      // Task PTC and (second body shape) per-role rate overrides: absent/null is tolerated, a given one is checked in the version's currency.
+      for (const ph of phases) {
+        for (const tk of (ph?.tasks || [])) {
+          if (!tk) continue;
+          const tkLabel = tk.taskName || tk.title || '';
+          if (tk.ptc != null) {
+            const err = amountError(tk.ptc, currency, `PTC of task "${tkLabel}"`, { max: MAX_DECIMAL_10_2 });
+            if (err) {
+              await client.query('ROLLBACK');
+              return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
+            }
+          }
+          if (!(tk.hours && typeof tk.hours === 'object')) {
+            for (const tr of (tk.roles || [])) {
+              if (tr?.rateOverride != null) {
+                const err = amountError(tr.rateOverride, currency, `Rate override in task "${tkLabel}"`, { max: MAX_DECIMAL_10_2 });
+                if (err) {
+                  await client.query('ROLLBACK');
+                  return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Optional version period carried with the tasks: an absent side keeps the stored value, '' clears it.
+      const hasPeriod = periodBody !== null && typeof periodBody === 'object';
+      let next = { start: stored?.start_date, end: stored?.end_date };
+      if (hasPeriod) {
+        const bodyStart = periodBody.startDate;
+        const bodyEnd = periodBody.endDate;
+        const periodErr = periodChangeError({ start: bodyStart, end: bodyEnd },
+          { start: stored?.start_date, end: stored?.end_date }, { kind: 'month', label: 'version' });
+        if (periodErr) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: periodErr, code: DATE_RULE });
+        }
+        next = {
+          start: bodyStart === undefined ? stored?.start_date : bodyStart,
+          end: bodyEnd === undefined ? stored?.end_date : bodyEnd,
+        };
+      }
+      for (const ph of phases) {
+        for (const tk of (ph?.tasks || [])) {
+          const taskErr = taskPeriodError(tk?.taskStartDate || tk?.start_date, tk?.taskEndDate || tk?.end_date,
+            next.start, next.end, { label: tk?.taskName || tk?.title || '', parent: 'version' });
+          if (taskErr) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: taskErr, code: DATE_RULE });
+          }
+        }
+      }
+      // Task order (end before start): after the period check, so a task outside the period gets the period wording.
+      for (const ph of phases) {
+        for (const tk of (ph?.tasks || [])) {
+          const dateErr = periodError(tk?.taskStartDate || tk?.start_date, tk?.taskEndDate || tk?.end_date,
+            { kind: 'day', label: `task "${tk?.taskName || tk?.title || ''}"` });
+          if (dateErr) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: dateErr, code: DATE_RULE });
+          }
+        }
+      }
+      if (hasPeriod) {
+        const col = v => (v === undefined || v === null || String(v).trim() === '' ? null : String(v).trim());
+        await client.query('UPDATE cost_grid_versions SET start_date = $1, end_date = $2 WHERE id = $3',
+          [col(next.start), col(next.end), req.params.vId]);
+      }
+      const linkedRows = await client.query(
+        'SELECT task_ids FROM cg_version_projects WHERE cost_grid_version_id = $1', [req.params.vId]
+      );
+      const currentTasks = (await client.query(
+        'SELECT t.id, t.title FROM tasks t JOIN phases p ON p.id = t.phase_id WHERE p.version_id = $1', [req.params.vId]
+      )).rows;
+      const payloadTaskIds = phases.flatMap(ph => (ph?.tasks || []).map(tk => tk?.taskId || tk?.id).filter(Boolean));
+      const missing = missingLinkedTasks({
+        linkedTaskIds: linkedRows.rows.flatMap(r => r.task_ids || []),
+        currentTasks,
+        payloadTaskIds,
+      });
+      if (missing.length) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({
+          error: `Cannot save: tasks linked to a project would be removed: ${missing.map(t => `"${t.title}"`).join(', ')}`,
+          code: STRUCTURE_RULE_CODE,
+        });
+      }
+      await client.query('DELETE FROM phases WHERE version_id = $1', [req.params.vId]);
+
+      for (let pi = 0; pi < phases.length; pi++) {
+        const ph = phases[pi];
+        if (!ph) continue;
+        const phTitle = (ph.phaseName || ph.title || '').trim() || 'New Phase';
+        const newPh = await client.query(
+          'INSERT INTO phases (version_id, title, sort_order) VALUES ($1, $2, $3) RETURNING id',
+          [req.params.vId, phTitle, pi]
+        );
+        for (let ti = 0; ti < (ph.tasks || []).length; ti++) {
+          const tk = ph.tasks[ti];
+          if (!tk) continue;
+          const tkTitle = (tk.taskName || tk.title || '').trim() || 'New Task';
+          const tkDesc  = tk.taskDescription || tk.description || '';
+          const normDate = v => toYmd(v) ?? '';
+          const tkStart = normDate(tk.taskStartDate || tk.start_date  || '');
+          const tkEnd   = normDate(tk.taskEndDate   || tk.end_date    || '');
+          const tkId = tk.taskId || tk.id || null;
+          const newTk = tkId
+            ? await client.query(
+                'INSERT INTO tasks (id, phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1::uuid, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
+                [tkId, newPh.rows[0].id, tkTitle, tkDesc, tkStart, tkEnd, tk.ptc ?? 0, ti]
+              )
+            : await client.query(
+                'INSERT INTO tasks (phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+                [newPh.rows[0].id, tkTitle, tkDesc, tkStart, tkEnd, tk.ptc ?? 0, ti]
+              );
+          // Accept both hours map {roleCode: days} and roles array [{roleId, days}]
+          const taskRoles = [];
+          if (tk.hours && typeof tk.hours === 'object') {
+            for (const [code, days] of Object.entries(tk.hours)) {
+              const roleId = roleByCode[code];
+              if (roleId && days > 0) taskRoles.push({
+                roleId,
+                days,
+                rateOverride: rateByCode[code] ?? null,
+                rateIsCustom: customByCode[code] === true,
+                months: null,
+              });
+            }
+          } else {
+            for (const tr of (tk.roles || [])) {
+              const roleId = tr.roleId || roleByCode[tr.roleCode || tr.code];
+              if (roleId) taskRoles.push({ roleId, days: tr.days || 0, rateOverride: tr.rateOverride ?? null, rateIsCustom: tr.rateIsCustom === true, months: tr.months || null });
+            }
+          }
+          for (const tr of taskRoles) {
+            await client.query(
+              'INSERT INTO task_roles (task_id, role_id, days, rate_override, months, rate_is_custom) VALUES ($1, $2, $3, $4, $5, $6)',
+              [newTk.rows[0].id, tr.roleId, tr.days, tr.rateOverride, tr.months, tr.rateIsCustom]
+            );
+          }
+        }
+      }
+      await client.query('COMMIT');
+      res.json({ ok: true });
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      next(err);
+    } finally {
+      client.release();
+    }
+  } catch (err) { next(err); }
 });
 
 // ── LINKED PROJECTS ───────────────────────────────────────────────────────────

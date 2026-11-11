@@ -699,7 +699,6 @@ timesheets (
 | GET | /api/ratecards | ✅ | List (all authenticated users) |
 | POST | /api/ratecards | admin | Create |
 | GET | /api/ratecards/:id | ✅ | Detail (all authenticated users) |
-| POST | /api/ratecards/clone | admin | Clone global → per client |
 | PATCH | /api/ratecards/:id | admin | Rename / update the rate card itself |
 | PATCH | /api/ratecards/:id/entries | admin | Replaces the whole entry set in one transaction (2026-10-30): roles missing from the body lose their entry. `hourlyRate` may be `null` (agency default) when the entry has a currency override; every entry is checked first — an invalid amount or an entry with neither answers **400 `MONEY_RULE`** and changes nothing. Malformed ids or an unknown role → 400, unknown card → 404. Detail: [docs/api/config.md](docs/api/config.md) |
 | DELETE | /api/ratecards/:id | admin | Delete |

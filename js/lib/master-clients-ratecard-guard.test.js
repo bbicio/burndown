@@ -27,6 +27,13 @@ describe('master-clients rate card sub-view', () => {
     expect(body).toMatch(/Api\.roles\.list\(\)/);
     expect(body).not.toMatch(/this\.roles\.map/);
   });
+  // POST /api/ratecards returns the client's existing card (with its entries) when one exists: the
+  // create path must not replace those entries with an empty list, or a save would wipe them.
+  it('openClientRatecard does not hard-code empty entries for a created card', () => {
+    const body = method('openClientRatecard');
+    expect(body).not.toMatch(/entries:\s*\[\]\s*\}/);
+    expect(body).toMatch(/entries:\s*rc\.entries\s*\?\?\s*\[\]/);
+  });
   it('has no hand-written zero rule and keeps zero through keepZero', () => {
     expect(html).not.toMatch(/===\s*0\s*\?\s*'0'/);
     expect(html).toContain('keepZero: true');
@@ -52,6 +59,27 @@ describe('master-clients rate card sub-view', () => {
     const body = method('saveClientRatecard');
     expect(body).toContain('buildRatecardEntries(');
     expect(body).toContain('Api.ratecards.updateEntries(');
+  });
+  // The entries PATCH is refused (409) when the card changed since the modal opened: the version
+  // travels with it, and the refresh of the "saved" state must sit after the call so a refusal skips it.
+  it('sends the card version with the entries and keeps the one the server returns', () => {
+    const body = method('saveClientRatecard');
+    expect(body).toMatch(/Api\.ratecards\.updateEntries\([^)]*version:/);
+    expect(body).toMatch(/state\.version\s*=\s*\w+\.version/);
+    expect(method('openClientRatecard')).toMatch(/state\.version\s*=\s*rc\.version/);
+  });
+  it('refreshes row.initial/row.stored only after the awaited save, inside the try', () => {
+    const body = method('saveClientRatecard');
+    const tryAt = body.indexOf('try {');
+    const callAt = body.indexOf('await Api.ratecards.updateEntries');
+    const initialAt = body.indexOf('row.initial =');
+    const storedAt = body.indexOf('row.stored[code] =');
+    const catchAt = body.indexOf('} catch');
+    expect(tryAt).toBeGreaterThan(-1);
+    expect(callAt).toBeGreaterThan(tryAt);
+    expect(initialAt).toBeGreaterThan(callAt);
+    expect(storedAt).toBeGreaterThan(callAt);
+    expect(catchAt).toBeGreaterThan(storedAt);
   });
   it('is a routed sub-view, not a modal', () => {
     expect(html).not.toContain('clientRcModal');

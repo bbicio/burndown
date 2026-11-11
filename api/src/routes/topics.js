@@ -8,11 +8,11 @@ const router = express.Router();
 router.use(requireAuth, requireAdmin);
 
 const STATUSES = ['approved', 'proposed', 'rejected'];
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const { isUuid } = require('../lib/input-rules');
 const COLS = 'id, name, status, merged_into, created_at, updated_at';
 
 async function getTopic(id, q = query) {
-  if (!UUID_RE.test(String(id))) return null;
+  if (!isUuid(String(id))) return null;
   const { rows } = await q(`SELECT ${COLS} FROM topics WHERE id = $1`, [id]);
   return rows[0] || null;
 }
@@ -109,8 +109,8 @@ for (const [action, rule] of Object.entries(TRANSITIONS)) {
 
 // POST /api/topics/:id/merge { targetId } — absorb :id into targetId
 router.post('/:id/merge', async (req, res, next) => {
-  if (!UUID_RE.test(String(req.params.id))) return res.status(404).json({ error: 'Topic not found' });
-  if (!UUID_RE.test(String(req.body?.targetId ?? ''))) return res.status(400).json({ error: 'targetId is required' });
+  if (!isUuid(String(req.params.id))) return res.status(404).json({ error: 'Topic not found' });
+  if (!isUuid(String(req.body?.targetId ?? ''))) return res.status(400).json({ error: 'targetId is required' });
   const srcId = String(req.params.id).toLowerCase();
   const targetId = String(req.body.targetId).toLowerCase();
   if (targetId === srcId) return res.status(400).json({ error: 'A topic cannot be merged into itself' });

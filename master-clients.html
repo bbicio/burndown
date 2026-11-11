@@ -683,7 +683,7 @@
 
 <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
-<script defer src="js/api.js?v=14"></script>
+<script defer src="js/api.js?v=15"></script>
 <script>
   function esc(s) {
     return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -1165,7 +1165,7 @@ window.__cfgApp = Vue.createApp({
     },
 
     async openClientRatecard(client) {
-      this.rc = { title: `Rate Card — ${client.name}`, loading: true, loadError: null, msg: null, msgKind: 'success', msgSeq: 0, saving: false, id: null, rows: [] };
+      this.rc = { title: `Rate Card — ${client.name}`, loading: true, loadError: null, msg: null, msgKind: 'success', msgSeq: 0, saving: false, id: null, version: 0, rows: [] };
       // A later open replaces this.rc: this load writes only to the state it was started for.
       const state = this.rc;
 
@@ -1182,7 +1182,7 @@ window.__cfgApp = Vue.createApp({
         let rc = allRc.find(r => r.client_id === client.id);
         if (!rc) {
           rc = await Api.ratecards.create(`${client.name}`, client.id);
-          rc = { ...rc, entries: [] };
+          rc = { ...rc, entries: rc.entries ?? [] };
         }
 
         const entryOf = {};
@@ -1207,6 +1207,7 @@ window.__cfgApp = Vue.createApp({
           return { roleId: String(r.id), label: r.label, code: r.code, defaults, texts, stored, hidden, initial: { ...texts } };
         });
         state.id = rc.id;
+        state.version = rc.version ?? 0;
       } catch (e) {
         state.loadError = e.message || 'Failed to load.';
       } finally {
@@ -1227,7 +1228,9 @@ window.__cfgApp = Vue.createApp({
       const state = this.rc;
       state.saving = true;
       try {
-        await Api.ratecards.updateEntries(state.id, built.entries);
+        const saved = await Api.ratecards.updateEntries(state.id, { version: state.version, entries: built.entries });
+        // A refused save (409) throws above: the rows stay dirty and the server's message is shown.
+        state.version = saved.version;
         // What was saved is the new reference for "unsaved changes" and for the amounts' stored value.
         state.rows.forEach(row => {
           row.initial = { ...row.texts };

@@ -391,6 +391,11 @@ describe('Pipelines & POTs responsive styles', () => {
     expect(html).not.toContain('py.offers > 0 || py._loading');
   });
 
+  it('Delete pipeline explains hidden proposals (Drafts and Canceled) after the offers branch', () => {
+    expect(html).toContain('py.proposals > (py.offers || 0)');
+    expect(html).toContain("proposals (Drafts and Canceled included) use this pipeline. Hide it instead.'");
+  });
+
   it('has no hex colour in its inline styles and retries a failed POT details load', () => {
     const styles = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');
     expect(styles).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);

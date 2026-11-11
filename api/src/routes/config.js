@@ -3,6 +3,7 @@ const { query, pool } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { isAdminRole } = require('../lib/is-admin');
 const { amountError, overridesError, ratecardEntryError, MONEY_RULE_CODE, MAX_DECIMAL_10_2 } = require('../lib/money-rules');
+const { isUuid } = require('../lib/input-rules');
 const { sendShareNotification } = require('../services/email');
 let _createNotification; // lazy-loaded from notifications route to avoid circular deps
 
@@ -308,7 +309,7 @@ router.delete('/roles/:id', requireAdmin, async (req, res, next) => {
 router.get('/ratecards', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await query(`
-      SELECT r.id, r.name, r.client_id, c.name AS client_name,
+      SELECT r.id, r.name, r.client_id, r.version, c.name AS client_name,
              COALESCE(
                json_agg(
                  json_build_object('roleId', re.role_id, 'label', ro.label, 'hourlyRate', re.hourly_rate,
@@ -320,7 +321,7 @@ router.get('/ratecards', requireAuth, async (req, res, next) => {
       LEFT JOIN clients c ON c.id = r.client_id
       LEFT JOIN ratecard_entries re ON re.ratecard_id = r.id
       LEFT JOIN roles ro ON ro.id = re.role_id
-      GROUP BY r.id, r.name, r.client_id, c.name
+      GROUP BY r.id, r.name, r.client_id, r.version, c.name
       ORDER BY r.client_id NULLS FIRST, r.name
     `);
     res.json(rows);
@@ -330,7 +331,7 @@ router.get('/ratecards', requireAuth, async (req, res, next) => {
 router.get('/ratecards/:id', requireAuth, async (req, res, next) => {
   try {
     const { rows } = await query(`
-      SELECT r.id, r.name, r.client_id,
+      SELECT r.id, r.name, r.client_id, r.version,
              COALESCE(
                json_agg(
                  json_build_object('roleId', re.role_id, 'label', ro.label, 'hourlyRate', re.hourly_rate,
@@ -342,7 +343,7 @@ router.get('/ratecards/:id', requireAuth, async (req, res, next) => {
       LEFT JOIN ratecard_entries re ON re.ratecard_id = r.id
       LEFT JOIN roles ro ON ro.id = re.role_id
       WHERE r.id = $1
-      GROUP BY r.id, r.name, r.client_id
+      GROUP BY r.id, r.name, r.client_id, r.version
     `, [req.params.id]);
     if (!rows[0]) return res.status(404).json({ error: 'Ratecard not found' });
     res.json(rows[0]);
@@ -353,40 +354,46 @@ router.post('/ratecards', requireAdmin, async (req, res, next) => {
   try {
     const { name, clientId } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
-    const { rows } = await query(
-      'INSERT INTO ratecards (name, client_id) VALUES ($1, $2) RETURNING id, name, client_id',
-      [name.trim(), clientId || null]
-    );
-    res.status(201).json(rows[0]);
-  } catch (err) { next(err); }
-});
-
-router.post('/ratecards/clone', requireAdmin, async (req, res, next) => {
-  try {
-    const { clientId, name } = req.body;
-    if (!clientId || !name?.trim()) return res.status(400).json({ error: 'clientId and name are required' });
-
-    // Find global ratecard (client_id IS NULL)
-    const global = await query(
-      'SELECT id FROM ratecards WHERE client_id IS NULL LIMIT 1'
-    );
-    if (!global.rows[0]) return res.status(404).json({ error: 'No global ratecard found' });
-
-    // Create new ratecard for client
-    const newRc = await query(
-      'INSERT INTO ratecards (name, client_id) VALUES ($1, $2) RETURNING id',
-      [name.trim(), clientId]
-    );
-    const newId = newRc.rows[0].id;
-
-    // Clone entries from global
-    await query(`
-      INSERT INTO ratecard_entries (ratecard_id, role_id, hourly_rate)
-      SELECT $1, role_id, hourly_rate FROM ratecard_entries WHERE ratecard_id = $2
-    `, [newId, global.rows[0].id]);
-
-    res.status(201).json({ id: newId });
-  } catch (err) { next(err); }
+    if (!isUuid(clientId)) return res.status(400).json({ error: 'clientId is required' });
+    // A client has one rate card: the client row lock makes concurrent creates converge on the same card.
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const lockedClient = await client.query('SELECT id FROM clients WHERE id = $1 FOR NO KEY UPDATE', [clientId]);
+      if (!lockedClient.rows[0]) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Client not found' });
+      }
+      const existing = await client.query(
+        'SELECT id, name, client_id, version FROM ratecards WHERE client_id = $1 ORDER BY created_at, id LIMIT 1', [clientId]
+      );
+      if (existing.rows[0]) {
+        // Same shape as GET /ratecards/:id, so a caller never shows an existing card as empty.
+        const ents = await client.query(
+          `SELECT re.role_id AS "roleId", ro.label, re.hourly_rate AS "hourlyRate",
+                  COALESCE(re.rate_overrides, '{}') AS "rateOverrides"
+           FROM ratecard_entries re JOIN roles ro ON ro.id = re.role_id
+           WHERE re.ratecard_id = $1 ORDER BY ro.label`, [existing.rows[0].id]
+        );
+        await client.query('COMMIT');
+        return res.status(200).json({ ...existing.rows[0], entries: ents.rows });
+      }
+      const { rows } = await client.query(
+        'INSERT INTO ratecards (name, client_id) VALUES ($1, $2) RETURNING id, name, client_id, version',
+        [name.trim(), clientId]
+      );
+      await client.query('COMMIT');
+      res.status(201).json({ ...rows[0], entries: [] });
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  } catch (err) {
+    if (err.code === '23503') return res.status(400).json({ error: 'Client not found' });
+    next(err);
+  }
 });
 
 router.patch('/ratecards/:id', requireAdmin, async (req, res, next) => {
@@ -402,18 +409,23 @@ router.patch('/ratecards/:id', requireAdmin, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
 router.patch('/ratecards/:id/entries', requireAdmin, async (req, res, next) => {
   try {
-    const entries = req.body;
-    if (!UUID_RE.test(req.params.id)) return res.status(400).json({ error: 'Invalid ratecard id' });
-    if (!Array.isArray(entries)) return res.status(400).json({ error: 'Body must be an array' });
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid ratecard id' });
+    const STALE = { error: 'This rate card was changed by someone else. Reopen it to see the current rates.', code: 'RATECARD_STALE' };
+    // A bare array is the pre-version body: it carries no version, so it can never be current.
+    if (Array.isArray(req.body)) return res.status(409).json(STALE);
+    const entries = req.body?.entries;
+    if (!Array.isArray(entries)) return res.status(400).json({ error: 'Body must be { version, entries }' });
+    if (!Number.isInteger(req.body.version)) return res.status(400).json({ error: 'version must be an integer' });
 
+    const seen = new Set();
     for (let i = 0; i < entries.length; i++) {
-      if (typeof entries[i]?.roleId !== 'string' || !UUID_RE.test(entries[i].roleId)) {
+      if (typeof entries[i]?.roleId !== 'string' || !isUuid(entries[i].roleId)) {
         return res.status(400).json({ error: `Entry ${i + 1} needs a valid roleId` });
       }
+      if (seen.has(entries[i].roleId)) return res.status(400).json({ error: `Entry ${i + 1} repeats a role` });
+      seen.add(entries[i].roleId);
       const moneyErr = ratecardEntryError(entries[i], `Entry ${i + 1}`);
       if (moneyErr) return res.status(400).json({ error: moneyErr, code: MONEY_RULE_CODE });
     }
@@ -423,24 +435,40 @@ router.patch('/ratecards/:id/entries', requireAdmin, async (req, res, next) => {
     try {
       await client.query('BEGIN');
       // Locks the card, so two concurrent replacements run one after the other.
-      const card = await client.query('SELECT id FROM ratecards WHERE id = $1 FOR UPDATE', [req.params.id]);
+      const card = await client.query('SELECT id, version FROM ratecards WHERE id = $1 FOR UPDATE', [req.params.id]);
       if (!card.rows[0]) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Ratecard not found' });
       }
+      if (card.rows[0].version !== req.body.version) {
+        await client.query('ROLLBACK');
+        return res.status(409).json(STALE);
+      }
+      // An entry whose role was deleted since the modal opened is dropped, not an error.
+      const known = await client.query('SELECT id FROM roles WHERE id = ANY($1::uuid[])', [entries.map(e => e.roleId)]);
+      const knownIds = new Set(known.rows.map(r => r.id));
+      const kept = entries.filter(e => knownIds.has(e.roleId));
       await client.query(
         'DELETE FROM ratecard_entries WHERE ratecard_id = $1 AND NOT (role_id = ANY($2::uuid[]))',
-        [req.params.id, entries.map(e => e.roleId)]
+        [req.params.id, kept.map(e => e.roleId)]
       );
-      for (const e of entries) {
-        const overrides = (e.rateOverrides && typeof e.rateOverrides === 'object') ? e.rateOverrides : {};
+      if (kept.length) {
         await client.query(`
           INSERT INTO ratecard_entries (ratecard_id, role_id, hourly_rate, rate_overrides)
-          VALUES ($1, $2, $3, $4)
-          ON CONFLICT (ratecard_id, role_id) DO UPDATE SET hourly_rate = $3, rate_overrides = $4
-        `, [req.params.id, e.roleId, e.hourlyRate ?? null, JSON.stringify(overrides)]);
+          SELECT $1::uuid, t.role_id, t.hourly_rate, t.rate_overrides
+          FROM unnest($2::uuid[], $3::numeric[], $4::jsonb[]) AS t(role_id, hourly_rate, rate_overrides)
+          ON CONFLICT (ratecard_id, role_id) DO UPDATE
+            SET hourly_rate = EXCLUDED.hourly_rate, rate_overrides = EXCLUDED.rate_overrides
+        `, [
+          req.params.id,
+          kept.map(e => e.roleId),
+          kept.map(e => e.hourlyRate ?? null),
+          kept.map(e => JSON.stringify((e.rateOverrides && typeof e.rateOverrides === 'object') ? e.rateOverrides : {})),
+        ]);
       }
+      const bumped = await client.query('UPDATE ratecards SET version = version + 1 WHERE id = $1 RETURNING version', [req.params.id]);
       await client.query('COMMIT');
+      res.json({ ok: true, version: bumped.rows[0].version });
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
       if (err.code === '23503') return res.status(400).json({ error: 'Unknown role in the entries' });
@@ -448,7 +476,6 @@ router.patch('/ratecards/:id/entries', requireAdmin, async (req, res, next) => {
     } finally {
       client.release();
     }
-    res.json({ ok: true });
   } catch (err) { next(err); }
 });
 

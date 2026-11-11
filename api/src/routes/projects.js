@@ -1,6 +1,7 @@
 const express = require('express');
 const { query, pool } = require('../db/client');
 const { requireAuth, liveRole } = require('../middleware/auth');
+const { isUuid, taskListError } = require('../lib/input-rules');
 const rules = require('../lib/project-rules');
 const { withVersionLock, lockVersion } = require('../lib/version-lock');
 const { sendShareNotification, sendShareRevokedEmail } = require('../services/email');
@@ -160,9 +161,8 @@ router.post('/', requireAuth, async (req, res, next) => {
     const periodErr = periodError(startDate, endDate, { kind: 'month', label: 'project' });
     if (periodErr) return res.status(400).json({ error: periodErr, code: DATE_RULE });
 
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const safeClientId    = clientId    && uuidRe.test(clientId)    ? clientId    : null;
-    const safeCgVersionId = cgVersionId && uuidRe.test(cgVersionId) ? cgVersionId : null;
+    const safeClientId    = clientId    && isUuid(clientId)    ? clientId    : null;
+    const safeCgVersionId = cgVersionId && isUuid(cgVersionId) ? cgVersionId : null;
 
     const role = await liveRole(req.user.id);
     const createErr = rules.projectCreateError({ role, versionId: safeCgVersionId });
@@ -210,10 +210,9 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     for (const key of ['cgVersionId', 'clientId']) {
       const v = req.body[key];
-      if (v && (typeof v !== 'string' || !uuidRe.test(v))) {
+      if (v && (typeof v !== 'string' || !isUuid(v))) {
         return res.status(400).json({ error: `${key} must be a valid UUID` });
       }
     }
@@ -407,19 +406,24 @@ router.get('/:id/tasks', requireAuth, async (req, res, next) => {
 // PUT /api/projects/:id/tasks  — bulk replace
 router.put('/:id/tasks', requireAuth, async (req, res, next) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid project id' });
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
     // Body: the task array (today), or { tasks, period } so the project period travels with the tasks.
     const body = req.body;
     const { tasks, period } = Array.isArray(body) ? { tasks: body, period: undefined } : (body || {});
-    if (!Array.isArray(tasks)) return res.status(400).json({ error: 'Body must be an array of tasks or { tasks: [...], period }' });
+    const shapeErr = taskListError(tasks);
+    if (shapeErr) return res.status(400).json({ error: shapeErr });
     const hasPeriod = period !== null && typeof period === 'object';
 
     // Reject the whole request — no partial writes — if any resource's sold
     // hours fall outside the allowed set. No automatic rounding.
     for (const t of tasks) {
       for (const r of (t?.resources || [])) {
+        if (r === null || typeof r !== 'object') {
+          return res.status(400).json({ error: `Task "${t?.name || ''}" has an empty resource entry.` });
+        }
         if (r?.soldHours != null && !isValidSoldHours(r.soldHours)) {
           return res.status(400).json({
             error: `Invalid sold hours "${r.soldHours}" for role "${r.role || ''}" on task "${t.name || ''}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`,
@@ -428,24 +432,29 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
       }
     }
 
-    // Resource rates: a blank rate (absent, null, '') is saved as 0; any other value must be a valid amount
-    // in the project's currency. Checked before any write.
-    const currency = (await query('SELECT currency FROM projects WHERE id = $1', [req.params.id])).rows[0]?.currency;
-    for (const t of tasks) {
-      if (!Array.isArray(t?.resources)) continue;
-      t.resources = t.resources.map(r => (r && (r.hourlyRate === undefined || r.hourlyRate === null || r.hourlyRate === '')
-        ? { ...r, hourlyRate: 0 } : r));
-      for (const r of t.resources) {
-        const err = amountError(r?.hourlyRate, currency, `Hourly rate of "${r?.role || ''}" on task "${t.name || ''}"`, { max: MAX_DECIMAL_10_2 });
-        if (err) return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
-      }
-    }
-
     const client = await pool.connect();
     let descriptionsChanged = false;
     try {
       await client.query('BEGIN');
-      const stored = (await client.query('SELECT start_date, end_date FROM projects WHERE id = $1 FOR UPDATE', [req.params.id])).rows[0];
+      const stored = (await client.query('SELECT start_date, end_date, currency FROM projects WHERE id = $1 FOR UPDATE', [req.params.id])).rows[0];
+      if (!stored) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      // Resource rates: a blank rate (absent, null, '') is saved as 0; any other value must be a valid amount
+      // in the project's currency, read under the row lock. Checked before any write.
+      for (const t of tasks) {
+        if (!Array.isArray(t?.resources)) continue;
+        t.resources = t.resources.map(r => (r && (r.hourlyRate === undefined || r.hourlyRate === null || r.hourlyRate === '')
+          ? { ...r, hourlyRate: 0 } : r));
+        for (const r of t.resources) {
+          const err = amountError(r?.hourlyRate, stored.currency, `Hourly rate of "${r?.role || ''}" on task "${t.name || ''}"`, { max: MAX_DECIMAL_10_2 });
+          if (err) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
+          }
+        }
+      }
       // An absent side keeps the stored value, '' clears it.
       let next = { start: stored?.start_date, end: stored?.end_date };
       if (hasPeriod) {
@@ -518,14 +527,32 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
 // PATCH /api/projects/:id/phasing
 router.patch('/:id/phasing', requireAuth, async (req, res, next) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid project id' });
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
     const { phasing } = req.body;
-    const { rows: [{ currency: phCur } = {}] } = await query('SELECT currency FROM projects WHERE id = $1', [req.params.id]);
-    const phErr = phasingError(phasing, phCur);
-    if (phErr) return res.status(400).json({ error: phErr, code: MONEY_RULE_CODE });
-    await query('UPDATE projects SET phasing = $1 WHERE id = $2', [JSON.stringify(phasing), req.params.id]);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const row = (await client.query('SELECT currency FROM projects WHERE id = $1 FOR UPDATE', [req.params.id])).rows[0];
+      if (!row) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      const phErr = phasingError(phasing, row.currency);
+      if (phErr) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: phErr, code: MONEY_RULE_CODE });
+      }
+      await client.query('UPDATE projects SET phasing = $1 WHERE id = $2', [JSON.stringify(phasing), req.params.id]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -533,14 +560,32 @@ router.patch('/:id/phasing', requireAuth, async (req, res, next) => {
 // PATCH /api/projects/:id/ptc
 router.patch('/:id/ptc', requireAuth, async (req, res, next) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid project id' });
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
     const { ptc } = req.body;
-    const { rows: [{ currency: ptcCur } = {}] } = await query('SELECT currency FROM projects WHERE id = $1', [req.params.id]);
-    const ptcErr = ptcRowsError(ptc, ptcCur);
-    if (ptcErr) return res.status(400).json({ error: ptcErr, code: MONEY_RULE_CODE });
-    await query('UPDATE projects SET ptc = $1 WHERE id = $2', [JSON.stringify(ptc), req.params.id]);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const row = (await client.query('SELECT currency FROM projects WHERE id = $1 FOR UPDATE', [req.params.id])).rows[0];
+      if (!row) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      const ptcErr = ptcRowsError(ptc, row.currency);
+      if (ptcErr) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: ptcErr, code: MONEY_RULE_CODE });
+      }
+      await client.query('UPDATE projects SET ptc = $1 WHERE id = $2', [JSON.stringify(ptc), req.params.id]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
