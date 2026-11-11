@@ -1285,6 +1285,23 @@ Spec: `docs/superpowers/specs/2026-10-16-header-unification-design.md`. Every pa
 
 ---
 
+## 32. Help viewer (`help.html`, 2026-11-11)
+
+Spec: `docs/superpowers/specs/2026-11-11-handbook-viewer-design.md`. One page shows the documents of `handbook/`; the restricted ones only to admin and sysadmin, enforced by nginx.
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| HB-01 | Help entry in the account menu | As user, admin and sysadmin, open the account menu | "Help" sits right under "Privacy Notice" and opens `/help.html` | ✓ (vitest) |
+| HB-02 | Documents by role | Open `/help.html` as a user, then as an admin | The user sees only "User manual" under "Guides"; the admin also sees an "Admin" group with Architecture, Test cases, Production checklist | ✓ (vitest) |
+| HB-03 | Restricted files refused to a user | With a user's session cookie, request `/handbook/restricted/TEST_CASES.md`; repeat with an admin's, then with no cookie | 403 for the user, 200 with the file for the admin, 302 to `/login.html` without a session | |
+| HB-04 | Shared link to a restricted document | As a user, open `/help.html?doc=architecture` | The first visible document opens with the warning "Document not available"; no request for the restricted file | ✓ (vitest) |
+| HB-05 | Old test-cases address | Open `/test-cases.html` | Lands on `/help.html?doc=test-cases` with Test cases open | ✓ (vitest) |
+| HB-06 | Test case results kept | As an admin, mark a case passed in Test cases, reload | The case is still passed; results saved before 2026-11-11 on the same address are still there | |
+| HB-07 | Mermaid diagram | As an admin, open a document containing a `mermaid` code block | The block is drawn as a diagram, not shown as code | |
+| HB-08 | Session expired while reading | Open `/help.html`, sign out in another tab, then pick another document | "Could not load this document. Reload the page; if you are signed out, sign in first." instead of the login page rendered as text | ✓ (vitest) |
+
+---
+
 ## 17. Regression — Cross-feature
 
 | ID | Scenario | Steps | Expected | Auto |
