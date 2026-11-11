@@ -39,7 +39,7 @@ router.get('/', requireAuth, requireAdmin, async (req, res, next) => {
 router.post('/:code/activate', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { code } = req.params;
-    const rate = parseFloat(req.body.rate);
+    const rate = req.body?.rate;
     const rateErr = decimalRangeError(rate, { min: 0.000001, max: 9999.999999, label: 'Rate' });
     if (rateErr) return res.status(400).json({ error: rateErr });
     if (code === 'EUR') return res.status(400).json({ error: 'EUR is always active' });
@@ -70,7 +70,7 @@ router.post('/:code/activate', requireAuth, requireAdmin, async (req, res, next)
 router.patch('/:code/rate', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     const { code } = req.params;
-    const rate = parseFloat(req.body.rate);
+    const rate = req.body?.rate;
     const rateErr = decimalRangeError(rate, { min: 0.000001, max: 9999.999999, label: 'Rate' });
     if (rateErr) return res.status(400).json({ error: rateErr });
     if (code === 'EUR') return res.status(400).json({ error: 'EUR rate is fixed at 1:1' });

@@ -355,11 +355,34 @@ router.post('/ratecards', requireAdmin, async (req, res, next) => {
     const { name, clientId } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
     if (!isUuid(clientId)) return res.status(400).json({ error: 'clientId is required' });
-    const { rows } = await query(
-      'INSERT INTO ratecards (name, client_id) VALUES ($1, $2) RETURNING id, name, client_id, version',
-      [name.trim(), clientId]
-    );
-    res.status(201).json(rows[0]);
+    // A client has one rate card: the client row lock makes concurrent creates converge on the same card.
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const lockedClient = await client.query('SELECT id FROM clients WHERE id = $1 FOR UPDATE', [clientId]);
+      if (!lockedClient.rows[0]) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Client not found' });
+      }
+      const existing = await client.query(
+        'SELECT id, name, client_id, version FROM ratecards WHERE client_id = $1 ORDER BY created_at, id LIMIT 1', [clientId]
+      );
+      if (existing.rows[0]) {
+        await client.query('COMMIT');
+        return res.status(200).json(existing.rows[0]);
+      }
+      const { rows } = await client.query(
+        'INSERT INTO ratecards (name, client_id) VALUES ($1, $2) RETURNING id, name, client_id, version',
+        [name.trim(), clientId]
+      );
+      await client.query('COMMIT');
+      res.status(201).json(rows[0]);
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     if (err.code === '23503') return res.status(400).json({ error: 'Client not found' });
     next(err);
@@ -387,7 +410,7 @@ router.patch('/ratecards/:id/entries', requireAdmin, async (req, res, next) => {
     if (Array.isArray(req.body)) return res.status(409).json(STALE);
     const entries = req.body?.entries;
     if (!Array.isArray(entries)) return res.status(400).json({ error: 'Body must be { version, entries }' });
-    if (!Number.isInteger(req.body.version)) return res.status(409).json(STALE);
+    if (!Number.isInteger(req.body.version)) return res.status(400).json({ error: 'version must be an integer' });
 
     const seen = new Set();
     for (let i = 0; i < entries.length; i++) {
