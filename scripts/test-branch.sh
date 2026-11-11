@@ -64,6 +64,9 @@ FRONTEND_PORT="${TEST_BRANCH_FRONTEND_PORT:-8081}"
 API_PORT="${TEST_BRANCH_API_PORT:-3001}"
 DB_PORT="${TEST_BRANCH_DB_PORT:-5433}"
 ADMINER_PORT="${TEST_BRANCH_ADMINER_PORT:-8082}"
+MAIL_PORT="${TEST_BRANCH_MAIL_PORT:-8083}"
+# The stack's mail goes to Mailpit, defined only in the override: docker-compose.yml never has it.
+MAILPIT_IMAGE="axllent/mailpit:v1.27"
 
 # Why !override on ports: Docker Compose concatenates list-type fields (like
 # ports) across -f files instead of replacing them — container_name, a
@@ -75,9 +78,9 @@ ADMINER_PORT="${TEST_BRANCH_ADMINER_PORT:-8082}"
 write_override() {
   # The branch stack may hold cloned production data: never let it reach the real Anthropic API
   # unless the operator explicitly opts in with TEST_BRANCH_ALLOW_LLM=1.
-  local api_env=""
+  local llm_env=""
   if [ "${TEST_BRANCH_ALLOW_LLM:-}" != "1" ]; then
-    api_env="    environment:
+    llm_env="
       ANTHROPIC_API_KEY: \"\""
   fi
   cat > "$OVERRIDE_FILE" <<EOF
@@ -88,7 +91,20 @@ services:
   api:
     container_name: ${API_CONTAINER}
     ports: !override ["${API_PORT}:3000"]
-${api_env}
+    environment:
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"${llm_env}
+    depends_on:
+      mailpit:
+        condition: service_started
+  mailpit:
+    image: ${MAILPIT_IMAGE}
+    container_name: pdash-mailpit-${SANITIZED}
+    ports: ["127.0.0.1:${MAIL_PORT}:8025"]
+    environment:
+      MP_ENABLE_CHAOS: "true"
+      MP_SMTP_AUTH_ACCEPT_ANY: "1"
+      MP_SMTP_AUTH_ALLOW_INSECURE: "1"
   nginx:
     container_name: pdash-nginx-${SANITIZED}
     ports: !override ["${FRONTEND_PORT}:80"]
@@ -228,6 +244,7 @@ up() {
   echo "Stack up. Opening http://localhost:${FRONTEND_PORT} ..."
   open_browser "http://localhost:${FRONTEND_PORT}"
   echo "Adminer (DB browser): http://localhost:${ADMINER_PORT}"
+  echo "Mail (Mailpit): http://localhost:${MAIL_PORT}"
   echo "Tear down when done with: scripts/test-branch.sh down"
 }
 

@@ -408,8 +408,15 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
       [details.email, details.firstName, details.lastName, role, tok, exp, req.user.id]
     );
 
-    await sendInvite({ to: details.email, firstName: details.firstName, token: tok });
-    res.status(201).json({ id: rows[0].id });
+    // The pending user is stored: a refused email is reported, and "Resend invite" retries it.
+    let emailSent = true;
+    try {
+      await sendInvite({ to: details.email, firstName: details.firstName, token: tok });
+    } catch (e) {
+      emailSent = false;
+      console.warn('[invite] email send failed:', e.message);
+    }
+    res.status(201).json({ id: rows[0].id, emailSent });
   } catch (err) { next(err); }
 });
 
@@ -433,7 +440,12 @@ router.post('/:id/resend-invite', requireAdmin, async (req, res, next) => {
       [tok, exp, req.params.id]
     );
 
-    await sendInvite({ to: user.email, firstName: user.first_name, token: tok });
+    try {
+      await sendInvite({ to: user.email, firstName: user.first_name, token: tok });
+    } catch (e) {
+      console.warn('[invite] email send failed:', e.message);
+      return res.status(502).json({ error: 'The email could not be sent', code: 'SEND_FAILED' });
+    }
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
@@ -492,7 +504,12 @@ router.post('/forgot-password', async (req, res, next) => {
         `UPDATE users SET reset_token = $1, reset_expires = $2 WHERE id = $3`,
         [tok, exp, rows[0].id]
       );
-      await sendPasswordReset({ to: email, firstName: rows[0].first_name, token: tok });
+      // A refused email must not answer differently from an unknown address.
+      try {
+        await sendPasswordReset({ to: email, firstName: rows[0].first_name, token: tok });
+      } catch (e) {
+        console.warn('[reset] email send failed:', e.message);
+      }
     }
     res.json({ ok: true });
   } catch (err) { next(err); }

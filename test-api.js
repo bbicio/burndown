@@ -4594,6 +4594,99 @@ async function testPipelineYearDraft() {
   ok((await rep()).includes(vId6), 'PYP-06 once published, the same version is in the report');
 }
 
+// ── Mail failures (B-416, B-432) ──────────────────────────────────────────────
+// The stack's mail goes to Mailpit (scripts/run-tests.sh override); its chaos API makes SMTP refuse
+// every recipient, so each route answers as if the mail server were down.
+
+async function mailpit(method, path, body) {
+  try {
+    const res = await fetch(`${process.env.MAILPIT_URL}${path}`, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body != null ? JSON.stringify(body) : undefined,
+    });
+    let data; try { data = await res.json(); } catch { data = null; }
+    return { status: res.status, data };
+  } catch (e) {
+    fail(`FETCH ERROR ${method} MAILPIT ${path}: ${e.message}`);
+    return { status: 0, data: null };
+  }
+}
+
+const chaos = on => mailpit('PUT', '/api/v1/chaos', { Recipient: { ErrorCode: 451, Probability: on ? 100 : 0 } });
+
+async function testMailFailures() {
+  section('Mail failures');
+  if (!process.env.MAILPIT_URL) { fail('MAILPIT_URL unset — the stack does not send mail to Mailpit'); return; }
+  if (!sysadminCookie) { ok(false, 'MAIL-setup sysadmin account unavailable'); return; }
+
+  // MAIL-01: an export reaches Mailpit, addressed to the admin
+  await mailpit('DELETE', '/api/v1/messages');
+  const ex = await api('POST', '/api/exports/portfolio', null, adminCookie);
+  const box = (await mailpit('GET', '/api/v1/messages')).data?.messages || [];
+  ok(ex.status === 200 && box.some(m => m.To?.[0]?.Address === EMAIL),
+    `MAIL-01 an export is delivered to Mailpit for ${EMAIL} (got ${ex.status}, ${box.length} message(s))`);
+
+  // Fixtures, registered so that cleanup (reverse order) removes the project, then the proposal, then the program.
+  const target = await makeTsUser('mail');
+  const prgId = `__test_mail_prg_${Date.now()}`;
+  const prg = await api('POST', '/api/programs', { id: prgId, name: '__test_mail_program__' }, sysadminCookie);
+  if (prg.status === 201) later('DELETE', `/api/programs/${prgId}`);
+  const cg = await api('POST', '/api/cost-grids', { name: '__test_mail_cg__' }, sysadminCookie);
+  const cgId = cg.data?.id;
+  if (cgId) later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+  const vId = cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'v1' }, sysadminCookie)).data?.id : null;
+  const proj = vId ? await api('POST', '/api/projects',
+    { name: '__test_mail_project__', cgVersionId: vId, currency: 'EUR', programId: prgId }, sysadminCookie) : null;
+  const pId = proj?.data?.id;
+  if (pId) later('DELETE', `/api/projects/${pId}`);
+  if (!ok(!!(target && prg.status === 201 && cgId && vId && pId), 'MAIL-setup user, program, proposal and project created')) return;
+
+  const shareRow = async (type, id) =>
+    ((await sql('SELECT 1 FROM resource_shares WHERE resource_type = $1 AND resource_id = $2 AND user_id = $3',
+      [type, id, target.id])) || []).length === 1;
+  const inviteEmail = `__test_mail_inv_${Date.now()}@pdash.local`;
+
+  const on = await chaos(true);
+  try {
+    if (!ok(on.status === 200, `MAIL-setup Mailpit chaos on (got ${on.status})`)) return;
+
+    const s1 = await api('POST', `/api/cost-grids/${cgId}/shares`, { userId: target.id, permission: 'viewer' }, sysadminCookie);
+    ok(s1.status === 201 && s1.data?.emailSent === false && await shareRow('cost_grid', cgId),
+      `MAIL-02 cost grid share with the mail refused → 201, emailSent false, share stored (got ${s1.status}, ${JSON.stringify(s1.data)})`);
+
+    const s2 = await api('POST', `/api/projects/${pId}/shares`, { userId: target.id, permission: 'viewer' }, sysadminCookie);
+    ok(s2.status === 201 && s2.data?.emailSent === false && await shareRow('project', pId),
+      `MAIL-03 project share with the mail refused → 201, emailSent false, share stored (got ${s2.status}, ${JSON.stringify(s2.data)})`);
+
+    const s3 = await api('POST', `/api/programs/${prgId}/share`, { userId: target.id, permission: 'editor' }, sysadminCookie);
+    ok(s3.status === 201 && s3.data?.emailSent === false,
+      `MAIL-04 program share with the mail refused → 201, emailSent false (got ${s3.status}, ${JSON.stringify(s3.data)})`);
+
+    const inv = await api('POST', '/api/auth/invite',
+      { email: inviteEmail, firstName: 'Mail', lastName: 'Refused', role: 'user' }, adminCookie);
+    const invId = inv.data?.id;
+    if (invId) later('DELETE', `/api/users/${invId}`);
+    const pending = invId ? await sql(`SELECT 1 FROM users WHERE id = $1 AND status = 'pending'`, [invId]) : null;
+    ok(inv.status === 201 && inv.data?.emailSent === false && pending?.length === 1,
+      `MAIL-05 invite with the mail refused → 201, emailSent false, pending user stored (got ${inv.status}, ${JSON.stringify(inv.data)})`);
+
+    const re = invId ? await api('POST', `/api/auth/${invId}/resend-invite`, null, adminCookie) : { status: 0, data: null };
+    ok(re.status === 502 && re.data?.code === 'SEND_FAILED',
+      `MAIL-06 resend invite with the mail refused → 502 SEND_FAILED (got ${re.status}, ${JSON.stringify(re.data)})`);
+
+    const ex2 = await api('POST', '/api/exports/portfolio', null, adminCookie);
+    ok(ex2.status === 502 && ex2.data?.code === 'SEND_FAILED',
+      `MAIL-07 export with the mail refused → 502 SEND_FAILED (got ${ex2.status}, ${JSON.stringify(ex2.data)})`);
+
+    const fp = await api('POST', '/api/auth/forgot-password', { email: EMAIL });
+    ok(fp.status === 200, `MAIL-08 forgot-password with the mail refused → 200 (got ${fp.status})`);
+  } finally {
+    const off = await chaos(false);
+    ok(off.status === 200, `MAIL-setup Mailpit chaos off (got ${off.status})`);
+  }
+}
+
 async function main() {
   process.stdout.write(`\n${bold('PDash API Integration Tests')} — ${BASE}\n`);
   process.stdout.write(`Admin: ${EMAIL}\n`);
@@ -4647,6 +4740,7 @@ async function main() {
     await testTopicExtraction();
     await testPlanningModel();
     await testPlanningAssistant();
+    await testMailFailures();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
     console.error(e.stack);

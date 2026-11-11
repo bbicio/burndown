@@ -19,3 +19,7 @@ The integration suite exercises topic extraction against a local stub instead of
 ## Backend unit tests (2026-11-10, gate1-tests)
 
 After the `api` container is healthy and before the `test` service starts, the script runs `docker exec "$API_CONTAINER" node --test 'src/**/*.test.js'`. The glob is single-quoted, so Node expands it at any depth. The container mounts `./api/src` of the checkout the script runs from, so in a worktree it tests the branch's code, with `api/`'s dependencies. A red exits the script with a non-zero code before the integration suite runs; `cleanup` still tears the stack down.
+
+## Mail goes to Mailpit (2026-11-11, B-416)
+
+The generated `docker-compose.test.yml` adds a `mailpit` service (`axllent/mailpit`, pinned tag in the script's `MAILPIT_IMAGE`, no host ports) and points `api` at it with `SMTP_HOST: mailpit` and `SMTP_PORT: "1025"`, plus `depends_on` so Compose starts it with `api`. `SMTP_HOST: mailpit` keeps all mail inside the stack; Mailpit accepts the `.env` credentials. Its chaos API is enabled (`MP_ENABLE_CHAOS`), and the `test` service gets `MAILPIT_URL: http://mailpit:8025`: `test-api.js`'s `MAIL-*` section reads the mailbox and switches chaos on to make SMTP refuse every recipient, then off in a `finally`. `docker-compose.yml` has no `mailpit` service, so the main stack cannot reach it.

@@ -195,6 +195,7 @@ async function _renderShareList() {
 
   if (_shareType === 'program') {
     container.innerHTML = `<div class="text-muted" style="font-size:.82rem">Sharing a program grants access to <strong>all its projects</strong>. The user will be notified by email and in-app.</div>`;
+    _refreshEligibleList([]);   // no program-level shares: every eligible user can be picked
     return;
   }
 
@@ -275,14 +276,19 @@ async function _shareAddUser() {
       const result = await Api.programs.share(_shareId, _shareSelected.id, perm);
       const name = [_shareSelected.first_name, _shareSelected.last_name].filter(Boolean).join(' ') || _shareSelected.email;
       _clearShareSelection();
-      msgEl.textContent = `Shared program with ${name} (${result.shared} project${result.shared === 1 ? '' : 's'}).`;
+      const projects = `${result.shared} project${result.shared === 1 ? '' : 's'}`;
+      msgEl.textContent = result.emailSent === false
+        ? `Shared program with ${name} (${projects}), but the email could not be sent.`
+        : `Shared program with ${name} (${projects}).`;
       msgEl.className = 'small text-success';
     } else {
       const api = _shareType === 'cost_grid' ? Api.costGrids.shares : Api.projects.shares;
-      await api.add(_shareId, _shareSelected.id, perm);
+      const result = await api.add(_shareId, _shareSelected.id, perm);
       const name = [_shareSelected.first_name, _shareSelected.last_name].filter(Boolean).join(' ') || _shareSelected.email;
       _clearShareSelection();
-      msgEl.textContent = `Shared with ${name}.`;
+      msgEl.textContent = result?.emailSent === false
+        ? `Shared with ${name}, but the email could not be sent.`
+        : `Shared with ${name}.`;
       msgEl.className = 'small text-success';
       await _renderShareList();
     }
