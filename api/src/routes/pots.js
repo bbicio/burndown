@@ -3,6 +3,7 @@ const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { potVersionsCte } = require('../lib/pot-fee-sql');
 const { amountError, MONEY_RULE_CODE, MAX_NUMERIC_14_2 } = require('../lib/money-rules');
+const { isUuid, specialLabelError } = require('../lib/input-rules');
 
 const router = express.Router();
 
@@ -89,6 +90,9 @@ router.get('/summary', requireAuth, async (req, res, next) => {
     if (!year || (!clientId && !clientGroupId)) {
       return res.status(400).json({ error: 'year and clientId or clientGroupId are required' });
     }
+    if (!Number.isInteger(Number(year))) return res.status(400).json({ error: 'year must be an integer' });
+    if (clientId && !isUuid(clientId)) return res.status(400).json({ error: 'clientId must be a valid UUID' });
+    if (clientGroupId && !isUuid(clientGroupId)) return res.status(400).json({ error: 'clientGroupId must be a valid UUID' });
     const yr = parseInt(year);
 
     // Resolve the POT target
@@ -249,6 +253,10 @@ router.post('/', requireAuth, requireAdmin, async (req, res, next) => {
     const targets = [clientGroupId, clientId, specialLabel].filter(Boolean);
     if (targets.length !== 1) {
       return res.status(400).json({ error: 'Exactly one of clientGroupId, clientId, or specialLabel is required' });
+    }
+    if (specialLabel) {
+      const labelErr = specialLabelError(specialLabel);
+      if (labelErr) return res.status(400).json({ error: labelErr });
     }
     const { rows } = await query(
       `INSERT INTO pots (client_group_id, client_id, special_label, year, amount)

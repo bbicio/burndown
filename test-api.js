@@ -1074,6 +1074,47 @@ async function testRatecards() {
   }
 }
 
+// ── Server validation (cycle 2) ───────────────────────────────────────────────
+// A plain sequence of checks; later tasks of the cycle append to it.
+
+async function testServerValidation() {
+  section('Server validation (cycle 2)');
+  const someUuid = '00000000-0000-4000-8000-000000000001';
+
+  // POT summary: malformed query values are a 400, not a database error
+  const s1 = await api('GET', '/api/pots/summary?year=2026&clientId=not-a-uuid', null, adminCookie);
+  ok(s1.status === 400, `SV-01 pots summary with a non-UUID clientId → 400 (got ${s1.status})`);
+  const s2 = await api('GET', '/api/pots/summary?year=2026&clientGroupId=not-a-uuid', null, adminCookie);
+  ok(s2.status === 400, `SV-02 pots summary with a non-UUID clientGroupId → 400 (got ${s2.status})`);
+  const s3 = await api('GET', `/api/pots/summary?year=abc&clientId=${someUuid}`, null, adminCookie);
+  ok(s3.status === 400, `SV-03 pots summary with a non-integer year → 400 (got ${s3.status})`);
+
+  // POT creation: a special label must be one of the known labels, exactly
+  const p1 = await api('POST', '/api/pots', { specialLabel: 'New Biz ', year: 2097, amount: 1 }, adminCookie);
+  if (p1.data?.id) later('DELETE', `/api/pots/${p1.data.id}`);
+  const pl = await api('GET', '/api/pots?year=2097', null, adminCookie);
+  ok(p1.status === 400 && Array.isArray(pl.data) && !pl.data.some(p => p.special_label === 'New Biz '),
+    `SV-04 POST pots with an unknown special label → 400, nothing stored (got ${p1.status})`);
+
+  // Currency rates: outside 0.000001 … 9999.999999 is a 400 and changes nothing
+  const rateMsg = 'Rate must be between 0.000001 and 9999.999999';
+  const curList = async () => (await api('GET', '/api/currencies', null, adminCookie)).data || [];
+  const before = (await curList()).find(c => c.code === 'USD');
+  for (const bad of [0.0000001, 16500]) {
+    const r = await api('PATCH', '/api/currencies/USD/rate', { rate: bad }, adminCookie);
+    ok(r.status === 400 && r.data?.error === rateMsg, `SV-05 PATCH rate ${bad} → 400 with the range message (got ${r.status})`);
+  }
+  const after = (await curList()).find(c => c.code === 'USD');
+  ok(!!before && !!after && parseFloat(after.current_rate) === parseFloat(before.current_rate),
+    'SV-05 the stored USD rate is unchanged after the refusals');
+  for (const bad of [0.0000001, 16500]) {
+    const r = await api('POST', '/api/currencies/NOK/activate', { rate: bad }, adminCookie);
+    ok(r.status === 400 && r.data?.error === rateMsg, `SV-06 activate with rate ${bad} → 400 with the range message (got ${r.status})`);
+  }
+  const nok = (await curList()).find(c => c.code === 'NOK');
+  ok(!!nok && nok.active === false, 'SV-06 NOK is still inactive after the refusals');
+}
+
 // ── POT Targets ───────────────────────────────────────────────────────────────
 
 async function testPots() {
@@ -4709,6 +4750,7 @@ async function main() {
     await testClientGroups();
     await testRoles();
     await testRatecards();
+    await testServerValidation();
     await testPots();
     await testCostGridBudgets();
     await testUsers();

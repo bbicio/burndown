@@ -1,6 +1,7 @@
 const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
+const { decimalRangeError } = require('../lib/input-rules');
 
 const router = express.Router();
 
@@ -39,7 +40,8 @@ router.post('/:code/activate', requireAuth, requireAdmin, async (req, res, next)
   try {
     const { code } = req.params;
     const rate = parseFloat(req.body.rate);
-    if (!isFinite(rate) || rate <= 0) return res.status(400).json({ error: 'rate must be a positive number' });
+    const rateErr = decimalRangeError(rate, { min: 0.000001, max: 9999.999999, label: 'Rate' });
+    if (rateErr) return res.status(400).json({ error: rateErr });
     if (code === 'EUR') return res.status(400).json({ error: 'EUR is always active' });
 
     const { rows } = await query('SELECT active FROM currencies WHERE code = $1', [code]);
@@ -69,7 +71,8 @@ router.patch('/:code/rate', requireAuth, requireAdmin, async (req, res, next) =>
   try {
     const { code } = req.params;
     const rate = parseFloat(req.body.rate);
-    if (!isFinite(rate) || rate <= 0) return res.status(400).json({ error: 'rate must be a positive number' });
+    const rateErr = decimalRangeError(rate, { min: 0.000001, max: 9999.999999, label: 'Rate' });
+    if (rateErr) return res.status(400).json({ error: rateErr });
     if (code === 'EUR') return res.status(400).json({ error: 'EUR rate is fixed at 1:1' });
 
     const { rows } = await query('SELECT active FROM currencies WHERE code = $1', [code]);
