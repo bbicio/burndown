@@ -275,9 +275,10 @@ roles (
 
 ratecards (
   id         UUID PRIMARY KEY,
-  client_id  UUID REFERENCES clients(id),  -- NULL = global default
+  client_id  UUID REFERENCES clients(id),  -- required on create; NULL only after its client is deleted (ON DELETE SET NULL)
   name       VARCHAR NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  version    INTEGER NOT NULL DEFAULT 0  -- 035: optimistic version of the entry set
 )
 
 ratecard_entries (
@@ -697,10 +698,10 @@ timesheets (
 | GET/POST | /api/roles | admin | List / create — `GET` returns `rate_overrides` JSONB field; (2026-10-29) `POST` stores `rateOverrides`, and an `hourlyRate` or override value that is not a number ≥ 0 with its currency's decimals answers **400 `{ code: 'MONEY_RULE' }`** (`docs/api/lib.md` → `money-rules.js`) |
 | PATCH/DELETE | /api/roles/:id | admin | Update / delete — `PATCH` accepts `rateOverrides` body field (saved to `rate_overrides` column); (2026-10-29) the `hourlyRate`/`rateOverrides` present in the body are checked, **400 `MONEY_RULE`**. `DELETE` → 400 if the role is used in cost grids (`task_roles`) or, since 2026-09-25, assigned to a team resource (`resources.role_id`; a race that trips the `resources` FK is mapped to the same 400, any other FK error falls through) |
 | GET | /api/ratecards | ✅ | List (all authenticated users) |
-| POST | /api/ratecards | admin | Create |
+| POST | /api/ratecards | admin | Create; `clientId` required (400, also for an unknown client). Under a client-row lock it returns the client's existing card (200, with `entries`) instead of creating a second one; a new card answers 201 with `version: 0` |
 | GET | /api/ratecards/:id | ✅ | Detail (all authenticated users) |
 | PATCH | /api/ratecards/:id | admin | Rename / update the rate card itself |
-| PATCH | /api/ratecards/:id/entries | admin | Replaces the whole entry set in one transaction (2026-10-30): roles missing from the body lose their entry. `hourlyRate` may be `null` (agency default) when the entry has a currency override; every entry is checked first — an invalid amount or an entry with neither answers **400 `MONEY_RULE`** and changes nothing. Malformed ids or an unknown role → 400, unknown card → 404. Detail: [docs/api/config.md](docs/api/config.md) |
+| PATCH | /api/ratecards/:id/entries | admin | Replaces the whole entry set in one transaction (2026-10-30): roles missing from the body lose their entry. `hourlyRate` may be `null` (agency default) when the entry has a currency override; every entry is checked first — an invalid amount or an entry with neither answers **400 `MONEY_RULE`** and changes nothing. (2026-11-11) The body is `{ version, entries }`: a bare array or a `version` other than the stored one → **409 `RATECARD_STALE`**, a non-integer `version` or a repeated role → 400, entries of a role that no longer exists are dropped; the response is `{ ok, version }` with `version` incremented. Malformed ids → 400, unknown card → 404. Detail: [docs/api/config.md](docs/api/config.md) |
 | DELETE | /api/ratecards/:id | admin | Delete |
 
 ### Resources & Attribute Lists (2026-09)
@@ -816,13 +817,13 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | POST | /api/exports/portfolio | ✅ | CSV of all accessible projects → emailed as attachment + self-notified in-app (2026-09); a refused email → `502 SEND_FAILED`, no in-app notification |
 | POST | /api/exports/cost-grids | ✅ | Pivoted CSV of all accessible cost grids (one row per task, role-code columns) → emailed + self-notified in-app (2026-09); a refused email → `502 SEND_FAILED`, no in-app notification |
 | POST | /api/exports/ratecards | admin | Pivoted CSV of all ratecards (roles × clients) → emailed + self-notified in-app (2026-09); a refused email → `502 SEND_FAILED`, no in-app notification |
-| GET | /api/exports/phasing?year= | admin | Direct XLS download (not emailed) of the phasing breakdown for a pipeline year |
+| GET | /api/exports/phasing?year= | admin | Direct XLS download (not emailed) of the phasing breakdown for a pipeline year; (2026-11-11) hours are the stored `task_roles.days` (no ×8), one row per proposal (its reference version), amounts in EUR (divided by the version's `currency_rate`) |
 
 ### Pipeline Years
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | /api/pipeline-years | ✅ | List years (admin: all; user: active only); each row has `offers` (2026-10-06) = proposals the caller would see in that year's SIP…Committed board columns (board visibility, display version not Canceled); (2026-10-29) the display version is the shared reference-version rule (`referenceVersionsCte`, projects through either link) and each proposal counts only in its year |
+| GET | /api/pipeline-years | ✅ | List years (admin: all; user: active only); (2026-11-11) admin and sysadmin also get `proposals` = cost grids with any version in that year, Drafts and Canceled included (`master-pipelines.html`'s Delete check); each row has `offers` (2026-10-06) = proposals the caller would see in that year's SIP…Committed board columns (board visibility, display version not Canceled); (2026-10-29) the display version is the shared reference-version rule (`referenceVersionsCte`, projects through either link) and each proposal counts only in its year |
 | POST | /api/pipeline-years | admin | Create year (2000–2100) |
 | PATCH | /api/pipeline-years/:id | admin | Toggle active/inactive |
 | DELETE | /api/pipeline-years/:id | admin | Delete (blocked if versions reference it) |

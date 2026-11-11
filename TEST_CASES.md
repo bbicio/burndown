@@ -552,11 +552,13 @@
 | CF-10 | Agency default column (2026-10-30, currency cycle 3) | Open Costgrid modal on any client | Agency default column shows each role's own rate formatted in EUR (e.g. `€ 105,00`); no client-less rate card is read | |
 | CF-11 | Agency default fallback | Open Costgrid modal for a role with no rate | Agency default shows "—" and the EUR field's placeholder reads "agency default" | |
 | CF-12 | Ratecard API — list (requireAuth) | GET /api/ratecards as any logged-in user | 200 array — endpoint is open to all authenticated users, not admin-only | ✓ |
-| CF-13 | Ratecard API — create global (admin) | POST /api/ratecards (clientId=null) as admin | 201, id in response | ✓ |
-| CF-14 | Ratecard API — create per client (admin) | POST /api/ratecards with clientId as admin | 201, client_id matches | ✓ |
+| CF-13 | Ratecard API — client required (2026-11-11, backlog cycle 2) | POST /api/ratecards without clientId, or with a valid uuid that is no client, as admin | 400, no card created; POST /api/ratecards/clone → 404 (removed) | ✓ |
+| CF-14 | Ratecard API — create per client (admin) | POST /api/ratecards with clientId as admin, then again for the same client | First 201 with `version: 0`; the second returns the same card (200) with its entries — never a second card | ✓ |
 | CF-15 | Ratecard API — get by id (requireAuth) | GET /api/ratecards/:id as any logged-in user | 200, correct ratecard returned — accessible to all authenticated users | ✓ |
 | CF-16 | Ratecard multi-currency — USD column visible | Open client ratecard modal when USD is an active currency | USD column rendered alongside EUR; no filter bug from missing `active` field on `/active` endpoint response |  |
 | CF-17 | Ratecard multi-currency — agency placeholder | Open client ratecard modal for a role that has a USD rate override | USD placeholder shows `"140 (agency)"` (role.rateOverrides.USD); not generic placeholder text | |
+| CF-18 | Rate card saved from two tabs (2026-11-11, backlog cycle 2) | Open the same client's rate card in two tabs; save a change in tab A, then a different change in tab B without reopening | Tab B shows "This rate card was changed by someone else. Reopen it to see the current rates." and keeps its edits unsaved; reopening shows tab A's rate. API: a stale `version` or a bare-array body → 409 `RATECARD_STALE`, entries unchanged | ✓ |
+| CF-19 | Pipeline year with only Draft proposals (2026-11-11, backlog cycle 2) | Create a proposal in an empty pipeline year and leave it Draft; open Master Data → Pipelines & POTs | Delete for that year is unavailable: "Not available: 1 proposals (Drafts and Canceled included) use this pipeline. Hide it instead." | ✓ (vitest) |
 
 ---
 

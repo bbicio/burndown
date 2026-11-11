@@ -19,3 +19,9 @@ This file holds the full implementation narrative for `api/src/routes/config.js`
 ## Ratecard entries (2026-10-30, currency cycle 3)
 
 `PATCH /ratecards/:id/entries` replaces the whole set in one transaction: entries whose `roleId` is not in the body are deleted, the others are upserted. An empty array clears every entry. `hourlyRate` is `number | null`; `null` means no client EUR rate, the agency default (`roles.hourly_rate`) applies. Each entry goes through `ratecardEntryError` (see [lib.md](lib.md)) before any write; an entry with neither a rate nor a currency override, a missing or malformed `roleId`, an unknown role or a malformed rate card id is refused with `400`, an unknown rate card with `404`. The transaction locks the rate card row (`FOR UPDATE`), so two concurrent replacements run one after the other.
+
+## Ratecard version (2026-11-11, backlog cycle 2, migration `035`)
+
+The body is `{ version, entries }`. Under the row lock the route compares `version` with `ratecards.version`: a different value, or a bare array body (a page cached before this cycle), answers `409 { code: 'RATECARD_STALE' }` and writes nothing; a non-integer `version` or a role repeated in `entries` answers `400`. Entries whose role no longer exists are dropped before the write, which is one `INSERT … SELECT … FROM unnest(…) ON CONFLICT … DO UPDATE`. The version is incremented in the same transaction and returned as `{ ok: true, version }`. `master-clients.html` keeps the version from the GET (or the POST) and shows the 409 message in the modal.
+
+`POST /ratecards` requires `clientId`; it locks the client row (`FOR NO KEY UPDATE`) and returns the client's existing card with its `entries` (200) instead of creating a second one. `POST /ratecards/clone` was removed.

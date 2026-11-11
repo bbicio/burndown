@@ -169,3 +169,11 @@ Tests: `money-rules.test.js`, `money-format.test.js`; `test-api.js` `MR-01..MR-1
 ## session.js (2026-11-11, backlog cycle 1)
 
 `sessionClaims(user)` → `{ id, email, role, pwd }`, `pwd` = `password_changed_at` in whole ms (`Date.getTime()`) or `null`; signed by `login`, `two-step/verify` and `change-password` (which reissues the caller's cookie). `sessionError(claims, row)` → `'Session expired'` or `null`: refused when the row is missing, `status` is not `active`, the claim has no `pwd`, or `pwd` differs from the row's (`row.pwd` is the bigint string of `floor(extract(epoch FROM password_changed_at) * 1000)`, converted with `Number`; `null` equals only `null`). `requireAuth` runs that query on every request and takes `req.user.role` from the row. Tests: `session.test.js`; `test-api.js` `SE-01..SE-06`.
+
+## input-rules.js (2026-11-11, backlog cycle 2)
+
+`isUuid(v)` (a string UUID, any case — the one rule every route under `api/src/routes` uses), `decimalRangeError(n, { min, max, label })` (message or `null`; refuses a non-number, a non-finite value and one out of range — the currency rate uses `0.000001`..`9999.999999`), `SPECIAL_POT_LABELS` and `specialLabelError(v)` (exact match, no trim). Tests: `input-rules.test.js`.
+
+## phasing-export.js (2026-11-11, backlog cycle 2)
+
+`phasingByVersion(rows, year)` builds the per-version months of `GET /api/exports/phasing` from its query rows: hours spread evenly over the task's months (version dates when the task has none, nothing when neither), clipped to the year; hours are `task_roles.days` as stored (no ×8); amounts are hours × rate divided by the version's `currency_rate` (EUR; null or 0 counts as 1). The route feeds it only reference versions, one per proposal. Tests: `phasing-export.test.js`.
