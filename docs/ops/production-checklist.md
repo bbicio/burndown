@@ -23,10 +23,12 @@ Things to verify the first time the app runs outside a development machine, and 
 - [ ] **A real account receives the sign-in code.** Sign in with a real address; the mail arrives within a minute and not in spam. Failure: the page shows "We couldn't send the email" (the SMTP server is unreachable or refuses the sender) or the mail never arrives (sender authentication: SPF, DKIM, DMARC of the sending domain).
 - [ ] **The sender address and name are acceptable** to the recipients' mail system (`SMTP_USER` is the sender).
 - [ ] **The SMTP timeouts are tolerable.** The login answers only after the mail is handed over; an unreachable SMTP server delays the answer by the timeouts in `api/src/services/email.js`.
+- [ ] **Refused emails are looked for in the API log.** When the SMTP server refuses a mail, an invite or a share is still stored and the page says the email could not be sent; Resend invite and the CSV exports answer "The email could not be sent"; Forgot password answers as for any address, so a lost reset mail shows nowhere but the log. Check after the smoke test and periodically: `docker logs pdash-api 2>&1 | grep "email send failed"`. Failure: any line (`[invite]`, `[reset]`, `[share]`, `[export]`, `[notify]`, `[rectification]`).
 - [ ] **A way in if mail is down.** Someone with shell access knows `docker exec pdash-api node src/two-step-code.js <email>` (prints a code for an open sign-in; the password is still required) and `node src/trust-device.js <email>` (mints a trusted device).
 
 ## Smoke test with a real user (about ten minutes)
 
+- [ ] An invite to a real address arrives, the invite drawer says "Invite sent", and the link activates the account; "Forgot password" for the same address delivers a working reset link.
 - [ ] Sign in: password, then the code; the session opens and the Terms gate behaves as before.
 - [ ] A wrong code shows the remaining attempts; after the last attempt the sign-in is locked and the password is needed again.
 - [ ] "Resend code" waits, then sends a new code; the old one stops working.
