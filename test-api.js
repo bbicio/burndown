@@ -1128,6 +1128,35 @@ async function testServerValidation() {
   const myPot = spl.find(p => p.id === sp.data?.id);
   ok(!!myPot && typeof myPot.amount === 'number' && myPot.amount === 750.5,
     `SV-08 GET pots → amount is a number (got ${typeof myPot?.amount})`);
+
+  // Project writes on a project that does not exist, or with a malformed id (B-189, B-191, B-192)
+  const ghost = '00000000-0000-4000-8000-0000000000aa';
+  const g1 = await api('PATCH', `/api/projects/${ghost}/phasing`, { phasing: { '2026-01': 10 } }, adminCookie);
+  ok(g1.status === 404 && g1.data?.error === 'Project not found', `SV-10 PATCH phasing on a missing project → 404 (got ${g1.status})`);
+  const g2 = await api('PATCH', `/api/projects/${ghost}/ptc`, { ptc: [{ amount: 10 }] }, adminCookie);
+  ok(g2.status === 404 && g2.data?.error === 'Project not found', `SV-11 PATCH ptc on a missing project → 404 (got ${g2.status})`);
+  const g3 = await api('PUT', `/api/projects/${ghost}/tasks`, [], adminCookie);
+  ok(g3.status === 404, `SV-12 PUT tasks on a missing project → 404 (got ${g3.status})`);
+  const g4 = await api('PATCH', '/api/projects/not-a-uuid/phasing', { phasing: {} }, adminCookie);
+  ok(g4.status === 400, `SV-13 PATCH phasing with a non-UUID id → 400 (got ${g4.status})`);
+
+  // On a real project: an empty resource entry is a 400 and does not leak the pool client
+  if (!sysadminCookie) { ok(false, 'SV-14 sysadmin account unavailable'); return; }
+  const tp = await api('POST', '/api/projects', { name: '__test_sv_project__' }, sysadminCookie);
+  const tpId = tp.data?.id;
+  if (tpId) later('DELETE', `/api/projects/${tpId}`);
+  if (!ok(!!tpId, `SV-14 setup: project created (got ${tp.status})`)) return;
+  const e1 = await api('PUT', `/api/projects/${tpId}/tasks`, [{ name: 'T', resources: [null] }], adminCookie);
+  ok(e1.status === 400 && e1.data?.error === 'Task "T" has an empty resource entry.',
+    `SV-14 PUT tasks with a null resource → 400 (got ${e1.status}: ${e1.data?.error})`);
+  const e2 = await api('PUT', `/api/projects/${tpId}/tasks`, [{ name: 'T', resources: [{ role: 'R', hourlyRate: 10 }] }], adminCookie);
+  ok(e2.status === 200, `SV-14 a valid PUT tasks right after the refusal → 200 (got ${e2.status}: ${e2.data?.error})`);
+
+  const phasingOf = async () => ((await api('GET', '/api/projects', null, adminCookie)).data || []).find(p => p.id === tpId)?.phasing;
+  const phBefore = JSON.stringify(await phasingOf());
+  const bp = await api('PATCH', `/api/projects/${tpId}/phasing`, { phasing: { '2026-01': -1 } }, adminCookie);
+  ok(bp.status === 400, `SV-15 PATCH phasing with an invalid amount → 400 (got ${bp.status})`);
+  ok(JSON.stringify(await phasingOf()) === phBefore, 'SV-15 the stored phasing is unchanged after the refusal');
 }
 
 // ── POT Targets ───────────────────────────────────────────────────────────────
