@@ -384,10 +384,10 @@ document.getElementById('reset-btn').addEventListener('click',()=>{
 });
 
 // ── Init ───────────────────────────────────────────────────────────────────────
-// nginx serves this page and TEST_CASES.md from the same protected location, but
-// `try_files $uri $uri/ /index.html` and `error_page 401 = @to_login` mean a
-// missing file or an expired session both answer 200 with HTML. res.ok proves
-// nothing here — the payload has to be checked instead.
+// nginx serves TEST_CASES.md behind the same auth as this page, and
+// `error_page 401 = @to_login` turns an expired session into a redirect the
+// fetch follows to the login page: 200 with HTML. res.ok proves nothing here —
+// the payload has to be checked instead.
 const LOAD_ERROR = 'Could not load TEST_CASES.md. Reload the page; if you are signed out, sign in first.';
 
 async function init() {

@@ -1045,7 +1045,7 @@ burndown/
   attribute-lists.html    ← generic tag/taxonomy admin console (lists + items, no physical delete); its items feed the Tags sections via js/tags.js; own stylesheet css/attribute-lists.css. Detail: docs/pages/attribute-lists.md
   profile-jobs.html       ← profile-engine job console, hidden (reached from the Timesheets sub-menu of timesheets.html); adds js/lib/profile-jobs-ui.js. Detail: docs/pages/profile-jobs.md
   test-cases.html         ← dev-only manual test checklist; fetches TEST_CASES.md and renders it via js/lib/test-cases-parse.js, which is why that file counts as code. Detail: docs/js/lib.md
-  nginx.conf              ← denies dev-only toolchain artifacts even though it bind-mounts the repo root
+  nginx.conf              ← serves only the listed site paths even though it bind-mounts the repo root
   docker-compose.yml
   .env.example
   .gitattributes          ← pins *.sh to LF line endings regardless of local core.autocrlf
