@@ -1217,6 +1217,26 @@ async function testServerValidation() {
       `SV-37 an entry whose role was deleted → 200, that role absent (got ${s37.status}, ${s37e.length} entries)`);
   } else ok(false, 'SV-33..37 setup failed');
 
+  // Pipeline years: admins see the proposals that use a year, Drafts included (B-297)
+  const hidYear = 2093;
+  const hidPy = await api('POST', '/api/pipeline-years', { year: hidYear }, adminCookie);
+  if (hidPy.data?.id) later('DELETE', `/api/pipeline-years/${hidPy.data.id}`);
+  const hidCg = await api('POST', '/api/cost-grids', { name: '__test_sv_hidden_proposal__' }, adminCookie);
+  if (hidCg.data?.id) later('POST', `/api/admin/reset/cost-grid/${hidCg.data.id}`);
+  const hidV = await api('POST', `/api/cost-grids/${hidCg.data?.id}/versions`, { label: 'v1', pipelineYear: hidYear }, adminCookie);
+  if (ok(!!hidPy.data?.id && !!hidCg.data?.id && !!hidV.data?.id, `SV-40 setup: year, grid and Draft version (got ${hidPy.status}, ${hidCg.status}, ${hidV.status})`)) {
+    const pyRows = (await api('GET', '/api/pipeline-years', null, adminCookie)).data || [];
+    const hidRow = pyRows.find(r => r.year === hidYear);
+    ok(pyRows.length > 0 && pyRows.every(r => Number.isInteger(r.proposals)),
+      'SV-40 admin GET pipeline-years: every row has a numeric proposals');
+    ok(!!hidRow && hidRow.offers === 0 && hidRow.proposals === 1,
+      `SV-40 a year with only a Draft version → offers 0, proposals 1 (got ${hidRow?.offers}, ${hidRow?.proposals})`);
+    const { cookie: svPlain } = await getPlainUser();
+    const plainRows = (await api('GET', '/api/pipeline-years', null, svPlain)).data || [];
+    ok(Array.isArray(plainRows) && plainRows.every(r => !('proposals' in r)),
+      'SV-41 a plain user GET pipeline-years: no proposals key');
+  }
+
   // On a real project: an empty resource entry is a 400 and does not leak the pool client
   if (!sysadminCookie) { ok(false, 'SV-14 sysadmin account unavailable'); return; }
   const tp = await api('POST', '/api/projects', { name: '__test_sv_project__' }, sysadminCookie);

@@ -1276,6 +1276,7 @@ window.__cfgApp = Vue.createApp({
     // a year that still has POTs would leave them orphaned.
     deleteBlock(py) {
       if (py.offers > 0) return 'Not available: ' + py.offers + ' ' + (py.offers === 1 ? 'proposal uses' : 'proposals use') + ' this pipeline. Hide it instead.';
+      if (py.proposals > (py.offers || 0)) return 'Not available: ' + py.proposals + ' proposals (Drafts and Canceled included) use this pipeline. Hide it instead.';
       const pots = this.potCounts[py.year] || 0;
       if (pots > 0) return 'Not available: this pipeline has ' + pots + ' ' + (pots === 1 ? 'POT' : 'POTs') + '. Hide it instead.';
       return '';

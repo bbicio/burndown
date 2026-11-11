@@ -36,7 +36,20 @@ router.get('/', requireAuth, async (req, res, next) => {
       isAdmin ? [] : [req.user.id]
     );
     const byYear = new Map(counts.map(c => [Number(c.year), c.offers]));
-    res.json(rows.map(r => ({ ...r, offers: byYear.get(Number(r.year)) || 0 })));
+    if (!isAdmin) return res.json(rows.map(r => ({ ...r, offers: byYear.get(Number(r.year)) || 0 })));
+
+    // Admin only: every proposal with any version in the year, Drafts and Canceled included
+    // (what Delete on master-pipelines.html needs to explain why it is unavailable).
+    const { rows: allCounts } = await query(
+      `SELECT pipeline_year AS year, COUNT(DISTINCT cost_grid_id)::int AS proposals
+       FROM cost_grid_versions WHERE pipeline_year IS NOT NULL GROUP BY pipeline_year`
+    );
+    const proposalsByYear = new Map(allCounts.map(c => [Number(c.year), c.proposals]));
+    res.json(rows.map(r => ({
+      ...r,
+      offers: byYear.get(Number(r.year)) || 0,
+      proposals: proposalsByYear.get(Number(r.year)) || 0,
+    })));
   } catch (err) { next(err); }
 });
 
