@@ -61,7 +61,7 @@ scripts/test-branch.sh status  # "up" (exit 0) or "down" (exit 1) — both conta
 
 No bundler, no build step for the **runtime** — nginx serves `js/`/`css/` files exactly as they are on disk, and this must stay true.
 
-A dev-only test toolchain exists for the frontend: root `package.json` + vitest + jsdom, isolated from the runtime (see `js/lib/` below). It is never bundled, never served — `nginx.conf` serves only the root `*.html` pages, `TEST_CASES.md` and the `.css`/`.js` files under `css/` and `js/` (tests excluded); every other path answers 404 (`scripts/nginx-serve.test.js`). Run tests with `npm test` (single run) or `npm run test:watch`. Vitest 4 needs Node ≥ 20.12 (it crashes at startup with `does not provide an export named 'styleText'` on older versions): if the host Node is older, run the suite in a throwaway container instead:
+A dev-only test toolchain exists for the frontend: root `package.json` + vitest + jsdom, isolated from the runtime (see `js/lib/` below). It is never bundled, never served — `nginx.conf` serves only the root `*.html` pages, `handbook/restricted/TEST_CASES.md` and the `.css`/`.js` files under `css/` and `js/` (tests excluded); every other path answers 404 (`scripts/nginx-serve.test.js`). Run tests with `npm test` (single run) or `npm run test:watch`. Vitest 4 needs Node ≥ 20.12 (it crashes at startup with `does not provide an export named 'styleText'` on older versions): if the host Node is older, run the suite in a throwaway container instead:
 
 ```bash
 MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/app" -v /app/node_modules -w /app node:22 sh -c 'npm ci --no-audit --no-fund >/dev/null 2>&1 && npm test'
@@ -121,8 +121,8 @@ HTML pages               — the Pages table above is the page index: route, one
                             link where that page has a narrative file (not all do). Do not restate per-page
                             detail here. The table does not claim to be exhaustive of every .html file at the
                             repo root — test-cases.html, for one, is not in it. That page (a dev-only manual
-                            test checklist, no navigation, results in localStorage) fetches TEST_CASES.md and parses it with
-                            js/lib/test-cases-parse.js. Hence TEST_CASES.md counts as code for
+                            test checklist, no navigation, results in localStorage) fetches handbook/restricted/TEST_CASES.md and parses it with
+                            js/lib/test-cases-parse.js. Hence that file counts as code for
                             scripts/classify-cycle.mjs.
 css/                     — stylesheets: tokens.css (design tokens, also `[v-cloak]`), style.css (components
                             + navigation), and the shared and per-page ones listed in
@@ -200,7 +200,7 @@ scripts/classify-cycle.mjs — classifies a branch for `/finish-cycle`'s Gate 2 
                             plus the paths judged); the rule is pinned by its own `.test.js`, not by prose.
 scripts/gate5-scope.mjs  — classifies Gate 5's uncommitted diff into three verdicts for `/finish-cycle`'s
                             test subset and pre-authorised push; the rule is pinned by its own `.test.js`.
-scripts/architecture-guard.test.js — fails when `ARCHITECTURE.md` §5/§6 drift from the code
+scripts/architecture-guard.test.js — fails when `handbook/restricted/ARCHITECTURE.md` §5/§6 drift from the code
                             (routes, tables, added columns). What it deliberately does not check, and why,
                             is in the file's own header — read it there, not from a paraphrase.
 scripts/claude-md-guard.test.js — fails when this file regrows past its ceiling, or when a

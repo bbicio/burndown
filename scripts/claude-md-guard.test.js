@@ -32,8 +32,8 @@
 //     `CLAUDE.md`'s Pages table ... the "Purpose" column, a table column rather
 //     than a section, so the narrow form is deliberate. `startsWith` also accepts
 //     any heading with the cited name as a prefix.
-//   * Scope is docs/ and .claude/ only. Pointers in TEST_CASES.md,
-//     ARCHITECTURE.md, js/** comments and *.html are NOT checked (all were
+//   * Scope is docs/ and .claude/ only. Pointers in handbook/restricted/TEST_CASES.md,
+//     handbook/restricted/ARCHITECTURE.md, js/** comments and *.html are NOT checked (all were
 //     verified clean by hand at 2026-10-10, but nothing keeps them that way).
 //   * docs/superpowers/ is excluded from the pointer check. Specs, plans,
 //     reports and audits are an immutable record of what was true when written;
@@ -116,7 +116,7 @@ describe('CLAUDE.md size (it is loaded in full every session)', () => {
       .toBeLessThanOrEqual(64_000);
   });
 
-  it('keeps the File structure block at exactly 13,331 LF bytes', () => {
+  it('keeps the File structure block at exactly 13,367 LF bytes', () => {
     // 12,538 at the phase-3 merge; raised to 12,758 by the same /sync-docs run,
     // for this file's own 2-line index entry. That is the allowed kind of growth
     // -- a new file needs an index line -- and it is why the pin is exact rather
@@ -151,11 +151,12 @@ describe('CLAUDE.md size (it is loaded in full every session)', () => {
     // 13,120 on 2026-11-11: +7 B, the api/src/services/ entry lists the new users service (same cycle's /sync-docs).
     // 13,337 on 2026-11-11: +217 B, the 2-line entry for the nginx serve test (nginx-serve-allowlist /sync-docs).
     // 13,331 on 2026-11-11: -6 B, that test renamed to scripts/nginx-serve.test.js (B-449).
+    // 13,367 on 2026-11-11: +36 B, the three file-path citations moved into handbook/restricted/ (handbook-viewer).
     const bytes = Buffer.byteLength(fileStructureBlock().join('\n'), 'utf8');
-    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 13,331. It is an INDEX:
+    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 13,367. It is an INDEX:
       one or two lines per entry, pointing at the docs/ file that holds the narrative.
       If you shrank it on purpose, lower this number in the same commit`)
-      .toBe(13_331);
+      .toBe(13_367);
   });
 
   it('keeps exactly 12 entries longer than two lines', () => {

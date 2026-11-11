@@ -228,7 +228,7 @@ Documented with the components it serves, not here: [docs/js/cg-controls.md](cg-
 
 ## test-cases-parse.js (2026-10-09, TEST_CASES.md as the single source)
 
-Turns `TEST_CASES.md` into the data `test-cases.html` renders, which is why that page no longer carries an inline copy of ~800 cases. Loaded only by that page, as a module (`import { parseTestCases, formatCell } from './js/lib/test-cases-parse.js?v=1'`) — the one `js/lib/` module with **no** `window.` bridge, since its only consumer is itself a module.
+Turns `handbook/restricted/TEST_CASES.md` into the data `test-cases.html` renders, which is why that page no longer carries an inline copy of ~800 cases. Loaded only by that page, as a module (`import { parseTestCases, formatCell } from './js/lib/test-cases-parse.js?v=2'`) — the one `js/lib/` module with **no** `window.` bridge, since its only consumer is itself a module.
 
 `parseTestCases(markdown)` returns `{ updated, sections, warnings }`: `updated` is the `**Updated:**` line of the preamble, `sections` is `{ id, title, cases }` with `id` a slug of the title (deduplicated; used only for the sidebar filter and the block's DOM id, never persisted), and each case is `{ id, scenario, steps, expected, auto, sub }`. `auto` is `'api'` for a bare ✓, `'vitest'` for `✓ (vitest)`, `null` for an empty cell — the page renders the two as different badges. A `###` heading is not a section: it sets `case.sub`, which the page turns into a sub-title when it changes. Both table shapes present in the file are accepted, with and without `Steps`, read from the header row rather than assumed. The input is BOM-stripped, split on `/\r?\n/` (CRLF-safe) and cleared of HTML comments, which a Markdown reader never shows.
 
@@ -238,7 +238,7 @@ Turns `TEST_CASES.md` into the data `test-cases.html` renders, which is why that
 
 `formatCell(text)` escapes `&`, `<`, `>` and `"` **first**, and only then turns a backtick span into `<code>` and `**x**` into `<strong>`. That order is the point: every value the page injects through `innerHTML` — case fields, section titles, case ids, warning text — now comes from a file, and that file contains `<aside class="pd-nav">` among other markup. An unbalanced marker is left as literal text.
 
-Tests: `js/lib/test-cases-parse.test.js` — unit cases for each rule above, plus a characterization block that parses the real `TEST_CASES.md` and asserts zero warnings, no duplicate id, a non-empty `steps` on every case, and the **exact** counts (806 cases, 35 sections) — not a floor: a lower bound would let cases disappear while the suite stays green, so a `/sync-docs` run that legitimately adds a case must raise those two numbers on purpose. That block is what fails when a `/sync-docs` run writes Markdown the page cannot render. Spec: `docs/superpowers/specs/2026-10-09-test-cases-from-markdown-design.md`.
+Tests: `js/lib/test-cases-parse.test.js` — unit cases for each rule above, plus a characterization block that parses the real `handbook/restricted/TEST_CASES.md` and asserts zero warnings, no duplicate id, a non-empty `steps` on every case, and the **exact** counts (806 cases, 35 sections) — not a floor: a lower bound would let cases disappear while the suite stays green, so a `/sync-docs` run that legitimately adds a case must raise those two numbers on purpose. That block is what fails when a `/sync-docs` run writes Markdown the page cannot render. Spec: `docs/superpowers/specs/2026-10-09-test-cases-from-markdown-design.md`.
 
 ## icons.js (2026-10-16, header unification)
 

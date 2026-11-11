@@ -1,6 +1,6 @@
 # api/src/routes/resources.js — and actuals-owner-name matching (Cycle 3b)
 
-`api/src/routes/resources.js` backs `team.html`. Every route is `requireAuth, requireAdmin` (admin **or** sysadmin) via a router-level guard. Full endpoint table: `ARCHITECTURE.md` §7.
+`api/src/routes/resources.js` backs `team.html`. Every route is `requireAuth, requireAdmin` (admin **or** sysadmin) via a router-level guard. Full endpoint table: `handbook/restricted/ARCHITECTURE.md` §7.
 
 ## Resource registry CRUD (Cycle 1, 2026-09-23)
 
