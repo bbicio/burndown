@@ -24,7 +24,7 @@ function requireAuth(req, res, next) {
     if (err) return res.status(401).json({ error: err });
     req.user = { ...claims, role: rows[0].role };
     next();
-  }, next);
+  }).catch(next);
 }
 
 function requireAdmin(req, res, next) {
