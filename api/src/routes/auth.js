@@ -540,13 +540,16 @@ router.post('/change-password', requireAuth, async (req, res, next) => {
 
     const hash = await bcrypt.hash(newPassword, 12);
     const { rows: [changed] } = await query(
-      'UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2 RETURNING password_changed_at',
+      'UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2 RETURNING password_changed_at, email',
       [hash, req.user.id]);
     // Every trusted device (this browser's included) asks for the code again; a challenge opened with the old password goes too.
     await twoStep.revokeTwoStepState(req.user.id);
     clearDeviceCookie(res);
-    // The new password_changed_at ends every other session; this one gets a token signed with it.
-    setAuthCookie(res, sessionClaims({ ...req.user, password_changed_at: changed.password_changed_at }));
+    // The new password_changed_at ends every other session; this one gets a token signed with it, and with
+    // the email on file (an admin may have changed it since the old token was signed).
+    setAuthCookie(res, sessionClaims({
+      id: req.user.id, role: req.user.role, email: changed.email, password_changed_at: changed.password_changed_at,
+    }));
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
