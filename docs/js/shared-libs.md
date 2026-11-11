@@ -18,9 +18,11 @@ The `Api.*` namespace and the `apiFetch` wrapper. On a 401 it redirects to the l
 
 ## js/shares.js
 
-The share modal, for both `cost_grid` and `project`. Loads active users that are **neither admin nor sysadmin** from `GET /api/users/active-list` into a searchable in-memory dropdown (2026-09: the exclusion was widened from `role !== 'admin'` to `!['admin','sysadmin'].includes(role)`). It supports both adding new shares and editing the permission (editor/viewer) of existing ones through the same upsert API.
+The share modal, for `cost_grid`, `project` and `program`. Loads active users that are **neither admin nor sysadmin** from `GET /api/users/active-list` into a searchable in-memory dropdown (2026-09: the exclusion was widened from `role !== 'admin'` to `!['admin','sysadmin'].includes(role)`). It supports both adding new shares and editing the permission (editor/viewer) of existing ones through the same upsert API.
 
 Module state: `_shareAllUsers` is the immutable source list; `_shareUserList` is that list minus the already-shared users.
+
+**2026-11-11 (B-416/B-432):** a share response with `emailSent: false` turns the success message into "…, but the email could not be sent." For a `program` the modal has no share list, and `_renderShareList()` used to return before refreshing `_shareUserList`, so the search offered nobody on a first open, or the last proposal's/project's list; it now refreshes it with no exclusions (`js/lib/shares-modal.test.js`).
 
 ## js/share-list-component.js
 
