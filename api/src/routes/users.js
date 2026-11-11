@@ -1,7 +1,8 @@
 const express = require('express');
 const { query, pool } = require('../db/client');
 const { withTransaction } = require('../db/transaction');
-const { requireAuth, requireAdmin } = require('../middleware/auth');
+// liveRole: the actor's role read again right before the role/status/anonymize writes that touch a sysadmin.
+const { requireAuth, requireAdmin, liveRole } = require('../middleware/auth');
 const { roleChangeError } = require('../lib/role-transition');
 const { ANON_EMAIL_RE, normalizeDetails, detailsError } = require('../lib/user-details');
 const { revokeTwoStepState } = require('../services/two-step');
@@ -16,14 +17,6 @@ function sysAdminTargetError(actorRole, targetCurrentRole) {
     return 'Only a sysadmin can modify another sysadmin';
   }
   return null;
-}
-
-// The actor's role read from the database. requireAuth already sets req.user.role
-// from the database on every request; the role/status/anonymize mutations that
-// touch a sysadmin account read it again right before the write they guard.
-async function liveRole(userId) {
-  const { rows: [u] } = await query('SELECT role FROM users WHERE id = $1', [userId]);
-  return u ? u.role : null;
 }
 
 // GET /api/users/search?email=... — any authenticated user, for share-target lookup
