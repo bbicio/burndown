@@ -601,6 +601,19 @@ async function testSessionRevocation() {
       ok(r6.status === 200, `SE-06 the same token with the right pwd claim → 200 (got ${r6.status})`);
     }
   }
+
+  const g = await signedIn('g');
+  if (g) {
+    const moved = `__test_se_moved_${Date.now()}@pdash.local`;
+    await api('PATCH', U(g.id), { email: moved }, sysadminCookie);
+    const cp = await api('POST', '/api/auth/change-password',
+      { currentPassword: TS_PASS, newPassword: TS_PASS + 'x', newPasswordConfirm: TS_PASS + 'x' }, g.session);
+    const jwt = extractCookie(cp.headers).replace(/^pdash_token=/, '');
+    let payload = null;
+    try { payload = JSON.parse(Buffer.from(jwt.split('.')[1] || '', 'base64url').toString()); } catch { payload = null; }
+    ok(cp.status === 200 && payload?.email === moved,
+      `SE-07 the token reissued by change-password carries the current email (got ${cp.status}, ${payload?.email})`);
+  }
 }
 
 // ── Profile ───────────────────────────────────────────────────────────────────
