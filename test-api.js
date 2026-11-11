@@ -1102,6 +1102,8 @@ async function testServerValidation() {
   ok(s2.status === 400, `SV-02 pots summary with a non-UUID clientGroupId → 400 (got ${s2.status})`);
   const s3 = await api('GET', `/api/pots/summary?year=abc&clientId=${someUuid}`, null, adminCookie);
   ok(s3.status === 400, `SV-03 pots summary with a non-integer year → 400 (got ${s3.status})`);
+  const s3b = await api('GET', `/api/pots/summary?year=%20&clientId=${someUuid}`, null, adminCookie);
+  ok(s3b.status === 400, `SV-03b pots summary with a blank year → 400 (got ${s3b.status})`);
 
   // POT creation: a special label must be one of the known labels, exactly
   const p1 = await api('POST', '/api/pots', { specialLabel: 'New Biz ', year: 2097, amount: 1 }, adminCookie);
@@ -1153,6 +1155,10 @@ async function testServerValidation() {
   ok(g3.status === 404, `SV-12 PUT tasks on a missing project → 404 (got ${g3.status})`);
   const g4 = await api('PATCH', '/api/projects/not-a-uuid/phasing', { phasing: {} }, adminCookie);
   ok(g4.status === 400, `SV-13 PATCH phasing with a non-UUID id → 400 (got ${g4.status})`);
+  const g5 = await api('PUT', '/api/projects/not-a-uuid/tasks', [], adminCookie);
+  ok(g5.status === 400, `SV-13b PUT tasks with a non-UUID id → 400 (got ${g5.status})`);
+  const g6 = await api('PATCH', '/api/projects/not-a-uuid/ptc', { ptc: [] }, adminCookie);
+  ok(g6.status === 400, `SV-13c PATCH ptc with a non-UUID id → 400 (got ${g6.status})`);
 
   // Cost grid structure PUT (B-189, B-192, B-229)
   const sg = await api('POST', '/api/cost-grids', { name: '__test_sv_structure__' }, adminCookie);

@@ -90,7 +90,7 @@ router.get('/summary', requireAuth, async (req, res, next) => {
     if (!year || (!clientId && !clientGroupId)) {
       return res.status(400).json({ error: 'year and clientId or clientGroupId are required' });
     }
-    if (!Number.isInteger(Number(year))) return res.status(400).json({ error: 'year must be an integer' });
+    if (!/^\d{4}$/.test(String(year))) return res.status(400).json({ error: 'year must be an integer' });
     if (clientId && !isUuid(clientId)) return res.status(400).json({ error: 'clientId must be a valid UUID' });
     if (clientGroupId && !isUuid(clientGroupId)) return res.status(400).json({ error: 'clientGroupId must be a valid UUID' });
     const yr = parseInt(year);
