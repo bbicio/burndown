@@ -847,6 +847,7 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | SEC-09 | JWT cookie not accessible from JavaScript (`document.cookie`) | In the browser DevTools console run `document.cookie` | `pdash_token` value not listed — httpOnly flag prevents JS access | |
 | SEC-10 | Non-admin can read ratecards | Log in as `user` role; `GET /api/ratecards` and `GET /api/ratecards/:id` | 200 — read access is requireAuth; POST/PATCH/DELETE still return 403 (unauthenticated write → 401 checked in auto suite) | |
 | SEC-11 | Date writes are validated (2026-10-24, dates C1) | Send a malformed (`2026-05`), impossible (`202613`, `20260431`) or inverted period to version POST/PATCH, project POST/PATCH, `PUT …/structure` and `PUT /api/projects/:id/tasks` | 400 `{ code: 'DATE_RULE' }`, the record is unchanged; a body that re-sends the stored dates unchanged is accepted | ✓ |
+| SEC-12 | Only site files are served (2026-11-11, nginx-serve-allowlist) | Signed in, open `/.env`, `/backups/<a dump>`, `/CLAUDE.md`, `/js/lib/money.test.js`, `/js/lib/money.Test.js`; then `/pipeline.html`, `/TEST_CASES.md`, `/css/style.css` | The first five answer 404; the last three load. Signed out, `/pipeline.html` and `/TEST_CASES.md` redirect to `/login.html` | ✓ (vitest) |
 
 ---
 

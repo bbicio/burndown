@@ -211,6 +211,8 @@ scripts/decision-ledger-guard.test.js — fails when a Spec or Plan dated 2026-1
                             lacks its PROCESS.md §6b ledger (Specs from 10-14: `Brief started`). Limits: own header.
 scripts/lib/live-docs.mjs — the walk (`liveMarkdown`, `SKIP_DIRS`) and the citation matcher shared by
                             `claude-md-guard` and `doc-paths-guard`, so the scanned scope has one definition.
+scripts/nginx-serve-guard.test.js — fails when `nginx.conf` would serve a non-site path or stop serving a
+                            site file; the location choice is modelled by `scripts/lib/nginx-locations.mjs`.
 scripts/shoot.mjs        — renders pages of the running app with headless Chrome, one PNG per width, for comparing a
                             redesign against its design boards. **Reading the PNGs back is part of visual
                             verification — "the page can't be rendered here" is not a valid reason to skip it.**
