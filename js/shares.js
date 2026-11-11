@@ -195,6 +195,7 @@ async function _renderShareList() {
 
   if (_shareType === 'program') {
     container.innerHTML = `<div class="text-muted" style="font-size:.82rem">Sharing a program grants access to <strong>all its projects</strong>. The user will be notified by email and in-app.</div>`;
+    _refreshEligibleList([]);   // no program-level shares: every eligible user can be picked
     return;
   }
 
