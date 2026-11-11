@@ -138,18 +138,23 @@ router.get('/me', requireAuth, async (req, res, next) => {
 // POST /api/auth/rectification-request — the user's details are managed by an admin; the user asks
 // for a correction instead. Recorded in rectification_requests and notified to every active admin.
 router.post('/rectification-request', requireAuth, async (req, res, next) => {
+  let slot = null;
+  // A 404 or a 500 records nothing: the slot goes back.
+  const refundSlot = () => {
+    if (slot && slot.allowed) rectificationLimiter.refund(req.user.id, Date.now(), slot.window);
+  };
   try {
     const { message } = req.body || {};
     const err = rectificationError(message);
     if (err) return res.status(400).json({ error: err });
     const text = message.trim();
 
-    // Taken before the first await, and kept by a 409: asking again does not change the answer.
-    const slot = rectificationLimiter.hit(req.user.id);
+    // Taken before the first await, and kept by a 201 or a 409: asking again does not change the answer.
+    slot = rectificationLimiter.hit(req.user.id);
     if (!slot.allowed) return rateLimited(res, slot.retryInMs);
 
     const me = (await query('SELECT first_name, last_name FROM users WHERE id = $1', [req.user.id])).rows[0];
-    if (!me) return res.status(404).json({ error: 'User not found' });
+    if (!me) { refundSlot(); return res.status(404).json({ error: 'User not found' }); }
     const title = `Profile change requested by ${me.first_name} ${me.last_name}`;
 
     // The request and its notifications stand or fall together; with no admin to notify nothing is kept.
@@ -183,7 +188,7 @@ router.post('/rectification-request', requireAuth, async (req, res, next) => {
       }).catch(e => console.warn('[rectification] email send failed:', e.message));
     }
     res.status(201).json({ ok: true });
-  } catch (err) { next(err); }
+  } catch (err) { refundSlot(); next(err); }
 });
 
 // POST /api/auth/accept-terms
