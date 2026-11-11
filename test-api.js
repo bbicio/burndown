@@ -601,6 +601,19 @@ async function testSessionRevocation() {
       ok(r6.status === 200, `SE-06 the same token with the right pwd claim → 200 (got ${r6.status})`);
     }
   }
+
+  const g = await signedIn('g');
+  if (g) {
+    const moved = `__test_se_moved_${Date.now()}@pdash.local`;
+    await api('PATCH', U(g.id), { email: moved }, sysadminCookie);
+    const cp = await api('POST', '/api/auth/change-password',
+      { currentPassword: TS_PASS, newPassword: TS_PASS + 'x', newPasswordConfirm: TS_PASS + 'x' }, g.session);
+    const jwt = extractCookie(cp.headers).replace(/^pdash_token=/, '');
+    let payload = null;
+    try { payload = JSON.parse(Buffer.from(jwt.split('.')[1] || '', 'base64url').toString()); } catch { payload = null; }
+    ok(cp.status === 200 && payload?.email === moved,
+      `SE-07 the token reissued by change-password carries the current email (got ${cp.status}, ${payload?.email})`);
+  }
 }
 
 // ── Profile ───────────────────────────────────────────────────────────────────
@@ -1652,7 +1665,7 @@ async function testPotReferenceVersion() {
   const p20 = await proposal('__test_pot_ref_20__', ['Committed', 3], ['Anticipated', 5]);
   if (!p20) { fail('POT-20: proposal setup failed — skipping'); return; }
   if (plainId) await sql('UPDATE cost_grids SET owner_id = $1 WHERE id = $2', [plainId, p20.cgId]);
-  const pj =await api('POST', '/api/projects', { name: '__test_pot_ref_20_project__', cgVersionId: p20.v1, currency: 'EUR' }, sysadminCookie);
+  const pj = await api('POST', '/api/projects', { name: '__test_pot_ref_20_project__', cgVersionId: p20.v1, currency: 'EUR' }, sysadminCookie);
   if (pj.data?.id) later('DELETE', `/api/projects/${pj.data.id}`);
   ok(pj.status === 201, `POT-20 setup: project linked to v1 → 201 (got ${pj.status})`);
   const row20 = ((await details()).proposals || []).filter(r => r.cg_id === p20.cgId);
@@ -2902,9 +2915,7 @@ async function testProfileEngineHooks() {
 // ── Profile Jobs Console (2026-09, Cycle 3d) ────────────────────────────────────
 
 // A plain-user session for the 403 checks. The suite has no non-admin account and invites need an
-// emailed token, so the sysadmin demotes the test admin to 'user', we log in (JWT role = user) and
-// the admin is promoted back at once. requireAdmin trusts the JWT role claim, so the existing
-// adminCookie keeps working throughout; the run-tests.sh stack is disposable.
+// emailed token, so makeTsUser builds one by SQL (cleanup disables it).
 // A throw-away user with role user, signed in. Not the test admin demoted and restored: the session
 // carries the role in the database, so a cookie taken while demoted is an admin's again once restored.
 async function getPlainUser() {

@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 
 function serviceBlock(yaml, name) {
   const lines = yaml.split(/\r?\n/);
-  const start = lines.findIndex(l => new RegExp(`^  ${name}:\s*$`).test(l));
+  const start = lines.findIndex(l => new RegExp(String.raw`^  ${name}:\s*$`).test(l));
   if (start < 0) return null;
   const rest = lines.slice(start + 1);
   const end = rest.findIndex(l => /^  \S/.test(l) || /^\S/.test(l));
@@ -18,5 +18,12 @@ describe('docker-compose.yml', () => {
     const block = serviceBlock(readFileSync('docker-compose.yml', 'utf8'), 'api');
     expect(block).toBeTruthy();
     expect(block).not.toMatch(/^\s+ports:/m);
+  });
+
+  it('finds a service header followed by trailing spaces, and still sees its ports', () => {
+    const yaml = 'services:\n  api:  \n    build: ./api\n    ports:\n      - "3000:3000"\n  db:\n    image: x\n';
+    const block = serviceBlock(yaml, 'api');
+    expect(block).toBeTruthy();
+    expect(block).toMatch(/^\s+ports:/m);
   });
 });

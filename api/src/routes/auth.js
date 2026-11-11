@@ -138,18 +138,26 @@ router.get('/me', requireAuth, async (req, res, next) => {
 // POST /api/auth/rectification-request — the user's details are managed by an admin; the user asks
 // for a correction instead. Recorded in rectification_requests and notified to every active admin.
 router.post('/rectification-request', requireAuth, async (req, res, next) => {
+  let slot = null;
+  // Set once the request and its notifications are written, before the COMMIT: from there on an error
+  // (COMMIT, release, the answer) may leave them recorded, so it keeps the slot.
+  let written = false;
+  // A 404, or a 500 before the request was written, records nothing: the slot goes back.
+  const refundSlot = () => {
+    if (slot && slot.allowed && !written) rectificationLimiter.refund(req.user.id, Date.now(), slot.window);
+  };
   try {
     const { message } = req.body || {};
     const err = rectificationError(message);
     if (err) return res.status(400).json({ error: err });
     const text = message.trim();
 
-    // Taken before the first await, and kept by a 409: asking again does not change the answer.
-    const slot = rectificationLimiter.hit(req.user.id);
+    // Taken before the first await, and kept by a 201 or a 409: asking again does not change the answer.
+    slot = rectificationLimiter.hit(req.user.id);
     if (!slot.allowed) return rateLimited(res, slot.retryInMs);
 
     const me = (await query('SELECT first_name, last_name FROM users WHERE id = $1', [req.user.id])).rows[0];
-    if (!me) return res.status(404).json({ error: 'User not found' });
+    if (!me) { refundSlot(); return res.status(404).json({ error: 'User not found' }); }
     const title = `Profile change requested by ${me.first_name} ${me.last_name}`;
 
     // The request and its notifications stand or fall together; with no admin to notify nothing is kept.
@@ -160,6 +168,7 @@ router.post('/rectification-request', requireAuth, async (req, res, next) => {
           'INSERT INTO rectification_requests (user_id, message) VALUES ($1, $2) RETURNING id', [req.user.id, text]);
         const rows = await notifyAdmins(c, request.id, title, text, req.user.id);
         if (!rows.length) throw Object.assign(new Error('no recipient'), { code: 'NO_RECIPIENT' });
+        written = true;
         return rows;
       });
     } catch (e) {
@@ -183,7 +192,7 @@ router.post('/rectification-request', requireAuth, async (req, res, next) => {
       }).catch(e => console.warn('[rectification] email send failed:', e.message));
     }
     res.status(201).json({ ok: true });
-  } catch (err) { next(err); }
+  } catch (err) { refundSlot(); next(err); }
 });
 
 // POST /api/auth/accept-terms
@@ -540,13 +549,16 @@ router.post('/change-password', requireAuth, async (req, res, next) => {
 
     const hash = await bcrypt.hash(newPassword, 12);
     const { rows: [changed] } = await query(
-      'UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2 RETURNING password_changed_at',
+      'UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2 RETURNING password_changed_at, email',
       [hash, req.user.id]);
     // Every trusted device (this browser's included) asks for the code again; a challenge opened with the old password goes too.
     await twoStep.revokeTwoStepState(req.user.id);
     clearDeviceCookie(res);
-    // The new password_changed_at ends every other session; this one gets a token signed with it.
-    setAuthCookie(res, sessionClaims({ ...req.user, password_changed_at: changed.password_changed_at }));
+    // The new password_changed_at ends every other session; this one gets a token signed with it, and with
+    // the email on file (an admin may have changed it since the old token was signed).
+    setAuthCookie(res, sessionClaims({
+      id: req.user.id, role: req.user.role, email: changed.email, password_changed_at: changed.password_changed_at,
+    }));
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
