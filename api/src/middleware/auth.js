@@ -14,17 +14,23 @@ function requireAuth(req, res, next) {
   } catch {
     return res.status(401).json({ error: 'Session expired' });
   }
-  query(
+  sessionRowError(claims).then(({ error, row }) => {
+    if (error) return res.status(401).json({ error });
+    req.user = { ...claims, role: row.role };
+    next();
+  }).catch(next);
+}
+
+// The user's row and the session error it gives these claims (null when the session holds). Read by
+// requireAuth on every request and by the notification stream on every heartbeat.
+async function sessionRowError(claims) {
+  const { rows } = await query(
     `SELECT status, role,
             floor(extract(epoch FROM password_changed_at) * 1000)::bigint AS pwd
      FROM users WHERE id = $1`,
     [claims.id]
-  ).then(({ rows }) => {
-    const err = sessionError(claims, rows[0]);
-    if (err) return res.status(401).json({ error: err });
-    req.user = { ...claims, role: rows[0].role };
-    next();
-  }).catch(next);
+  );
+  return { error: sessionError(claims, rows[0]), row: rows[0] };
 }
 
 // The callbacks below receive requireAuth's errors too (a failed session query): they go to next, before
@@ -57,4 +63,4 @@ async function liveRole(userId) {
   return rows[0] ? rows[0].role : null;
 }
 
-module.exports = { requireAuth, requireAdmin, requireSysAdmin, liveRole };
+module.exports = { requireAuth, requireAdmin, requireSysAdmin, liveRole, sessionRowError };
