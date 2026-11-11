@@ -100,6 +100,11 @@ describe('test state', () => {
 });
 
 describe('docProblems', () => {
+  it('reports a markdown document that starts with "<"', () => {
+    expect(docProblems('<!-- note -->\n# T', 'markdown')).toHaveLength(1);
+    expect(docProblems('﻿  \n<div>x</div>', 'markdown')).toHaveLength(1);
+    expect(docProblems('# T\n<div>x</div>', 'markdown')).toEqual([]);
+  });
   it('flags an unclosed fence', () => {
     expect(docProblems('```\nx', 'markdown')).toHaveLength(1);
   });

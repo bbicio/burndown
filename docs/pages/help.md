@@ -12,7 +12,7 @@ Shows the documents listed in `handbook/manifest.json`. Reached from the account
   - `markdown`: `marked` (CDN, exact version in `help.html`). A `mermaid` code block is drawn by `mermaid` (CDN ES module, exact version in `help.html`), imported only when the document contains one, with `securityLevel: 'strict'`.
   - `test-cases`: `js/lib/test-cases-parse.js` turns the table document into sections and cases; each case cycles untested → passed → failed. Parser warnings show in an amber band above the content.
 - **Test results.** Stored in `localStorage['pdash_test_state_v1']`, the key `test-cases.html` used. It does not start with `PDash`, so `cleanLegacyStorage()` leaves it alone.
-- **Payload check.** A fetched file is accepted by its content (`isHandbookPayload`), never by `res.ok`: an expired session redirects the fetch to the login page, which would otherwise render as the document.
+- **Payload check.** A fetched file is accepted by its content (`isHandbookPayload`) as well as `res.ok`, which alone is not enough: an expired session redirects the fetch to the login page, which would otherwise render as the document.
 - **Redirect.** `/test-cases.html` answers `301` to `/help.html?doc=test-cases` (`nginx.conf`).
 
 Stylesheet `css/help.css`. Tests: `js/lib/handbook.test.js`, `js/lib/test-cases-parse.test.js`, `scripts/handbook-guard.test.js`, `scripts/nginx-serve.test.js`, `scripts/classify-cycle.test.js`, `test-api.js` (`/api/auth/admin-check`).

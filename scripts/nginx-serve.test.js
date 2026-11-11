@@ -65,6 +65,16 @@ function violations(confText, trackedPaths) {
     .map(([uri, want, got]) => `${uri} → ${got}, attesa ${want}`);
 }
 
+function handbookAuthViolations(confText, trackedPaths) {
+  const locations = parseLocations(confText);
+  return trackedPaths
+    .filter((p) => p.startsWith('handbook/restricted/'))
+    .filter((p) => {
+      const loc = selectLocation(locations, '/' + p);
+      return !(loc && loc.action === 'serve' && loc.authBy === '/admin-check');
+    });
+}
+
 const pick = (uri) => selectLocation(parseLocations(CONF), uri);
 
 describe('nginx.conf serves only site files', () => {
@@ -98,9 +108,7 @@ describe('nginx.conf serves only site files', () => {
   it('every tracked handbook/restricted/ file is behind /admin-check', () => {
     const files = TRACKED.filter((p) => p.startsWith('handbook/restricted/'));
     expect(files.length).toBeGreaterThan(0);
-    for (const p of files) {
-      expect(pick('/' + p), p).toMatchObject({ action: 'serve', authBy: '/admin-check' });
-    }
+    expect(handbookAuthViolations(CONF, TRACKED)).toEqual([]);
   });
 
   it('the rest of handbook/ is behind /auth-check', () => {
@@ -122,6 +130,7 @@ describe('nginx.conf serves only site files', () => {
     const loc = selectLocation(parseLocations(weakened), '/handbook/restricted/TEST_CASES.md');
     expect(loc.authBy).toBe('/auth-check');
     expect(loc.authBy).not.toBe('/admin-check');
+    expect(handbookAuthViolations(weakened, TRACKED)).not.toEqual([]);
   });
 
   it('is red without the final catch-all 404', () => {

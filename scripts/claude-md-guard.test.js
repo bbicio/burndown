@@ -153,11 +153,12 @@ describe('CLAUDE.md size (it is loaded in full every session)', () => {
     // 13,331 on 2026-11-11: -6 B, that test renamed to scripts/nginx-serve.test.js (B-449).
     // 13,367 on 2026-11-11: +36 B, the three file-path citations moved into handbook/restricted/ (handbook-viewer).
     // 13,187 on 2026-11-11: -180 B, the test-cases.html prose of the HTML pages entry became a two-line handbook/ entry (handbook-viewer docs).
+    // 13,192 on 2026-11-11: +5 B, test-cases-parse.js names both of its module consumers (handbook-viewer final review).
     const bytes = Buffer.byteLength(fileStructureBlock().join('\n'), 'utf8');
-    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 13,187. It is an INDEX:
+    expect(bytes, `the File structure block is ${bytes} LF bytes, pinned at 13,192. It is an INDEX:
       one or two lines per entry, pointing at the docs/ file that holds the narrative.
       If you shrank it on purpose, lower this number in the same commit`)
-      .toBe(13_187);
+      .toBe(13_192);
   });
 
   it('keeps exactly 12 entries longer than two lines', () => {

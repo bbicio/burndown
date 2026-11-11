@@ -151,8 +151,8 @@ js/lib/                  — pure functions extracted for unit testing (vitest +
                             callers. The module-by-module index and history: [docs/js/lib.md](docs/js/lib.md).
                             Two of them have their own cross-cutting sections below: money.js ("Money formatting
                             and parsing") and project-rules.js ("Project currency lock"). One, test-cases-parse.js
-                            is the exception to the "bridge" rule — its only consumer,
-                            help.html, imports it as a module, so it has no `window.` bridge.
+                            is the exception to the "bridge" rule — its consumers (help.html,
+                            js/lib/handbook.js) are modules, so it has no `window.` bridge.
 api/src/routes/          — Express routes (auth, users, config, cost-grids, projects, timesheets,
                             reporting, exports, notifications, pipeline-years, client-groups, pots, reset,
                             app-settings, currencies, attribute-lists, resources, planning, planning-assistant).

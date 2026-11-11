@@ -1,6 +1,6 @@
 // Pure logic of help.html, the documentation viewer. No DOM, no fetch.
 
-import { parseTestCases } from './test-cases-parse.js';
+import { parseTestCases } from './test-cases-parse.js?v=2';
 
 export const MERMAID_TYPES = [
   'flowchart', 'graph', 'sequenceDiagram', 'classDiagram', 'stateDiagram', 'stateDiagram-v2',
@@ -93,6 +93,9 @@ export function docProblems(text, renderer) {
     if (!stripBom(text).startsWith(TEST_CASES_TITLE)) problems.push(`Missing title "${TEST_CASES_TITLE}"`);
     for (const w of parseTestCases(text).warnings) problems.push(w);
     return problems;
+  }
+  if (stripBom(text).trimStart().startsWith('<')) {
+    problems.push('The document starts with "<": the viewer would reject it as a login page');
   }
   for (const b of fenceBlocks(text)) {
     if (!b.closed) {
