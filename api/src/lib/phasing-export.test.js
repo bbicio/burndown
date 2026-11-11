@@ -37,3 +37,17 @@ test('months outside the year are dropped', () => {
   assert.deepEqual(Object.keys(v.months), ['2026-01']);
   assert.equal(v.months['2026-01'].hours, 50);
 });
+
+test('amounts are converted to EUR with the version currency_rate, hours are not', () => {
+  const eur = { ...base, version_id: 'e', currency_rate: '1' };
+  const usd = { ...base, version_id: 'u', currency_rate: '1.1' };
+  const m = phasingByVersion([eur, usd], 2026);
+  assert.equal(m.get('e').months['2026-01'].amount, 2000);
+  assert.ok(Math.abs(m.get('u').months['2026-01'].amount - 2000 / 1.1) < 1e-9);
+  assert.equal(m.get('u').months['2026-01'].hours, 40);
+});
+
+test('a missing or zero currency_rate counts as 1', () => {
+  assert.equal(phasingByVersion([{ ...base, currency_rate: null }], 2026).get('v').months['2026-01'].amount, 2000);
+  assert.equal(phasingByVersion([{ ...base, currency_rate: '0' }], 2026).get('v').months['2026-01'].amount, 2000);
+});

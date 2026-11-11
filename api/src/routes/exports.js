@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { isAdminRole } = require('../lib/is-admin');
+const { referenceVersionsCte } = require('../lib/pot-fee-sql');
 const { phasingByVersion } = require('../lib/phasing-export');
 const { sendExportEmail } = require('../services/email');
 
@@ -270,11 +271,13 @@ router.get('/phasing', requireAdmin, async (req, res, next) => {
     const yr = parseInt(year);
 
     const { rows } = await query(
-      `SELECT
+      `WITH ${referenceVersionsCte()}
+       SELECT
          cgv.id          AS version_id,
          cgv.cost_grid_id AS cg_id,
          cg.name         AS cg_name,
          cgv.label       AS version_label,
+         cgv.currency_rate AS currency_rate,
          cgv.pipeline,
          cgv.start_date  AS ver_start,
          cgv.end_date    AS ver_end,
@@ -287,7 +290,7 @@ router.get('/phasing', requireAdmin, async (req, res, next) => {
             WHERE re.ratecard_id = cgv.ratecard_id AND re.role_id = tr.role_id LIMIT 1),
            ro.hourly_rate, 0
          ) AS hourly_rate
-       FROM cost_grid_versions cgv
+       FROM ref_v cgv
        JOIN cost_grids cg ON cg.id = cgv.cost_grid_id
        JOIN phases ph ON ph.version_id = cgv.id
        JOIN tasks tk ON tk.phase_id = ph.id

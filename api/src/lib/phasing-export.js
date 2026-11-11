@@ -43,11 +43,13 @@ function phasingByVersion(rows, yr) {
     const v = versionMap.get(r.version_id);
     const dist = distribute(yr, r.days, r.task_start, r.task_end, r.ver_start, r.ver_end);
     const rate = parseFloat(r.hourly_rate) || 0;
+    // Amounts are in EUR, converted like /api/reporting/phasing: local amount / the version's currency_rate
+    const fx = parseFloat(r.currency_rate) || 1.0;
     for (const [mo, d] of Object.entries(dist)) {
       if (!v.months[mo]) v.months[mo] = { hours: 0, amount: 0 };
       const hrs = d;
       v.months[mo].hours  += hrs;
-      v.months[mo].amount += hrs * rate;
+      v.months[mo].amount += (hrs * rate) / fx;
     }
   }
   return versionMap;
