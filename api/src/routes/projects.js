@@ -614,14 +614,21 @@ router.post('/:id/shares', requireAuth, async (req, res, next) => {
     const sharerName = `${sharer.rows[0].first_name} ${sharer.rows[0].last_name}`;
     const appUrl = process.env.APP_URL || 'http://localhost';
 
-    await sendShareNotification({
-      to: target.rows[0].email,
-      firstName: target.rows[0].first_name,
-      resourceType: 'project',
-      resourceName: proj.rows[0].name,
-      sharedBy: sharerName,
-      link: `${appUrl}/portfolio.html`,
-    });
+    // The share is stored: a refused email is reported, not turned into an error.
+    let emailSent = true;
+    try {
+      await sendShareNotification({
+        to: target.rows[0].email,
+        firstName: target.rows[0].first_name,
+        resourceType: 'project',
+        resourceName: proj.rows[0].name,
+        sharedBy: sharerName,
+        link: `${appUrl}/portfolio.html`,
+      });
+    } catch (e) {
+      emailSent = false;
+      console.warn('[share] email send failed:', e.message);
+    }
 
     if (!_createNotification) _createNotification = require('./notifications').createNotification;
     await _createNotification(userId, {
@@ -632,7 +639,7 @@ router.post('/:id/shares', requireAuth, async (req, res, next) => {
       urlLabel: 'Open Portfolio',
     });
 
-    res.status(201).json({ ok: true });
+    res.status(201).json({ ok: true, emailSent });
   } catch (err) { next(err); }
 });
 

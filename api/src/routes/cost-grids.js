@@ -1004,14 +1004,21 @@ router.post('/:id/shares', requireAuth, async (req, res, next) => {
 
     const sharerName = `${sharer.rows[0].first_name} ${sharer.rows[0].last_name}`;
 
-    await sendShareNotification({
-      to: target.rows[0].email,
-      firstName: target.rows[0].first_name,
-      resourceType: 'cost grid',
-      resourceName: cg.rows[0].name,
-      sharedBy: sharerName,
-      link: `${process.env.APP_URL}/pipeline.html`,
-    });
+    // The share is stored: a refused email is reported, not turned into an error.
+    let emailSent = true;
+    try {
+      await sendShareNotification({
+        to: target.rows[0].email,
+        firstName: target.rows[0].first_name,
+        resourceType: 'cost grid',
+        resourceName: cg.rows[0].name,
+        sharedBy: sharerName,
+        link: `${process.env.APP_URL}/pipeline.html`,
+      });
+    } catch (e) {
+      emailSent = false;
+      console.warn('[share] email send failed:', e.message);
+    }
 
     if (!_createNotification) _createNotification = require('./notifications').createNotification;
     await _createNotification(userId, {
@@ -1022,7 +1029,7 @@ router.post('/:id/shares', requireAuth, async (req, res, next) => {
       urlLabel: 'Open Pipeline',
     });
 
-    res.status(201).json({ ok: true });
+    res.status(201).json({ ok: true, emailSent });
   } catch (err) { next(err); }
 });
 
