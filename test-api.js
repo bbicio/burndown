@@ -1167,7 +1167,7 @@ async function testServerValidation() {
     const s20 = await putS(someUuid, { phases: [], roles: [{ roleCode: 'X', rate: 10 }] });
     ok(s20.status === 404 && s20.data?.error === 'Version not found', `SV-20 structure PUT on a missing version → 404 (got ${s20.status})`);
     const s21 = await putS('not-a-uuid', { phases: [], roles: [] });
-    ok(s21.status === 400, `SV-21 structure PUT with a non-UUID version id → 400 (got ${s21.status})`);
+    ok(s21.status === 404 && s21.data?.error === 'Version not found', `SV-21 structure PUT with a non-UUID version id → 404 from the versionScope middleware (got ${s21.status})`);
     const task = { taskName: 'T1', hours: { [myRole.code]: 8 } };
     const s22 = await putS(svId, { phases: [{ phaseName: 'P1', tasks: [task] }], roles: [{ roleCode: myRole.code, rate: null, rateIsCustom: true }] });
     ok(s22.status === 200, `SV-22 structure PUT with a custom flag and no rate → 200 (got ${s22.status}: ${s22.data?.error})`);
