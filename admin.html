@@ -620,7 +620,8 @@
           <div v-if="invite.sentTo" class="ua-sent" role="status">
             <span class="ua-sent-icon"><ph-icon name="check" :size="20"></ph-icon></span>
             <div>
-              <strong>Invite sent to {{ invite.sentTo }}</strong>
+              <strong v-if="invite.emailSent === false">Invite created for {{ invite.sentTo }}, but the email could not be sent — use Resend invite.</strong>
+              <strong v-else>Invite sent to {{ invite.sentTo }}</strong>
               <p>{{ invite.sentName }} appears in the list as pending until they activate the account. You can resend the invite from their row.</p>
             </div>
           </div>
@@ -736,7 +737,7 @@
     let detailsDrawer = null;
     let detailsOpener = null;
     const blankDetails = () => ({ userId: null, firstName: '', lastName: '', email: '', orig: null, loading: false, error: null, errorField: null });
-    const blankInvite = () => ({ firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, errorField: null, sentTo: null, sentName: null });
+    const blankInvite = () => ({ firstName: '', lastName: '', email: '', role: 'user', loading: false, error: null, errorField: null, sentTo: null, sentName: null, emailSent: null });
     const NETWORK_ERROR = "The server didn't respond. Check your connection and try again.";
 
     // Icons the shared library does not have (drawn like it: 16×16, stroke = currentColor).
@@ -1055,6 +1056,7 @@
               if (res.status === 409) inv.errorField = 'email';
               return;
             }
+            inv.emailSent = data.emailSent;
             inv.sentTo = inv.email;
             inv.sentName = `${inv.firstName} ${inv.lastName}`;
             await this.loadUsers();
