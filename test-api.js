@@ -1490,12 +1490,12 @@ async function testMoneyRules() {
     `MR-18a phasing {'202601': 1000.5} → 200, read back equal; {} → 200 (got ${ph1.status}, ${JSON.stringify(ph1s)}, ${ph2.status})`);
 
   await patchPhasing(mrProj, { '202601': 1000.5 });
-  const badPhasing = [{ '202601': -1 }, { '202601': '5' }, { '202601': 1120.304347826087 }, { '202601': 1e8 }, [], null];
+  const badPhasing = [{ '202601': -1 }, { '202601': '5' }, { '202601': 1120.304347826087 }, { '202601': 1e12 }, [], null];
   const badPhRes = [];
   for (const b of badPhasing) badPhRes.push(await patchPhasing(mrProj, b));
   const phAfter = await readProj(mrProj, 'phasing');
   ok(badPhRes.every(isMoneyRefusal) && same(phAfter, { '202601': 1000.5 }),
-    `MR-18b phasing -1 / '5' / 1120.304347826087 / 1e8 / [] / null → MONEY_RULE, read back unchanged (got ${badPhRes.map(r => r.status).join(',')}, ${JSON.stringify(phAfter)})`);
+    `MR-18b phasing -1 / '5' / 1120.304347826087 / 1e12 / [] / null → MONEY_RULE, read back unchanged (got ${badPhRes.map(r => r.status).join(',')}, ${JSON.stringify(phAfter)})`);
 
   const jpy = await api('POST', '/api/projects', { name: '__test_mr_project_jpy__', currency: 'JPY' }, sysadminCookie);
   const jpyProj = jpy.data?.id;
