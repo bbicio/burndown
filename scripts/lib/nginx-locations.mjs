@@ -3,8 +3,10 @@
 // running nginx.
 //
 // What it models: the `=`, `^~`, `~`, `~*` and plain-prefix modifiers and their
-// precedence; what a block does (serves files, proxies, answers 404) and whether
-// it carries `auth_request`. What it does not: nested `location` blocks, `if`,
+// precedence (an `=` match beats every regex; among regexes the first in file
+// order wins); what a block does (serves files, proxies, answers 404, redirects
+// with `return 301|302`), whether it carries `auth_request` (`auth`) and that
+// subrequest's target (`authBy`, or null). What it does not: nested `location` blocks, `if`,
 // `alias`, `try_files` resolution, named and `internal` locations (skipped, a
 // client cannot select them). A config it cannot read makes it throw rather
 // than return a wrong answer.
@@ -13,7 +15,7 @@ const HEADER = /\blocation\s+(=|\^~|~\*|~)?\s*(\S+)\s*\{/g;
 
 /**
  * @param {string} confText the text of an nginx.conf
- * @returns {{ modifier: string, pattern: string, action: 'serve'|'404'|'proxy'|'other', auth: boolean }[]}
+ * @returns {{ modifier: string, pattern: string, action: 'serve'|'404'|'redirect'|'proxy'|'other', auth: boolean, authBy: string|null }[]}
  *   the client-selectable location blocks, in file order
  */
 export function parseLocations(confText) {
@@ -34,10 +36,12 @@ export function parseLocations(confText) {
 
     if (pattern.startsWith('@') || /\binternal\s*;/.test(body)) continue;
     const action = /\breturn\s+404\b/.test(body) ? '404'
+      : /\breturn\s+30[12]\b/.test(body) ? 'redirect'
       : /\bproxy_pass\b/.test(body) ? 'proxy'
       : /\broot\b/.test(body) ? 'serve'
       : 'other';
-    locations.push({ modifier, pattern, action, auth: /\bauth_request\b/.test(body) });
+    const authBy = body.match(/\bauth_request\s+(\S+?)\s*;/)?.[1] ?? null;
+    locations.push({ modifier, pattern, action, auth: /\bauth_request\b/.test(body), authBy });
   }
   return locations;
 }
