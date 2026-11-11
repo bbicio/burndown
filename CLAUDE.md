@@ -61,7 +61,7 @@ scripts/test-branch.sh status  # "up" (exit 0) or "down" (exit 1) — both conta
 
 No bundler, no build step for the **runtime** — nginx serves `js/`/`css/` files exactly as they are on disk, and this must stay true.
 
-A dev-only test toolchain exists for the frontend: root `package.json` + vitest + jsdom, isolated from the runtime (see `js/lib/` below). It is never bundled, never served — `nginx.conf` serves only the root `*.html` pages, `handbook/restricted/TEST_CASES.md` and the `.css`/`.js` files under `css/` and `js/` (tests excluded); every other path answers 404 (`scripts/nginx-serve.test.js`). Run tests with `npm test` (single run) or `npm run test:watch`. Vitest 4 needs Node ≥ 20.12 (it crashes at startup with `does not provide an export named 'styleText'` on older versions): if the host Node is older, run the suite in a throwaway container instead:
+A dev-only test toolchain exists for the frontend: root `package.json` + vitest + jsdom, isolated from the runtime (see `js/lib/` below). It is never bundled, never served — `nginx.conf` serves only the root `*.html` pages, `handbook/` (any signed-in user, except `handbook/restricted/`, which is admin/sysadmin only) and the `.css`/`.js` files under `css/` and `js/` (tests excluded); every other path answers 404 (`scripts/nginx-serve.test.js`). Run tests with `npm test` (single run) or `npm run test:watch`. Vitest 4 needs Node ≥ 20.12 (it crashes at startup with `does not provide an export named 'styleText'` on older versions): if the host Node is older, run the suite in a throwaway container instead:
 
 ```bash
 MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/app" -v /app/node_modules -w /app node:22 sh -c 'npm ci --no-audit --no-fund >/dev/null 2>&1 && npm test'
@@ -82,7 +82,7 @@ Still no linter on the frontend or backend.
 
 ## Architecture
 
-Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page is Vue 3 (loaded via CDN, no build step) except the `index.html` and `config.html` redirects and the dev-only `test-cases.html`. The shared library files in `js/*.js` are classic scripts loaded as globals by the Vue pages (`js/cg-controls.js` and `js/share-list-component.js` define Vue components) — for which pages load which, see [docs/js/shared-libs.md](docs/js/shared-libs.md) and the per-file `docs/js/` files pointed at from the File structure block below.
+Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page is Vue 3 (loaded via CDN, no build step) except the `index.html` and `config.html` redirects. The shared library files in `js/*.js` are classic scripts loaded as globals by the Vue pages (`js/cg-controls.js` and `js/share-list-component.js` define Vue components) — for which pages load which, see [docs/js/shared-libs.md](docs/js/shared-libs.md) and the per-file `docs/js/` files pointed at from the File structure block below.
 
 ### Pages
 
@@ -113,6 +113,7 @@ Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page i
 | `team.html` | `/team.html` | Resource registry CRUD (name/email/role by id/job description, optional link to a PDash user) plus an "Unmatched names" drawer that links the free-text owner names found in uploaded actuals to resources (aliases), a resource side panel with an "Experience profile" tab showing the per-person hours tree; own stylesheet `css/team.css`; admin **or sysadmin**, linked from the ⚙ Admin dropdown. Full narrative: [docs/pages/team.md](docs/pages/team.md) |
 | `attribute-lists.html` | `/attribute-lists.html` | Generic, agnostic tag/taxonomy admin console — create lists and their items (Market/Brand/Therapeutic Area/Service Type seeded, more addable without code changes), admin **or sysadmin**, linked from the ⚙ Admin dropdown. Its lists/items are consumed by `costgrid.html`/`project-config.html`'s "🏷 Tags" sections via the shared `js/tags.js` helper; own stylesheet `css/attribute-lists.css`. Full narrative: [docs/pages/attribute-lists.md](docs/pages/attribute-lists.md) |
 | `profile-jobs.html` | `/profile-jobs.html` | **Hidden page, no menu entry** — profile-engine job console (queue/status list, force recalculation, worker schedule, run history), reached from the Timesheets sub-nav ("Profile processing", next to "Actuals") of `timesheets.html` and from the Experience profile tab of `team.html`; admin **or** sysadmin. Full narrative: [docs/pages/profile-jobs.md](docs/pages/profile-jobs.md) |
+| `help.html` | `/help.html?doc=` | Documentation viewer, open to any authenticated user, from the account menu's "Help"; shows the documents of `handbook/`, the restricted ones only to admin/sysadmin; own stylesheet `css/help.css`. `/test-cases.html` redirects to it. Full narrative: [docs/pages/help.md](docs/pages/help.md) |
 
 ### File structure
 
@@ -120,10 +121,9 @@ Multi-page app backed by a Node.js/Express REST API and PostgreSQL. Every page i
 HTML pages               — the Pages table above is the page index: route, one-line purpose, and a docs/pages/
                             link where that page has a narrative file (not all do). Do not restate per-page
                             detail here. The table does not claim to be exhaustive of every .html file at the
-                            repo root — test-cases.html, for one, is not in it. That page (a dev-only manual
-                            test checklist, no navigation, results in localStorage) fetches handbook/restricted/TEST_CASES.md and parses it with
-                            js/lib/test-cases-parse.js. Hence that file counts as code for
-                            scripts/classify-cycle.mjs.
+                            repo root.
+handbook/                — the documents help.html shows (manifest.json, public/, restricted/); viewer logic
+                            in js/lib/handbook.js. Detail: docs/pages/help.md.
 css/                     — stylesheets: tokens.css (design tokens, also `[v-cloak]`), style.css (components
                             + navigation), and the shared and per-page ones listed in
                             [docs/css/stylesheets.md](docs/css/stylesheets.md). App-wide rules stay in "Design
@@ -152,7 +152,7 @@ js/lib/                  — pure functions extracted for unit testing (vitest +
                             Two of them have their own cross-cutting sections below: money.js ("Money formatting
                             and parsing") and project-rules.js ("Project currency lock"). One, test-cases-parse.js
                             is the exception to the "bridge" rule — its only consumer,
-                            test-cases.html, imports it as a module, so it has no `window.` bridge.
+                            help.html, imports it as a module, so it has no `window.` bridge.
 api/src/routes/          — Express routes (auth, users, config, cost-grids, projects, timesheets,
                             reporting, exports, notifications, pipeline-years, client-groups, pots, reset,
                             app-settings, currencies, attribute-lists, resources, planning, planning-assistant).

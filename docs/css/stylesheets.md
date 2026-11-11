@@ -37,6 +37,10 @@ Shared layout (`card`/`table`/`btn-primary`/`form-*`/`empty`/`alert-sm`) for the
 
 `profile.html` only (2026-11, My profile page): the `mp-` rules of the avatar page head, the section cards, the read-only values, the password form and strength bar, the privacy rows and contact card, and the phone media query. The sub-navigation and card frame are the Master Data ones in `style.css`. Tokens only. Detail: [docs/pages/profile.md](../pages/profile.md).
 
+## css/help.css
+
+`help.html` only (2026-11, handbook viewer): the `hb-` rules of the document navigation (sidebar and phone selector), the rendered Markdown body, and the test-cases view. Tokens only. Detail: [docs/pages/help.md](../pages/help.md).
+
 ## css/attribute-lists.css
 
 `attribute-lists.html` only (2026-11-09, Attribute Lists redesign), loaded after `admin-crud.css`: the `al-` rules of the buttons, sub-nav counts and badge, list and topic cards, toolbar, table, queue strip, drawers, merge, and the tablet and phone media queries. Tokens only (`js/lib/attribute-lists-page-guard.test.js`). Detail: [docs/pages/attribute-lists.md](../pages/attribute-lists.md).

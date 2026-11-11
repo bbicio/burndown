@@ -1045,7 +1045,7 @@ burndown/
   team.html               ← resource registry CRUD, admin or sysadmin; own stylesheet css/team.css. Detail: docs/pages/team.md
   attribute-lists.html    ← generic tag/taxonomy admin console (lists + items, no physical delete); its items feed the Tags sections via js/tags.js; own stylesheet css/attribute-lists.css. Detail: docs/pages/attribute-lists.md
   profile-jobs.html       ← profile-engine job console, hidden (reached from the Timesheets sub-menu of timesheets.html); adds js/lib/profile-jobs-ui.js. Detail: docs/pages/profile-jobs.md
-  test-cases.html         ← dev-only manual test checklist; fetches TEST_CASES.md and renders it via js/lib/test-cases-parse.js, which is why that file counts as code. Detail: docs/js/lib.md
+  help.html               ← documentation viewer: renders the documents of handbook/ (manifest.json, public/, restricted/ for admin/sysadmin) through js/lib/handbook.js and js/lib/test-cases-parse.js; own stylesheet css/help.css. Detail: docs/pages/help.md
   nginx.conf              ← serves only the listed site paths even though it bind-mounts the repo root
   docker-compose.yml
   .env.example
