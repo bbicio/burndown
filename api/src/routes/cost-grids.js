@@ -357,7 +357,7 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
 // whatever the handler below does (2026-09-30 hardening; closes the tag-cycle ":vId not checked against :id"
 // finding for structure, linked-projects, duplicate, patch, delete and refresh-rate). Registered after
 // requireAuth so an anonymous request still gets 401; canEdit/canAccess stay in each handler.
-const { isUuid } = require('../lib/input-rules');
+const { isUuid, structureBodyError } = require('../lib/input-rules');
 async function versionScope(req, res, next) {
   try {
     const { id, vId } = req.params;
@@ -696,6 +696,8 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
     if (!locked.rows[0]) return res.status(404).json({ error: 'Version not found' });
     if (locked.rows[0].locked) return res.status(400).json({ error: 'Version is locked' });
 
+    const shapeErr = structureBodyError(req.body);
+    if (shapeErr) return res.status(400).json({ error: shapeErr });
     const { phases = [], roles: rolesBody = [], period: periodBody } = req.body;
 
     // Reject the whole request — no partial writes — if any role's sold hours

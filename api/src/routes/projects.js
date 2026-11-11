@@ -1,7 +1,7 @@
 const express = require('express');
 const { query, pool } = require('../db/client');
 const { requireAuth, liveRole } = require('../middleware/auth');
-const { isUuid } = require('../lib/input-rules');
+const { isUuid, taskListError } = require('../lib/input-rules');
 const rules = require('../lib/project-rules');
 const { withVersionLock, lockVersion } = require('../lib/version-lock');
 const { sendShareNotification, sendShareRevokedEmail } = require('../services/email');
@@ -413,7 +413,8 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
     // Body: the task array (today), or { tasks, period } so the project period travels with the tasks.
     const body = req.body;
     const { tasks, period } = Array.isArray(body) ? { tasks: body, period: undefined } : (body || {});
-    if (!Array.isArray(tasks)) return res.status(400).json({ error: 'Body must be an array of tasks or { tasks: [...], period }' });
+    const shapeErr = taskListError(tasks);
+    if (shapeErr) return res.status(400).json({ error: shapeErr });
     const hasPeriod = period !== null && typeof period === 'object';
 
     // Reject the whole request — no partial writes — if any resource's sold

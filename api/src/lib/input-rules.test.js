@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { isUuid, decimalRangeError, SPECIAL_POT_LABELS, specialLabelError } = require('./input-rules');
+const { isUuid, decimalRangeError, SPECIAL_POT_LABELS, specialLabelError, structureBodyError, taskListError } = require('./input-rules');
 
 test('isUuid', () => {
   const u = '123e4567-e89b-12d3-a456-426614174000';
@@ -24,5 +24,24 @@ test('special labels', () => {
   for (const v of SPECIAL_POT_LABELS) assert.equal(specialLabelError(v), null);
   for (const v of ['New Biz ', 'new biz', 'Other', 42]) {
     assert.equal(specialLabelError(v), 'specialLabel must be one of: Unassigned / To be Identified, New Biz');
+  }
+});
+
+test('structureBodyError', () => {
+  for (const b of [{}, { phases: [] }, { phases: [{ tasks: [{ roles: [{}], hours: { A: 1 } }] }, { }], roles: [{ roleCode: 'X' }] }]) {
+    assert.equal(structureBodyError(b), null);
+  }
+  for (const b of [{ phases: 'abc' }, { phases: {} }, { phases: null }, { phases: [null] }, { phases: [{ tasks: 'x' }] },
+    { phases: [{ tasks: [null] }] }, { phases: [{ tasks: [{ roles: {} }] }] }, { phases: [{ tasks: [{ roles: [null] }] }] },
+    { phases: [{ tasks: [{ hours: [1] }] }] }, { roles: [null] }, { roles: 'x' }, null, []]) {
+    assert.equal(typeof structureBodyError(b), 'string', JSON.stringify(b));
+  }
+});
+
+test('taskListError', () => {
+  assert.equal(taskListError([]), null);
+  assert.equal(taskListError([{ name: 'T', resources: [{}] }, { name: 'U' }]), null);
+  for (const t of [{}, 'x', [null], [{ name: 'T', resources: {} }], [{ resources: [null] }], [[]]]) {
+    assert.equal(typeof taskListError(t), 'string', JSON.stringify(t));
   }
 });
