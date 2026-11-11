@@ -25,7 +25,13 @@ router.get('/', requireAuth, async (req, res, next) => {
         OR EXISTS(SELECT 1 FROM resource_shares rs
                   WHERE rs.resource_type = 'cost_grid' AND rs.resource_id = cg.id AND rs.user_id = $1)
       )`;
-    const { rows: counts } = await query(
+    // The admin-only proposals count does not depend on the offers query: run both together.
+    const allCountsQuery = isAdmin
+      ? query(
+        `SELECT pipeline_year AS year, COUNT(DISTINCT cost_grid_id)::int AS proposals
+         FROM cost_grid_versions WHERE pipeline_year IS NOT NULL GROUP BY pipeline_year`)
+      : null;
+    const [{ rows: counts }, allCountsRes] = await Promise.all([query(
       `WITH ${referenceVersionsCte()}
        SELECT ref_v.pipeline_year AS year, COUNT(*)::int AS offers
        FROM ref_v
@@ -34,16 +40,13 @@ router.get('/', requireAuth, async (req, res, next) => {
          AND ref_v.pipeline_year IS NOT NULL ${visibility}
        GROUP BY ref_v.pipeline_year`,
       isAdmin ? [] : [req.user.id]
-    );
+    ), allCountsQuery]);
     const byYear = new Map(counts.map(c => [Number(c.year), c.offers]));
     if (!isAdmin) return res.json(rows.map(r => ({ ...r, offers: byYear.get(Number(r.year)) || 0 })));
 
     // Admin only: every proposal with any version in the year, Drafts and Canceled included
     // (what Delete on master-pipelines.html needs to explain why it is unavailable).
-    const { rows: allCounts } = await query(
-      `SELECT pipeline_year AS year, COUNT(DISTINCT cost_grid_id)::int AS proposals
-       FROM cost_grid_versions WHERE pipeline_year IS NOT NULL GROUP BY pipeline_year`
-    );
+    const allCounts = allCountsRes.rows;
     const proposalsByYear = new Map(allCounts.map(c => [Number(c.year), c.proposals]));
     res.json(rows.map(r => ({
       ...r,
