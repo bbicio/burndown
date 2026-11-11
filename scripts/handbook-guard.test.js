@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
+import { join, relative, sep, posix } from 'node:path';
 import { docProblems } from '../js/lib/handbook.js';
 
 const ROOT = join(import.meta.dirname, '..');
@@ -43,14 +43,32 @@ export function imageViolations(manifest, pngPaths, readDoc) {
       continue;
     }
     const name = png.slice(png.lastIndexOf('/') + 1);
+    const rel = png.slice(audience.length + 1);
     const referenced = docs.some((d) => {
       if (d.audience !== audience) return false;
       const text = readDoc(d.file);
-      return text.includes(png.slice(audience.length + 1)) || text.includes(name);
+      return mentions(text, rel) || mentions(text, name);
     });
     if (!referenced) v.push(`handbook/${png} is not referenced by any ${audience} document`);
   }
+  // A public document must not pull an image out of restricted/: nginx would
+  // answer 403 to every user who is not an admin.
+  for (const d of docs) {
+    if (d.audience !== 'public') continue;
+    const text = readDoc(d.file);
+    for (const m of text.matchAll(/([^\s()"'<>[\]]+\.png)(?=[)\s"'#?<>\]]|$)/g)) {
+      const resolved = posix.normalize(posix.join(posix.dirname(d.file), m[1]));
+      if (resolved.startsWith('restricted/')) v.push(`${d.file} references restricted image handbook/${resolved}`);
+    }
+  }
   return v;
+}
+
+// True when `text` contains `name` as a whole path or file name, not as the
+// tail or head of a longer one (data.png must not satisfy a.png).
+function mentions(text, name) {
+  const esc = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[/(\\s"'])${esc}($|[)\\s"'#?])`).test(text);
 }
 
 /** Every way the manifest and the .md files under handbook/ can disagree. */
@@ -123,6 +141,16 @@ describe('imageViolations (negative controls, in memory)', () => {
   });
   it('flags an unreferenced image', () => {
     expect(imageViolations(m, ['public/img/other.png'], read)).toHaveLength(1);
+  });
+  it('does not take a longer file name for a reference (data.png is not a.png)', () => {
+    const d = { 'public/a.md': '![x](img/data.png)', 'restricted/b.md': '' };
+    expect(imageViolations(m, ['public/img/a.png'], (f) => d[f])).toHaveLength(1);
+  });
+  it('flags a public document that references a restricted image', () => {
+    const d = { 'public/a.md': '![x](../restricted/img/diag.png)', 'restricted/b.md': '![y](img/diag.png)' };
+    const v = imageViolations(m, ['restricted/img/diag.png'], (f) => d[f]);
+    expect(v).toHaveLength(1);
+    expect(v[0]).toContain('restricted image');
   });
 });
 

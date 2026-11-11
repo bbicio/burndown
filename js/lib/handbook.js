@@ -3,7 +3,7 @@
 import { parseTestCases } from './test-cases-parse.js?v=3';
 
 export const MERMAID_TYPES = [
-  'flowchart', 'graph', 'sequenceDiagram', 'classDiagram', 'classDiagram-v2', 'stateDiagram', 'stateDiagram-v2',
+  'flowchart', 'flowchart-elk', 'info', 'graph', 'sequenceDiagram', 'classDiagram', 'classDiagram-v2', 'stateDiagram', 'stateDiagram-v2',
   'erDiagram', 'journey', 'gantt', 'pie', 'mindmap', 'timeline', 'gitGraph', 'quadrantChart',
   'requirementDiagram', 'C4Context', 'C4Container', 'C4Component', 'C4Dynamic', 'C4Deployment',
   'block-beta', 'architecture-beta', 'sankey-beta', 'xychart-beta', 'packet-beta', 'kanban',

@@ -133,6 +133,10 @@ describe('docProblems', () => {
   it('flags a missing test-cases title', () => {
     expect(docProblems('# Other', 'test-cases')).toHaveLength(1);
   });
+  it('accepts flowchart-elk and info blocks', () => {
+    expect(docProblems('```mermaid\nflowchart-elk TD\nA-->B\n```', 'markdown')).toEqual([]);
+    expect(docProblems('```mermaid\ninfo\n```', 'markdown')).toEqual([]);
+  });
   it('MERMAID_TYPES contains the core types', () => {
     expect(MERMAID_TYPES).toContain('flowchart');
     expect(MERMAID_TYPES).toContain('xychart-beta');

@@ -44,6 +44,14 @@ describe('parseLocations', () => {
     expect(parseLocations(conf)).toEqual([loc('=', '/t', 'redirect'), loc('=', '/p', 'redirect')]);
   });
 
+  it('reads 303 as a redirect', () => {
+    expect(parseLocations('location = /o { return 303 /y; }')).toEqual([loc('=', '/o', 'redirect')]);
+  });
+
+  it('auth_request off is no auth', () => {
+    expect(parseLocations('location = /n { auth_request off; root /x; }')).toEqual([loc('=', '/n', 'serve', null)]);
+  });
+
   it('a location with only auth_request_set has no auth', () => {
     const conf = 'location = /q { auth_request_set $u $upstream_http_x; root /x; }';
     expect(parseLocations(conf)).toEqual([loc('=', '/q', 'serve', null)]);

@@ -209,6 +209,20 @@ describe('classify-cycle.mjs end to end', () => {
     expect(r.stdout).toContain('docs/foo.md');
   }, E2E_TIMEOUT);
 
+  it('does not judge the untouched source of a copy (-C -C) as a changed path', () => {
+    const d = repo();
+    write(d, 'api/src/README.md', 'some notes\nline two\nline three\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'base');
+    write(d, 'docs/notes.md', 'some notes\nline two\nline three\n');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-qm', 'copy');
+
+    const r = run(d, 'HEAD~1...HEAD');
+    expect(firstLine(r.stdout)).toBe('no-code');
+    expect(r.stdout).not.toContain('api/src/README.md');
+  }, E2E_TIMEOUT);
+
   it('sees a pure copy of a handbook document from restricted to public as ordinary', () => {
     const d = repo();
     write(d, 'handbook/restricted/a.md', 'secret notes\nline two\nline three\n');
@@ -220,7 +234,7 @@ describe('classify-cycle.mjs end to end', () => {
 
     const r = run(d, 'HEAD~1...HEAD');
     expect(firstLine(r.stdout)).toBe('ordinary');
-    expect(r.stdout).toContain('handbook/restricted/a.md');
+    expect(r.stdout).toContain('handbook/public/a.md');
   }, E2E_TIMEOUT);
 
   it('judges only the given two-dot range, not earlier commits', () => {
@@ -307,4 +321,28 @@ describe('classify-cycle.mjs end to end', () => {
     expect(r.status).not.toBe(0);
     expect(r.stderr).not.toBe('');
   }, E2E_TIMEOUT);
+});
+
+describe('classifyNameStatus: copies and delete+add pairs (Gate 3 round 2)', () => {
+  it('a copy from an untouched code file judges only the destination', () => {
+    // -C -C takes any unmodified tracked file as the source; the cycle never touched it.
+    const r = classifyNameStatus(Z('C100', 'api/src/README.md', 'docs/notes.md'));
+    expect(r.kind).toBe('no-code');
+    expect(r.paths).toEqual(['docs/notes.md']);
+  });
+  it('a copy into code is still ordinary', () => {
+    expect(classifyNameStatus(Z('C100', 'docs/a.md', 'api/src/a.md')).kind).toBe('ordinary');
+  });
+  it('a rename keeps both paths', () => {
+    expect(classifyNameStatus(Z('R90', 'api/src/a.md', 'docs/a.md')).paths).toEqual(['api/src/a.md', 'docs/a.md']);
+  });
+  it('D in an audience plus A of the same name outside handbook/ is an audience move', () => {
+    expect(classifyNameStatus(Z('D', 'handbook/public/a.md', 'A', 'handbook/a.md')).kind).toBe('ordinary');
+  });
+  it('D outside handbook/ plus A of the same name in an audience is an audience move', () => {
+    expect(classifyNameStatus(Z('D', 'docs/x.md', 'A', 'handbook/public/x.md')).kind).toBe('ordinary');
+  });
+  it('D plus A of the same name in the same audience stays no-code', () => {
+    expect(classifyNameStatus(Z('D', 'handbook/public/a.md', 'A', 'handbook/public/sub/a.md')).kind).toBe('no-code');
+  });
 });

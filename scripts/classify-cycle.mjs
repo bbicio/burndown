@@ -80,14 +80,19 @@ export function classifyNameStatus(z) {
     const record = fields.slice(i, i + take);
     if (take === 2 && audienceOf(record[0]) !== audienceOf(record[1])) audienceMove = true;
     // A heavily edited move shows up as a delete plus an add, not as R.
+    // Outside handbook/ counts as its own audience, as in the R/C rule above.
     if (status === 'D' || status === 'A') {
-      const aud = audienceOf(record[0]);
-      if (aud) (status === 'D' ? deleted : added).push({ aud, name: basename(record[0]) });
+      const aud = audienceOf(record[0]) ?? 'outside';
+      (status === 'D' ? deleted : added).push({ aud, name: basename(record[0]) });
     }
-    for (let n = 0; n < take; n++) paths.push(fields[i++]);
+    // With -C -C a copy's source is any unmodified file, untouched by the
+    // cycle: only the destination is a changed path. A rename's source is gone.
+    if (status.startsWith('C')) paths.push(record[1]);
+    else paths.push(...record);
+    i += take;
   }
 
-  // Same basename deleted in one audience and added in the other.
+  // Same basename deleted in one audience and added in another.
   if (deleted.some((d) => added.some((a) => a.aud !== d.aud && a.name === d.name))) audienceMove = true;
 
   // An empty diff must not qualify vacuously: "every path qualifies" is true of
