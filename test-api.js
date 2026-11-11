@@ -1237,6 +1237,17 @@ async function testServerValidation() {
       'SV-41 a plain user GET pipeline-years: no proposals key');
   }
 
+  // client-groups: the pots subquery runs for admins only
+  {
+    const { cookie: svPlain2 } = await getPlainUser();
+    const cgPlain = await api('GET', '/api/client-groups', null, svPlain2);
+    ok(cgPlain.status === 200 && Array.isArray(cgPlain.data) && cgPlain.data.every(g => !('pots' in g)),
+      `SV-45 a plain user GET client-groups: no row has pots (got ${cgPlain.status})`);
+    const cgAdmin = await api('GET', '/api/client-groups', null, adminCookie);
+    ok(cgAdmin.status === 200 && Array.isArray(cgAdmin.data) && cgAdmin.data.every(g => Array.isArray(g.pots)),
+      `SV-45 an admin GET client-groups: every row has an array pots (got ${cgAdmin.status})`);
+  }
+
   // On a real project: an empty resource entry is a 400 and does not leak the pool client
   if (!sysadminCookie) { ok(false, 'SV-14 sysadmin account unavailable'); return; }
   const tp = await api('POST', '/api/projects', { name: '__test_sv_project__' }, sysadminCookie);
