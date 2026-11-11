@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { classifyNameStatus, RUNTIME_LOADED_ROOT_MD } from './classify-cycle.mjs';
+import { classifyNameStatus } from './classify-cycle.mjs';
 
 // Builds the exact shape of `git diff --name-status --find-renames -z` stdout:
 // NUL-separated fields, trailing NUL. Verified byte-for-byte 2026-10-09:
@@ -42,12 +42,26 @@ describe('classifyNameStatus', () => {
     expect(r.paths).toEqual(['docs/a.md', 'docs/b.md']);
   });
 
-  it('7: TEST_CASES.md is runtime-loaded code, other root .md files are not', () => {
-    // test-cases.html fetches it and parses it at load (2026-10-09), so a cycle
-    // touching only this file still changes what a page renders.
-    expect(RUNTIME_LOADED_ROOT_MD).toEqual(['TEST_CASES.md']);
-    expect(classifyNameStatus(Z('M', 'TEST_CASES.md')).kind).toBe('ordinary');
+  it('7: a root .md is no-code, TEST_CASES.md included (the app no longer loads it from there)', () => {
+    expect(classifyNameStatus(Z('M', 'TEST_CASES.md')).kind).toBe('no-code');
     expect(classifyNameStatus(Z('M', 'PRD.md')).kind).toBe('no-code');
+  });
+
+  it('7a: handbook/ markdown and images are no-code', () => {
+    expect(classifyNameStatus(Z('M', 'handbook/public/manual.md')).kind).toBe('no-code');
+    expect(classifyNameStatus(Z('A', 'handbook/public/img/x.png')).kind).toBe('no-code');
+    expect(classifyNameStatus(Z('M', 'handbook/restricted/TEST_CASES.md')).kind).toBe('no-code');
+    expect(classifyNameStatus(Z('D', 'handbook/public/old.md')).kind).toBe('no-code');
+  });
+
+  it('7b: handbook/manifest.json is code', () => {
+    expect(classifyNameStatus(Z('M', 'handbook/manifest.json')).kind).toBe('ordinary');
+  });
+
+  it('7c: a move between audiences is ordinary, a move within one is not', () => {
+    expect(classifyNameStatus(Z('R100', 'handbook/restricted/a.md', 'handbook/public/a.md')).kind).toBe('ordinary');
+    expect(classifyNameStatus(Z('R100', 'ARCHITECTURE.md', 'handbook/restricted/ARCHITECTURE.md')).kind).toBe('ordinary');
+    expect(classifyNameStatus(Z('R100', 'handbook/public/a.md', 'handbook/public/b.md')).kind).toBe('no-code');
   });
 
   it('8: an empty diff does not qualify vacuously', () => {
@@ -97,11 +111,6 @@ describe('classifyNameStatus', () => {
     // browser question. Today the shared .md check covers it; this pins it
     // against a later refactor that splits the clauses and relaxes docs/.
     expect(classifyNameStatus(Z('M', 'docs/OPERATIONAL_MANUAL.html')).kind).toBe('ordinary');
-  });
-
-  it('treats a named exception as code', () => {
-    const r = classifyNameStatus(Z('M', 'TEST_CASES.md'), ['TEST_CASES.md']);
-    expect(r.kind).toBe('ordinary');
   });
 });
 

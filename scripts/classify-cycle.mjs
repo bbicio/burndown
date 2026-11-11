@@ -8,7 +8,9 @@
 // docs/superpowers/specs/2026-10-09-classify-cycle-script-design.md.
 //
 // A path qualifies when it is a .md file under .claude/, a .md file under
-// docs/, or a root-level .md — and is not a named exception.
+// docs/, a root-level .md, or a .md/.png file under handbook/. A rename or copy
+// that moves a file between handbook audiences (public/restricted/outside) makes
+// the whole cycle ordinary.
 //
 // Why each guard exists (this is the rationale the gate no longer carries):
 //
@@ -27,34 +29,38 @@
 //     is fully trackable and merely absent. A hook runs on every tool call of
 //     every later session, so a cycle adding one is never a no-code cycle.
 //
-//   * Named exceptions — a root .md the running app fetches at runtime is code
-//     for this purpose, because changing it changes what a page renders. The
-//     list below is the single place to add one, and the cycle that introduces
-//     such a fetch is the cycle that must add it.
+//   * handbook/ — the documents the handbook viewer serves. The viewer's rules
+//     live in the server and the manifest, not in the documents, so editing a
+//     .md/.png there changes content only. handbook/manifest.json is read by the
+//     app and stays code. Moving a document between audiences changes who may
+//     read it, so that is never a no-code cycle.
 
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 
 /**
- * Root-level .md files the running app loads at runtime, which therefore count
- * as code: editing one changes what a page renders, so the cycle keeps the
- * browser-verification question instead of being waved through as no-code.
- * TEST_CASES.md is here because test-cases.html fetches and parses it at load
- * (2026-10-09). Only add a file a page actually loads — a .md that is merely
- * read by a human belongs nowhere near this list.
+ * Which handbook audience a path belongs to: 'public' or 'restricted' under
+ * handbook/{public,restricted}/, null anywhere else.
  */
-export const RUNTIME_LOADED_ROOT_MD = ['TEST_CASES.md'];
+export function audienceOf(path) {
+  if (typeof path !== 'string') return null;
+  if (path.startsWith('handbook/public/')) return 'public';
+  if (path.startsWith('handbook/restricted/')) return 'restricted';
+  return null;
+}
 
 /**
  * @param {string} z stdout of `git diff --name-status --find-renames -z`:
  *   NUL-separated fields, `M\0path\0` per change, `R100\0old\0new\0` per
  *   rename (the status token carries the similarity index).
- * @param {string[]} exceptions root .md files that count as code.
  * @returns {{ kind: 'no-code'|'ordinary', paths: string[] }}
  */
-export function classifyNameStatus(z, exceptions = RUNTIME_LOADED_ROOT_MD) {
+export function classifyNameStatus(z) {
   const fields = String(z ?? '').split('\0').filter((f) => f !== '');
   const paths = [];
+  // A rename or copy that changes a document's audience changes who can read
+  // it, which the running app enforces: never a no-code cycle.
+  let audienceMove = false;
 
   for (let i = 0; i < fields.length; ) {
     const status = fields[i++];
@@ -66,22 +72,28 @@ export function classifyNameStatus(z, exceptions = RUNTIME_LOADED_ROOT_MD) {
       // belonged to it would simply be missing from the verdict. Refuse instead.
       return { kind: 'ordinary', paths };
     }
+    const record = fields.slice(i, i + take);
+    if (take === 2 && audienceOf(record[0]) !== audienceOf(record[1])) audienceMove = true;
     for (let n = 0; n < take; n++) paths.push(fields[i++]);
   }
 
   // An empty diff must not qualify vacuously: "every path qualifies" is true of
   // no paths at all. Pre-flight check 3 only guarantees that commits exist, not
   // that the diff is non-empty — a change plus its revert has both.
-  const kind = paths.length > 0 && paths.every((p) => qualifies(p, exceptions))
+  const kind = !audienceMove && paths.length > 0 && paths.every(qualifies)
     ? 'no-code'
     : 'ordinary';
 
   return { kind, paths };
 }
 
-function qualifies(path, exceptions) {
-  if (typeof path !== 'string' || !path.endsWith('.md')) return false;
-  if (exceptions.includes(path)) return false;
+function qualifies(path) {
+  if (typeof path !== 'string') return false;
+  // Prefix, never substring: handbook/ is checked from the start of the path
+  // so api/handbook/x.md is still code. Under handbook/ images qualify too;
+  // handbook/manifest.json does not, because the app reads it.
+  if (path.startsWith('handbook/')) return path.endsWith('.md') || path.endsWith('.png');
+  if (!path.endsWith('.md')) return false;
   // Prefix, never substring: api/docs/helper.md contains "docs/" but is a file
   // under api/, so it is code.
   return path.startsWith('.claude/') || path.startsWith('docs/') || !path.includes('/');
