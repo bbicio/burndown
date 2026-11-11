@@ -359,7 +359,7 @@ router.post('/ratecards', requireAdmin, async (req, res, next) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const lockedClient = await client.query('SELECT id FROM clients WHERE id = $1 FOR UPDATE', [clientId]);
+      const lockedClient = await client.query('SELECT id FROM clients WHERE id = $1 FOR NO KEY UPDATE', [clientId]);
       if (!lockedClient.rows[0]) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: 'Client not found' });
