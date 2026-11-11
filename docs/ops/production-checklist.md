@@ -16,7 +16,7 @@ Things to verify the first time the app runs outside a development machine, and 
 - [ ] **The proxy forwards `X-Forwarded-For` and does not accept a client-supplied one.** The edge proxy must overwrite the header, not append to what the client sent.
 - [ ] **The API port is not reachable from outside.** `docker-compose.yml` publishes no port for `api` (pinned by `scripts/compose-api-port.test.js`); an `api` container created before that change keeps the port until it is recreated (`docker compose up -d api`). Check from another machine: `curl -i http://<host>:3000/api/auth/me` must not answer. Failure: any answer.
 - [ ] **Cookie paths survive the proxy.** The challenge and device cookies are scoped to `/api/auth`. The app must be served from the root of its host, with `/api/` reaching the API unchanged. Failure: the code step answers "Sign-in expired" at once.
-- [ ] **Only site files are served.** Signed in, `/.env`, `/backups/` and `/CLAUDE.md` answer 404 (`scripts/nginx-serve-guard.test.js` pins the rule). Failure: the browser downloads the file.
+- [ ] **Only site files are served.** Signed in, `/.env`, `/backups/` and `/CLAUDE.md` answer 404 (`scripts/nginx-serve.test.js` pins the rule). Failure: the browser downloads the file.
 - [ ] **`/api/auth/*` is not cached** by a CDN or proxy. Failure: a user sees another user's profile, or a stale sign-in state.
 
 ## Mail

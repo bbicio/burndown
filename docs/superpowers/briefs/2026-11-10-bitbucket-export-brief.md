@@ -15,7 +15,7 @@
 
 1. Un comando lanciato a mano (script + voce eseguibile da VS Code, per esempio `npm run` o un task) esporta un commit di `main` verso il repo Bitbucket.
 2. L'export contiene **solo** i file elencati in un elenco unico e versionato, con regole di inclusione ed esclusione per path:
-   - **Inclusi:** le pagine `*.html` dell'app; `js/`, `css/`, `assets/`; `api/` (`Dockerfile`, `package.json`, `package-lock.json`, `src/` con routes, services, lib, middleware, db/migrations, `create-admin.js`, `promote-sysadmin.js`); `nginx.conf`, `docker-compose.yml` (vedi domande aperte), `.env.example`, `.gitignore`.
+   - **Inclusi:** le pagine `*.html` dell'app; `js/`, `css/` (`assets/` was deleted on 2026-11-11, B-448); `api/` (`Dockerfile`, `package.json`, `package-lock.json`, `src/` con routes, services, lib, middleware, db/migrations, `create-admin.js`, `promote-sysadmin.js`); `nginx.conf`, `docker-compose.yml` (vedi domande aperte), `.env.example`, `.gitignore`.
    - **Esclusi:** `docs/`, `.claude/`, `.superpowers/`, `scripts/` (compreso `backup-db.sh`), `CLAUDE.md`, `ARCHITECTURE.md`, `PRD.md`, `TEST_CASES.md`, `test-cases.html`, `test-api.js`, `vitest.config.js`, i `package.json`/`package-lock.json` della root, ogni `*.test.js`/`*.spec.js`, `api/src/scripts/`, `api/nodemon.json`.
 3. Su Bitbucket ogni export produce **un commit**, il cui messaggio riporta l'hash del commit GitHub di partenza. Un export senza differenze rispetto al precedente non crea un commit vuoto.
 4. I file eliminati dal sito tra un export e l'altro spariscono anche su Bitbucket: l'export rispecchia l'elenco, non si limita ad aggiungere.

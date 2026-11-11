@@ -1,9 +1,12 @@
-// Guard: nginx.conf serves only the site — the root *.html pages, the root files a
+// nginx.conf serves only the site — the root *.html pages, the root files a
 // page fetches (RUNTIME_FETCHED below) and the .css/.js files under css/ and js/
 // (tests excluded). docker-compose.yml mounts the whole
 // repo root into nginx, so anything else a location serves is downloadable:
 // .env, backups/, .git/, docs. Every tracked file is checked, plus a fixed list
 // of untracked paths that exist on a developer machine.
+//
+// A product guard, not a process one: its name deliberately does not end in
+// -guard.test.js, which PROCESS.md §4b reserves for the documentation guards.
 //
 // The location selection is modelled by scripts/lib/nginx-locations.mjs, not run
 // in a real nginx: see that file's header for what the model leaves out.

@@ -61,7 +61,7 @@ scripts/test-branch.sh status  # "up" (exit 0) or "down" (exit 1) — both conta
 
 No bundler, no build step for the **runtime** — nginx serves `js/`/`css/` files exactly as they are on disk, and this must stay true.
 
-A dev-only test toolchain exists for the frontend: root `package.json` + vitest + jsdom, isolated from the runtime (see `js/lib/` below). It is never bundled, never served — `nginx.conf` serves only the root `*.html` pages, `TEST_CASES.md` and the `.css`/`.js` files under `css/` and `js/` (tests excluded); every other path answers 404 (`scripts/nginx-serve-guard.test.js`). Run tests with `npm test` (single run) or `npm run test:watch`. Vitest 4 needs Node ≥ 20.12 (it crashes at startup with `does not provide an export named 'styleText'` on older versions): if the host Node is older, run the suite in a throwaway container instead:
+A dev-only test toolchain exists for the frontend: root `package.json` + vitest + jsdom, isolated from the runtime (see `js/lib/` below). It is never bundled, never served — `nginx.conf` serves only the root `*.html` pages, `TEST_CASES.md` and the `.css`/`.js` files under `css/` and `js/` (tests excluded); every other path answers 404 (`scripts/nginx-serve.test.js`). Run tests with `npm test` (single run) or `npm run test:watch`. Vitest 4 needs Node ≥ 20.12 (it crashes at startup with `does not provide an export named 'styleText'` on older versions): if the host Node is older, run the suite in a throwaway container instead:
 
 ```bash
 MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/app" -v /app/node_modules -w /app node:22 sh -c 'npm ci --no-audit --no-fund >/dev/null 2>&1 && npm test'
@@ -211,7 +211,7 @@ scripts/decision-ledger-guard.test.js — fails when a Spec or Plan dated 2026-1
                             lacks its PROCESS.md §6b ledger (Specs from 10-14: `Brief started`). Limits: own header.
 scripts/lib/live-docs.mjs — the walk (`liveMarkdown`, `SKIP_DIRS`) and the citation matcher shared by
                             `claude-md-guard` and `doc-paths-guard`, so the scanned scope has one definition.
-scripts/nginx-serve-guard.test.js — fails when `nginx.conf` would serve a non-site path or stop serving a
+scripts/nginx-serve.test.js — fails when `nginx.conf` would serve a non-site path or stop serving a
                             site file; the location choice is modelled by `scripts/lib/nginx-locations.mjs`.
 scripts/shoot.mjs        — renders pages of the running app with headless Chrome, one PNG per width, for comparing a
                             redesign against its design boards. **Reading the PNGs back is part of visual

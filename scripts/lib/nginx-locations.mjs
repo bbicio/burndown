@@ -1,5 +1,5 @@
 // A model of how nginx picks the `location` block that handles a request URI,
-// so scripts/nginx-serve-guard.test.js can check what nginx.conf serves without
+// so scripts/nginx-serve.test.js can check what nginx.conf serves without
 // running nginx.
 //
 // What it models: the `=`, `^~`, `~`, `~*` and plain-prefix modifiers and their
