@@ -976,10 +976,13 @@ async function testRatecards() {
   const r1 = await api('GET', '/api/ratecards', null, adminCookie);
   ok(r1.status === 200 && Array.isArray(r1.data), 'RC-01 GET /ratecards → 200 array');
 
-  // Create global ratecard
+  // Create a ratecard (a client is required)
+  const rc2ClientRes = await api('POST', '/api/clients', { name: `__test_rc2_client_${Date.now()}__` }, adminCookie);
+  const rc2ClientId = rc2ClientRes.data?.id;
+  if (rc2ClientId) later('DELETE', `/api/clients/${rc2ClientId}`);
   const rcName = `__test_rc_${Date.now()}__`;
-  const r2 = await api('POST', '/api/ratecards', { name: rcName, clientId: null }, adminCookie);
-  ok(r2.status === 201, 'RC-02 POST create global ratecard → 201');
+  const r2 = await api('POST', '/api/ratecards', { name: rcName, clientId: rc2ClientId }, adminCookie);
+  ok(r2.status === 201, 'RC-02 POST create ratecard for a client → 201');
   const rcId = r2.data?.id;
   ok(!!rcId, 'RC-02 response has id');
   if (rcId) later('DELETE', `/api/ratecards/${rcId}`);
@@ -1001,6 +1004,13 @@ async function testRatecards() {
     ok(r4.status === 201, 'RC-04 POST per-client ratecard → 201');
     ok(r4.data?.client_id === rcClientId, 'RC-04 ratecard linked to correct client');
     const rcPerClientId = r4.data?.id;
+    let rcVer = r4.data?.version;
+    // Entries PATCH carrying the card's version; follows the version the server returns
+    const putEntries = async body => {
+      const r = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, { version: rcVer, entries: body }, adminCookie);
+      if (r.status === 200 && typeof r.data?.version === 'number') rcVer = r.data.version;
+      return r;
+    };
     if (rcPerClientId) later('DELETE', `/api/ratecards/${rcPerClientId}`);
 
     // Update entries (PATCH /api/ratecards/:id/entries) — core of Costgrid modal save
@@ -1009,7 +1019,7 @@ async function testRatecards() {
     const rcRoles = rcPerClientId ? [await makeTestRole('RCA' + rcTag), await makeTestRole('RCB' + rcTag)].filter(r => r.id) : [];
     if (rcPerClientId && rcRoles.length === 2) {
       const entries = [{ roleId: rcRoles[0].id, hourlyRate: 150 }];
-      const r5 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, entries, adminCookie);
+      const r5 = await putEntries(entries);
       ok(r5.status === 200, 'RC-05 PATCH /ratecards/:id/entries → 200');
 
       // Verify the entry is persisted
@@ -1023,7 +1033,7 @@ async function testRatecards() {
       );
 
       // Clear entries (empty array = fall back to agency default)
-      const r7 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [], adminCookie);
+      const r7 = await putEntries([]);
       ok(r7.status === 200, 'RC-06 PATCH entries with empty array → 200 (clear all custom rates)');
       const entriesOf = async () => {
         const g = await api('GET', `/api/ratecards/${rcPerClientId}`, null, adminCookie);
@@ -1037,31 +1047,31 @@ async function testRatecards() {
       {
         await ensureTestCurrencies();
         const A = rcRoles[0].id, B = rcRoles[1].id;
-        const r8 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [{ roleId: A, hourlyRate: null, rateOverrides: { USD: 175.5 } }], adminCookie);
+        const r8 = await putEntries([{ roleId: A, hourlyRate: null, rateOverrides: { USD: 175.5 } }]);
         const eA = (await entriesOf()).filter(e => rid(e) === String(A));
         ok(r8.status === 200 && eA.length === 1 && rate(eA[0]) === null && Number(ovr(eA[0]).USD) === 175.5
           && !eA.some(e => rate(e) !== null && Number(rate(e)) === 0),
           'RC-07 null EUR rate + USD override saved; EUR reads back null, not 0');
         const before = JSON.stringify(await entriesOf());
-        const r9 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [{ roleId: A, hourlyRate: null, rateOverrides: {} }], adminCookie);
+        const r9 = await putEntries([{ roleId: A, hourlyRate: null, rateOverrides: {} }]);
         ok(r9.status === 400 && r9.data?.code === 'MONEY_RULE' && JSON.stringify(await entriesOf()) === before,
           'RC-08 empty entry → 400 MONEY_RULE, no write');
-        const r10 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [{ roleId: A, hourlyRate: 0 }, { roleId: B, hourlyRate: 120 }], adminCookie);
+        const r10 = await putEntries([{ roleId: A, hourlyRate: 0 }, { roleId: B, hourlyRate: 120 }]);
         const e2 = await entriesOf();
         const a2 = e2.find(e => rid(e) === String(A)), b2 = e2.find(e => rid(e) === String(B));
         ok(r10.status === 200 && a2 && Number(rate(a2)) === 0 && b2 && Number(rate(b2)) === 120,
           'RC-09 hourlyRate 0 stored as 0, other role at 120');
-        const r11 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [{ roleId: B, hourlyRate: 120 }], adminCookie);
+        const r11 = await putEntries([{ roleId: B, hourlyRate: 120 }]);
         const e3 = await entriesOf();
         ok(r11.status === 200 && !e3.some(e => rid(e) === String(A)) && e3.some(e => rid(e) === String(B) && Number(rate(e)) === 120),
           'RC-10 role omitted from the body loses its entry');
 
-        const r12 = await api('PATCH', '/api/ratecards/not-a-uuid/entries', [], adminCookie);
+        const r12 = await api('PATCH', '/api/ratecards/not-a-uuid/entries', { version: 0, entries: [] }, adminCookie);
         ok(r12.status === 400, 'RC-11 malformed ratecard id → 400, not 500');
-        const r13 = await api('PATCH', '/api/ratecards/00000000-0000-4000-8000-000000000000/entries', [], adminCookie);
+        const r13 = await api('PATCH', '/api/ratecards/00000000-0000-4000-8000-000000000000/entries', { version: 0, entries: [] }, adminCookie);
         ok(r13.status === 404, 'RC-12 unknown ratecard id → 404');
-        const r14 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [{ roleId: 'not-a-uuid', hourlyRate: 1 }], adminCookie);
-        const r15 = await api('PATCH', `/api/ratecards/${rcPerClientId}/entries`, [{ roleId: '00000000-0000-4000-8000-000000000000', hourlyRate: 1 }], adminCookie);
+        const r14 = await putEntries([{ roleId: 'not-a-uuid', hourlyRate: 1 }]);
+        const r15 = await putEntries([{ roleId: '00000000-0000-4000-8000-000000000000', hourlyRate: 1 }]);
         const e4 = await entriesOf();
         ok(r14.status === 400 && r15.status === 400 && e4.some(e => rid(e) === String(B) && Number(rate(e)) === 120),
           'RC-13 malformed or unknown roleId → 400, entries unchanged');
@@ -1167,6 +1177,41 @@ async function testServerValidation() {
     const s23b = await putS(svId, { phases: [{ phaseName: 'P1', tasks: [task] }], roles: [{ roleCode: myRole.code, rate: 60 }] });
     ok(s23b.status === 200, `SV-23 a valid structure PUT right after the refusal → 200 (got ${s23b.status}: ${s23b.data?.error})`);
   }
+
+  // Rate cards: a client is required, clone is gone, stale saves are refused by version
+  const svRcClient = await api('POST', '/api/clients', { name: `__test_sv_rc_client_${Date.now()}__` }, adminCookie);
+  if (svRcClient.data?.id) later('DELETE', `/api/clients/${svRcClient.data.id}`);
+  const s30 = await api('POST', '/api/ratecards', { name: '__test_sv_rc__' }, adminCookie);
+  ok(s30.status === 400, `SV-30 POST ratecard without clientId → 400 (got ${s30.status})`);
+  const s31 = await api('POST', '/api/ratecards', { name: '__test_sv_rc__', clientId: '00000000-0000-4000-8000-0000000000aa' }, adminCookie);
+  ok(s31.status === 400, `SV-31 POST ratecard with an unknown clientId → 400 (got ${s31.status})`);
+  const s32 = await api('POST', '/api/ratecards/clone', { clientId: svRcClient.data?.id, name: 'x' }, adminCookie);
+  ok(s32.status === 404, `SV-32 POST /ratecards/clone → 404 (got ${s32.status})`);
+  const svRc = await api('POST', '/api/ratecards', { name: '__test_sv_rc__', clientId: svRcClient.data?.id }, adminCookie);
+  const svRcId = svRc.data?.id;
+  if (svRcId) later('DELETE', `/api/ratecards/${svRcId}`);
+  const svRole1 = await makeTestRole('SVA' + Date.now());
+  const svRole2 = await makeTestRole('SVB' + Date.now());
+  if (svRcId && svRole1.id && svRole2.id) {
+    const svEntries = async () => (await api('GET', `/api/ratecards/${svRcId}`, null, adminCookie)).data?.entries || [];
+    const svPatch = body => api('PATCH', `/api/ratecards/${svRcId}/entries`, body, adminCookie);
+    const s33 = await svPatch([{ roleId: svRole1.id, hourlyRate: 10 }]);
+    ok(s33.status === 409 && s33.data?.code === 'RATECARD_STALE' && (await svEntries()).length === 0,
+      `SV-33 entries PATCH with a bare array → 409 RATECARD_STALE, entries unchanged (got ${s33.status})`);
+    const s34 = await svPatch({ version: 0, entries: [{ roleId: svRole1.id, hourlyRate: 10 }] });
+    ok(s34.status === 200 && s34.data?.version === 1, `SV-34 version 0 on a fresh card → 200 { version: 1 } (got ${s34.status}, ${JSON.stringify(s34.data)})`);
+    const afterS34 = JSON.stringify(await svEntries());
+    const s35 = await svPatch({ version: 0, entries: [{ roleId: svRole2.id, hourlyRate: 20 }] });
+    ok(s35.status === 409 && s35.data?.code === 'RATECARD_STALE' && JSON.stringify(await svEntries()) === afterS34,
+      `SV-35 version 0 again → 409, entries as after SV-34 (got ${s35.status})`);
+    const s36 = await svPatch({ version: 1, entries: [{ roleId: svRole1.id, hourlyRate: 10 }, { roleId: svRole1.id, hourlyRate: 11 }] });
+    ok(s36.status === 400 && JSON.stringify(await svEntries()) === afterS34, `SV-36 duplicate roleId → 400, entries unchanged (got ${s36.status})`);
+    await api('DELETE', `/api/roles/${svRole2.id}`, null, adminCookie);
+    const s37 = await svPatch({ version: 1, entries: [{ roleId: svRole1.id, hourlyRate: 12 }, { roleId: svRole2.id, hourlyRate: 20 }] });
+    const s37e = await svEntries();
+    ok(s37.status === 200 && s37e.length === 1 && String(s37e[0].roleId) === String(svRole1.id),
+      `SV-37 an entry whose role was deleted → 200, that role absent (got ${s37.status}, ${s37e.length} entries)`);
+  } else ok(false, 'SV-33..37 setup failed');
 
   // On a real project: an empty resource entry is a 400 and does not leak the pool client
   if (!sysadminCookie) { ok(false, 'SV-14 sysadmin account unavailable'); return; }
@@ -1607,11 +1652,18 @@ async function testMoneyRules() {
       `MR-11 role PATCH hourlyRate "100" / rateOverrides [1] → MONEY_RULE, role unchanged (got ${r11a.status}, ${r11b.status})`);
   } else fail('MR-11: MR-09 role missing — skipping');
 
-  const rc = await api('POST', '/api/ratecards', { name: `__test_mr_rc_${Date.now()}__`, clientId: null }, adminCookie);
+  const mrRcClient = await api('POST', '/api/clients', { name: `__test_mr_rc_client_${Date.now()}__` }, adminCookie);
+  if (mrRcClient.data?.id) later('DELETE', `/api/clients/${mrRcClient.data.id}`);
+  const rc = await api('POST', '/api/ratecards', { name: `__test_mr_rc_${Date.now()}__`, clientId: mrRcClient.data?.id }, adminCookie);
   const rcId = rc.data?.id;
+  let mrVer = rc.data?.version;
   if (rcId) later('DELETE', `/api/ratecards/${rcId}`);
   if (rcId && r9Id) {
-    const patchEntries = body => api('PATCH', `/api/ratecards/${rcId}/entries`, body, adminCookie);
+    const patchEntries = async body => {
+      const r = await api('PATCH', `/api/ratecards/${rcId}/entries`, { version: mrVer, entries: body }, adminCookie);
+      if (r.status === 200 && typeof r.data?.version === 'number') mrVer = r.data.version;
+      return r;
+    };
     const entryRate = async () => ((await api('GET', `/api/ratecards/${rcId}`, null, adminCookie)).data?.entries || [])
       .find(e => e.roleId === mrRole.id)?.hourlyRate;
     const e0 = await patchEntries([{ roleId: mrRole.id, hourlyRate: 80, rateOverrides: {} }]);

@@ -227,7 +227,6 @@ const Api = {
     list:         ()               => apiFetch('/ratecards'),
     get:          (id)             => apiFetch(`/ratecards/${id}`),
     create:       (name, clientId) => apiFetch('/ratecards', { method: 'POST', body: JSON.stringify({ name, clientId: clientId || null }) }),
-    clone:        (clientId, name) => apiFetch('/ratecards/clone', { method: 'POST', body: JSON.stringify({ clientId, name }) }),
     rename:       (id, name)       => apiFetch(`/ratecards/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
     updateEntries: (id, entries)   => apiFetch(`/ratecards/${id}/entries`, { method: 'PATCH', body: JSON.stringify(entries) }),
     delete:       (id)             => apiFetch(`/ratecards/${id}`, { method: 'DELETE' }),
