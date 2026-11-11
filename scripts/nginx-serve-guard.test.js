@@ -23,10 +23,15 @@ const ALWAYS_404 = [
   '/.env', '/backups/pdash.dump', '/.claude/worktrees/x/.env', '/.git/HEAD', '/shots/x.png',
   '/.superpowers_up.log', '/node_modules/vue/package.json', '/favicon.ico', '/.well-known/x.json',
   '/css/', '/js/lib/', '/docs', '/assets/chart.umd.min.js',
+  // The repo sits on a case-insensitive filesystem: a case variant reaches the real test file.
+  '/js/lib/money.Test.js', '/js/lib/money.test.JS',
 ];
 
+// Root files a page fetches at runtime: test-cases.html renders TEST_CASES.md.
+const RUNTIME_FETCHED = ['TEST_CASES.md'];
+
 function isSite(path) {
-  if (!path.includes('/')) return path.endsWith('.html');
+  if (!path.includes('/')) return path.endsWith('.html') || RUNTIME_FETCHED.includes(path);
   if (path.startsWith('css/')) return path.endsWith('.css');
   if (path.startsWith('js/')) return path.endsWith('.js') && !/\.(test|spec)\.js$/.test(path);
   return false;
@@ -67,7 +72,7 @@ describe('nginx.conf serves only site files', () => {
   });
 
   it('the other root pages require auth', () => {
-    for (const uri of ['/pipeline.html', '/_db-reset.html']) {
+    for (const uri of ['/pipeline.html', '/_db-reset.html', '/TEST_CASES.md']) {
       expect(pick(uri), uri).toMatchObject({ action: 'serve', auth: true });
     }
   });
