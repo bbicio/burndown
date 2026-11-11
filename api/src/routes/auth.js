@@ -139,9 +139,12 @@ router.get('/me', requireAuth, async (req, res, next) => {
 // for a correction instead. Recorded in rectification_requests and notified to every active admin.
 router.post('/rectification-request', requireAuth, async (req, res, next) => {
   let slot = null;
-  // A 404 or a 500 records nothing: the slot goes back.
+  // Set once the request and its notifications are written, before the COMMIT: from there on an error
+  // (COMMIT, release, the answer) may leave them recorded, so it keeps the slot.
+  let written = false;
+  // A 404, or a 500 before the request was written, records nothing: the slot goes back.
   const refundSlot = () => {
-    if (slot && slot.allowed) rectificationLimiter.refund(req.user.id, Date.now(), slot.window);
+    if (slot && slot.allowed && !written) rectificationLimiter.refund(req.user.id, Date.now(), slot.window);
   };
   try {
     const { message } = req.body || {};
@@ -165,6 +168,7 @@ router.post('/rectification-request', requireAuth, async (req, res, next) => {
           'INSERT INTO rectification_requests (user_id, message) VALUES ($1, $2) RETURNING id', [req.user.id, text]);
         const rows = await notifyAdmins(c, request.id, title, text, req.user.id);
         if (!rows.length) throw Object.assign(new Error('no recipient'), { code: 'NO_RECIPIENT' });
+        written = true;
         return rows;
       });
     } catch (e) {

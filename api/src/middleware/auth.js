@@ -27,8 +27,11 @@ function requireAuth(req, res, next) {
   }).catch(next);
 }
 
+// The callbacks below receive requireAuth's errors too (a failed session query): they go to next, before
+// req.user is read.
 function requireAdmin(req, res, next) {
-  requireAuth(req, res, () => {
+  requireAuth(req, res, err => {
+    if (err) return next(err);
     if (req.user.role !== 'admin' && req.user.role !== 'sysadmin') {
       return res.status(403).json({ error: 'Admin access required' });
     }
@@ -38,7 +41,8 @@ function requireAdmin(req, res, next) {
 
 // Gates irreversible bulk-deletion routes. The role is already the database's (requireAuth).
 function requireSysAdmin(req, res, next) {
-  requireAuth(req, res, () => {
+  requireAuth(req, res, err => {
+    if (err) return next(err);
     if (req.user.role !== 'sysadmin') {
       return res.status(403).json({ error: 'Sysadmin access required' });
     }
