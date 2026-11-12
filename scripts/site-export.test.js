@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync, existsSync, readFileSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { resolveCommit, readBlobs, runList, runCopy, resolveDest, classifyCommit, parseArgs } from './site-export.mjs';
 
 vi.setConfig({ testTimeout: 60000 }); // each test builds temp git repos; slow on Windows
@@ -413,5 +414,84 @@ describe('review round 3', () => {
 
   it('rejects a --dest value that looks like an option', () => {
     expect(() => parseArgs(['--dest', '-foo'], { dest: true })).toThrow(/--dest needs a directory/);
+  });
+});
+
+// ── --yes --sha ────────────────────────────────────────────────────────────
+
+const SHA = 'a'.repeat(40);
+const ALLOW = { dest: true, dryRun: true, yes: true };
+
+describe('parseArgs, --yes --sha', () => {
+  it('takes both together and adds yes/sha only when given', () => {
+    expect(parseArgs(['--yes', '--sha', SHA], ALLOW)).toEqual({ ref: 'main', dryRun: false, yes: true, sha: SHA });
+    expect(parseArgs(['--dry-run'], ALLOW)).toEqual({ ref: 'main', dryRun: true });
+  });
+
+  it('refuses one without the other, a malformed sha, and the flags where the command lacks them', () => {
+    expect(() => parseArgs(['--yes'], ALLOW)).toThrow('--yes needs --sha');
+    expect(() => parseArgs(['--sha', SHA], ALLOW)).toThrow('--sha needs --yes');
+    expect(() => parseArgs(['--yes', '--sha', 'ABC'], ALLOW)).toThrow('--sha must be 40 lowercase hex characters');
+    expect(() => parseArgs(['--yes', '--sha', SHA.toUpperCase()], ALLOW)).toThrow('--sha must be 40 lowercase hex characters');
+    expect(() => parseArgs(['--yes', '--sha'], ALLOW)).toThrow('--sha must be 40 lowercase hex characters');
+    expect(() => parseArgs(['--yes', '--sha', SHA], {})).toThrow('unknown option: --yes');
+  });
+});
+
+describe('runCopy, expectedSha', () => {
+  it('refuses before writing when the sha is not the resolved one, naming both', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    const real = git(repo, 'rev-parse', 'HEAD');
+    const r = await copy(repo, dest, { expectedSha: SHA });
+    expect(r.code).toBe(1);
+    expect(r.out).toContain(`Refusing to copy: --sha ${SHA} does not match main (${real})`);
+    expect(listFiles(dest)).toEqual([]);
+    expect(r.asked()).toBe(0);
+  });
+
+  it('copies when the sha is the resolved one', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    const r = await copy(repo, dest, { expectedSha: git(repo, 'rev-parse', 'HEAD') });
+    expect(r.code).toBe(0);
+    expect(listFiles(dest)).toEqual(INCLUDED);
+  });
+});
+
+describe('the command line, --yes --sha', () => {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'site-export.mjs');
+  const cli = (repo, args) => {
+    try {
+      const stdout = execFileSync(process.execPath, [script, 'copy', ...args], { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+      return { code: 0, stdout, stderr: '' };
+    } catch (e) {
+      return { code: e.status, stdout: String(e.stdout), stderr: String(e.stderr) };
+    }
+  };
+
+  it('writes without a terminal when --yes and the right --sha are given', () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    const r = cli(repo, ['--yes', '--sha', git(repo, 'rev-parse', 'HEAD'), '--dest', dest]);
+    expect(r.code).toBe(0);
+    expect(listFiles(dest)).toEqual(INCLUDED);
+  });
+
+  it('exits 1 and writes nothing when the --sha is wrong', () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    const r = cli(repo, ['--yes', '--sha', SHA, '--dest', dest]);
+    expect(r.code).toBe(1);
+    expect(listFiles(dest)).toEqual([]);
+  });
+
+  it('still refuses to write without --yes and without a terminal', () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    const r = cli(repo, ['--dest', dest]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('Refusing to write without an interactive confirmation.');
+    expect(listFiles(dest)).toEqual([]);
   });
 });

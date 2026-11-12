@@ -2,7 +2,7 @@
 // and copy the site files into the local Bitbucket clone.
 //
 //   node scripts/site-export.mjs list [ref]
-//   node scripts/site-export.mjs copy [ref] [--dest <dir>] [--dry-run]
+//   node scripts/site-export.mjs copy [ref] [--dest <dir>] [--dry-run] [--yes --sha <sha>]
 //
 // Reads the commit (never the working tree), applies scripts/site-export.rules
 // (scripts/lib/site-export.mjs), and never runs `git commit` or `git push`.
@@ -235,11 +235,16 @@ function originWarning(repo, sha) {
 /**
  * `copy`: commit → included files → destination, after confirmation.
  * @param {{ repo: string, ref: string, dest?: string, env: object, dryRun: boolean,
- *   confirm: (summary: object) => Promise<boolean>, out: (line: string) => void }} o
+ *   expectedSha?: string, confirm: (summary: object) => Promise<boolean>,
+ *   out: (line: string) => void }} o `expectedSha`: refuse unless the ref resolves to it
  * @returns {Promise<number>} exit code
  */
-export async function runCopy({ repo, ref, dest, env, dryRun, confirm, out }) {
+export async function runCopy({ repo, ref, dest, env, dryRun, expectedSha, confirm, out }) {
   const { sha, items } = classifyCommit(repo, ref);
+  if (expectedSha && expectedSha !== sha) {
+    out(`Refusing to copy: --sha ${expectedSha} does not match ${ref} (${sha})`);
+    return 1;
+  }
   const unclassified = items.filter((i) => i.verdict === 'unclassified');
   if (unclassified.length > 0) {
     out('Refusing to copy: these files match no rule in scripts/site-export.rules:');
@@ -306,11 +311,13 @@ async function askInTerminal() {
 }
 
 /**
- * Strict argument parser: `[ref] [--dest <dir>] [--dry-run]`. An unknown flag, a
- * `--dest` without a value or a second positional argument is an error.
+ * Strict argument parser: `[ref] [--dest <dir>] [--dry-run] [--yes --sha <sha>]`. An
+ * unknown flag, a `--dest` without a value, a second positional argument, `--yes`
+ * without `--sha` (or the reverse) or a `--sha` that is not 40 lowercase hex
+ * characters is an error. `yes` and `sha` are present in the result only when given.
  * @param {string[]} args
- * @param {{ dest?: boolean, dryRun?: boolean }} allowed which flags the command takes
- * @returns {{ ref: string, dest?: string, dryRun: boolean }}
+ * @param {{ dest?: boolean, dryRun?: boolean, yes?: boolean }} allowed which flags the command takes
+ * @returns {{ ref: string, dest?: string, dryRun: boolean, yes?: boolean, sha?: string }}
  */
 export function parseArgs(args, allowed = {}) {
   const out = { ref: 'main', dryRun: false };
@@ -322,10 +329,17 @@ export function parseArgs(args, allowed = {}) {
       const v = args[++i];
       if (v === undefined || v.startsWith('-')) throw new Error('--dest needs a directory');
       out.dest = v;
+    } else if (a === '--yes' && allowed.yes) out.yes = true;
+    else if (a === '--sha' && allowed.yes) {
+      const v = args[++i];
+      if (v === undefined || !/^[0-9a-f]{40}$/.test(v)) throw new Error('--sha must be 40 lowercase hex characters');
+      out.sha = v;
     } else if (a.startsWith('-')) throw new Error(`unknown option: ${a}`);
     else if (positional++ === 0) out.ref = a;
     else throw new Error(`unexpected argument: ${a}`);
   }
+  if (out.yes && !out.sha) throw new Error('--yes needs --sha');
+  if (out.sha && !out.yes) throw new Error('--sha needs --yes');
   return out;
 }
 
@@ -336,19 +350,19 @@ export async function main(argv) {
     return runList({ repo: process.cwd(), ref, out: (l) => console.log(l) });
   }
   if (cmd === 'copy') {
-    const { ref, dest, dryRun } = parseArgs(rest, { dest: true, dryRun: true });
+    const { ref, dest, dryRun, yes, sha } = parseArgs(rest, { dest: true, dryRun: true, yes: true });
     let refused = false;
     const code = await runCopy({
-      repo: process.cwd(), ref, dest, env: process.env, dryRun, out: (l) => console.log(l),
-      confirm: async () => {
-        const yes = await askInTerminal();
-        if (yes === null) { refused = true; return false; }
-        return yes;
+      repo: process.cwd(), ref, dest, env: process.env, dryRun, expectedSha: sha, out: (l) => console.log(l),
+      confirm: yes ? async () => true : async () => {
+        const answer = await askInTerminal();
+        if (answer === null) { refused = true; return false; }
+        return answer;
       },
     });
     return refused ? 1 : code;
   }
-  console.error('Usage: site-export.mjs list [ref] | copy [ref] [--dest <dir>] [--dry-run]');
+  console.error('Usage: site-export.mjs list [ref] | copy [ref] [--dest <dir>] [--dry-run] [--yes --sha <sha>]');
   return 2;
 }
 
