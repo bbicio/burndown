@@ -5,7 +5,9 @@
   "description": "PDash frontend test toolchain (dev-only; never bundled or served)",
   "scripts": {
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "export:list": "node scripts/site-export.mjs list",
+    "export:copy": "node scripts/site-export.mjs copy"
   },
   "devDependencies": {
     "jsdom": "^29.1.1",

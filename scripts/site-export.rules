@@ -1,0 +1,45 @@
+# Which tracked files belong to the site that is copied to the Bitbucket clone.
+# Read by scripts/site-export.mjs and scripts/site-export-guard.test.js.
+#
+# First matching rule wins, so exceptions go above the general rules. There is
+# no catch-all: a tracked path no rule covers is "unclassified" and fails the
+# guard test. A trailing "/" is a directory and everything below it.
+
+# ── never part of the site ───────────────────────────────────────────────────
+exclude docs/
+exclude .claude/
+exclude scripts/
+exclude **/*.test.js
+exclude **/*.spec.js
+exclude CLAUDE.md
+exclude PRD.md
+exclude test-api.js
+exclude vitest.config.js
+# root package.json / lock: the frontend test toolchain only
+exclude package.json
+exclude package-lock.json
+# only carries the eol rule of the (excluded) .sh scripts
+exclude .gitattributes
+exclude api/nodemon.json
+exclude api/src/scripts/
+# used only by test-api.js, scripts/shoot.mjs and the seed script, all excluded
+exclude api/src/trust-device.js
+# wipes development data and carries a personal email address
+exclude api/src/db/reset-dev.sql
+
+# ── the site ─────────────────────────────────────────────────────────────────
+include *.html
+include css/
+include js/
+include handbook/
+include api/Dockerfile
+include api/package.json
+include api/package-lock.json
+# two-step-code.js and cli-env.js live here on purpose (emergency access code
+# on an installed stack); migrate.js is the "migrate" script of api/package.json
+include api/src/
+# included as they are: cleaning references to excluded files is a later cycle
+include nginx.conf
+include docker-compose.yml
+include .env.example
+include .gitignore
