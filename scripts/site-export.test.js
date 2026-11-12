@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { resolveCommit, readBlobs, runList, runCopy, resolveDest, classifyCommit } from './site-export.mjs';
+import { resolveCommit, readBlobs, runList, runCopy, resolveDest, classifyCommit, parseArgs } from './site-export.mjs';
 
 vi.setConfig({ testTimeout: 60000 }); // each test builds temp git repos; slow on Windows
 
@@ -246,5 +246,73 @@ describe('classifyCommit', () => {
   it('lists unclassified items for the copy gate', () => {
     const repo = makeRepo({ 'mystery/file.txt': 'm' });
     expect(classifyCommit(repo, 'main').items[0].verdict).toBe('unclassified');
+  });
+});
+
+// ── review round 1 ─────────────────────────────────────────────────────────
+
+describe('parseArgs', () => {
+  it('takes the ref positionally with or without --dest', () => {
+    expect(parseArgs(['v1.2', '--dry-run'], { dest: true, dryRun: true })).toEqual({ ref: 'v1.2', dryRun: true });
+    expect(parseArgs(['--dest', 'd', 'v1.2'], { dest: true, dryRun: true })).toEqual({ ref: 'v1.2', dest: 'd', dryRun: false });
+    expect(parseArgs([], { dest: true }).ref).toBe('main');
+  });
+
+  it('rejects an unknown flag, --dest without a value, an extra argument, and a flag the command lacks', () => {
+    expect(() => parseArgs(['--dry_run'], { dryRun: true })).toThrow('unknown option: --dry_run');
+    expect(() => parseArgs(['--dest'], { dest: true })).toThrow(/--dest needs a directory/);
+    expect(() => parseArgs(['a', 'b'])).toThrow('unexpected argument: b');
+    expect(() => parseArgs(['--dest', 'x'])).toThrow('unknown option: --dest');
+  });
+});
+
+describe('runCopy, destination edge cases', () => {
+  it('survives a tracked destination file that was deleted from disk', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    put(dest, { 'js/core.js': 'old\n' });
+    git(dest, 'add', '-A');
+    git(dest, '-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', 'x');
+    rmSync(join(dest, 'js/core.js'));
+    const r = await copy(repo, dest, { dryRun: true });
+    expect(r.code).toBe(0);
+    expect(r.out).toContain('js/core.js');
+  });
+
+  it('turns a destination file into a folder and back', async () => {
+    const repo = makeRepo({ ...SITE, 'handbook/x/y.md': 'y\n' });
+    const dest = makeEmptyClone();
+    put(dest, { 'handbook/x': 'i am a file' });
+    expect((await copy(repo, dest)).code).toBe(0);
+    expect(readFileSync(join(dest, 'handbook/x/y.md'), 'utf8')).toBe('y\n');
+    git(repo, 'rm', '-q', '-r', 'handbook/x');
+    put(repo, { 'handbook/x': 'now a file\n' });
+    git(repo, 'add', '-A');
+    git(repo, 'commit', '-q', '-m', 'file again');
+    expect((await copy(repo, dest)).code).toBe(0);
+    expect(readFileSync(join(dest, 'handbook/x'), 'utf8')).toBe('now a file\n');
+  });
+
+  it('refuses an included symlink and writes nothing', async () => {
+    const repo = makeRepo(SITE);
+    const oid = execFileSync('git', ['-C', repo, 'hash-object', '-w', '--stdin'], { input: 'core.js', encoding: 'utf8' }).trim();
+    git(repo, 'update-index', '--add', '--cacheinfo', `120000,${oid},js/link.js`);
+    git(repo, 'commit', '-q', '-m', 'symlink');
+    const dest = makeEmptyClone();
+    const r = await copy(repo, dest);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('js/link.js');
+    expect(listFiles(dest)).toEqual([]);
+  });
+
+  it('refuses a destination that contains the source repo', () => {
+    const parent = makeEmptyClone();
+    const child = join(parent, 'src');
+    mkdirSync(child);
+    git(child, 'init', '-q', '-b', 'main');
+    put(child, { 'login.html': 'x' });
+    git(child, 'add', '-A');
+    git(child, '-c', 'user.name=T', '-c', 'user.email=t@example.invalid', 'commit', '-q', '-m', 'i');
+    expect(() => resolveDest(child, parent, {})).toThrow(/contains it/);
   });
 });

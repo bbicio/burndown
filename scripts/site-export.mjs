@@ -9,7 +9,7 @@
 // Spec: docs/superpowers/specs/2026-11-12-site-export-classification-design.md.
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, readFileSync, readdirSync, realpathSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -35,10 +35,22 @@ export function resolveCommit(repo, ref) {
   }
 }
 
+/** @returns {{ path: string, mode: string }[]} every entry of the commit's tree (mode 100644/100755 = file, 120000 = symlink, 160000 = submodule) */
+export function listCommitEntries(repo, sha) {
+  return git(repo, ['ls-tree', '-r', '-z', sha], { encoding: 'utf8' })
+    .split('\0').filter(Boolean)
+    .map((rec) => {
+      const tab = rec.indexOf('\t');
+      return { path: rec.slice(tab + 1), mode: rec.slice(0, rec.indexOf(' ')) };
+    });
+}
+
 /** @returns {string[]} every file path of the commit's tree */
 export function listCommitPaths(repo, sha) {
-  return git(repo, ['ls-tree', '-r', '-z', '--name-only', sha], { encoding: 'utf8' }).split('\0').filter(Boolean);
+  return listCommitEntries(repo, sha).map((e) => e.path);
 }
+
+const REGULAR_MODES = new Set(['100644', '100755']);
 
 /** One `git cat-file --batch` process; @returns {Map<string, Buffer>} path → blob bytes */
 export function readBlobs(repo, sha, paths) {
@@ -99,31 +111,46 @@ export function resolveDest(repo, dest, env) {
   try { top = realpathSync.native(abs(real, ['rev-parse', '--show-toplevel'])); } catch { top = null; }
   if (top !== real) throw new Error(`destination is not the root of a git clone: ${real}`);
   const srcTop = realpathSync.native(abs(repo, ['rev-parse', '--show-toplevel']));
-  if (real === srcTop || real.startsWith(srcTop + sep)) throw new Error('destination is the source repo or inside it');
+  // Windows paths are case-insensitive: compare lower-cased there.
+  const key = (p) => (process.platform === 'win32' ? p.toLowerCase() : p);
+  const [r, s] = [key(real), key(srcTop)];
+  if (r === s || r.startsWith(s + sep) || s.startsWith(r + sep)) {
+    throw new Error('destination is the source repo, inside it, or contains it');
+  }
   const common = (d) => realpathSync.native(abs(d, ['rev-parse', '--path-format=absolute', '--git-common-dir']));
   if (common(real) === common(repo)) throw new Error('destination shares its git directory with the source repo');
   return real;
 }
 
-/** Files of the destination working tree (tracked + untracked, never ignored). */
+/**
+ * Regular files of the destination working tree (tracked + untracked, never
+ * ignored). An entry that is missing on disk (tracked, deleted, not staged),
+ * a symlink or a submodule folder is skipped: only regular files are compared.
+ */
 export function readDestFiles(dest) {
   const names = git(dest, ['ls-files', '-co', '--exclude-standard', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean);
-  return new Map([...new Set(names)].map((n) => [n, readFileSync(join(dest, n))]));
+  const files = new Map();
+  for (const n of new Set(names)) {
+    let st;
+    try { st = lstatSync(join(dest, n)); } catch { continue; }
+    if (st.isFile()) files.set(n, readFileSync(join(dest, n)));
+  }
+  return files;
 }
 
-/** Writes added/modified files, deletes the deleted ones and the folders that leaves empty. */
+/** Deletes first (so a file can become a folder), then writes; removes the folders deletion leaves empty. */
 export function applyPlan(dest, wanted, plan) {
-  for (const p of [...plan.added, ...plan.modified]) {
-    const target = join(dest, p);
-    mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, wanted.get(p));
-  }
   for (const p of plan.deleted) {
     unlinkSync(join(dest, p));
     for (let d = dirname(join(dest, p)); d !== dest && d.startsWith(dest + sep); d = dirname(d)) {
       if (readdirSync(d).length > 0) break;
       rmdirSync(d);
     }
+  }
+  for (const p of [...plan.added, ...plan.modified]) {
+    const target = join(dest, p);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, wanted.get(p));
   }
 }
 
@@ -155,7 +182,15 @@ export async function runCopy({ repo, ref, dest, env, dryRun, confirm, out }) {
     unclassified.forEach((i) => out(`  ${i.path}`));
     return 1;
   }
-  const wanted = readBlobs(repo, sha, items.filter((i) => i.verdict === 'include').map((i) => i.path));
+  const modes = new Map(listCommitEntries(repo, sha).map((e) => [e.path, e.mode]));
+  const included = items.filter((i) => i.verdict === 'include').map((i) => i.path);
+  const irregular = included.filter((p) => !REGULAR_MODES.has(modes.get(p)));
+  if (irregular.length > 0) {
+    out('Refusing to copy: these included entries are symlinks or submodules, not regular files:');
+    irregular.forEach((p) => out(`  ${p} (mode ${modes.get(p)})`));
+    return 1;
+  }
+  const wanted = readBlobs(repo, sha, included);
   const target = resolveDest(repo, dest, env);
   const plan = planCopy(wanted, readDestFiles(target));
   out(`commit ${sha}`);
@@ -189,21 +224,46 @@ async function askInTerminal() {
     return null;
   }
   const rl = createInterface({ input: process.stdin, output: process.stdout });
-  const answer = await rl.question('Write these changes to the destination? [y/N] ');
-  rl.close();
-  return /^y(es)?$/i.test(answer.trim());
+  try {
+    const answer = await rl.question('Write these changes to the destination? [y/N] ');
+    return /^y(es)?$/i.test(answer.trim());
+  } finally {
+    rl.close();
+  }
+}
+
+/**
+ * Strict argument parser: `[ref] [--dest <dir>] [--dry-run]`. An unknown flag, a
+ * `--dest` without a value or a second positional argument is an error.
+ * @param {string[]} args
+ * @param {{ dest?: boolean, dryRun?: boolean }} allowed which flags the command takes
+ * @returns {{ ref: string, dest?: string, dryRun: boolean }}
+ */
+export function parseArgs(args, allowed = {}) {
+  const out = { ref: 'main', dryRun: false };
+  let positional = 0;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === '--dry-run' && allowed.dryRun) out.dryRun = true;
+    else if (a === '--dest' && allowed.dest) {
+      const v = args[++i];
+      if (v === undefined || v.startsWith('--')) throw new Error('--dest needs a directory');
+      out.dest = v;
+    } else if (a.startsWith('--')) throw new Error(`unknown option: ${a}`);
+    else if (positional++ === 0) out.ref = a;
+    else throw new Error(`unexpected argument: ${a}`);
+  }
+  return out;
 }
 
 export async function main(argv) {
   const [cmd, ...rest] = argv;
   if (cmd === 'list') {
-    return runList({ repo: process.cwd(), ref: rest[0] ?? 'main', out: (l) => console.log(l) });
+    const { ref } = parseArgs(rest);
+    return runList({ repo: process.cwd(), ref, out: (l) => console.log(l) });
   }
   if (cmd === 'copy') {
-    const dryRun = rest.includes('--dry-run');
-    const di = rest.indexOf('--dest');
-    const dest = di >= 0 ? rest[di + 1] : undefined;
-    const ref = rest.find((a, i) => !a.startsWith('--') && i !== di + 1) ?? 'main';
+    const { ref, dest, dryRun } = parseArgs(rest, { dest: true, dryRun: true });
     let refused = false;
     const code = await runCopy({
       repo: process.cwd(), ref, dest, env: process.env, dryRun, out: (l) => console.log(l),

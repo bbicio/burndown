@@ -35,9 +35,12 @@ export function parseRules(text) {
     const line = idx + 1;
     const s = raw.trim();
     if (s === '' || s.startsWith('#')) return;
-    const m = /^(\S+)\s+(\S.*)$/.exec(s);
+    const m = /^(\S+)\s+(\S+)(.*)$/.exec(s);
     if (!m) throw new Error(`site-export.rules:${line}: expected "<include|exclude> <glob>"`);
     if (!ACTIONS.has(m[1])) throw new Error(`site-export.rules:${line}: unknown directive "${m[1]}"`);
+    if (m[3].trim() !== '') {
+      throw new Error(`site-export.rules:${line}: unexpected text after the glob (a comment goes on its own line; use ? for a space in a path)`);
+    }
     rules.push({ action: m[1], pattern: m[2], line, re: globToRegExp(m[2]) });
   });
   return rules;
@@ -69,6 +72,8 @@ function sameContent(a, b) {
  * @param {Map<string, Buffer>} existing path → content in the destination
  * A text file that differs only by CRLF vs LF counts as unchanged (the
  * destination clone may check out CRLF); a file with a NUL byte is binary.
+ * Known limit, accepted in the plan (decision 4): a commit that only changes a
+ * file's line endings is not propagated to a destination holding the old ones.
  */
 export function planCopy(wanted, existing) {
   const added = [];

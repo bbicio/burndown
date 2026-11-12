@@ -18,6 +18,10 @@ describe('parseRules', () => {
   it('rejects a directive without a pattern', () => {
     expect(() => parseRules('include')).toThrow(/site-export\.rules:1/);
   });
+
+  it('rejects text after the glob, such as an inline comment', () => {
+    expect(() => parseRules('include css/ # styles')).toThrow(/site-export\.rules:1.*after the glob/);
+  });
 });
 
 describe('glob semantics', () => {
