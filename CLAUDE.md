@@ -200,9 +200,8 @@ scripts/classify-cycle.mjs — classifies a branch for `/finish-cycle`'s Gate 2 
                             plus the paths judged); the rule is pinned by its own `.test.js`, not by prose.
 scripts/gate5-scope.mjs  — classifies Gate 5's uncommitted diff into three verdicts for `/finish-cycle`'s
                             test subset and pre-authorised push; the rule is pinned by its own `.test.js`.
-scripts/architecture-guard.test.js — fails when `handbook/restricted/ARCHITECTURE.md` §5/§6 drift from the code
-                            (routes, tables, added columns). What it deliberately does not check, and why,
-                            is in the file's own header — read it there, not from a paraphrase.
+scripts/architecture-guard.test.js — fails when `handbook/restricted/ARCHITECTURE.md` §5/§6 or the names its
+                            diagrams cite (`scripts/lib/mermaid-facts.mjs`) drift from the code. Limits: its own header.
 scripts/claude-md-guard.test.js — fails when this file regrows past its ceiling, or when a
                             live `docs/`/`.claude/` pointer names a section it no longer has. Limits: own header.
 scripts/doc-paths-guard.test.js — fails when a live document cites a repo file path that does

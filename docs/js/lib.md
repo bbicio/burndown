@@ -228,7 +228,7 @@ Documented with the components it serves, not here: [docs/js/cg-controls.md](cg-
 
 ## handbook.js (2026-11-11, handbook viewer cycle 1)
 
-The pure logic of `help.html` (document visibility, payload and fence checks, test-case state), bridged to `window.*`. Detail: [docs/pages/help.md](../pages/help.md).
+The pure logic of `help.html` (document visibility, payload and fence checks, test-case state), bridged to `window.*`. Detail: [docs/pages/help.md](../pages/help.md). `fenceBlocks` is also exported (2026-11-12, handbook-diagrams) for `scripts/lib/mermaid-facts.mjs`, which reads the names written in the Mermaid blocks of `handbook/restricted/ARCHITECTURE.md`; it has no `window` bridge.
 
 ## test-cases-parse.js (2026-10-09, TEST_CASES.md as the single source)
 
