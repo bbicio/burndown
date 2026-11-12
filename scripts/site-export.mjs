@@ -2,7 +2,7 @@
 // and copy the site files into the local Bitbucket clone.
 //
 //   node scripts/site-export.mjs list [ref]
-//   node scripts/site-export.mjs copy [ref] [--dest <dir>] [--dry-run]
+//   node scripts/site-export.mjs copy [ref] [--dest <dir>] [--dry-run] [--yes --sha <sha>]
 //
 // Reads the commit (never the working tree), applies scripts/site-export.rules
 // (scripts/lib/site-export.mjs), and never runs `git commit` or `git push`.
@@ -17,6 +17,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseRules, classify, describeRule, planCopy } from './lib/site-export.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const SHA_RE = /^[0-9a-f]{40}$/;
 const MAX = 512 * 1024 * 1024;
 
 const git = (repo, args, opts = {}) =>
@@ -144,6 +145,15 @@ export function readDestFiles(dest) {
 }
 
 /** Untracked, not ignored files of the destination: they are mirror-managed too, so the summary names them. */
+/** Tracked files of the destination whose content differs from its HEAD (staged or not); none when it has no commit. */
+function dirtyTrackedFiles(dest) {
+  try {
+    return new Set(git(dest, ['-c', 'core.quotepath=off', 'diff', 'HEAD', '--name-only', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
 function untrackedFiles(dest) {
   return new Set(git(dest, ['ls-files', '-o', '--exclude-standard', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean));
 }
@@ -235,11 +245,23 @@ function originWarning(repo, sha) {
 /**
  * `copy`: commit → included files → destination, after confirmation.
  * @param {{ repo: string, ref: string, dest?: string, env: object, dryRun: boolean,
- *   confirm: (summary: object) => Promise<boolean>, out: (line: string) => void }} o
+ *   expectedSha?: string, assumeYes?: boolean, confirm: (summary: object) => Promise<boolean>,
+ *   out: (line: string) => void }} o `expectedSha`: refuse unless the ref resolves to it;
+ *   `assumeYes`: `confirm` answers by itself, so a warning refuses the write instead
  * @returns {Promise<number>} exit code
  */
-export async function runCopy({ repo, ref, dest, env, dryRun, confirm, out }) {
+export async function runCopy({ repo, ref, dest, env, dryRun, expectedSha, assumeYes = false, confirm, out }) {
+  const pinned = expectedSha !== undefined;
+  if (pinned && !SHA_RE.test(expectedSha)) {
+    out('Refusing to copy: --sha must be 40 lowercase hex characters');
+    return 1;
+  }
   const { sha, items } = classifyCommit(repo, ref);
+  if (pinned && expectedSha !== sha) {
+    out(`Refusing to copy: --sha ${expectedSha} does not match ${ref} (${sha})`);
+    return 1;
+  }
+  const warnings = [];
   const unclassified = items.filter((i) => i.verdict === 'unclassified');
   if (unclassified.length > 0) {
     out('Refusing to copy: these files match no rule in scripts/site-export.rules:');
@@ -260,7 +282,7 @@ export async function runCopy({ repo, ref, dest, env, dryRun, confirm, out }) {
   const untracked = untrackedFiles(target);
   out(`commit ${sha}`);
   const warning = originWarning(repo, sha);
-  if (warning) out(warning);
+  if (warning) { out(warning); warnings.push(warning); }
   out(`destination ${target}`);
   const conflicts = planConflicts(target, plan);
   if (conflicts.length > 0) {
@@ -273,7 +295,18 @@ export async function runCopy({ repo, ref, dest, env, dryRun, confirm, out }) {
     plan[k].forEach((p) => out(`  ${p}${k === 'deleted' && untracked.has(p) ? '  (untracked in the destination)' : ''}`));
   }
   const lost = plan.deleted.filter((p) => untracked.has(p)).length;
-  if (lost > 0) out(`warning: ${lost} untracked file(s) in the destination will be deleted; git cannot recover them`);
+  if (lost > 0) {
+    const w = `warning: ${lost} untracked file(s) in the destination will be deleted; git cannot recover them`;
+    out(w);
+    warnings.push(w);
+  }
+  const dirty = dirtyTrackedFiles(target);
+  const overwritten = [...plan.modified.filter((p) => untracked.has(p) || dirty.has(p)), ...plan.deleted.filter((p) => dirty.has(p))];
+  if (overwritten.length > 0) {
+    const w = `warning: ${overwritten.length} file(s) in the destination have local changes that the copy would overwrite; git cannot recover them`;
+    out(w);
+    warnings.push(w);
+  }
   if (plan.added.length + plan.modified.length + plan.deleted.length === 0) {
     out('Nothing to do.');
     return 0;
@@ -281,6 +314,10 @@ export async function runCopy({ repo, ref, dest, env, dryRun, confirm, out }) {
   if (dryRun) {
     out('Dry run: nothing written.');
     return 0;
+  }
+  if (assumeYes && warnings.length > 0) {
+    out('Refusing to write: --yes does not proceed past a warning (see above); fetch origin, clear what it names, or run without --yes.');
+    return 1;
   }
   if (!(await confirm({ sha, ...plan }))) {
     out('Cancelled: nothing written.');
@@ -306,11 +343,13 @@ async function askInTerminal() {
 }
 
 /**
- * Strict argument parser: `[ref] [--dest <dir>] [--dry-run]`. An unknown flag, a
- * `--dest` without a value or a second positional argument is an error.
+ * Strict argument parser: `[ref] [--dest <dir>] [--dry-run] [--yes --sha <sha>]`. An
+ * unknown flag, a `--dest` without a value, a second positional argument, `--yes`
+ * without `--sha` (or the reverse) or a `--sha` that is not 40 lowercase hex
+ * characters is an error. `yes` and `sha` are present in the result only when given.
  * @param {string[]} args
- * @param {{ dest?: boolean, dryRun?: boolean }} allowed which flags the command takes
- * @returns {{ ref: string, dest?: string, dryRun: boolean }}
+ * @param {{ dest?: boolean, dryRun?: boolean, yes?: boolean }} allowed which flags the command takes
+ * @returns {{ ref: string, dest?: string, dryRun: boolean, yes?: boolean, sha?: string }}
  */
 export function parseArgs(args, allowed = {}) {
   const out = { ref: 'main', dryRun: false };
@@ -322,10 +361,20 @@ export function parseArgs(args, allowed = {}) {
       const v = args[++i];
       if (v === undefined || v.startsWith('-')) throw new Error('--dest needs a directory');
       out.dest = v;
+    } else if (a === '--yes' && allowed.yes) {
+      if (out.yes !== undefined) throw new Error('--yes given twice');
+      out.yes = true;
+    } else if (a === '--sha' && allowed.yes) {
+      if (out.sha !== undefined) throw new Error('--sha given twice');
+      const v = args[++i];
+      if (v === undefined || !SHA_RE.test(v)) throw new Error('--sha must be 40 lowercase hex characters');
+      out.sha = v;
     } else if (a.startsWith('-')) throw new Error(`unknown option: ${a}`);
     else if (positional++ === 0) out.ref = a;
     else throw new Error(`unexpected argument: ${a}`);
   }
+  if (out.yes && !out.sha) throw new Error('--yes needs --sha');
+  if (out.sha && !out.yes) throw new Error('--sha needs --yes');
   return out;
 }
 
@@ -336,19 +385,19 @@ export async function main(argv) {
     return runList({ repo: process.cwd(), ref, out: (l) => console.log(l) });
   }
   if (cmd === 'copy') {
-    const { ref, dest, dryRun } = parseArgs(rest, { dest: true, dryRun: true });
+    const { ref, dest, dryRun, yes, sha } = parseArgs(rest, { dest: true, dryRun: true, yes: true });
     let refused = false;
     const code = await runCopy({
-      repo: process.cwd(), ref, dest, env: process.env, dryRun, out: (l) => console.log(l),
-      confirm: async () => {
-        const yes = await askInTerminal();
-        if (yes === null) { refused = true; return false; }
-        return yes;
+      repo: process.cwd(), ref, dest, env: process.env, dryRun, expectedSha: sha, assumeYes: Boolean(yes), out: (l) => console.log(l),
+      confirm: yes ? async () => true : async () => {
+        const answer = await askInTerminal();
+        if (answer === null) { refused = true; return false; }
+        return answer;
       },
     });
     return refused ? 1 : code;
   }
-  console.error('Usage: site-export.mjs list [ref] | copy [ref] [--dest <dir>] [--dry-run]');
+  console.error('Usage: site-export.mjs list [ref] | copy [ref] [--dest <dir>] [--dry-run] [--yes --sha <sha>]');
   return 2;
 }
 

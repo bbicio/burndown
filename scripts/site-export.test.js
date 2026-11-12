@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync, existsSync, readFileSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { resolveCommit, readBlobs, runList, runCopy, resolveDest, classifyCommit, parseArgs } from './site-export.mjs';
 
 vi.setConfig({ testTimeout: 60000 }); // each test builds temp git repos; slow on Windows
@@ -413,5 +414,284 @@ describe('review round 3', () => {
 
   it('rejects a --dest value that looks like an option', () => {
     expect(() => parseArgs(['--dest', '-foo'], { dest: true })).toThrow(/--dest needs a directory/);
+  });
+});
+
+// ── --yes --sha ────────────────────────────────────────────────────────────
+
+const SHA = 'a'.repeat(40);
+const ALLOW = { dest: true, dryRun: true, yes: true };
+/** Makes the repo's origin/main equal its HEAD, so the copy has no origin warning. */
+const withOrigin = (repo) => { git(repo, 'update-ref', 'refs/remotes/origin/main', 'HEAD'); return repo; };
+const headOf = (repo) => git(repo, 'rev-parse', 'HEAD');
+
+describe('parseArgs, --yes --sha', () => {
+  it('takes both together and adds yes/sha only when given', () => {
+    expect(parseArgs(['--yes', '--sha', SHA], ALLOW)).toEqual({ ref: 'main', dryRun: false, yes: true, sha: SHA });
+    expect(parseArgs(['--dry-run'], ALLOW)).toEqual({ ref: 'main', dryRun: true });
+  });
+
+  it('refuses one without the other, a malformed sha, and the flags where the command lacks them', () => {
+    expect(() => parseArgs(['--yes'], ALLOW)).toThrow('--yes needs --sha');
+    expect(() => parseArgs(['--sha', SHA], ALLOW)).toThrow('--sha needs --yes');
+    expect(() => parseArgs(['--yes', '--sha', 'ABC'], ALLOW)).toThrow('--sha must be 40 lowercase hex characters');
+    expect(() => parseArgs(['--yes', '--sha', SHA.toUpperCase()], ALLOW)).toThrow('--sha must be 40 lowercase hex characters');
+    expect(() => parseArgs(['--yes', '--sha'], ALLOW)).toThrow('--sha must be 40 lowercase hex characters');
+    expect(() => parseArgs(['--yes', '--sha', SHA], {})).toThrow('unknown option: --yes');
+  });
+
+  it('refuses a repeated --yes or --sha instead of letting the last one win', () => {
+    expect(() => parseArgs(['--yes', '--sha', SHA, '--sha', 'b'.repeat(40)], ALLOW)).toThrow('--sha given twice');
+    expect(() => parseArgs(['--yes', '--yes', '--sha', SHA], ALLOW)).toThrow('--yes given twice');
+  });
+});
+
+describe('runCopy, expectedSha', () => {
+  it('refuses before writing when the sha is not the resolved one, naming both', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    const real = git(repo, 'rev-parse', 'HEAD');
+    const r = await copy(repo, dest, { expectedSha: SHA });
+    expect(r.code).toBe(1);
+    expect(r.out).toContain(`Refusing to copy: --sha ${SHA} does not match main (${real})`);
+    expect(listFiles(dest)).toEqual([]);
+    expect(r.asked()).toBe(0);
+  });
+
+  it('copies when the sha is the resolved one', async () => {
+    const repo = withOrigin(makeRepo(SITE));
+    const dest = makeEmptyClone();
+    const r = await copy(repo, dest, { expectedSha: headOf(repo) });
+    expect(r.code).toBe(0);
+    expect(listFiles(dest)).toEqual(INCLUDED);
+  });
+
+  it('does not take an empty or malformed sha for "no pin"', async () => {
+    const repo = withOrigin(makeRepo(SITE));
+    for (const bad of ['', 'abc', SHA.toUpperCase()]) {
+      const dest = makeEmptyClone();
+      const r = await copy(repo, dest, { expectedSha: bad });
+      expect(r.code).toBe(1);
+      expect(r.out).toContain('Refusing to copy: --sha must be 40 lowercase hex characters');
+      expect(listFiles(dest)).toEqual([]);
+    }
+  });
+});
+
+describe('runCopy, what the warning gate hangs on', () => {
+  it('a pin alone does not stop a human from answering: an interactive confirm goes past a warning', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    const r = await copy(repo, dest, { expectedSha: headOf(repo) });
+    expect(r.code).toBe(0);
+    expect(r.asked()).toBe(1);
+    expect(listFiles(dest)).toEqual(INCLUDED);
+  });
+
+  it('an automatic yes without a pin still refuses past a warning', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    const r = await copy(repo, dest, { assumeYes: true, confirm: async () => true });
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('Refusing to write: --yes does not proceed past a warning');
+    expect(listFiles(dest)).toEqual([]);
+  });
+
+  it('a malformed pin is reported before the ref is resolved', async () => {
+    const repo = makeRepo(SITE);
+    const r = await copy(repo, makeEmptyClone(), { ref: 'no-such-ref', expectedSha: 'abc' });
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('Refusing to copy: --sha must be 40 lowercase hex characters');
+  });
+});
+
+describe('runCopy, a pinned copy keeps every other refusal', () => {
+  const pinned = (repo, dest, extra = {}) => copy(repo, dest, { expectedSha: headOf(repo), assumeYes: true, ...extra });
+  const addEntry = (repo, mode, path, content) => {
+    const oid = execFileSync('git', ['-C', repo, 'hash-object', '-w', '--stdin'], { input: content, encoding: 'utf8' }).trim();
+    git(repo, 'update-index', '--add', '--cacheinfo', `${mode},${oid},${path}`);
+    git(repo, 'commit', '-q', '-m', 'entry');
+  };
+
+  it('an unclassified tracked file', async () => {
+    const repo = withOrigin(makeRepo({ ...SITE, 'mystery/file.txt': 'm' }));
+    const dest = makeEmptyClone();
+    const r = await pinned(repo, dest);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('mystery/file.txt');
+    expect(listFiles(dest)).toEqual([]);
+  });
+
+  it('an included symlink and an included executable', async () => {
+    for (const [mode, path] of [['120000', 'js/link.js'], ['100755', 'js/run.js']]) {
+      const repo = makeRepo(SITE);
+      addEntry(repo, mode, path, 'x');
+      withOrigin(repo);
+      const dest = makeEmptyClone();
+      const r = await pinned(repo, dest);
+      expect(r.code).toBe(1);
+      expect(r.out).toContain(`${path} (mode ${mode})`);
+      expect(listFiles(dest)).toEqual([]);
+    }
+  });
+
+  it('a folder with ignored files where a file must go', async () => {
+    const repo = withOrigin(makeRepo({ ...SITE, 'handbook/x': 'f' }));
+    const dest = makeEmptyClone();
+    put(dest, { '.gitignore': '.cache', 'handbook/x/.cache': 'c', 'stray.txt': 's' });
+    const r = await pinned(repo, dest);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('handbook/x: a folder with files that stay is in the way');
+    expect(existsSync(join(dest, 'stray.txt'))).toBe(true);
+    expect(existsSync(join(dest, 'login.html'))).toBe(false);
+  });
+
+  it("a file the destination's .gitignore would ignore", async () => {
+    const repo = withOrigin(makeRepo({ ...SITE, 'js/a.log': 'l' }));
+    const dest = makeEmptyClone();
+    put(dest, { '.gitignore': '*.log' });
+    const r = await pinned(repo, dest);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain("js/a.log: ignored by the destination's .gitignore");
+    expect(existsSync(join(dest, 'login.html'))).toBe(false);
+  });
+
+  it('a warning: untracked files that would be deleted', async () => {
+    const repo = withOrigin(makeRepo(SITE));
+    const dest = makeEmptyClone();
+    put(dest, { 'stray.txt': 's' });
+    const r = await pinned(repo, dest);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('Refusing to write: --yes does not proceed past a warning');
+    expect(existsSync(join(dest, 'stray.txt'))).toBe(true);
+    expect(existsSync(join(dest, 'login.html'))).toBe(false);
+    expect(r.asked()).toBe(0);
+  });
+
+  it('a warning: the commit is not known to origin/main', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    const r = await pinned(repo, dest);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('Refusing to write: --yes does not proceed past a warning');
+    expect(listFiles(dest)).toEqual([]);
+  });
+
+  it('a warning: the commit is ahead of origin/main, and the refusal says what to do', async () => {
+    const repo = withOrigin(makeRepo(SITE));
+    put(repo, { 'js/core.js': 'core 2\n' });
+    git(repo, 'add', '-A');
+    git(repo, 'commit', '-q', '-m', 'ahead');
+    const dest = makeEmptyClone();
+    const r = await pinned(repo, dest);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('not contained in the local origin/main');
+    expect(r.out).toContain('fetch origin');
+    expect(listFiles(dest)).toEqual([]);
+  });
+
+  it('a warning: origin/main cannot be compared with the commit', async () => {
+    const repo = makeRepo(SITE);
+    const blob = execFileSync('git', ['-C', repo, 'hash-object', '-w', '--stdin'], { input: 'x', encoding: 'utf8' }).trim();
+    try { git(repo, 'update-ref', 'refs/remotes/origin/main', blob); } catch { return; }
+    const dest = makeEmptyClone();
+    const r = await pinned(repo, dest);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('could not compare this commit with origin/main');
+    expect(listFiles(dest)).toEqual([]);
+  });
+
+  it('a warning: an untracked destination file that the copy would overwrite', async () => {
+    const repo = withOrigin(makeRepo(SITE));
+    const dest = makeEmptyClone();
+    put(dest, { 'login.html': 'my own page\n' });
+    const r = await pinned(repo, dest);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('1 file(s) in the destination have local changes that the copy would overwrite');
+    expect(readFileSync(join(dest, 'login.html'), 'utf8')).toBe('my own page\n');
+  });
+
+  it('a warning: a tracked destination file with uncommitted edits that the copy would overwrite', async () => {
+    const repo = withOrigin(makeRepo(SITE));
+    const dest = makeEmptyClone();
+    git(dest, 'config', 'user.name', 'T');
+    git(dest, 'config', 'user.email', 't@example.invalid');
+    put(dest, { 'login.html': 'committed\n' });
+    git(dest, 'add', '-A');
+    git(dest, 'commit', '-q', '-m', 'dest');
+    put(dest, { 'login.html': 'edited by hand\n' });
+    const r = await pinned(repo, dest);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('1 file(s) in the destination have local changes that the copy would overwrite');
+    expect(readFileSync(join(dest, 'login.html'), 'utf8')).toBe('edited by hand\n');
+  });
+
+  it('a symlinked folder in the destination', async () => {
+    const repo = withOrigin(makeRepo(SITE));
+    const dest = makeEmptyClone();
+    const elsewhere = realpathSync.native(mkdtempSync(join(tmpdir(), 'site-export-elsewhere-')));
+    made.push(elsewhere);
+    try { symlinkSync(elsewhere, join(dest, 'js'), 'junction'); } catch { return; }
+    const r = await pinned(repo, dest);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('js is a symlink in the destination');
+    expect(existsSync(join(elsewhere, 'core.js'))).toBe(false);
+  });
+
+  it('with --dry-run it writes nothing and reports the plan', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    const r = await pinned(repo, dest, { dryRun: true });
+    expect(r.code).toBe(0);
+    expect(r.out).toContain('Dry run: nothing written.');
+    expect(r.out).toContain('added: 4');
+    expect(listFiles(dest)).toEqual([]);
+  });
+});
+
+describe('the command line, --yes --sha', () => {
+  const script = join(dirname(fileURLToPath(import.meta.url)), 'site-export.mjs');
+  const cli = (repo, args) => {
+    try {
+      const stdout = execFileSync(process.execPath, [script, 'copy', ...args], { cwd: repo, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+      return { code: 0, stdout, stderr: '' };
+    } catch (e) {
+      return { code: e.status, stdout: String(e.stdout), stderr: String(e.stderr) };
+    }
+  };
+
+  it('writes without a terminal when --yes and the right --sha are given', () => {
+    const repo = withOrigin(makeRepo(SITE));
+    const dest = makeEmptyClone();
+    const r = cli(repo, ['--yes', '--sha', headOf(repo), '--dest', dest]);
+    expect(r.code).toBe(0);
+    expect(listFiles(dest)).toEqual(INCLUDED);
+  });
+
+  it('exits 1 and writes nothing when the --sha is wrong, naming both shas', () => {
+    const repo = withOrigin(makeRepo(SITE));
+    const dest = makeEmptyClone();
+    const r = cli(repo, ['--yes', '--sha', SHA, '--dest', dest]);
+    expect(r.code).toBe(1);
+    expect(r.stdout).toContain(`Refusing to copy: --sha ${SHA} does not match main (${headOf(repo)})`);
+    expect(listFiles(dest)).toEqual([]);
+  });
+
+  it('accepts --dry-run with --yes and writes nothing', () => {
+    const repo = withOrigin(makeRepo(SITE));
+    const dest = makeEmptyClone();
+    const r = cli(repo, ['--yes', '--sha', headOf(repo), '--dry-run', '--dest', dest]);
+    expect(r.code).toBe(0);
+    expect(r.stdout).toContain('Dry run: nothing written.');
+    expect(listFiles(dest)).toEqual([]);
+  });
+
+  it('still refuses to write without --yes and without a terminal', () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    const r = cli(repo, ['--dest', dest]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain('Refusing to write without an interactive confirmation.');
+    expect(listFiles(dest)).toEqual([]);
   });
 });
