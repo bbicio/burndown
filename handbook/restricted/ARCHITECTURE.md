@@ -12,6 +12,31 @@ PDash evolves from a single-user localStorage SPA into a multi-user web applicat
 
 The frontend migration to **Vue 3** (CDN, no build step) completed 2026-08-05 — every page is now Vue 3 except the 10-line `index.html` redirect. A handful of shared library files remain classic (non-Vue) scripts, loaded as globals by the Vue pages that still need them (see the file-by-file notes in §7 below).
 
+```mermaid
+flowchart LR
+  browser["Browser"]
+  cdn["CDN (Vue, Bootstrap, Mermaid)"]
+  nginx["pdash-nginx"]
+  authcheck["/auth-check"]
+  admincheck["/admin-check"]
+  api["pdash-api"]
+  db["pdash-db (PostgreSQL 16)"]
+  smtp["SMTP"]
+  llm["Anthropic API"]
+  adminer["pdash-adminer (dev tool)"]
+  browser --> cdn
+  browser -->|pages, handbook/, /api| nginx
+  nginx -->|pages and handbook/| authcheck
+  nginx -->|handbook/restricted/| admincheck
+  authcheck -->|api/auth/me| api
+  admincheck -->|api/auth/admin-check| api
+  nginx -->|proxy /api| api
+  api --> db
+  api --> smtp
+  api --> llm
+  adminer --> db
+```
+
 ---
 
 ## 2. Stack
@@ -182,6 +207,16 @@ terms.html (standalone — no navbar, no initNav):
 
 ### 5.1 Auth
 
+```mermaid
+erDiagram
+  users }o--o| users : "invited_by"
+  rectification_requests }o--|| users : "user_id"
+  login_challenges }o--|| users : "user_id"
+  trusted_devices }o--|| users : "user_id"
+  app_settings }o--o| users : "updated_by"
+  terms_versions }o--o| users : "published_by"
+```
+
 ```sql
 users (
   id                UUID PRIMARY KEY,
@@ -249,6 +284,35 @@ terms_versions (                      -- migration 019: immutable, append-only, 
 ```
 
 ### 5.2 Configuration
+
+```mermaid
+erDiagram
+  clients }o--o| client_groups : "group_id"
+  ratecards }o--o| clients : "client_id"
+  ratecard_entries }o--|| ratecards : "ratecard_id"
+  ratecard_entries }o--|| roles : "role_id"
+  currency_rates }o--|| currencies : "currency_code"
+  currency_rates }o--o| users : "created_by"
+  resources }o--o| roles : "role_id"
+  resources }o--o| users : "user_id"
+  resource_aliases }o--o| resources : "resource_id"
+  resource_aliases }o--o| users : "created_by"
+  resource_project_contributions }o--|| resources : "resource_id"
+  topics }o--o| topics : "merged_into"
+  topics }o--o| users : "created_by"
+  description_topic_state }o--|| projects : "project_id"
+  description_topic_links }o--|| projects : "project_id"
+  description_topic_links }o--|| topics : "topic_id"
+  attribute_list_items }o--|| attribute_lists : "list_id"
+  programs {
+  }
+  profile_unmatched {
+  }
+  profile_project_state {
+  }
+  profile_job_runs {
+  }
+```
 
 ```sql
 clients (
@@ -420,6 +484,23 @@ attribute_list_items (                -- migration 020: no physical DELETE anywh
 
 ### 5.3 Cost Grid
 
+```mermaid
+erDiagram
+  cost_grids }o--|| users : "owner_id"
+  cost_grid_versions }o--|| cost_grids : "cost_grid_id"
+  cost_grid_versions }o--o| ratecards : "ratecard_id"
+  cost_grid_versions }o--o| clients : "client_id"
+  cost_grid_versions }o--|| currencies : "currency"
+  phases }o--|| cost_grid_versions : "version_id"
+  tasks }o--|| phases : "phase_id"
+  task_roles }o--|| tasks : "task_id"
+  task_roles }o--|| roles : "role_id"
+  cg_version_projects }o--|| cost_grid_versions : "cost_grid_version_id"
+  cg_version_projects }o--|| projects : "project_id"
+  cost_grid_version_tags }o--|| cost_grid_versions : "version_id"
+  cost_grid_version_tags }o--|| attribute_list_items : "item_id"
+```
+
 ```sql
 cost_grids (
   id         UUID PRIMARY KEY,
@@ -495,6 +576,18 @@ cost_grid_version_tags (              -- migration 022: attribute_lists tags ass
 
 ### 5.4 Projects
 
+```mermaid
+erDiagram
+  projects }o--o| clients : "client_id"
+  projects }o--o| programs : "program_id"
+  projects }o--o| cost_grid_versions : "cg_version_id"
+  projects }o--|| currencies : "currency"
+  projects }o--|| users : "owner_id"
+  project_tasks }o--|| projects : "project_id"
+  project_tags }o--|| projects : "project_id"
+  project_tags }o--|| attribute_list_items : "item_id"
+```
+
 ```sql
 projects (
   id            UUID PRIMARY KEY,
@@ -545,6 +638,16 @@ project_tags (                        -- migration 022: attribute_lists tags of 
 
 ### 5.5 Client Groups and POT Targets
 
+```mermaid
+erDiagram
+  pots }o--o| client_groups : "client_group_id"
+  pots }o--o| clients : "client_id"
+  pot_history }o--|| pots : "pot_id"
+  pot_history }o--o| users : "changed_by"
+  pipeline_years {
+  }
+```
+
 ```sql
 client_groups (
   id         UUID PRIMARY KEY,
@@ -585,6 +688,11 @@ pipeline_years (
 
 ### 5.6 Sharing
 
+```mermaid
+erDiagram
+  resource_shares }o--|| users : "user_id"
+```
+
 ```sql
 resource_shares (
   id            UUID PRIMARY KEY,
@@ -599,6 +707,12 @@ resource_shares (
 ```
 
 ### 5.7 Notifications
+
+```mermaid
+erDiagram
+  notifications }o--|| users : "user_id"
+  notifications }o--o| rectification_requests : "rectification_request_id"
+```
 
 ```sql
 notifications (
@@ -616,6 +730,11 @@ notifications (
 ```
 
 ### 5.8 Timesheets
+
+```mermaid
+erDiagram
+  timesheets }o--o| users : "uploaded_by"
+```
 
 ```sql
 timesheets (
@@ -643,6 +762,39 @@ timesheets (
 ```
 
 `fee` is resolved once at upload time (`POST /api/timesheets/upload`) by matching `task`+`role` against the linked project's `project_tasks.resources[].hourlyRate` (same case-insensitive, first-resource-fallback logic as `js/core.js`'s `findRate()`, ported to the backend as `api/src/lib/rate-resolve.js`'s `resolveFee()`), never recomputed later — a rate change after upload never retroactively alters a stored `fee`. Rows uploaded before this field existed have no `fee` key; every consumer treats that identically to a resolved `fee` of `0`. Since `projects.code` has no uniqueness constraint (`012_project_code.sql`), the project used for this lookup — and for `GET /api/timesheets`'s `client_name`/`project_name`/`currency`/`pipeline_year` columns (below) — is resolved via a `LEFT JOIN LATERAL (... ORDER BY created_at LIMIT 1)` scoped to the calling user's own visibility (owner or `resource_shares`), so a duplicate code never leaks another user's inaccessible project's name or rates; the predicate is factored into one shared `projectVisibilityPredicate()` helper in `api/src/routes/timesheets.js`, reused by `visibleCodes()` and both LATERAL joins.
+
+### 5.9 Pipeline stage and project status
+
+The stage lives on `cost_grid_versions.pipeline` and is propagated to `projects.pipeline`; the status lives on `projects.status`. The statuses a stage allows come from `getStatusRule()` in `js/lib/status-rules.js`; no rule restricts the move from one stage to another.
+
+```mermaid
+flowchart LR
+  sip["SIP"]
+  expected["Expected"]
+  anticipated["Anticipated"]
+  committed["Committed"]
+  canceled["Canceled"]
+  nsy["Not started yet"]
+  sar["Started At Risk"]
+  sta["Started"]
+  poh["Put on hold"]
+  cmp["Completed"]
+  dis["status disabled"]
+  sip --> dis
+  expected --> nsy
+  expected --> sar
+  expected --> poh
+  expected --> cmp
+  anticipated --> nsy
+  anticipated --> sar
+  anticipated --> poh
+  anticipated --> cmp
+  committed --> sta
+  committed --> sar
+  committed --> poh
+  committed --> cmp
+  canceled --> dis
+```
 
 ---
 
