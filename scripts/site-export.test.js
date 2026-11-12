@@ -1,9 +1,9 @@
 import { describe, it, expect, afterAll, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync, existsSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { resolveCommit, readBlobs, runList } from './site-export.mjs';
+import { resolveCommit, readBlobs, runList, runCopy, resolveDest, classifyCommit } from './site-export.mjs';
 
 vi.setConfig({ testTimeout: 60000 }); // each test builds temp git repos; slow on Windows
 
@@ -21,7 +21,7 @@ function put(dir, files) {
 
 /** Temp git repo on `main` with `files` committed; returns its real path. */
 function makeRepo(files) {
-  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'site-export-')));
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'site-export-')));
   made.push(dir);
   git(dir, 'init', '-q', '-b', 'main');
   git(dir, 'config', 'user.name', 'T');
@@ -87,5 +87,164 @@ describe('readBlobs', () => {
     const blobs = readBlobs(repo, sha, [name, 'js/b.js']);
     expect([...blobs.keys()]).toEqual([name, 'js/b.js']);
     expect(blobs.get(name).equals(bytes)).toBe(true);
+  });
+});
+
+// ── copy ────────────────────────────────────────────────────────────────────
+
+/** Temp git repo with no commit: a destination "clone" with no files. */
+function makeEmptyClone() {
+  const dir = realpathSync.native(mkdtempSync(join(tmpdir(), 'site-export-dest-')));
+  made.push(dir);
+  git(dir, 'init', '-q', '-b', 'main');
+  git(dir, 'config', 'core.autocrlf', 'false');
+  return dir;
+}
+
+const listFiles = (dir) => git(dir, '-c', 'core.quotepath=off', 'ls-files', '-co', '--exclude-standard')
+  .split('\n').filter(Boolean).sort();
+
+const SITE = {
+  'login.html': '<html>\n',
+  'js/core.js': 'core\n',
+  'js/core.test.js': 'test\n',
+  'docs/a.md': 'doc\n',
+  'api/src/index.js': 'idx\n',
+  '.gitignore': 'node_modules/\n',
+};
+const INCLUDED = ['.gitignore', 'api/src/index.js', 'js/core.js', 'login.html'];
+
+async function copy(repo, dest, extra = {}) {
+  const o = lines();
+  let asked = 0;
+  const code = await runCopy({
+    repo, ref: 'main', dest, env: {}, dryRun: false, out: o.push,
+    confirm: async () => { asked += 1; return true; }, ...extra,
+  });
+  return { code, out: o.out.join('\n'), asked: () => asked };
+}
+
+describe('runCopy', () => {
+  it('into an empty destination makes its file list equal the included set', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    const r = await copy(repo, dest);
+    expect(r.code).toBe(0);
+    expect(listFiles(dest)).toEqual(INCLUDED);
+    expect(readFileSync(join(dest, 'js/core.js'), 'utf8')).toBe('core\n');
+  });
+
+  it('a second copy of the same commit changes nothing and asks nothing', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    await copy(repo, dest);
+    const r = await copy(repo, dest);
+    expect(r.code).toBe(0);
+    expect(r.asked()).toBe(0);
+  });
+
+  it('a file deleted in the source is deleted in the destination, with its folder', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    await copy(repo, dest);
+    git(repo, 'rm', '-q', 'api/src/index.js');
+    git(repo, 'commit', '-q', '-m', 'rm');
+    await copy(repo, dest);
+    expect(listFiles(dest)).toEqual(['.gitignore', 'js/core.js', 'login.html']);
+    expect(existsSync(join(dest, 'api'))).toBe(false);
+  });
+
+  it('removes a stray untracked file but leaves a gitignored one', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    put(dest, { '.gitignore': 'node_modules/\n', 'stray.txt': 's', 'node_modules/x.js': 'n' });
+    const r = await copy(repo, dest);
+    expect(r.out).toContain('stray.txt');
+    expect(existsSync(join(dest, 'stray.txt'))).toBe(false);
+    expect(existsSync(join(dest, 'node_modules/x.js'))).toBe(true);
+  });
+
+  it('a dry run, or a refused confirmation, writes nothing', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    const dry = await copy(repo, dest, { dryRun: true });
+    expect(dry.asked()).toBe(0);
+    expect(listFiles(dest)).toEqual([]);
+    await copy(repo, dest, { confirm: async () => false });
+    expect(listFiles(dest)).toEqual([]);
+  });
+
+  it('never copies uncommitted, modified or gitignored source files', async () => {
+    const repo = makeRepo(SITE);
+    put(repo, { 'js/untracked.js': 'u', 'js/core.js': 'changed\n', 'node_modules/y.js': 'y' });
+    const dest = makeEmptyClone();
+    await copy(repo, dest);
+    expect(listFiles(dest)).toEqual(INCLUDED);
+    expect(readFileSync(join(dest, 'js/core.js'), 'utf8')).toBe('core\n');
+  });
+
+  it("leaves the destination's .git and history untouched", async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    const before = git(dest, 'rev-parse', '--git-dir') + readFileSync(join(dest, '.git/HEAD'), 'utf8');
+    await copy(repo, dest);
+    expect(git(dest, 'rev-parse', '--git-dir') + readFileSync(join(dest, '.git/HEAD'), 'utf8')).toBe(before);
+    expect(() => git(dest, 'rev-parse', '--verify', '-q', 'HEAD')).toThrow();
+  });
+
+  it('refuses when a tracked file is unclassified, and writes nothing', async () => {
+    const repo = makeRepo({ ...SITE, 'mystery/file.txt': 'm' });
+    const dest = makeEmptyClone();
+    const r = await copy(repo, dest);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('mystery/file.txt');
+    expect(listFiles(dest)).toEqual([]);
+  });
+
+  it('treats a CRLF checkout of a text file as unchanged', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    await copy(repo, dest);
+    writeFileSync(join(dest, 'js/core.js'), 'core\r\n');
+    const r = await copy(repo, dest);
+    expect(r.asked()).toBe(0);
+  });
+
+  it('warns when the commit is not in origin/main', async () => {
+    const repo = makeRepo(SITE);
+    const r = await copy(repo, makeEmptyClone(), { dryRun: true });
+    expect(r.out).toMatch(/not (in|contained in) origin\/main|origin\/main/);
+  });
+});
+
+describe('resolveDest', () => {
+  it('uses PDASH_EXPORT_DEST when no dest is given', () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    expect(resolveDest(repo, undefined, { PDASH_EXPORT_DEST: dest })).toBe(dest);
+  });
+
+  it('refuses: nothing given, an empty folder, the source, inside the source, a linked worktree', () => {
+    const repo = makeRepo(SITE);
+    expect(() => resolveDest(repo, undefined, {})).toThrow(/--dest|PDASH_EXPORT_DEST/);
+    const plain = realpathSync.native(mkdtempSync(join(tmpdir(), 'site-export-plain-')));
+    made.push(plain);
+    expect(() => resolveDest(repo, plain, {})).toThrow(/clone/);
+    expect(() => resolveDest(repo, repo, {})).toThrow(/source/);
+    const inner = join(repo, 'sub');
+    mkdirSync(inner);
+    git(inner, 'init', '-q');
+    expect(() => resolveDest(repo, inner, {})).toThrow(/source/);
+    const wt = join(realpathSync.native(tmpdir()), `site-export-wt-${Date.now()}`);
+    made.push(wt);
+    git(repo, 'worktree', 'add', '-q', wt, '-b', 'wt');
+    expect(() => resolveDest(repo, wt, {})).toThrow(/source/);
+  });
+});
+
+describe('classifyCommit', () => {
+  it('lists unclassified items for the copy gate', () => {
+    const repo = makeRepo({ 'mystery/file.txt': 'm' });
+    expect(classifyCommit(repo, 'main').items[0].verdict).toBe('unclassified');
   });
 });

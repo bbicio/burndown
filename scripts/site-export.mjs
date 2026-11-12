@@ -9,10 +9,11 @@
 // Spec: docs/superpowers/specs/2026-11-12-site-export-classification-design.md.
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { mkdirSync, readFileSync, readdirSync, realpathSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { dirname, join, sep } from 'node:path';
+import { createInterface } from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { parseRules, classify, describeRule } from './lib/site-export.mjs';
+import { parseRules, classify, describeRule, planCopy } from './lib/site-export.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MAX = 512 * 1024 * 1024;
@@ -82,10 +83,137 @@ export function runList({ repo, ref, out }) {
   return items.some((i) => i.verdict === 'unclassified') ? 1 : 0;
 }
 
+const abs = (repo, args) => git(repo, args, { encoding: 'utf8' }).trim();
+
+/**
+ * The destination: --dest, else PDASH_EXPORT_DEST. It must be the root of a git
+ * clone that is neither the source repo, nor inside it, nor a linked worktree
+ * of it. @returns {string} its realpath
+ */
+export function resolveDest(repo, dest, env) {
+  const given = dest ?? env.PDASH_EXPORT_DEST;
+  if (!given) throw new Error('no destination: pass --dest <dir> or set PDASH_EXPORT_DEST');
+  let real;
+  try { real = realpathSync.native(given); } catch { throw new Error(`destination does not exist: ${given}`); }
+  let top;
+  try { top = realpathSync.native(abs(real, ['rev-parse', '--show-toplevel'])); } catch { top = null; }
+  if (top !== real) throw new Error(`destination is not the root of a git clone: ${real}`);
+  const srcTop = realpathSync.native(abs(repo, ['rev-parse', '--show-toplevel']));
+  if (real === srcTop || real.startsWith(srcTop + sep)) throw new Error('destination is the source repo or inside it');
+  const common = (d) => realpathSync.native(abs(d, ['rev-parse', '--path-format=absolute', '--git-common-dir']));
+  if (common(real) === common(repo)) throw new Error('destination shares its git directory with the source repo');
+  return real;
+}
+
+/** Files of the destination working tree (tracked + untracked, never ignored). */
+export function readDestFiles(dest) {
+  const names = git(dest, ['ls-files', '-co', '--exclude-standard', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean);
+  return new Map([...new Set(names)].map((n) => [n, readFileSync(join(dest, n))]));
+}
+
+/** Writes added/modified files, deletes the deleted ones and the folders that leaves empty. */
+export function applyPlan(dest, wanted, plan) {
+  for (const p of [...plan.added, ...plan.modified]) {
+    const target = join(dest, p);
+    mkdirSync(dirname(target), { recursive: true });
+    writeFileSync(target, wanted.get(p));
+  }
+  for (const p of plan.deleted) {
+    unlinkSync(join(dest, p));
+    for (let d = dirname(join(dest, p)); d !== dest && d.startsWith(dest + sep); d = dirname(d)) {
+      if (readdirSync(d).length > 0) break;
+      rmdirSync(d);
+    }
+  }
+}
+
+function originWarning(repo, sha) {
+  try {
+    git(repo, ['rev-parse', '--verify', '--quiet', 'origin/main']);
+  } catch {
+    return 'warning: origin/main not found, cannot tell whether this commit is on GitHub';
+  }
+  try {
+    git(repo, ['merge-base', '--is-ancestor', sha, 'origin/main']);
+    return null;
+  } catch {
+    return 'warning: this commit is not contained in origin/main';
+  }
+}
+
+/**
+ * `copy`: commit → included files → destination, after confirmation.
+ * @param {{ repo: string, ref: string, dest?: string, env: object, dryRun: boolean,
+ *   confirm: (summary: object) => Promise<boolean>, out: (line: string) => void }} o
+ * @returns {Promise<number>} exit code
+ */
+export async function runCopy({ repo, ref, dest, env, dryRun, confirm, out }) {
+  const { sha, items } = classifyCommit(repo, ref);
+  const unclassified = items.filter((i) => i.verdict === 'unclassified');
+  if (unclassified.length > 0) {
+    out('Refusing to copy: these files match no rule in scripts/site-export.rules:');
+    unclassified.forEach((i) => out(`  ${i.path}`));
+    return 1;
+  }
+  const wanted = readBlobs(repo, sha, items.filter((i) => i.verdict === 'include').map((i) => i.path));
+  const target = resolveDest(repo, dest, env);
+  const plan = planCopy(wanted, readDestFiles(target));
+  out(`commit ${sha}`);
+  const warning = originWarning(repo, sha);
+  if (warning) out(warning);
+  out(`destination ${target}`);
+  for (const k of ['added', 'modified', 'deleted']) {
+    out(`${k}: ${plan[k].length}`);
+    plan[k].forEach((p) => out(`  ${p}`));
+  }
+  if (plan.added.length + plan.modified.length + plan.deleted.length === 0) {
+    out('Nothing to do.');
+    return 0;
+  }
+  if (dryRun) {
+    out('Dry run: nothing written.');
+    return 0;
+  }
+  if (!(await confirm({ sha, ...plan }))) {
+    out('Cancelled: nothing written.');
+    return 0;
+  }
+  applyPlan(target, wanted, plan);
+  out('Copied. Nothing was committed or pushed.');
+  return 0;
+}
+
+async function askInTerminal() {
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    console.error('Refusing to write without an interactive confirmation.');
+    return null;
+  }
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const answer = await rl.question('Write these changes to the destination? [y/N] ');
+  rl.close();
+  return /^y(es)?$/i.test(answer.trim());
+}
+
 export async function main(argv) {
   const [cmd, ...rest] = argv;
   if (cmd === 'list') {
     return runList({ repo: process.cwd(), ref: rest[0] ?? 'main', out: (l) => console.log(l) });
+  }
+  if (cmd === 'copy') {
+    const dryRun = rest.includes('--dry-run');
+    const di = rest.indexOf('--dest');
+    const dest = di >= 0 ? rest[di + 1] : undefined;
+    const ref = rest.find((a, i) => !a.startsWith('--') && i !== di + 1) ?? 'main';
+    let refused = false;
+    const code = await runCopy({
+      repo: process.cwd(), ref, dest, env: process.env, dryRun, out: (l) => console.log(l),
+      confirm: async () => {
+        const yes = await askInTerminal();
+        if (yes === null) { refused = true; return false; }
+        return yes;
+      },
+    });
+    return refused ? 1 : code;
   }
   console.error('Usage: site-export.mjs list [ref] | copy [ref] [--dest <dir>] [--dry-run]');
   return 2;
