@@ -145,6 +145,15 @@ export function readDestFiles(dest) {
 }
 
 /** Untracked, not ignored files of the destination: they are mirror-managed too, so the summary names them. */
+/** Tracked files of the destination whose content differs from its HEAD (staged or not); none when it has no commit. */
+function dirtyTrackedFiles(dest) {
+  try {
+    return new Set(git(dest, ['-c', 'core.quotepath=off', 'diff', 'HEAD', '--name-only', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+
 function untrackedFiles(dest) {
   return new Set(git(dest, ['ls-files', '-o', '--exclude-standard', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean));
 }
@@ -236,17 +245,18 @@ function originWarning(repo, sha) {
 /**
  * `copy`: commit → included files → destination, after confirmation.
  * @param {{ repo: string, ref: string, dest?: string, env: object, dryRun: boolean,
- *   expectedSha?: string, confirm: (summary: object) => Promise<boolean>,
- *   out: (line: string) => void }} o `expectedSha`: refuse unless the ref resolves to it
+ *   expectedSha?: string, assumeYes?: boolean, confirm: (summary: object) => Promise<boolean>,
+ *   out: (line: string) => void }} o `expectedSha`: refuse unless the ref resolves to it;
+ *   `assumeYes`: `confirm` answers by itself, so a warning refuses the write instead
  * @returns {Promise<number>} exit code
  */
-export async function runCopy({ repo, ref, dest, env, dryRun, expectedSha, confirm, out }) {
-  const { sha, items } = classifyCommit(repo, ref);
+export async function runCopy({ repo, ref, dest, env, dryRun, expectedSha, assumeYes = false, confirm, out }) {
   const pinned = expectedSha !== undefined;
   if (pinned && !SHA_RE.test(expectedSha)) {
     out('Refusing to copy: --sha must be 40 lowercase hex characters');
     return 1;
   }
+  const { sha, items } = classifyCommit(repo, ref);
   if (pinned && expectedSha !== sha) {
     out(`Refusing to copy: --sha ${expectedSha} does not match ${ref} (${sha})`);
     return 1;
@@ -290,6 +300,13 @@ export async function runCopy({ repo, ref, dest, env, dryRun, expectedSha, confi
     out(w);
     warnings.push(w);
   }
+  const dirty = dirtyTrackedFiles(target);
+  const overwritten = [...plan.modified.filter((p) => untracked.has(p) || dirty.has(p)), ...plan.deleted.filter((p) => dirty.has(p))];
+  if (overwritten.length > 0) {
+    const w = `warning: ${overwritten.length} file(s) in the destination have local changes that the copy would overwrite; git cannot recover them`;
+    out(w);
+    warnings.push(w);
+  }
   if (plan.added.length + plan.modified.length + plan.deleted.length === 0) {
     out('Nothing to do.');
     return 0;
@@ -298,8 +315,8 @@ export async function runCopy({ repo, ref, dest, env, dryRun, expectedSha, confi
     out('Dry run: nothing written.');
     return 0;
   }
-  if (pinned && warnings.length > 0) {
-    out('Refusing to write: --yes does not proceed past a warning (see above).');
+  if (assumeYes && warnings.length > 0) {
+    out('Refusing to write: --yes does not proceed past a warning (see above); fetch origin, clear what it names, or run without --yes.');
     return 1;
   }
   if (!(await confirm({ sha, ...plan }))) {
@@ -345,10 +362,10 @@ export function parseArgs(args, allowed = {}) {
       if (v === undefined || v.startsWith('-')) throw new Error('--dest needs a directory');
       out.dest = v;
     } else if (a === '--yes' && allowed.yes) {
-      if (out.yes) throw new Error('--yes given twice');
+      if (out.yes !== undefined) throw new Error('--yes given twice');
       out.yes = true;
     } else if (a === '--sha' && allowed.yes) {
-      if (out.sha) throw new Error('--sha given twice');
+      if (out.sha !== undefined) throw new Error('--sha given twice');
       const v = args[++i];
       if (v === undefined || !SHA_RE.test(v)) throw new Error('--sha must be 40 lowercase hex characters');
       out.sha = v;
@@ -371,7 +388,7 @@ export async function main(argv) {
     const { ref, dest, dryRun, yes, sha } = parseArgs(rest, { dest: true, dryRun: true, yes: true });
     let refused = false;
     const code = await runCopy({
-      repo: process.cwd(), ref, dest, env: process.env, dryRun, expectedSha: sha, out: (l) => console.log(l),
+      repo: process.cwd(), ref, dest, env: process.env, dryRun, expectedSha: sha, assumeYes: Boolean(yes), out: (l) => console.log(l),
       confirm: yes ? async () => true : async () => {
         const answer = await askInTerminal();
         if (answer === null) { refused = true; return false; }
