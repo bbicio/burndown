@@ -11,7 +11,8 @@ npm run export:list                      # verdict and rule for every file of ma
 npm run export:list -- <ref>             # the same for another ref
 npm run export:copy -- --dry-run         # what a copy would do; writes nothing
 npm run export:copy                      # asks y/N, then writes
-npm run export:copy -- --yes --sha <sha> # writes without asking, only if the ref resolves to <sha>
+npm run export:copy -- --yes --sha <sha> # writes without asking, only if the ref resolves to <sha> and no warning was printed
+npm run export:copy -- --yes --sha <sha> --dry-run   # the same checks, writes nothing
 ```
 
 The destination is `--dest <dir>`, else the environment variable `PDASH_EXPORT_DEST`; it is never stored in the repo. `copy` takes the ref as its first positional argument (default `main`). Both commands run from this repo; `list` exits 1 when a file matches no rule, and `copy` then refuses.
@@ -29,7 +30,7 @@ The destination is `--dest <dir>`, else the environment variable `PDASH_EXPORT_D
 3. Compares the commit's included files with the destination's regular files (tracked and untracked, never gitignored). A text file that differs only by CRLF vs LF counts as unchanged.
 4. Refuses, before writing anything, a plan that cannot be applied: a symlink in the way, a folder holding files that stay where a file must go, or a path the destination's own `.gitignore` would ignore.
 5. Prints added, modified and deleted files; untracked destination files that would be deleted are labelled and counted.
-6. Asks `y/N` on an interactive terminal and refuses without one. `--yes --sha <40 lowercase hex>` replaces the question: the two flags come together, and the copy refuses before writing when the ref does not resolve to that SHA. `--yes` bypasses no other refusal and is accepted with `--dry-run`.
+6. Asks `y/N` on an interactive terminal and refuses without one. `--yes --sha <40 lowercase hex>` replaces the question: the two flags come together, each at most once, and a `--sha` that is not 40 lowercase hex characters is refused. Before step 1 the copy refuses when the ref does not resolve to that SHA, also with `--dry-run`. Past step 5 it refuses when a warning was printed (a commit not contained in `origin/main`, or untracked destination files that would be deleted), because no one is there to answer N. Every other refusal above still applies, and `--yes --dry-run` writes nothing.
 7. Deletes first, then writes, so a file can become a folder.
 
 ## Guard

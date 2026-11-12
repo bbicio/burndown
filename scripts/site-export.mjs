@@ -17,6 +17,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { parseRules, classify, describeRule, planCopy } from './lib/site-export.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const SHA_RE = /^[0-9a-f]{40}$/;
 const MAX = 512 * 1024 * 1024;
 
 const git = (repo, args, opts = {}) =>
@@ -241,10 +242,16 @@ function originWarning(repo, sha) {
  */
 export async function runCopy({ repo, ref, dest, env, dryRun, expectedSha, confirm, out }) {
   const { sha, items } = classifyCommit(repo, ref);
-  if (expectedSha && expectedSha !== sha) {
+  const pinned = expectedSha !== undefined;
+  if (pinned && !SHA_RE.test(expectedSha)) {
+    out('Refusing to copy: --sha must be 40 lowercase hex characters');
+    return 1;
+  }
+  if (pinned && expectedSha !== sha) {
     out(`Refusing to copy: --sha ${expectedSha} does not match ${ref} (${sha})`);
     return 1;
   }
+  const warnings = [];
   const unclassified = items.filter((i) => i.verdict === 'unclassified');
   if (unclassified.length > 0) {
     out('Refusing to copy: these files match no rule in scripts/site-export.rules:');
@@ -265,7 +272,7 @@ export async function runCopy({ repo, ref, dest, env, dryRun, expectedSha, confi
   const untracked = untrackedFiles(target);
   out(`commit ${sha}`);
   const warning = originWarning(repo, sha);
-  if (warning) out(warning);
+  if (warning) { out(warning); warnings.push(warning); }
   out(`destination ${target}`);
   const conflicts = planConflicts(target, plan);
   if (conflicts.length > 0) {
@@ -278,7 +285,11 @@ export async function runCopy({ repo, ref, dest, env, dryRun, expectedSha, confi
     plan[k].forEach((p) => out(`  ${p}${k === 'deleted' && untracked.has(p) ? '  (untracked in the destination)' : ''}`));
   }
   const lost = plan.deleted.filter((p) => untracked.has(p)).length;
-  if (lost > 0) out(`warning: ${lost} untracked file(s) in the destination will be deleted; git cannot recover them`);
+  if (lost > 0) {
+    const w = `warning: ${lost} untracked file(s) in the destination will be deleted; git cannot recover them`;
+    out(w);
+    warnings.push(w);
+  }
   if (plan.added.length + plan.modified.length + plan.deleted.length === 0) {
     out('Nothing to do.');
     return 0;
@@ -286,6 +297,10 @@ export async function runCopy({ repo, ref, dest, env, dryRun, expectedSha, confi
   if (dryRun) {
     out('Dry run: nothing written.');
     return 0;
+  }
+  if (pinned && warnings.length > 0) {
+    out('Refusing to write: --yes does not proceed past a warning (see above).');
+    return 1;
   }
   if (!(await confirm({ sha, ...plan }))) {
     out('Cancelled: nothing written.');
@@ -329,10 +344,13 @@ export function parseArgs(args, allowed = {}) {
       const v = args[++i];
       if (v === undefined || v.startsWith('-')) throw new Error('--dest needs a directory');
       out.dest = v;
-    } else if (a === '--yes' && allowed.yes) out.yes = true;
-    else if (a === '--sha' && allowed.yes) {
+    } else if (a === '--yes' && allowed.yes) {
+      if (out.yes) throw new Error('--yes given twice');
+      out.yes = true;
+    } else if (a === '--sha' && allowed.yes) {
+      if (out.sha) throw new Error('--sha given twice');
       const v = args[++i];
-      if (v === undefined || !/^[0-9a-f]{40}$/.test(v)) throw new Error('--sha must be 40 lowercase hex characters');
+      if (v === undefined || !SHA_RE.test(v)) throw new Error('--sha must be 40 lowercase hex characters');
       out.sha = v;
     } else if (a.startsWith('-')) throw new Error(`unknown option: ${a}`);
     else if (positional++ === 0) out.ref = a;
