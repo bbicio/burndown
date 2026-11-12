@@ -115,90 +115,164 @@ Backend authorization has two middleware tiers (`api/src/middleware/auth.js`), b
 
 ### 4.1 User Invitation
 
-```
-Admin fills: firstName, lastName, email, role
-  → system creates user (status = pending)
-  → system sends email with invite link + instructions
-      link contains: invite_token (expires 48h)
+An admin invites a person by email; the person sets a password and the account becomes active. The invite link carries a token valid for 48 hours.
 
-User clicks link
-  → page validates token (GET /api/auth/invite/:token)
-  → user sets password (two fields + confirm)
-  → POST /api/auth/activate { token, password, passwordConfirm }
-  → status → active, token invalidated
-  → redirect to tool
+```mermaid
+sequenceDiagram
+  actor Admin
+  actor User
+  participant Browser
+  participant API
+  participant DB
+  participant Email
+  Admin->>Browser: firstName, lastName, email, role
+  Browser->>API: POST /api/auth/invite
+  API->>DB: insert user (status pending, invite_token, 48h expiry)
+  API->>Email: invite link with the token
+  User->>Browser: opens the link
+  Browser->>API: GET /api/auth/invite/:token
+  API-->>Browser: email, firstName, lastName (410 if invalid or expired)
+  User->>Browser: password and confirmation
+  Browser->>API: POST /api/auth/activate
+  API->>DB: status active, token cleared
+  API-->>Browser: ok
+  Browser->>User: redirect to the tool
 ```
 
 ### 4.2 Login
 
-```
-User submits email + password
-  → POST /api/auth/login
-  → server validates credentials
-  → if error: 401 generic message (no distinction email/password); failed attempts only are rate limited (429 RATE_LIMITED)
-  → if disabled: 403
-  → if the pdash_device cookie is a valid trusted device of the user: sets httpOnly JWT cookie, returns user profile
-  → otherwise: opens a login_challenges row, mails a 6-digit code, sets the pdash_challenge cookie and answers
-    { twoStep: { method, destination, expiresIn, resendIn, sendFailed } } with no JWT
-  → POST /api/auth/two-step/verify { code, trustDevice } → JWT cookie (+ pdash_device when trustDevice)
-  → POST /api/auth/two-step/resend, DELETE /api/auth/two-step ("Back to sign in")
+Every sign-in starts with email and password. A browser that holds a valid `pdash_device` cookie gets its session at once; any other browser must also enter a 6-digit code mailed to the user.
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant Browser
+  participant API
+  participant DB
+  participant Email
+  User->>Browser: email and password
+  Browser->>API: POST /api/auth/login
+  API->>DB: read the user
+  alt wrong credentials
+    API-->>Browser: 401 generic message (email and password not told apart)
+    Note over API: only failed attempts are rate limited, 429 RATE_LIMITED
+  else user disabled
+    API-->>Browser: 403
+  else pdash_device cookie is a trusted device of the user
+    API-->>Browser: httpOnly JWT cookie and the user profile
+  else any other browser
+    API->>DB: open a login_challenges row
+    API->>Email: 6-digit code
+    API-->>Browser: pdash_challenge cookie and twoStep with method, destination, expiresIn, resendIn, sendFailed, no JWT
+    User->>Browser: the code, optionally trust this device
+    Browser->>API: POST /api/auth/two-step/verify
+    API-->>Browser: JWT cookie, plus pdash_device when trustDevice is set
+    opt the user asks for a new code
+      Browser->>API: POST /api/auth/two-step/resend
+    end
+    opt back to sign in
+      Browser->>API: DELETE /api/auth/two-step
+    end
+  end
 ```
 
 ### 4.3 Password Recovery
 
-```
-User submits email
-  → POST /api/auth/forgot-password
-  → server always returns 200 (does not reveal if email exists)
-  → if email found: sends email with reset link (expires 2h)
+A user who forgot the password asks for a reset link, valid for 2 hours. The answer never reveals whether the email is registered.
 
-User clicks link
-  → GET /api/auth/reset-password/:token (validates token)
-  → user sets new password + confirm
-  → POST /api/auth/reset-password { token, password, passwordConfirm }
-  → password updated, token invalidated
-  → redirect to login
+```mermaid
+sequenceDiagram
+  actor User
+  participant Browser
+  participant API
+  participant DB
+  participant Email
+  User->>Browser: email
+  Browser->>API: POST /api/auth/forgot-password
+  API-->>Browser: always 200
+  opt an active user has that email
+    API->>DB: reset_token with 2h expiry
+    API->>Email: reset link
+  end
+  User->>Browser: opens the link
+  Browser->>API: GET /api/auth/reset-password/:token
+  API-->>Browser: valid (410 if invalid or expired)
+  User->>Browser: new password and confirmation
+  Browser->>API: POST /api/auth/reset-password
+  API->>DB: password updated, token cleared
+  API-->>Browser: ok
+  Browser->>User: redirect to login
 ```
 
 ### 4.4 Change Password (authenticated)
 
-```
-POST /api/auth/change-password
-  body: { currentPassword, newPassword, newPasswordConfirm }
+A signed-in user changes the password; the other sessions end and the current one is re-signed.
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant Browser
+  participant API
+  participant DB
+  User->>Browser: currentPassword, newPassword, newPasswordConfirm
+  Browser->>API: POST /api/auth/change-password
+  API->>DB: password updated
+  API-->>Browser: ok and a new JWT cookie
 ```
 
 ### 4.5 Logout
 
-```
-POST /api/auth/logout → clears JWT cookie
+```mermaid
+sequenceDiagram
+  participant Browser
+  participant API
+  Browser->>API: POST /api/auth/logout
+  API-->>Browser: JWT cookie cleared
 ```
 
 ### 4.6 Profile Rectification (GDPR Art. 16)
 
-```
-User opens account dropdown → "My Profile" → /profile.html (Details, read-only)
-  → "Request a change" drawer → POST /api/auth/rectification-request { message }
-  → server records a rectification_requests row
-  → every other active admin/sysadmin gets a notification (+ email) linking to /admin.html
+A user cannot edit their own details: they ask an admin to correct them from the profile page.
 
-Admin opens /admin.html → row menu ⋯ → "Edit details…"
-  → PATCH /api/users/:id { firstName, lastName, email }
-  → server validates names, email format + uniqueness (409); not on oneself, not on a sysadmin unless sysadmin
+```mermaid
+sequenceDiagram
+  actor User
+  actor Admin
+  participant Browser
+  participant API
+  participant DB
+  participant Email
+  User->>Browser: My Profile, Request a change
+  Browser->>API: POST /api/auth/rectification-request
+  API->>DB: rectification_requests row
+  API->>Email: every other active admin or sysadmin, with a notification linking to /admin.html
+  Admin->>Browser: admin page, row menu, Edit details
+  Browser->>API: PATCH /api/users/:id
+  Note over API: validates names, email format and uniqueness (409), not on oneself, not on a sysadmin unless sysadmin
+  API->>DB: user details updated
 ```
 
 ### 4.7 Terms & Conditions Acceptance (GDPR)
 
-```
-initNav() calls GET /api/auth/me
-  → response includes current_terms_version (from app_settings.terms_version)
-  → if user.terms_version < current_terms_version (or null):
-      redirect to /terms.html?next=<current-page>
+On every page, the navigation checks whether the user has accepted the current Terms and Conditions; `terms.html` is standalone, with no navbar and no `initNav()`.
 
-terms.html (standalone — no navbar, no initNav):
-  → GET /api/app-settings/terms → loads version + HTML content
-  → confirm bar with checkbox (disabled button until ticked)
-  → POST /api/auth/accept-terms → records version + timestamp on user row
-  → redirect to ?next
+```mermaid
+sequenceDiagram
+  actor User
+  participant Browser
+  participant API
+  participant DB
+  Browser->>API: GET /api/auth/me
+  API-->>Browser: user and current_terms_version (from app_settings.terms_version)
+  alt user.terms_version is lower than current_terms_version or null
+    Browser->>Browser: redirect to /terms.html with next set to the current page
+    Browser->>API: GET /api/app-settings/terms
+    API-->>Browser: version and HTML content
+    User->>Browser: ticks the checkbox, which enables the button
+    Browser->>API: POST /api/auth/accept-terms
+    API->>DB: terms version and timestamp on the user row
+    Browser->>User: redirect to next
+  end
 ```
 
 ---
