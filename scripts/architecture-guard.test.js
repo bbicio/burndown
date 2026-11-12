@@ -30,6 +30,10 @@
 //     finding #10's class would need a live schema — `scripts/run-tests.sh`
 //     builds one, but requiring Docker would make `npm test` unrunnable without
 //     it. Presence is checked; type is not.
+//   * What the diagrams of ARCHITECTURE.md say beyond the names in them. Tables,
+//     API calls and the §5.9 stage -> status edges are checked by
+//     scripts/lib/mermaid-facts.mjs; ER relationships and cardinality, message
+//     order, prose and the §1 context diagram are not.
 //   * WHERE in §5 a name appears. Both presence checks below are a bare-word
 //     match (`name`) against the whole of §5 — ~20 KB of hand-written
 //     SQL-ish prose — not against the block of the table being checked. So a
@@ -57,6 +61,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { diagramProblems, withoutMermaid } from './lib/mermaid-facts.mjs';
+import { getStatusRule } from '../js/lib/status-rules.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (p) => readFileSync(resolve(ROOT, p), 'utf8');
@@ -75,6 +81,8 @@ function section(startRe, endRe) {
 }
 
 const s5 = section(/^## 5\. Database Schema/, /^## 6\./).join('\n');
+// The presence checks look at what §5 documents, not at what a diagram names.
+const s5NoDiagrams = withoutMermaid(s5);
 const s6 = section(/^## 6\. API Reference/, /^## 7\./);
 
 // ─── the live routes ─────────────────────────────────────────────────────────
@@ -167,6 +175,12 @@ function expandAlternation(path) {
 const norm = (p) => p.replace(/\?.*$/, '').replace(/:[A-Za-z_]+/g, ':p').replace(/\/+$/, '');
 const key = (r) => `${r.method} ${norm(r.path)}`;
 
+// The three topics status transitions are built in a loop, so they have no
+// string literal to match; see the characterization test below.
+const builtInALoop = new Set(
+  ['approve', 'reject', 'restore'].map((a) => `POST /api/topics/:p/${a}`),
+);
+
 // ─── the tests ───────────────────────────────────────────────────────────────
 
 describe('ARCHITECTURE.md §6 API Reference vs the live routes', () => {
@@ -180,11 +194,6 @@ describe('ARCHITECTURE.md §6 API Reference vs the live routes', () => {
 
   it('has no endpoint row that no longer exists in the code', () => {
     const live = new Set(codeEndpoints().map(key));
-    // The three topics status transitions are built in a loop, so they have no
-    // string literal to match; see the characterization test below.
-    const builtInALoop = new Set(
-      ['approve', 'reject', 'restore'].map((a) => `POST /api/topics/:p/${a}`),
-    );
     const stale = docEndpoints()
       .map(key)
       .filter((k) => !live.has(k) && !builtInALoop.has(k));
@@ -216,7 +225,7 @@ describe('ARCHITECTURE.md §5 Database Schema vs the migrations', () => {
         const table = m[1];
         if (seen.has(table)) continue;
         seen.add(table);
-        if (!new RegExp(`\\b${table}\\b`).test(s5)) missing.push(`${table}  (${f})`);
+        if (!new RegExp(`\\b${table}\\b`).test(s5NoDiagrams)) missing.push(`${table}  (${f})`);
       }
     }
     expect(missing).toEqual([]);
@@ -228,7 +237,7 @@ describe('ARCHITECTURE.md §5 Database Schema vs the migrations', () => {
       const sql = read(`${migrationsDir}/${f}`);
       const re = /ALTER TABLE\s+([a-z_]+)\s+ADD COLUMN(?:\s+IF NOT EXISTS)?\s+([a-z_]+)/gi;
       for (const m of sql.matchAll(re)) {
-        if (!new RegExp(`\\b${m[2]}\\b`).test(s5)) missing.push(`${m[1]}.${m[2]}  (${f})`);
+        if (!new RegExp(`\\b${m[2]}\\b`).test(s5NoDiagrams)) missing.push(`${m[1]}.${m[2]}  (${f})`);
       }
     }
     expect(missing).toEqual([]);
@@ -238,6 +247,32 @@ describe('ARCHITECTURE.md §5 Database Schema vs the migrations', () => {
     // Guards the guard: a renamed directory would otherwise make both tests
     // above pass over an empty file list.
     expect(files.length).toBeGreaterThan(25);
+  });
+});
+
+describe('ARCHITECTURE.md diagrams vs the code', () => {
+  const migrationsDir = 'api/src/db/migrations';
+  const files = readdirSync(resolve(ROOT, migrationsDir))
+    .filter((f) => f.endsWith('.sql'))
+    .sort();
+
+  it('names only live tables, routes and stage/status rules', () => {
+    const tables = new Set();
+    for (const f of files) {
+      const sql = read(`${migrationsDir}/${f}`);
+      for (const m of sql.matchAll(/^\s*(CREATE TABLE(?:\s+IF NOT EXISTS)?|DROP TABLE(?:\s+IF EXISTS)?)\s+([a-z_]+)/gim)) {
+        if (/^CREATE/i.test(m[1])) tables.add(m[2]);
+        else tables.delete(m[2]);
+      }
+    }
+    const facts = {
+      tables,
+      endpoints: new Set([...codeEndpoints().map(key), ...builtInALoop]),
+      keyOf: key,
+      stages: ['SIP', 'Expected', 'Anticipated', 'Committed', 'Canceled'],
+      statusRule: getStatusRule,
+    };
+    expect(diagramProblems(archLines.join('\n'), facts)).toEqual([]);
   });
 });
 
