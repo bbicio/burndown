@@ -6,10 +6,11 @@
 //
 // Reads the commit (never the working tree), applies scripts/site-export.rules
 // (scripts/lib/site-export.mjs), and never runs `git commit` or `git push`.
+// Needs git >= 2.31 (`--path-format=absolute`, `--end-of-options`).
 // Spec: docs/superpowers/specs/2026-11-12-site-export-classification-design.md.
 
 import { execFileSync, spawnSync } from 'node:child_process';
-import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, readFileSync, readdirSync, realpathSync, rmSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join, sep } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -30,8 +31,10 @@ export function loadRules() {
 export function resolveCommit(repo, ref) {
   try {
     return git(repo, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`], { encoding: 'utf8' }).trim();
-  } catch {
-    throw new Error(`unknown ref: ${ref}`);
+  } catch (err) {
+    // `--verify --quiet` exits 1 for a ref that does not exist; anything else is a real git failure.
+    if (err.status === 1) throw new Error(`unknown ref: ${ref}`);
+    throw new Error(`git failed while resolving ${ref}: ${String(err.stderr || err.message).trim()}`);
   }
 }
 
@@ -147,6 +150,17 @@ function untrackedFiles(dest) {
 
 const isDir = (p) => { try { return lstatSync(p).isDirectory(); } catch { return false; } };
 const isFile = (p) => { try { return lstatSync(p).isFile(); } catch { return false; } };
+const isLink = (p) => { try { return lstatSync(p).isSymbolicLink(); } catch { return false; } };
+
+/** Of `paths`, those the destination's own .gitignore would ignore (they would never show in `git status`). */
+function ignoredInDest(dest, paths) {
+  if (paths.length === 0) return [];
+  const res = spawnSync('git', ['-C', dest, 'check-ignore', '--no-index', '-z', '--stdin'], {
+    input: paths.join('\0'), maxBuffer: MAX, encoding: 'utf8',
+  });
+  if (res.status !== 0 && res.status !== 1) throw new Error(`git check-ignore failed: ${res.stderr}`);
+  return String(res.stdout).split('\0').filter(Boolean);
+}
 
 function holdsOther(dir, rel, deleted) {
   return readdirSync(dir).some((name) => {
@@ -165,16 +179,19 @@ function holdsOther(dir, rel, deleted) {
  */
 export function planConflicts(dest, plan) {
   const deleted = new Set(plan.deleted);
+  const writes = [...plan.added, ...plan.modified];
   const out = [];
-  for (const p of [...plan.added, ...plan.modified]) {
+  for (const p of writes) {
     const full = join(dest, p);
     if (isDir(full) && holdsOther(full, p, deleted)) out.push(`${p}: a folder with files that stay is in the way`);
     const parts = p.split('/');
-    for (let i = 1; i < parts.length; i++) {
-      const anc = parts.slice(0, i).join('/');
-      if (isFile(join(dest, anc)) && !deleted.has(anc)) { out.push(`${p}: ${anc} is a file that stays`); break; }
+    for (let i = 1; i <= parts.length; i++) {
+      const sub = parts.slice(0, i).join('/');
+      if (isLink(join(dest, sub))) { out.push(`${p}: ${sub} is a symlink in the destination`); break; }
+      if (i < parts.length && isFile(join(dest, sub)) && !deleted.has(sub)) { out.push(`${p}: ${sub} is a file that stays`); break; }
     }
   }
+  for (const p of ignoredInDest(dest, writes)) out.push(`${p}: ignored by the destination's .gitignore, it would never be committed`);
   return out;
 }
 
@@ -190,6 +207,8 @@ export function applyPlan(dest, wanted, plan) {
     }
     for (const p of [...plan.added, ...plan.modified]) {
       const target = join(dest, p);
+      // planConflicts guarantees only empty folders can be left here
+      if (isDir(target)) rmSync(target, { recursive: true });
       mkdirSync(dirname(target), { recursive: true });
       writeFileSync(target, wanted.get(p));
     }
@@ -243,16 +262,18 @@ export async function runCopy({ repo, ref, dest, env, dryRun, confirm, out }) {
   const warning = originWarning(repo, sha);
   if (warning) out(warning);
   out(`destination ${target}`);
+  const conflicts = planConflicts(target, plan);
+  if (conflicts.length > 0) {
+    out('Refusing to copy, nothing written (the plan cannot be applied as it is):');
+    conflicts.forEach((c) => out(`  ${c}`));
+    return 1;
+  }
   for (const k of ['added', 'modified', 'deleted']) {
     out(`${k}: ${plan[k].length}`);
     plan[k].forEach((p) => out(`  ${p}${k === 'deleted' && untracked.has(p) ? '  (untracked in the destination)' : ''}`));
   }
-  const conflicts = planConflicts(target, plan);
-  if (conflicts.length > 0) {
-    out('Refusing to copy, nothing written:');
-    conflicts.forEach((c) => out(`  ${c}`));
-    return 1;
-  }
+  const lost = plan.deleted.filter((p) => untracked.has(p)).length;
+  if (lost > 0) out(`warning: ${lost} untracked file(s) in the destination will be deleted; git cannot recover them`);
   if (plan.added.length + plan.modified.length + plan.deleted.length === 0) {
     out('Nothing to do.');
     return 0;
@@ -299,7 +320,7 @@ export function parseArgs(args, allowed = {}) {
     if (a === '--dry-run' && allowed.dryRun) out.dryRun = true;
     else if (a === '--dest' && allowed.dest) {
       const v = args[++i];
-      if (v === undefined || v.startsWith('--')) throw new Error('--dest needs a directory');
+      if (v === undefined || v.startsWith('-')) throw new Error('--dest needs a directory');
       out.dest = v;
     } else if (a.startsWith('-')) throw new Error(`unknown option: ${a}`);
     else if (positional++ === 0) out.ref = a;
