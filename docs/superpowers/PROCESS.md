@@ -100,6 +100,7 @@ Accanto alla guardia infrastrutturale di §4, che è una regola di condotta, ci 
 | `scripts/architecture-guard.test.js` | un route handler, una tabella creata da una migrazione o una colonna aggiunta da un `ALTER TABLE` non è documentata in `handbook/restricted/ARCHITECTURE.md` §5/§6 |
 | `scripts/claude-md-guard.test.js` | `CLAUDE.md` supera il proprio tetto, il blocco File structure si scosta dal pin esatto, o un documento vivo punta a una sua sezione che non esiste più |
 | `scripts/doc-paths-guard.test.js` | un documento vivo cita un path di file del repo che non esiste e non è nella allowlist `GONE` |
+| `scripts/site-export-guard.test.js` | un file tracciato non è coperto da nessuna regola di `scripts/site-export.rules`, o un file di processo risulta incluso nell'export del sito |
 | `scripts/handbook-guard.test.js` | un documento del manifest manca, un `.md` di `handbook/` non è elencato, un pubblico non coincide con la cartella, o il viewer non saprebbe mostrare un documento |
 | `scripts/decision-ledger-guard.test.js` | una Spec o un Piano datato dal 2026-10-12 non porta la sezione `## Decisioni aperte`, o ne porta una con una voce incompleta; una Spec, o un Piano senza Spec, datato dal 2026-10-24 non porta una `## Criteri di accettazione` valida (§6b) |
 

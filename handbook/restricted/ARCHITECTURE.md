@@ -1291,6 +1291,7 @@ burndown/
     gate5-scope.mjs       ← classifies Gate 5's uncommitted diff (docs-only, docs-and-script-tests, other) for /finish-cycle's test subset and pre-authorised push; pinned by scripts/gate5-scope.test.js, which also guards that no js test outside the subset reads a .md file
     lib/live-docs.mjs     ← the document walk and citation matcher shared by claude-md-guard and doc-paths-guard, so the scanned scope has one definition
     lib/extract-source.mjs ← `extractBlock(src, head)`: cuts one function or method out of a classic script so a vitest file can run it against stubs; the one copy every such test imports
+    site-export.mjs       ← `npm run export:list` / `export:copy`: classifies a commit's files as site or process by site-export.rules and copies the site into a local clone, never committing or pushing; guarded by site-export-guard.test.js. Detail: docs/scripts/site-export.md
     shoot.mjs             ← renders pages of the running app with headless Chrome, one PNG per width. Detail: docs/scripts/shoot.md
 ```
 

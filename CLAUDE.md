@@ -214,6 +214,10 @@ scripts/lib/live-docs.mjs — the walk (`liveMarkdown`, `SKIP_DIRS`) and the cit
                             `claude-md-guard` and `doc-paths-guard`, so the scanned scope has one definition.
 scripts/nginx-serve.test.js — fails when `nginx.conf` would serve a non-site path or stop serving a
                             site file; the location choice is modelled by `scripts/lib/nginx-locations.mjs`.
+scripts/site-export.mjs  — `npm run export:list` / `export:copy`: classifies a commit's files as site or process by
+                            `scripts/site-export.rules`, copies the site into a local clone. Detail: [docs/scripts/site-export.md](docs/scripts/site-export.md).
+scripts/site-export-guard.test.js — fails when a tracked file matches no rule of `scripts/site-export.rules`, or a
+                            process file is included. Limits: own header.
 scripts/shoot.mjs        — renders pages of the running app with headless Chrome, one PNG per width, for comparing a
                             redesign against its design boards. **Reading the PNGs back is part of visual
                             verification — "the page can't be rendered here" is not a valid reason to skip it.**
