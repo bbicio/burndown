@@ -29,7 +29,7 @@ export function loadRules() {
 /** @returns {string} full SHA of `ref` in `repo` */
 export function resolveCommit(repo, ref) {
   try {
-    return git(repo, ['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { encoding: 'utf8' }).trim();
+    return git(repo, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${ref}^{commit}`], { encoding: 'utf8' }).trim();
   } catch {
     throw new Error(`unknown ref: ${ref}`);
   }
@@ -37,7 +37,7 @@ export function resolveCommit(repo, ref) {
 
 /** @returns {{ path: string, mode: string }[]} every entry of the commit's tree (mode 100644/100755 = file, 120000 = symlink, 160000 = submodule) */
 export function listCommitEntries(repo, sha) {
-  return git(repo, ['ls-tree', '-r', '-z', sha], { encoding: 'utf8' })
+  return git(repo, ['ls-tree', '-r', '-z', '--full-tree', sha], { encoding: 'utf8' })
     .split('\0').filter(Boolean)
     .map((rec) => {
       const tab = rec.indexOf('\t');
@@ -50,7 +50,9 @@ export function listCommitPaths(repo, sha) {
   return listCommitEntries(repo, sha).map((e) => e.path);
 }
 
-const REGULAR_MODES = new Set(['100644', '100755']);
+// Only plain files: the copy writes bytes, it does not carry the executable bit,
+// a symlink or a submodule, so it refuses those instead of copying them wrongly.
+const REGULAR_MODES = new Set(['100644']);
 
 /** One `git cat-file --batch` process; @returns {Map<string, Buffer>} path → blob bytes */
 export function readBlobs(repo, sha, paths) {
@@ -117,7 +119,7 @@ export function resolveDest(repo, dest, env) {
   if (r === s || r.startsWith(s + sep) || s.startsWith(r + sep)) {
     throw new Error('destination is the source repo, inside it, or contains it');
   }
-  const common = (d) => realpathSync.native(abs(d, ['rev-parse', '--path-format=absolute', '--git-common-dir']));
+  const common = (d) => key(realpathSync.native(abs(d, ['rev-parse', '--path-format=absolute', '--git-common-dir'])));
   if (common(real) === common(repo)) throw new Error('destination shares its git directory with the source repo');
   return real;
 }
@@ -138,19 +140,61 @@ export function readDestFiles(dest) {
   return files;
 }
 
-/** Deletes first (so a file can become a folder), then writes; removes the folders deletion leaves empty. */
-export function applyPlan(dest, wanted, plan) {
-  for (const p of plan.deleted) {
-    unlinkSync(join(dest, p));
-    for (let d = dirname(join(dest, p)); d !== dest && d.startsWith(dest + sep); d = dirname(d)) {
-      if (readdirSync(d).length > 0) break;
-      rmdirSync(d);
+/** Untracked, not ignored files of the destination: they are mirror-managed too, so the summary names them. */
+function untrackedFiles(dest) {
+  return new Set(git(dest, ['ls-files', '-o', '--exclude-standard', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean));
+}
+
+const isDir = (p) => { try { return lstatSync(p).isDirectory(); } catch { return false; } };
+const isFile = (p) => { try { return lstatSync(p).isFile(); } catch { return false; } };
+
+function holdsOther(dir, rel, deleted) {
+  return readdirSync(dir).some((name) => {
+    const r = `${rel}/${name}`;
+    const full = join(dir, name);
+    return isDir(full) ? holdsOther(full, r, deleted) : !deleted.has(r);
+  });
+}
+
+/**
+ * Paths where a write could not succeed once the planned deletions are done: a
+ * folder that still holds files nobody deletes (e.g. an ignored cache) where a
+ * file must go, or a file that stays where a folder must go. Checked before
+ * anything is written, so a refusal leaves the destination untouched.
+ * @returns {string[]} human-readable conflicts, empty when the plan can be applied
+ */
+export function planConflicts(dest, plan) {
+  const deleted = new Set(plan.deleted);
+  const out = [];
+  for (const p of [...plan.added, ...plan.modified]) {
+    const full = join(dest, p);
+    if (isDir(full) && holdsOther(full, p, deleted)) out.push(`${p}: a folder with files that stay is in the way`);
+    const parts = p.split('/');
+    for (let i = 1; i < parts.length; i++) {
+      const anc = parts.slice(0, i).join('/');
+      if (isFile(join(dest, anc)) && !deleted.has(anc)) { out.push(`${p}: ${anc} is a file that stays`); break; }
     }
   }
-  for (const p of [...plan.added, ...plan.modified]) {
-    const target = join(dest, p);
-    mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, wanted.get(p));
+  return out;
+}
+
+/** Deletes first (so a file can become a folder), then writes; removes the folders deletion leaves empty. */
+export function applyPlan(dest, wanted, plan) {
+  try {
+    for (const p of plan.deleted) {
+      unlinkSync(join(dest, p));
+      for (let d = dirname(join(dest, p)); d !== dest && d.startsWith(dest + sep); d = dirname(d)) {
+        if (readdirSync(d).length > 0) break;
+        rmdirSync(d);
+      }
+    }
+    for (const p of [...plan.added, ...plan.modified]) {
+      const target = join(dest, p);
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, wanted.get(p));
+    }
+  } catch (err) {
+    throw new Error(`the copy stopped half-way (${err.message}); the destination is partly updated — check it with git status`);
   }
 }
 
@@ -163,8 +207,9 @@ function originWarning(repo, sha) {
   try {
     git(repo, ['merge-base', '--is-ancestor', sha, 'origin/main']);
     return null;
-  } catch {
-    return 'warning: this commit is not contained in origin/main';
+  } catch (err) {
+    if (err.status === 1) return 'warning: this commit is not contained in the local origin/main (not fetched, so it may be stale)';
+    return 'warning: could not compare this commit with origin/main';
   }
 }
 
@@ -186,20 +231,27 @@ export async function runCopy({ repo, ref, dest, env, dryRun, confirm, out }) {
   const included = items.filter((i) => i.verdict === 'include').map((i) => i.path);
   const irregular = included.filter((p) => !REGULAR_MODES.has(modes.get(p)));
   if (irregular.length > 0) {
-    out('Refusing to copy: these included entries are symlinks or submodules, not regular files:');
+    out('Refusing to copy: these included entries are not plain files (symlink, submodule or executable):');
     irregular.forEach((p) => out(`  ${p} (mode ${modes.get(p)})`));
     return 1;
   }
   const wanted = readBlobs(repo, sha, included);
   const target = resolveDest(repo, dest, env);
   const plan = planCopy(wanted, readDestFiles(target));
+  const untracked = untrackedFiles(target);
   out(`commit ${sha}`);
   const warning = originWarning(repo, sha);
   if (warning) out(warning);
   out(`destination ${target}`);
   for (const k of ['added', 'modified', 'deleted']) {
     out(`${k}: ${plan[k].length}`);
-    plan[k].forEach((p) => out(`  ${p}`));
+    plan[k].forEach((p) => out(`  ${p}${k === 'deleted' && untracked.has(p) ? '  (untracked in the destination)' : ''}`));
+  }
+  const conflicts = planConflicts(target, plan);
+  if (conflicts.length > 0) {
+    out('Refusing to copy, nothing written:');
+    conflicts.forEach((c) => out(`  ${c}`));
+    return 1;
   }
   if (plan.added.length + plan.modified.length + plan.deleted.length === 0) {
     out('Nothing to do.');
@@ -249,7 +301,7 @@ export function parseArgs(args, allowed = {}) {
       const v = args[++i];
       if (v === undefined || v.startsWith('--')) throw new Error('--dest needs a directory');
       out.dest = v;
-    } else if (a.startsWith('--')) throw new Error(`unknown option: ${a}`);
+    } else if (a.startsWith('-')) throw new Error(`unknown option: ${a}`);
     else if (positional++ === 0) out.ref = a;
     else throw new Error(`unexpected argument: ${a}`);
   }

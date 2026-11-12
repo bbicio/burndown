@@ -316,3 +316,51 @@ describe('runCopy, destination edge cases', () => {
     expect(() => resolveDest(child, parent, {})).toThrow(/contains it/);
   });
 });
+
+describe('review round 2', () => {
+  it('works from a subdirectory of the source repo', () => {
+    const repo = makeRepo(SITE);
+    const root = lines();
+    const sub = lines();
+    runList({ repo, ref: 'main', out: root.push });
+    runList({ repo: join(repo, 'js'), ref: 'main', out: sub.push });
+    expect(sub.out).toEqual(root.out);
+  });
+
+  it('treats a dash-leading ref as an unknown ref, not as a git option', () => {
+    const repo = makeRepo(SITE);
+    expect(() => resolveCommit(repo, '-h')).toThrow('unknown ref: -h');
+    expect(() => parseArgs(['-h'])).toThrow('unknown option: -h');
+  });
+
+  it('names the untracked files it is about to delete', async () => {
+    const repo = makeRepo(SITE);
+    const dest = makeEmptyClone();
+    put(dest, { 'stray.txt': 's' });
+    const r = await copy(repo, dest, { dryRun: true });
+    expect(r.out).toContain('stray.txt  (untracked in the destination)');
+  });
+
+  it('refuses before writing when a folder with ignored files is where a file must go', async () => {
+    const repo = makeRepo({ ...SITE, 'handbook/x': 'f' });
+    const dest = makeEmptyClone();
+    put(dest, { '.gitignore': '.cache', 'handbook/x/.cache': 'c', 'stray.txt': 's' });
+    const r = await copy(repo, dest);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('handbook/x: a folder with files that stay is in the way');
+    expect(existsSync(join(dest, 'stray.txt'))).toBe(true);
+    expect(existsSync(join(dest, 'login.html'))).toBe(false);
+  });
+
+  it('refuses an included executable file', async () => {
+    const repo = makeRepo(SITE);
+    const oid = execFileSync('git', ['-C', repo, 'hash-object', '-w', '--stdin'], { input: 'x', encoding: 'utf8' }).trim();
+    git(repo, 'update-index', '--add', '--cacheinfo', '100755,' + oid + ',js/run.js');
+    git(repo, 'commit', '-q', '-m', 'exec');
+    const dest = makeEmptyClone();
+    const r = await copy(repo, dest);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('js/run.js (mode 100755)');
+    expect(listFiles(dest)).toEqual([]);
+  });
+});
