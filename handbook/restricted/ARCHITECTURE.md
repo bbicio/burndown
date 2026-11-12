@@ -12,6 +12,31 @@ PDash evolves from a single-user localStorage SPA into a multi-user web applicat
 
 The frontend migration to **Vue 3** (CDN, no build step) completed 2026-08-05 — every page is now Vue 3 except the 10-line `index.html` redirect. A handful of shared library files remain classic (non-Vue) scripts, loaded as globals by the Vue pages that still need them (see the file-by-file notes in §7 below).
 
+```mermaid
+flowchart LR
+  browser["Browser"]
+  cdn["CDN (Vue, Bootstrap, Mermaid)"]
+  nginx["pdash-nginx"]
+  authcheck["/auth-check"]
+  admincheck["/admin-check"]
+  api["pdash-api"]
+  db["pdash-db (PostgreSQL 16)"]
+  smtp["SMTP"]
+  llm["Anthropic API"]
+  adminer["pdash-adminer (dev tool)"]
+  browser --> cdn
+  browser -->|pages, handbook/, /api| nginx
+  nginx -->|pages and handbook/| authcheck
+  nginx -->|handbook/restricted/| admincheck
+  authcheck -->|api/auth/me| api
+  admincheck -->|api/auth/admin-check| api
+  nginx -->|proxy /api| api
+  api --> db
+  api --> smtp
+  api --> llm
+  adminer --> db
+```
+
 ---
 
 ## 2. Stack
@@ -90,90 +115,164 @@ Backend authorization has two middleware tiers (`api/src/middleware/auth.js`), b
 
 ### 4.1 User Invitation
 
-```
-Admin fills: firstName, lastName, email, role
-  → system creates user (status = pending)
-  → system sends email with invite link + instructions
-      link contains: invite_token (expires 48h)
+An admin invites a person by email; the person sets a password and the account becomes active. The invite link carries a token valid for 48 hours.
 
-User clicks link
-  → page validates token (GET /api/auth/invite/:token)
-  → user sets password (two fields + confirm)
-  → POST /api/auth/activate { token, password, passwordConfirm }
-  → status → active, token invalidated
-  → redirect to tool
+```mermaid
+sequenceDiagram
+  actor Admin
+  actor User
+  participant Browser
+  participant API
+  participant DB
+  participant Email
+  Admin->>Browser: firstName, lastName, email, role
+  Browser->>API: POST /api/auth/invite
+  API->>DB: insert user (status pending, invite_token, 48h expiry)
+  API->>Email: invite link with the token
+  User->>Browser: opens the link
+  Browser->>API: GET /api/auth/invite/:token
+  API-->>Browser: email, firstName, lastName (410 if invalid or expired)
+  User->>Browser: password and confirmation
+  Browser->>API: POST /api/auth/activate
+  API->>DB: status active, token cleared
+  API-->>Browser: ok
+  Browser->>User: redirect to the tool
 ```
 
 ### 4.2 Login
 
-```
-User submits email + password
-  → POST /api/auth/login
-  → server validates credentials
-  → if error: 401 generic message (no distinction email/password); failed attempts only are rate limited (429 RATE_LIMITED)
-  → if disabled: 403
-  → if the pdash_device cookie is a valid trusted device of the user: sets httpOnly JWT cookie, returns user profile
-  → otherwise: opens a login_challenges row, mails a 6-digit code, sets the pdash_challenge cookie and answers
-    { twoStep: { method, destination, expiresIn, resendIn, sendFailed } } with no JWT
-  → POST /api/auth/two-step/verify { code, trustDevice } → JWT cookie (+ pdash_device when trustDevice)
-  → POST /api/auth/two-step/resend, DELETE /api/auth/two-step ("Back to sign in")
+Every sign-in starts with email and password. A browser that holds a valid `pdash_device` cookie gets its session at once; any other browser must also enter a 6-digit code mailed to the user.
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant Browser
+  participant API
+  participant DB
+  participant Email
+  User->>Browser: email and password
+  Browser->>API: POST /api/auth/login
+  API->>DB: read the user
+  alt wrong credentials
+    API-->>Browser: 401 generic message (email and password not told apart)
+    Note over API: only failed attempts are rate limited, 429 RATE_LIMITED
+  else user disabled
+    API-->>Browser: 403
+  else pdash_device cookie is a trusted device of the user
+    API-->>Browser: httpOnly JWT cookie and the user profile
+  else any other browser
+    API->>DB: open a login_challenges row
+    API->>Email: 6-digit code
+    API-->>Browser: pdash_challenge cookie and twoStep with method, destination, expiresIn, resendIn, sendFailed, no JWT
+    User->>Browser: the code, optionally trust this device
+    Browser->>API: POST /api/auth/two-step/verify
+    API-->>Browser: JWT cookie, plus pdash_device when trustDevice is set
+    opt the user asks for a new code
+      Browser->>API: POST /api/auth/two-step/resend
+    end
+    opt back to sign in
+      Browser->>API: DELETE /api/auth/two-step
+    end
+  end
 ```
 
 ### 4.3 Password Recovery
 
-```
-User submits email
-  → POST /api/auth/forgot-password
-  → server always returns 200 (does not reveal if email exists)
-  → if email found: sends email with reset link (expires 2h)
+A user who forgot the password asks for a reset link, valid for 2 hours. The answer never reveals whether the email is registered.
 
-User clicks link
-  → GET /api/auth/reset-password/:token (validates token)
-  → user sets new password + confirm
-  → POST /api/auth/reset-password { token, password, passwordConfirm }
-  → password updated, token invalidated
-  → redirect to login
+```mermaid
+sequenceDiagram
+  actor User
+  participant Browser
+  participant API
+  participant DB
+  participant Email
+  User->>Browser: email
+  Browser->>API: POST /api/auth/forgot-password
+  API-->>Browser: always 200
+  opt an active user has that email
+    API->>DB: reset_token with 2h expiry
+    API->>Email: reset link
+  end
+  User->>Browser: opens the link
+  Browser->>API: GET /api/auth/reset-password/:token
+  API-->>Browser: valid (410 if invalid or expired)
+  User->>Browser: new password and confirmation
+  Browser->>API: POST /api/auth/reset-password
+  API->>DB: password updated, token cleared
+  API-->>Browser: ok
+  Browser->>User: redirect to login
 ```
 
 ### 4.4 Change Password (authenticated)
 
-```
-POST /api/auth/change-password
-  body: { currentPassword, newPassword, newPasswordConfirm }
+A signed-in user changes the password; the other sessions end and the current one is re-signed.
+
+```mermaid
+sequenceDiagram
+  actor User
+  participant Browser
+  participant API
+  participant DB
+  User->>Browser: currentPassword, newPassword, newPasswordConfirm
+  Browser->>API: POST /api/auth/change-password
+  API->>DB: password updated
+  API-->>Browser: ok and a new JWT cookie
 ```
 
 ### 4.5 Logout
 
-```
-POST /api/auth/logout → clears JWT cookie
+```mermaid
+sequenceDiagram
+  participant Browser
+  participant API
+  Browser->>API: POST /api/auth/logout
+  API-->>Browser: JWT cookie cleared
 ```
 
 ### 4.6 Profile Rectification (GDPR Art. 16)
 
-```
-User opens account dropdown → "My Profile" → /profile.html (Details, read-only)
-  → "Request a change" drawer → POST /api/auth/rectification-request { message }
-  → server records a rectification_requests row
-  → every other active admin/sysadmin gets a notification (+ email) linking to /admin.html
+A user cannot edit their own details: they ask an admin to correct them from the profile page.
 
-Admin opens /admin.html → row menu ⋯ → "Edit details…"
-  → PATCH /api/users/:id { firstName, lastName, email }
-  → server validates names, email format + uniqueness (409); not on oneself, not on a sysadmin unless sysadmin
+```mermaid
+sequenceDiagram
+  actor User
+  actor Admin
+  participant Browser
+  participant API
+  participant DB
+  participant Email
+  User->>Browser: My Profile, Request a change
+  Browser->>API: POST /api/auth/rectification-request
+  API->>DB: rectification_requests row
+  API->>Email: every other active admin or sysadmin, with a notification linking to /admin.html
+  Admin->>Browser: admin page, row menu, Edit details
+  Browser->>API: PATCH /api/users/:id
+  Note over API: validates names, email format and uniqueness (409), not on oneself, not on a sysadmin unless sysadmin
+  API->>DB: user details updated
 ```
 
 ### 4.7 Terms & Conditions Acceptance (GDPR)
 
-```
-initNav() calls GET /api/auth/me
-  → response includes current_terms_version (from app_settings.terms_version)
-  → if user.terms_version < current_terms_version (or null):
-      redirect to /terms.html?next=<current-page>
+On every page, the navigation checks whether the user has accepted the current Terms and Conditions; `terms.html` is standalone, with no navbar and no `initNav()`.
 
-terms.html (standalone — no navbar, no initNav):
-  → GET /api/app-settings/terms → loads version + HTML content
-  → confirm bar with checkbox (disabled button until ticked)
-  → POST /api/auth/accept-terms → records version + timestamp on user row
-  → redirect to ?next
+```mermaid
+sequenceDiagram
+  actor User
+  participant Browser
+  participant API
+  participant DB
+  Browser->>API: GET /api/auth/me
+  API-->>Browser: user and current_terms_version (from app_settings.terms_version)
+  alt user.terms_version is lower than current_terms_version or null
+    Browser->>Browser: redirect to /terms.html with next set to the current page
+    Browser->>API: GET /api/app-settings/terms
+    API-->>Browser: version and HTML content
+    User->>Browser: ticks the checkbox, which enables the button
+    Browser->>API: POST /api/auth/accept-terms
+    API->>DB: terms version and timestamp on the user row
+    Browser->>User: redirect to next
+  end
 ```
 
 ---
@@ -181,6 +280,16 @@ terms.html (standalone — no navbar, no initNav):
 ## 5. Database Schema
 
 ### 5.1 Auth
+
+```mermaid
+erDiagram
+  users }o--o| users : "invited_by"
+  rectification_requests }o--|| users : "user_id"
+  login_challenges }o--|| users : "user_id"
+  trusted_devices }o--|| users : "user_id"
+  app_settings }o--o| users : "updated_by"
+  terms_versions }o--o| users : "published_by"
+```
 
 ```sql
 users (
@@ -249,6 +358,35 @@ terms_versions (                      -- migration 019: immutable, append-only, 
 ```
 
 ### 5.2 Configuration
+
+```mermaid
+erDiagram
+  clients }o--o| client_groups : "group_id"
+  ratecards }o--o| clients : "client_id"
+  ratecard_entries }o--|| ratecards : "ratecard_id"
+  ratecard_entries }o--|| roles : "role_id"
+  currency_rates }o--|| currencies : "currency_code"
+  currency_rates }o--o| users : "created_by"
+  resources }o--o| roles : "role_id"
+  resources }o--o| users : "user_id"
+  resource_aliases }o--o| resources : "resource_id"
+  resource_aliases }o--o| users : "created_by"
+  resource_project_contributions }o--|| resources : "resource_id"
+  topics }o--o| topics : "merged_into"
+  topics }o--o| users : "created_by"
+  description_topic_state }o--|| projects : "project_id"
+  description_topic_links }o--|| projects : "project_id"
+  description_topic_links }o--|| topics : "topic_id"
+  attribute_list_items }o--|| attribute_lists : "list_id"
+  programs {
+  }
+  profile_unmatched {
+  }
+  profile_project_state {
+  }
+  profile_job_runs {
+  }
+```
 
 ```sql
 clients (
@@ -420,6 +558,23 @@ attribute_list_items (                -- migration 020: no physical DELETE anywh
 
 ### 5.3 Cost Grid
 
+```mermaid
+erDiagram
+  cost_grids }o--|| users : "owner_id"
+  cost_grid_versions }o--|| cost_grids : "cost_grid_id"
+  cost_grid_versions }o--o| ratecards : "ratecard_id"
+  cost_grid_versions }o--o| clients : "client_id"
+  cost_grid_versions }o--|| currencies : "currency"
+  phases }o--|| cost_grid_versions : "version_id"
+  tasks }o--|| phases : "phase_id"
+  task_roles }o--|| tasks : "task_id"
+  task_roles }o--|| roles : "role_id"
+  cg_version_projects }o--|| cost_grid_versions : "cost_grid_version_id"
+  cg_version_projects }o--|| projects : "project_id"
+  cost_grid_version_tags }o--|| cost_grid_versions : "version_id"
+  cost_grid_version_tags }o--|| attribute_list_items : "item_id"
+```
+
 ```sql
 cost_grids (
   id         UUID PRIMARY KEY,
@@ -495,6 +650,18 @@ cost_grid_version_tags (              -- migration 022: attribute_lists tags ass
 
 ### 5.4 Projects
 
+```mermaid
+erDiagram
+  projects }o--o| clients : "client_id"
+  projects }o--o| programs : "program_id"
+  projects }o--o| cost_grid_versions : "cg_version_id"
+  projects }o--|| currencies : "currency"
+  projects }o--|| users : "owner_id"
+  project_tasks }o--|| projects : "project_id"
+  project_tags }o--|| projects : "project_id"
+  project_tags }o--|| attribute_list_items : "item_id"
+```
+
 ```sql
 projects (
   id            UUID PRIMARY KEY,
@@ -545,6 +712,16 @@ project_tags (                        -- migration 022: attribute_lists tags of 
 
 ### 5.5 Client Groups and POT Targets
 
+```mermaid
+erDiagram
+  pots }o--o| client_groups : "client_group_id"
+  pots }o--o| clients : "client_id"
+  pot_history }o--|| pots : "pot_id"
+  pot_history }o--o| users : "changed_by"
+  pipeline_years {
+  }
+```
+
 ```sql
 client_groups (
   id         UUID PRIMARY KEY,
@@ -585,6 +762,11 @@ pipeline_years (
 
 ### 5.6 Sharing
 
+```mermaid
+erDiagram
+  resource_shares }o--|| users : "user_id"
+```
+
 ```sql
 resource_shares (
   id            UUID PRIMARY KEY,
@@ -599,6 +781,12 @@ resource_shares (
 ```
 
 ### 5.7 Notifications
+
+```mermaid
+erDiagram
+  notifications }o--|| users : "user_id"
+  notifications }o--o| rectification_requests : "rectification_request_id"
+```
 
 ```sql
 notifications (
@@ -616,6 +804,11 @@ notifications (
 ```
 
 ### 5.8 Timesheets
+
+```mermaid
+erDiagram
+  timesheets }o--o| users : "uploaded_by"
+```
 
 ```sql
 timesheets (
@@ -643,6 +836,39 @@ timesheets (
 ```
 
 `fee` is resolved once at upload time (`POST /api/timesheets/upload`) by matching `task`+`role` against the linked project's `project_tasks.resources[].hourlyRate` (same case-insensitive, first-resource-fallback logic as `js/core.js`'s `findRate()`, ported to the backend as `api/src/lib/rate-resolve.js`'s `resolveFee()`), never recomputed later — a rate change after upload never retroactively alters a stored `fee`. Rows uploaded before this field existed have no `fee` key; every consumer treats that identically to a resolved `fee` of `0`. Since `projects.code` has no uniqueness constraint (`012_project_code.sql`), the project used for this lookup — and for `GET /api/timesheets`'s `client_name`/`project_name`/`currency`/`pipeline_year` columns (below) — is resolved via a `LEFT JOIN LATERAL (... ORDER BY created_at LIMIT 1)` scoped to the calling user's own visibility (owner or `resource_shares`), so a duplicate code never leaks another user's inaccessible project's name or rates; the predicate is factored into one shared `projectVisibilityPredicate()` helper in `api/src/routes/timesheets.js`, reused by `visibleCodes()` and both LATERAL joins.
+
+### 5.9 Pipeline stage and project status
+
+The stage lives on `cost_grid_versions.pipeline` and is propagated to `projects.pipeline`; the status lives on `projects.status`. The statuses a stage allows come from `getStatusRule()` in `js/lib/status-rules.js`; no rule restricts the move from one stage to another.
+
+```mermaid
+flowchart LR
+  sip["SIP"]
+  expected["Expected"]
+  anticipated["Anticipated"]
+  committed["Committed"]
+  canceled["Canceled"]
+  nsy["Not started yet"]
+  sar["Started At Risk"]
+  sta["Started"]
+  poh["Put on hold"]
+  cmp["Completed"]
+  dis["status disabled"]
+  sip --> dis
+  expected --> nsy
+  expected --> sar
+  expected --> poh
+  expected --> cmp
+  anticipated --> nsy
+  anticipated --> sar
+  anticipated --> poh
+  anticipated --> cmp
+  committed --> sta
+  committed --> sar
+  committed --> poh
+  committed --> cmp
+  canceled --> dis
+```
 
 ---
 

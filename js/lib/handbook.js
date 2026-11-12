@@ -40,7 +40,7 @@ export function isHandbookPayload(text, doc) {
 // spaces of indent and 3+ backticks or tildes; it closes on a line of the same
 // character, at least as long, with nothing else. Inside an open block every
 // other fence line is content.
-function fenceBlocks(text) {
+export function fenceBlocks(text) {
   const blocks = [];
   let cur = null;
   stripBom(text).split(/\r?\n/).forEach((line, i) => {
