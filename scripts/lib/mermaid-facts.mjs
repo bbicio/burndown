@@ -25,6 +25,22 @@ export function erEntities(body) {
   return seen;
 }
 
+// Lines of an erDiagram that erEntities cannot read (a quoted entity, no space
+// around the cardinality...): returned, never skipped, so a wrong name cannot hide.
+export function erUnsupported(body) {
+  const bad = [];
+  let inBlock = false;
+  for (const raw of bodyLines(body).slice(1)) {
+    const line = raw.trim();
+    if (inBlock) { if (line === '}') inBlock = false; continue; }
+    if (line === '' || line === '}' || line.startsWith('%%')) continue;
+    if (ER_RELATION.test(line)) continue;
+    if (ER_DECLARATION.test(line)) { inBlock = !line.includes('}'); continue; }
+    bad.push(line);
+  }
+  return bad;
+}
+
 export function apiCalls(body) {
   const calls = [];
   for (const m of String(body).matchAll(API_CALL)) calls.push({ method: m[1], path: m[2] });
@@ -98,6 +114,7 @@ export function diagramProblems(markdown, facts) {
     const body = b.lines.join('\n');
     const type = diagramType(b);
     if (type === 'erDiagram') {
+      for (const u of erUnsupported(body)) problems.push(`Line ${b.line}: unsupported erDiagram line "${u}"`);
       for (const e of erEntities(body)) {
         if (!facts.tables.has(e)) problems.push(`Line ${b.line}: erDiagram entity "${e}" is not a table`);
       }

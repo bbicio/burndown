@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { erEntities, apiCalls, flowEdges, withoutMermaid, diagramProblems } from './mermaid-facts.mjs';
+import { erEntities, erUnsupported, apiCalls, flowEdges, withoutMermaid, diagramProblems } from './mermaid-facts.mjs';
 
 describe('erEntities', () => {
   it('reads both sides of a relation', () => {
@@ -19,6 +19,18 @@ describe('erEntities', () => {
   });
   it('keeps a wrongly cased name verbatim', () => {
     expect(erEntities('erDiagram\n  Users ||--o{ x : "a"')).toEqual(['Users', 'x']);
+  });
+});
+
+describe('erUnsupported', () => {
+  it('accepts relations, declarations, blanks, comments and attribute blocks', () => {
+    const body = 'erDiagram\n  %% note\n\n  a ||--o{ b : "x"\n  c {\n    string id\n  }\n  d["Alias"] {\n  }';
+    expect(erUnsupported(body)).toEqual([]);
+  });
+  it('reports quoted, unspaced and worded entities instead of skipping them', () => {
+    expect(erUnsupported('erDiagram\n  "ghost" ||--o{ users : "x"')).toEqual(['"ghost" ||--o{ users : "x"']);
+    expect(erUnsupported('erDiagram\n  ghost||--o{users : "x"')).toHaveLength(1);
+    expect(erUnsupported('erDiagram\n  "ghost" {\n  }')).toHaveLength(1);
   });
 });
 
@@ -107,6 +119,11 @@ describe('diagramProblems', () => {
     const p = diagramProblems(doc().replace('users ||', 'Users ||'), facts);
     expect(p).toHaveLength(1);
     expect(p[0]).toContain('Users');
+  });
+  it('reports an ER line it cannot read, such as a quoted entity', () => {
+    const p = diagramProblems(doc().replace('users ||', '"users" ||'), facts);
+    expect(p).toHaveLength(1);
+    expect(p[0]).toContain('"users" ||--o{ pots');
   });
   it('reports an unknown API call but not a normalised one', () => {
     const p = diagramProblems(doc().replace('POST /api/auth/login', 'GET /api/nope'), facts);
