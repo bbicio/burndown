@@ -581,6 +581,90 @@ The euro is the fixed base currency. Any other currency is inactive until an adm
 
 </details>
 
+## Team and attribute lists (admin)
+
+Team and Attribute Lists are for administrators and system administrators. They are in the Admin group of the menu.
+
+### Team
+
+Team is the registry of the people who can be assigned to work: first name, last name, email, one role and a free-text job description. A person does not need a PDash account to be listed; a resource can optionally be linked to a user when the person has one. The role is chosen from the roles of Master Data, so renaming a role updates everyone who has it, and a role in use by a person cannot be deleted.
+
+The page is one list. A bar above it filters by Active, Inactive or All, by role, and by linked or unlinked user, with a search box. Click a person to open a side panel with two tabs, **Details** and **Experience profile**. Each row's **⋯** menu offers **Edit**, **Deactivate** or **Activate**, and **Delete…**. **New resource** opens a drawer.
+
+<details>
+<summary>Details</summary>
+
+- Deactivating hides the person from the default list and keeps their history; it also removes them from the future hours shown in Planning. Delete… asks you to tick a box first and lists the aliases that go back to the queue.
+- Lists of more than 25 people have Previous and Next buttons. On a tablet or a phone some filters move into a menu and rows become cards.
+
+</details>
+
+### Unmatched names
+
+Timesheet files carry the owner's name as free text. When a name cannot be matched to a resource, an amber notice above the Team list gives the number of names waiting and the hours not yet attributed, and opens the **Unmatched names** drawer.
+
+For each name, which comes with its hours and the projects it appears in, you can **Assign** it to a resource or **Ignore** it when it is not a person, such as "TBD". An assigned or ignored name is remembered as an alias, listed under "Existing aliases", where it can be removed to send the name back to the queue. **Rescan** recomputes the list from all uploaded actuals.
+
+<details>
+<summary>Details</summary>
+
+- A name matches automatically when it equals a resource's name ignoring capitals, accents, punctuation and order, so "Rossi, Mario" matches "Mario Rossi".
+- A name shared by two people is flagged AMBIGUOUS and is never matched by itself: pick the right person from the chips beside it.
+- Deactivated people can still be chosen, for colleagues who have left; they are marked "(inactive)".
+
+</details>
+
+### Experience profile
+
+The Experience profile tab sums up what a person has worked on, from the uploaded actuals whose owner name matches them: total hours, number of projects and the first and last month. Below it come a block of competence Topics, one block for each attribute list (Market, Brand and so on) showing each value with its hours, share and projects, and a block of hours by role. Blocks open down to projects and tasks. A link on the tab opens Profile processing, the queue that rebuilds the profiles.
+
+### Attribute lists and tags
+
+Attribute Lists holds the lists used to tag offers and projects. Market, Brand, Therapeutic Area and Service Type are there from the start, empty until you fill them, and you can create more with **New list**. Pick a list in the side menu to see its values, with an Active, Inactive or All filter, a search, **New item** and **Rename**. A value's **⋯** menu has **Edit label** and **Deactivate** or **Activate**; values are never deleted, only retired, and a green message after each change offers **Undo**. A label must be unique within its list.
+
+Tags appear in the **Tags** section of the offer editor and of the project configuration form, as pills grouped by list: click to assign and click again to remove. Anyone who can edit the offer or the project can tag it. A project starts with a one-time copy of its offer's tags and is independent afterwards. A tag whose value was later deactivated stays assigned and is shown dimmed as "inactive".
+
+### Competence topics
+
+The same page reviews the competence topics that PDash suggests from the descriptions of projects and tasks, such as "Medical writing". The side menu lists them as **Proposed**, **Approved** and **Rejected**. A proposed topic does not appear in anyone's profile until you approve it.
+
+<details>
+<summary>Details</summary>
+
+- Each topic has a **⋯** menu: **Rename**, **Reject** and **Merge into…**. Merging cannot be undone and asks for confirmation. A rejected topic can be restored and is never suggested again.
+- **New topic** adds a topic by hand. Names have one to four words.
+- The suggestions come from an external AI service, run in the background after a description is saved, and descriptions under 20 characters are ignored. Extraction can be turned off from the Profile processing page, and it does not run at all when the server has no AI key.
+
+</details>
+
+## User administration (admin)
+
+User Admin is for administrators and system administrators. It lists all users, with filters by status (All, Active, Pending, Disabled, each with its count) and by role, a search on name and email, and sortable columns. **Invite user** opens a drawer for the first name, last name, email and role; the new person receives an invitation email and the account stays pending until they choose a password.
+
+| Role | What it can do |
+|---|---|
+| user | Sees and edits only their own offers and projects, and what is shared with them. |
+| admin | Everything about data and configuration, and managing users. |
+| sysadmin | Everything an admin can do, plus resetting data and editing the Terms & Conditions. |
+
+Each row has at most one visible button, **Resend invite** for a pending user or **Enable** for a disabled one. Everything else is in the row's **⋯** menu, grouped as Role, Access and Data; an action that is not available is greyed out with the reason.
+
+<details>
+<summary>Details</summary>
+
+- **Role.** Any admin can make a user an admin or make an admin an ordinary user. Granting or removing sysadmin is for system administrators only and goes one step at a time: user to admin, then admin to sysadmin, and back in the same order.
+- **Access.** **Disable** asks for confirmation and takes effect at the person's next action. **Enable** gives access back.
+- **Edit details…** changes a user's name and email in a drawer. It is how a request to correct someone's details is handled. Changing the email cancels a reset link or an invitation sent to the old address, so resend the invitation afterwards.
+- **Anonymize** is available only on a disabled account. After a confirmation it replaces the name and email with placeholders and keeps the person's offers and projects. It is how the right to erasure is honoured.
+- Nobody can change their own role or status: your own row reads "Your account". A system administrator's row can only be changed by another system administrator; an admin sees "Sysadmin only".
+- If the invitation email cannot be sent, the user is still created and the drawer says so; use **Resend invite**. Resending issues a new link valid for 48 hours.
+
+</details>
+
+### Sysadmin tools
+
+System administrators have two more pages under the Sysadmin heading. **Terms & Conditions** edits the text people accept: **Save draft** keeps it private, **Publish new version** records it permanently and asks everyone to accept it again at their next sign-in, and a preview shows how it looks. Every published version is kept and can be read from the version history. **DB Reset** deletes data in bulk, by scope: proposals, projects and programs, clients and groups, client rate cards, actuals, pipeline years and POTs, and notifications. Every action there is irreversible and asks you to type the word DELETE.
+
 ## Account, privacy and sharing
 
 ### My profile
