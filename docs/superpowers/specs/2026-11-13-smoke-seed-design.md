@@ -58,7 +58,7 @@ Un dump del database; modifiche a `site-export.rules`; il seed sullo stack princ
 
 1. **Lo script resta in `burndown` (`api/src/scripts/`, escluso dall'export) e il pannello lo lancia da lì.** Alternativa scartata: spostarlo in un percorso incluso nel clone. Perché: col pannello non serve e il clone su Bitbucket resta pulito.
 2. **Script nuovo; `seed-planning-golden.js` non si tocca.** Alternativa scartata: estendere il seed di Planning. Perché: ha un altro scopo, il prefisso `GOLD-` e un `--remove` che qui non servono.
-3. **`trust-device.js` si copia nel container con `docker cp` a ogni esecuzione di Seed.** Alternative scartate: toglierlo dall'esclusione dell'export; leggere il codice da Mailpit. Perché: lascia il clone e l'export invariati.
+3. **`trust-device.js` si copia nel container con `docker cp` a ogni esecuzione di Seed.** Alternativa scartata: toglierlo dall'esclusione dell'export; leggere il codice da Mailpit. Perché: lascia il clone e l'export invariati.
 4. **Un solo pulsante per tutta la sequenza.** Alternativa scartata: un pulsante per passo. Perché: l'utente vuole un pulsante e non gli script.
 5. **Anno di pipeline in corso; date come spostamenti fissi da oggi.** Alternativa scartata: spostamenti dal 1° gennaio. Perché: a dicembre sarebbe tutto nel passato.
 6. **Su un database non vuoto il pannello e lo script si rifiutano.** Alternativa scartata: cancellare e ricreare. Perché: lo stack parte sempre vuoto e un `down -v` si fa già con **Stop and remove**.
