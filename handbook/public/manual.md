@@ -278,6 +278,206 @@ The answer is three tables for each role the project needs: the best team (peopl
 
 </details>
 
+## Project reporting
+
+The Portfolio page shows every project you can see with its budget at a glance, and opens a full report for each one. Projects are created from an offer, so there is no button to create one here.
+
+### The portfolio overview
+
+A segmented control switches between **Card** and **List** and PDash remembers your choice. A project card shows the client, the project name and code, its stage and status, the duration, the amount sold, the amount spent and the variance, and a spend bar. The bar turns amber from 85% spent and red above 100%. **Dashboard** opens the project's report and **Configure** opens its configuration form.
+
+| Control | What it does |
+|---|---|
+| Search | Matches project name, code or client. |
+| Client, Stage, Status | Multi-select filters. Choices inside one filter match any of them; the filters together must all match. |
+| Sort | Client A–Z, or Alphabetical. |
+| Clear filters | Appears while a filter is active. |
+
+<details>
+<summary>Details</summary>
+
+- "No budget" means nothing is sold on the project. "0% spent" means there is a budget that has not been billed against yet.
+- A project with no timesheet data carries a "No actuals available" badge.
+- Viewers do not see **Configure**.
+- The List view has the columns Program / Project, Stage, Status, Duration, Sold, Spent and Variance; below about 1024 pixels Duration and Spent are dropped.
+
+</details>
+
+### Programs
+
+Projects that belong to the same program are grouped under one row or card, with the figures added up across the program. A program card opens a panel with its projects; **Dashboard** on the program opens the Program Dashboard. **Share** gives a colleague access to every project of the program at once. While a filter is active the programs stay open so that a match is never hidden inside a closed one.
+
+<details>
+<summary>Details</summary>
+
+- A program opened in Card view is also open in List view, and the other way round. Card view keeps one program open at a time.
+- A program's status in List view reads "N at risk" when any project is at risk, otherwise "N projects".
+
+</details>
+
+### A single project's report
+
+The **Dashboard** of a project opens its report. The header offers a way back to the portfolio, a menu with the other projects of its program, and these actions:
+
+| Control | What it does | Who sees it |
+|---|---|---|
+| Configure | Opens the project's configuration form. | Not viewers |
+| Load Actuals | Uploads a timesheet file for this project. | Not viewers |
+| Share | Opens the share dialog. | Owner and editors |
+| Planning | Opens Planning filtered to this project. | Everyone with access |
+
+Three tiles summarise the project:
+
+| Tile | Shows |
+|---|---|
+| Hours | Hours consumed out of hours sold, the percentage and the hours left. |
+| Budget | Fees spent out of fees sold, the percentage and the amount left. Pass-through costs are shown beneath, not included. |
+| Time elapsed | How much of the project's period has passed and whether hours are on track, ahead of or behind time. |
+
+<details>
+<summary>Details</summary>
+
+- Hours and Budget come from the project's tasks and actuals, not from the monthly phasing grid, so they can differ from a phasing total that was not kept up to date.
+- Hours dated after today are counted as consumed and noted under the Hours tile.
+- With a project that has nothing sold, the tiles show "—" and "No budget".
+
+</details>
+
+### Burndown and monthly summary
+
+The Progress card has three views, **Burndown**, **Monthly summary** and, for projects with pass-through costs, **Pass-through**.
+
+The burndown is a line chart of the hours still remaining. The solid line is the actual trend up to today, with a label for what is left today; the dashed line is the plan, taken from the monthly phasing, or a straight line to zero when the project has no phasing. You can narrow it to one task and choose monthly, quarterly, biweekly or weekly steps, and **Export PNG** saves the chart.
+
+The monthly summary has one row per month with planned hours, consumed hours and their variance, then estimated budget, spent and variance, a pass-through column when the project has such costs, and a total row. **Export XLS** downloads the same figures.
+
+<details>
+<summary>Details</summary>
+
+- Only the bad variance is highlighted: a negative figure, over budget or over hours, shows in red.
+- The current month carries a "current" mark and future months are muted.
+- Without any timesheet data the card says "No actuals loaded yet." and, for people who can change the project, offers **Load Actuals**.
+
+</details>
+
+### Breakdown by task, role and functional area
+
+A selector on the Breakdown card chooses the view. Each row shows what was sold, what was spent, what remains and a consumption bar; the total row is the same in the three views. A row that has consumed more than was sold is marked "Over sold".
+
+| View | One row per |
+|---|---|
+| By task | Billable task. It opens into its roles and the individual time entries. Non-billable tasks are listed under "Excluded from report" and count in no total. |
+| By role | Role and task together, so a role billed at two different rates gets two rows. |
+| By functional area | Functional area defined in the project configuration, plus an "Ungrouped" row for hours that no area claims. |
+
+<details>
+<summary>Details</summary>
+
+- Entries are grouped by month, newest first. A filter at the top (by role or by resource) narrows them, and the column headers sort them.
+- A role that is in two functional areas counts in each of them and once in the total; a note under the table says so.
+- **Period**, at the top right, limits the Spent column to the whole project, to one month or to a custom range of dates. Sold, remaining and consumption stay on the whole project.
+- **Export XLS** downloads the current view.
+
+</details>
+
+### Program Dashboard
+
+The Program Dashboard answers whether a program as a whole is on budget and on schedule, and which project needs attention first. It is opened from **Dashboard** on a program, or from the program line in a project's header. It adds nothing new to maintain: it is calculated from the projects the program contains and that you can see.
+
+It has four tiles: Budget, Hours, Time elapsed and Needs attention. A project needs attention when its status is "Started At Risk", when 85% of it is consumed, or when its consumption is more than 10 points ahead of the time elapsed. Under the tiles come the program's burndown and the projects, as a **List** with a bar for each project, or a **Timeline** with a bar positioned by the project's dates.
+
+<details>
+<summary>Details</summary>
+
+- When the projects of a program use different currencies, money figures read "Mixed currencies"; hours and percentages stay.
+- The List ends with a "PROGRAM TOTAL" row. **Reporting →** on a row opens that project's own report.
+- Projects without dates do not appear in the Timeline, and the Timeline is not offered for a program with no dated project.
+- A program whose projects you cannot see shows a message instead of a refusal.
+
+</details>
+
+## Project configuration
+
+The configuration form holds everything about one project: its identity, tasks, monthly budget and hours, pass-through costs, functional groups, tags and actuals. It opens from **Configure** on a project card or report. A project cannot be created here: it is generated from an offer (see Pipeline and offers), and the form cannot be opened without a project.
+
+### Saving and navigating
+
+The page head has a link back to the portfolio, the project's name with its stage and status, and three buttons: **Project Dashboard**, **Discard** and **Save**. Discard returns the whole form to its last saved state, after a confirmation. Save returns you to the project's report. A list of sections beside the form scrolls to each one; an amber dot marks a section that needs attention, with the reason when you hover it.
+
+<details>
+<summary>Details</summary>
+
+- If something changed and you close the tab or leave the page, the browser asks you to confirm. Tags, actuals and a new client or program are saved at once and are not part of this.
+- A save that is refused says "Save failed", names what was not saved and gives the reason.
+- Below 1024 pixels the section list becomes a row of tabs, and on a phone one section is shown at a time.
+
+</details>
+
+### Project information
+
+| Field | Notes |
+|---|---|
+| Name | Must match the project name in the timesheet file. |
+| Start date, End date | Month level, typed or picked as "Dec 2025". The end cannot be before the start. |
+| Currency | Read only: the project keeps the currency of its offer. |
+| Pipeline, Status | The status choices depend on the pipeline stage. |
+| Client, Program | Optional. |
+| Description | What the project is about; used to learn the competences of the team. |
+
+### Tasks and resources
+
+Each task has a name that must match the "Task/Issue" column of the timesheet file, a **Billable** and a **Completed** tick, optional start and end dates, a description, and its resources: a role, the sold hours and the hourly rate. Tasks are listed in a table and one task is open for editing at a time.
+
+For a task that lasts more than one month, a percentage per month says how its hours are spread; a badge shows whether the percentages add up to 100%. **Spread evenly** fills the months equally and **Clear** empties them. When some tasks have no valid split, one warning offers **Spread all evenly**, which fills only those and never overwrites a valid split.
+
+<details>
+<summary>Details</summary>
+
+- The percentages cannot be edited once the task is Completed, when it covers a single month, or for a viewer.
+- A task date cannot lie outside the project period. A task that already does is marked "Outside the project period".
+- A rate is typed in the project's currency format; an invalid one stays outlined in red and Save is refused until it is fixed.
+
+</details>
+
+### Monthly phasing and planning
+
+One card holds two grids switched by **Budget** and **Hours**: the budget planned for each month and the sold hours planned for each month. Both can be typed by hand, or filled by two actions.
+
+| Action | What it does |
+|---|---|
+| Derive from task dates | Spreads every task's budget and hours over the months its dates cover. It is always available and ignores actuals. |
+| Reforecast from actuals | Appears once actuals exist. Months with actuals take the real figures and the remaining budget and hours are spread over the current and future months. |
+
+<details>
+<summary>Details</summary>
+
+- Both actions overwrite the grids on screen, ask for confirmation first and cannot be undone. Nothing is saved until you press **Save**; reloading the page before that discards the result.
+- Reforecast shares what remains among the tasks still open, in proportion to what each has left, following the task's monthly split when it adds up to 100%. A task that is over its sold total gets nothing more.
+- A line under the grid says whether the months add up to the billable total.
+
+</details>
+
+### Pass-through costs
+
+External costs that are not sold hours, such as licences or travel. Add each as a line with a title, an optional note, an amount and the month it falls in; the project dates must be set first. A running total sums the lines and any line can be removed after confirming.
+
+### Functional groups
+
+A functional group is a name and a list of roles. Each role row has the role name, which must match the role in the timesheet file, and a task, "Any task" by default. Choosing a task claims that role's hours only on that task for the group. Groups appear in the Breakdown of the project report.
+
+### Actuals
+
+| Control | What it does |
+|---|---|
+| Load actuals | Uploads a timesheet file (see Timesheet upload). |
+| View | Lists every imported row: date, owner, role, task, hours, notes, fee and spent. Available to viewers too. |
+| Download actuals | Saves the same rows as an Excel file. |
+| Delete actuals | Permanently removes the actuals of this project after a confirmation. Not shown to viewers. |
+
+### Viewers
+
+For a viewer the whole form is read only: a banner says so, every field is disabled and Save, Discard and the actuals buttons that change data are hidden.
+
 ## Account, privacy and sharing
 
 ### My profile
