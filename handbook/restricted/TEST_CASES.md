@@ -1299,6 +1299,7 @@ Spec: `docs/superpowers/specs/2026-11-11-handbook-viewer-design.md`. One page sh
 | HB-06 | Test case results kept | As an admin, mark a case passed in Test cases, reload | The case is still passed; results saved before 2026-11-11 on the same address are still there | |
 | HB-07 | Mermaid diagram | As an admin, open a document containing a `mermaid` code block | The block is drawn as a diagram, not shown as code | |
 | HB-08 | Session expired while reading | Open `/help.html`, sign out in another tab, then pick another document | "Could not load this document. Reload the page; if you are signed out, sign in first." instead of the login page rendered as text | ✓ (vitest) |
+| HB-09 | User manual renders | Open `/help.html?doc=manual` as a user | The ten chapters show, every table is a table, each "Details" block opens on click, and no chapter names a button the page does not have | |
 
 ---
 
