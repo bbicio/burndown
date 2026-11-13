@@ -307,7 +307,9 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
           'SELECT cg_version_id, currency, start_date, end_date FROM projects WHERE id = $1 FOR UPDATE', [req.params.id]);
         const prevCgVersionId = prev.rows[0]?.cg_version_id ?? null;
         const lockedPeriod = prev.rows[0] ? { start: prev.rows[0].start_date, end: prev.rows[0].end_date } : null;
-        if (lockedPeriod && periodChanged(bodyPeriod, lockedPeriod)) {
+        // Only a period that is going to be written is checked: when the unlocked read showed it as unchanged the
+        // columns are not in the UPDATE, so a change made by someone else meanwhile is not this request's business.
+        if (lockedPeriod && periodMoved && periodChanged(bodyPeriod, lockedPeriod)) {
           dateRefusal = periodChangeError(bodyPeriod, lockedPeriod, { kind: 'month', label: 'project' });
           if (!dateRefusal) {
             const tasks = (await client.query('SELECT name, start_date, end_date FROM project_tasks WHERE project_id = $1', [req.params.id]))

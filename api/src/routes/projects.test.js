@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const ID = '11111111-1111-4111-8111-111111111111';
-const state = { read: null, locked: null, log: [] };
+const state = { read: null, locked: null, tasks: [], log: [] };
 
 function stub(rel, exports) {
   const file = require.resolve(rel);
@@ -15,6 +15,7 @@ const fakeClient = {
   async query(sql, params) {
     state.log.push({ sql: sql.trim(), params, via: 'client' });
     if (/FOR UPDATE/.test(sql)) return { rows: state.locked ? [state.locked] : [] };
+    if (/FROM project_tasks/.test(sql)) return { rows: state.tasks };
     if (/^\s*UPDATE projects/.test(sql)) return { rows: [{ id: ID, name: 'P' }] };
     return { rows: [] };
   },
@@ -111,4 +112,20 @@ test('a body without any field still answers Nothing to update', async () => {
   const res = await patch({});
   assert.equal(res.statusCode, 400);
   assert.equal(res.body.error, 'Nothing to update');
+});
+
+test('a period the unlocked read showed as unchanged is not checked under the lock when only the link takes it', async () => {
+  const VER = '22222222-2222-4222-8222-222222222222';
+  // The form re-sends 202604-202610, which the unlocked read still shows; another session has since widened it.
+  const read = { ...STORED, end_date: '202610 ', cg_version_id: VER };
+  const locked = { ...STORED, end_date: '202612 ', cg_version_id: VER };
+  state.tasks = [{ name: 'Nov', start_date: '20261105', end_date: '20261110' }];
+  try {
+    const res = await patch({ cgVersionId: VER, startDate: '202604', endDate: '202610' }, { read, locked });
+    assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+    assert.equal(updates().length, 1);
+    assert.doesNotMatch(updates()[0].sql, /start_date|end_date/);
+  } finally {
+    state.tasks = [];
+  }
 });
