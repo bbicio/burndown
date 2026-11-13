@@ -32,3 +32,30 @@ test('missingLinkedTasks: ids compare without regard to letter case', () => {
   assert.deepEqual(
     missingLinkedTasks({ linkedTaskIds: [T1.id], currentTasks: [T1], payloadTaskIds: [T2.id.toUpperCase()] }), [T1]);
 });
+
+test('missingLinkedTasks: a task linked by name only and dropped is reported', () => {
+  assert.deepEqual(
+    missingLinkedTasks({ linkedTaskIds: [], linkedTaskNames: ['T1'], currentTasks: [T1, T2], payloadTaskIds: [T2.id], payloadTaskNames: ['T2'] }),
+    [T1]);
+});
+
+test('missingLinkedTasks: a name-only link survives a rename that keeps the id', () => {
+  assert.deepEqual(
+    missingLinkedTasks({ linkedTaskIds: [], linkedTaskNames: ['T1'], currentTasks: [T1], payloadTaskIds: [T1.id], payloadTaskNames: ['Renamed'] }),
+    []);
+});
+
+test('missingLinkedTasks: a name-only link survives a re-created task with the same title', () => {
+  assert.deepEqual(
+    missingLinkedTasks({ linkedTaskIds: [], linkedTaskNames: ['T1'], currentTasks: [T1], payloadTaskIds: ['new-id'], payloadTaskNames: ['T1'] }),
+    []);
+});
+
+test('missingLinkedTasks: case and spaces in a name are ignored', () => {
+  assert.deepEqual(
+    missingLinkedTasks({ linkedTaskIds: [], linkedTaskNames: ['  t1 '], currentTasks: [T1], payloadTaskIds: [], payloadTaskNames: [] }),
+    [T1]);
+  assert.deepEqual(
+    missingLinkedTasks({ linkedTaskIds: [], linkedTaskNames: ['T1'], currentTasks: [T1], payloadTaskIds: [], payloadTaskNames: [' T1  '] }),
+    []);
+});
