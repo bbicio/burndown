@@ -59,3 +59,15 @@ test('missingLinkedTasks: case and spaces in a name are ignored', () => {
     missingLinkedTasks({ linkedTaskIds: [], linkedTaskNames: ['T1'], currentTasks: [T1], payloadTaskIds: [], payloadTaskNames: [' T1  '] }),
     []);
 });
+
+test('missingLinkedTasks: a task linked by id is not kept by a new task that happens to share its title', () => {
+  assert.deepEqual(
+    missingLinkedTasks({ linkedTaskIds: [T1.id], linkedTaskNames: [], currentTasks: [T1], payloadTaskIds: ['new-id'], payloadTaskNames: ['T1'] }),
+    [T1]);
+});
+
+test('missingLinkedTasks: a task linked by id and renamed under the same id is kept', () => {
+  assert.deepEqual(
+    missingLinkedTasks({ linkedTaskIds: [T1.id], linkedTaskNames: [], currentTasks: [T1], payloadTaskIds: [T1.id], payloadTaskNames: ['Renamed'] }),
+    []);
+});

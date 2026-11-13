@@ -285,7 +285,10 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
 
     let rows;
     let seedFromVersionId = null;
-    if (req.body.cgVersionId !== undefined || periodMoved) {
+    // Any body that carries a period takes the lock path: whether the period changed is decided on the locked row,
+    // so a save that looks unchanged against the unlocked read above cannot overwrite a concurrent change.
+    const periodPresent = req.body.startDate !== undefined || req.body.endDate !== undefined;
+    if (req.body.cgVersionId !== undefined || periodPresent) {
       // Read the previous link and write the new one under one row lock, so two overlapping
       // saves (js/api-sync.js re-sends cgVersionId on every save) cannot both observe
       // "no link yet" and both seed tags — only the first link ever seeds them. A period change takes the
@@ -302,8 +305,8 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
         const prev = await client.query(
           'SELECT cg_version_id, currency, start_date, end_date FROM projects WHERE id = $1 FOR UPDATE', [req.params.id]);
         const prevCgVersionId = prev.rows[0]?.cg_version_id ?? null;
-        if (periodMoved && prev.rows[0]) {
-          const lockedPeriod = { start: prev.rows[0].start_date, end: prev.rows[0].end_date };
+        const lockedPeriod = prev.rows[0] ? { start: prev.rows[0].start_date, end: prev.rows[0].end_date } : null;
+        if (lockedPeriod && periodChanged(bodyPeriod, lockedPeriod)) {
           dateRefusal = periodChangeError(bodyPeriod, lockedPeriod, { kind: 'month', label: 'project' });
           if (!dateRefusal) {
             const tasks = (await client.query('SELECT name, start_date, end_date FROM project_tasks WHERE project_id = $1', [req.params.id]))
