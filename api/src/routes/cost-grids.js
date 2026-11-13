@@ -3,7 +3,7 @@ const { query, pool } = require('../db/client');
 const { requireAuth, liveRole } = require('../middleware/auth');
 const rules = require('../lib/project-rules');
 const { withVersionLock, lockVersion } = require('../lib/version-lock');
-const { missingLinkedTasks, STRUCTURE_RULE_CODE } = require('../lib/structure-rules');
+const { missingLinkedTasks, taskTitle, STRUCTURE_RULE_CODE } = require('../lib/structure-rules');
 
 // A refusal by the project rules: 400 with a code, so a client can tell it from other errors.
 const refuse = (res, error) => res.status(400).json({ error, code: rules.RULE_CODE });
@@ -802,12 +802,14 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
         }
       }
       const next = mergePeriod(bodyPeriod, storedPeriod);
-      const storedTasks = (await client.query(
-        'SELECT t.title, t.start_date, t.end_date FROM tasks t JOIN phases p ON p.id = t.phase_id WHERE p.version_id = $1',
+      // One read of the saved tasks serves the date rule and the linked-task rule below.
+      const currentTasks = (await client.query(
+        'SELECT t.id, t.title, t.start_date, t.end_date FROM tasks t JOIN phases p ON p.id = t.phase_id WHERE p.version_id = $1',
         [req.params.vId]
-      )).rows.map(t => ({ name: t.title, start: t.start_date, end: t.end_date }));
+      )).rows;
+      const storedTasks = currentTasks.map(t => ({ name: t.title, start: t.start_date, end: t.end_date }));
       const bodyTasks = phases.flatMap(ph => (ph?.tasks || []).filter(Boolean).map(tk => ({
-        name: taskLabel(tk), start: tk.taskStartDate || tk.start_date, end: tk.taskEndDate || tk.end_date,
+        name: taskTitle(tk), start: tk.taskStartDate || tk.start_date, end: tk.taskEndDate || tk.end_date,
       })));
       const taskErr = taskDatesError({ tasks: bodyTasks, storedTasks, storedPeriod, nextPeriod: next, parent: 'version' });
       if (taskErr) {
@@ -821,9 +823,6 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
       const linkedRows = await client.query(
         'SELECT task_ids, task_names_direct FROM cg_version_projects WHERE cost_grid_version_id = $1', [req.params.vId]
       );
-      const currentTasks = (await client.query(
-        'SELECT t.id, t.title FROM tasks t JOIN phases p ON p.id = t.phase_id WHERE p.version_id = $1', [req.params.vId]
-      )).rows;
       const payloadTaskIds = phases.flatMap(ph => (ph?.tasks || []).map(tk => tk?.taskId || tk?.id).filter(Boolean));
       const missing = missingLinkedTasks({
         linkedTaskIds: linkedRows.rows.flatMap(r => r.task_ids || []),
@@ -852,7 +851,7 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
         for (let ti = 0; ti < (ph.tasks || []).length; ti++) {
           const tk = ph.tasks[ti];
           if (!tk) continue;
-          const tkTitle = (tk.taskName || tk.title || '').trim() || 'New Task';
+          const tkTitle = taskTitle(tk);
           const tkDesc  = tk.taskDescription || tk.description || '';
           const normDate = v => toYmd(v) ?? '';
           const tkStart = normDate(tk.taskStartDate || tk.start_date  || '');
