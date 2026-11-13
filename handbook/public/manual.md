@@ -76,6 +76,10 @@ At the bottom of the sidebar (top right on a narrow screen) your initials open t
 
 The bell next to it shows how many notifications you have not read.
 
+### Help
+
+**Help** in the account menu opens the documentation viewer, open to every signed-in user. A list on the left, a drop-down on a narrow screen, shows the documents you can read; this manual is among them. Administrators also see technical documents, a manual test checklist and a production checklist under an Admin heading. A link to a document you may not see opens the first one you can.
+
 ## Pipeline and offers
 
 The Pipeline page is a kanban board of commercial offers, one column per deal stage. It is where offers are built, priced, shared and, once agreed, turned into projects. The pipeline-year menu at the top of the page switches the year shown.
