@@ -4533,6 +4533,8 @@ async function testDateRulesC3() {
     `DR-09 PATCH renaming with the same period → 200, name changed, period unchanged (got ${ren9.status})`);
   const key9 = await pt([{ month: '2026-07', amount: 1 }]);
   ok(isRule(key9) && /is not a valid month/.test(key9.data?.error || ''), `DR-09 PTC row with a month that is not YYYYMM → 400 DATE_RULE naming the format (got ${key9.status}: ${key9.data?.error})`);
+  const key9b = await api('PATCH', `/api/projects/${p2Id}/ptc`, { ptc: [{ month: '2026-07', amount: 1 }] }, adminCookie);
+  ok(isRule(key9b) && /is not a valid month/.test(key9b.data?.error || ''), `DR-09 the same on a project without a period → 400 DATE_RULE (got ${key9b.status}: ${key9b.data?.error})`);
 }
 
 // ── Period travels with the tasks (2026-10-27) ─────────────────────────────────

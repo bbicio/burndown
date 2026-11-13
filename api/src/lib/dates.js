@@ -203,16 +203,16 @@ function taskDatesError({ tasks, storedTasks, storedPeriod, nextPeriod, parent }
 function monthKeysError(keys, storedPeriod, storedKeys) {
   const ps = normalize((storedPeriod || {}).start);
   const pe = normalize((storedPeriod || {}).end);
-  if ((ps !== '' && !isMonth(ps)) || (pe !== '' && !isMonth(pe))) return null;
-  if (ps === '' && pe === '') return null;
-  if (ps !== '' && pe !== '' && ps > pe) return null;
+  // Without a usable period there is no limit to enforce, but a key must still be a month.
+  const limited = !((ps !== '' && !isMonth(ps)) || (pe !== '' && !isMonth(pe)))
+    && !(ps === '' && pe === '') && !(ps !== '' && pe !== '' && ps > pe);
   const stored = new Set((storedKeys || []).map(normalize));
   const show = v => (v === '' ? '…' : `${v.slice(0, 4)}-${v.slice(4)}`);
   for (const { key: raw, label } of (keys || [])) {
     const k = normalize(raw);
     if (k === '' || stored.has(k)) continue;
     if (!isMonth(k)) return `${label} month "${k}" is not a valid month (expected YYYYMM).`;
-    if ((ps !== '' && k < ps) || (pe !== '' && k > pe)) {
+    if (limited && ((ps !== '' && k < ps) || (pe !== '' && k > pe))) {
       return `${label} month ${show(k)} is outside the project period (${show(ps)} – ${show(pe)}).`;
     }
   }

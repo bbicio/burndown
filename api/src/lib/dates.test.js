@@ -179,3 +179,18 @@ test('monthKeysError refuses a key that is not a month', () => {
 test('monthKeysError tolerates a stored key that is not a month', () => {
   assert.equal(monthKeysError([{ key: 'zzz', label: 'P' }], { start: '202609', end: '' }, ['zzz']), null);
 });
+
+test('monthKeysError checks the key format even when the project has no period', () => {
+  const err = monthKeysError([{ key: '2026-07', label: 'P' }], { start: '', end: '' }, []);
+  assert.equal(err, 'P month "2026-07" is not a valid month (expected YYYYMM).');
+});
+
+test('monthKeysError checks the key format even when the stored period is invalid or inverted', () => {
+  assert.match(monthKeysError([{ key: 'zzz', label: 'P' }], { start: 'abc', end: '' }, []), /is not a valid month/);
+  assert.match(monthKeysError([{ key: 'zzz', label: 'P' }], { start: '202609', end: '202607' }, []), /is not a valid month/);
+});
+
+test('monthKeysError still gives a valid month no limit when there is no usable period', () => {
+  assert.equal(monthKeysError([{ key: '202601', label: 'P' }], { start: '', end: '' }, []), null);
+  assert.equal(monthKeysError([{ key: '202601', label: 'P' }], { start: 'abc', end: '' }, []), null);
+});
