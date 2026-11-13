@@ -478,6 +478,109 @@ A functional group is a name and a list of roles. Each role row has the role nam
 
 For a viewer the whole form is read only: a banner says so, every field is disabled and Save, Discard and the actuals buttons that change data are hidden.
 
+## Timesheet upload
+
+Actual hours reach PDash from a timesheet export in Excel. The upload replaces what was loaded before for each project, and every report is refreshed as soon as it is done.
+
+### Where to upload
+
+The same upload is offered in three places: **Load Actuals** on a project's configuration form, **Load Actuals** on a project's report, and **Load XLS** in Planning. Anyone who can change the project can use it; viewers cannot.
+
+### The file
+
+| Column | Notes |
+|---|---|
+| Date | Several formats are accepted: day/month/year, month/day/year or year-month-day. |
+| Job Role: Name | The role, as "CODE - LABEL"; matched to the roles in Master Data. |
+| Owner: Name | The person who logged the hours. |
+| Hours | A decimal number, with a comma or a point. |
+| Task/Issue | Must match a task of the project's configuration. |
+| D365 Project ID | Identifies the project. |
+| WF Project Name | A display name. |
+| Notes | Free text, not used in any calculation. |
+
+A new upload for a project code replaces every row loaded earlier for that code; it does not add to them. Rows with no project ID are skipped.
+
+<details>
+<summary>Details</summary>
+
+- **Dates.** When one of the two numbers of a date is above 12 the order is obvious. When both are 12 or below, such as 03/04/2026, PDash reads it as month then day. A date that does not exist on the calendar rejects the whole file, and the message names the spreadsheet row. Nothing is imported in that case.
+- **Role and task check.** Before anything is imported, every row's task and role are compared with the project's configured tasks and the roles on each task. If even one row does not match, the whole file is refused and a dialog lists every project, task and role combination that does not match. Correct the file, or the project's tasks and resources, and upload again.
+- **The rate is fixed at import.** Each row's hourly rate is looked up once, when the file is imported, and stored with the row. A later change of a rate does not change rows already imported; uploading the file again picks the new rate up.
+
+</details>
+
+### Reviewing and removing uploads (admin)
+
+Administrators open **Timesheets** from the menu. It lists every project code with uploaded data, grouped by client, with the number of uploads, the rows and the date of the last upload. Filters narrow it by client, project or code, and a pipeline-year selector, which starts on the current year, can be set to all years. A side menu switches between **Actuals** and **Profile processing**.
+
+| Control | What it does |
+|---|---|
+| View | Lists every imported row: date, owner, role, task, hours, notes, fee and spent. |
+| Download actuals | Saves the same rows as an Excel file named after the client, project, code and date. |
+| Delete actuals | In the row's menu. Removes every row of that code after a confirmation. It cannot be undone. |
+
+<details>
+<summary>Details</summary>
+
+- Spent is the fee multiplied by the hours, in the project's currency.
+- Clicking Client, Project or Project code in the table header cycles through ascending, descending and unsorted.
+- A project code with no linked offer has no pipeline year and only appears under all years.
+- Profile processing is the queue that rebuilds the experience profiles shown in Team. It is a reference for administrators only; the numbers on it need no action in normal use.
+
+</details>
+
+## Master data (admin)
+
+Master Data is for administrators. The pages are reached from the entries under Admin and linked by a side menu with two groups: Commercial (Clients and groups, Pipelines and POTs) and Financial (Roles and rates, Currencies).
+
+### Clients and groups
+
+A client is a name, used to group projects. The page has a **List** view and a **By group** view. **+ Add client** opens a drawer for the name and an optional group; clients can be renamed and deleted from their row, and a client that still has projects cannot be deleted. A group bundles clients that share a revenue target; a client belongs to at most one group, and a group that has a target cannot be deleted.
+
+Each client's **Rate card** holds the rate for each role: the agency default, shown for reference, and a custom rate for this client, with an extra column for each active currency. A blank custom rate means the agency default applies. A new offer for the client takes its custom rates automatically.
+
+<details>
+<summary>Details</summary>
+
+- Rates are typed in the convention of their own currency, for example 1.234,50 in euros or 1,234.50 in dollars. Text that is not an amount refuses the save.
+- A caption under each field says where the rate in force comes from. A switch limits the list to customised roles and a save bar shows the number of unsaved changes, with **Discard**.
+- If someone else saved the same rate card meanwhile, the save is refused and your edits stay on screen: reopen the card to see the current rates.
+- Programs are not managed here. They are created from the project configuration form or when a project is generated from an offer, and their ID cannot be changed afterwards.
+
+</details>
+
+### Pipelines and POT targets
+
+The page lists the pipeline years. A new year starts Hidden; the Visible switch decides whether the year appears on the Pipeline board, and a year can only be deleted while it has no offers or targets. From a year you can open its POT targets, its Proposal Phasing and its Project Phasing, each with an XLS export for the proposals.
+
+A POT is the total revenue target for a client, a client group or one of two general scopes, "Unassigned / To be Identified" and "New Biz", in a year. The year page shows the total target with the share reached by Committed plus Anticipated, a summary card per stage, and a table of the POTs. **+ New POT** asks for the target and the amount; editing a target needs a reason, and every change is recorded in the history.
+
+<details>
+<summary>Details</summary>
+
+- The details drawer of a POT shows four figures (Target, Total, Committed, Anticipated), the history of changes and the proposals that count towards it, each linking to its offer.
+- Draft and Canceled offers are left out of those lists. SIP and Expected offers are shown but never count in the total.
+- Amounts in the tables are in euros; an offer in another currency is converted with its own exchange rate.
+
+</details>
+
+### Roles and rates
+
+Each role has a label, a code that must match the role code in the timesheet file, a team (the part of the code before the dash, used to filter Planning) and a default hourly rate in euros. For each active currency there is an optional default rate; left blank, PDash converts the euro rate at the current exchange rate. The list is grouped by team, with a search and a **Missing rates** switch to find roles with no euro rate.
+
+### Currencies
+
+The euro is the fixed base currency. Any other currency is inactive until an administrator activates it with **+ Activate currency** and the rate "1 EUR = X"; only active currencies can be chosen on offers. A rate can be updated at any time, after a confirmation that shows the old and new rate, and its history is kept.
+
+<details>
+<summary>Details</summary>
+
+- Changing a rate does not change offers or projects already in the system: each offer keeps its own exchange rate, fixed when it was created or when its currency was changed. A **Refresh rate** in the offer's detail panel brings it up to date on request.
+- Every amount is written and read in the convention of its currency, for example € 1.234,50 or $ 1,234.50. A currency such as the yen has no decimals.
+
+</details>
+
 ## Account, privacy and sharing
 
 ### My profile
