@@ -1,12 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { extractBlock } from '../../scripts/lib/extract-source.mjs';
-import { outOfPeriodTasks, formatMonthText, formatDayText, toIso } from './dates.js';
+import { outOfPeriodTasks, periodState, formatMonthText, formatDayText, toIso } from './dates.js';
 
 // B-141, B-160: the period texts of js/costgrid.js tolerate an invalid date and an inverted period.
 const js = readFileSync('js/costgrid.js', 'utf8');
 const src = ['function cgFmtMonth(', 'function cgOutOfPeriodNotice('].map(h => extractBlock(js, h)).join('\n');
-const win = { outOfPeriodTasks, formatMonthText, formatDayText, toIso };
+const win = { outOfPeriodTasks, periodState, formatMonthText, formatDayText, toIso };
 const { cgFmtMonth, cgOutOfPeriodNotice } = new Function('window', `${src}; return { cgFmtMonth, cgOutOfPeriodNotice };`)(win);
 
 describe('cgFmtMonth', () => {
@@ -45,14 +45,15 @@ describe('cgOutOfPeriodNotice', () => {
 });
 
 describe('cgOutOfPeriodNotice does not read the error text', () => {
-  const build = items => new Function('window', `${src}; return cgOutOfPeriodNotice;`)({ ...win, outOfPeriodTasks: () => items });
-  it('says the period is not valid from the flag, whatever the error says', () => {
-    const f = build([{ name: 'X', error: 'anything at all', periodInvalid: true, periodRange: '2026-12 – 2026-01' }]);
+  const build = (items, state) => new Function('window', `${src}; return cgOutOfPeriodNotice;`)(
+    { ...win, outOfPeriodTasks: () => items, periodState: () => state });
+  it('says the period is not valid from periodState, whatever the error says', () => {
+    const f = build([{ name: 'X', error: 'anything at all' }], { invalid: true, range: '2026-12 – 2026-01' });
     expect(f([{ name: 'X', startDate: '20260301', endDate: '' }], '202612', '202601'))
       .toBe('The project period (2026-12 – 2026-01) is not valid: fix it before adding tasks.');
   });
-  it('lists the tasks when the period is valid, whatever the error says', () => {
-    const f = build([{ name: 'X', error: 'The project period (a – b) is not valid', periodInvalid: false, periodRange: '' }]);
+  it('lists the tasks when periodState says the period is valid, whatever the error says', () => {
+    const f = build([{ name: 'X', error: 'The project period (a – b) is not valid' }], { invalid: false, range: '2026-04 – 2026-12' });
     expect(f([{ name: 'X', startDate: '20260301', endDate: '' }], '202604', '202612'))
       .toBe('These tasks are outside the project period (Apr 2026 – Dec 2026): "X". Move them inside it first.');
   });

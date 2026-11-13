@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { extractBlock } from '../../scripts/lib/extract-source.mjs';
-import { isOrdered, outOfPeriodTasks, periodError, formatMonthText, toYmd } from './dates.js';
+import { isOrdered, outOfPeriodTasks, periodState, periodError, formatMonthText, toYmd } from './dates.js';
 
 // R2-2: a refused generation must not leave a program behind, so the period is checked before the Create Program modal.
 const js = readFileSync('js/costgrid.js', 'utf8');
@@ -21,7 +21,7 @@ function build({ selected, start, end }) {
     ] }],
   };
   const stubs = {
-    window: { outOfPeriodTasks, periodError, formatMonthText, cgFreeTasksOf: ts => ts }, showInfo, toYmd, isOrdered, _cgDraft: draft,
+    window: { outOfPeriodTasks, periodState, periodError, formatMonthText, cgFreeTasksOf: ts => ts }, showInfo, toYmd, isOrdered, _cgDraft: draft,
     config: { projects: [] }, _cgActiveCgId: 'cg1', _cgActiveVersionId: 'v1', findExistingProgramForProposal: () => null,
     _cgSelectedTaskIds: new Set(selected), _cgPendingGeneration: null, _cgVueApp: { openCreateProgramModal }, cgDoGenerateProject: vi.fn(async () => {}),
     Api: { programs: { create } },

@@ -85,7 +85,8 @@ function cgOutOfPeriodNotice(tasks, periodStart, periodEnd) {
   const bad = window.outOfPeriodTasks(tasks.map(t => ({ name: t.name, start: t.startDate, end: t.endDate })), periodStart, periodEnd, 'project');
   if (!bad.length) return '';
   // An invalid or inverted period makes every dated task "outside" it: say that, not "move the tasks".
-  if (bad[0].periodInvalid) return `The project period (${bad[0].periodRange}) is not valid: fix it before adding tasks.`;
+  const period = window.periodState(periodStart, periodEnd);
+  if (period.invalid) return `The project period (${period.range}) is not valid: fix it before adding tasks.`;
   return `These tasks are outside the project period (${periodStart ? window.formatMonthText(periodStart) : '…'} – ${periodEnd ? window.formatMonthText(periodEnd) : '…'}): ${bad.map(b => `"${b.name}"`).join(', ')}. Move them inside it first.`;
 }
 

@@ -1,7 +1,7 @@
 // Pure helpers for team.html (Team UX cycle, 2026-09). No DOM, no Vue: unit-tested with vitest and
 // bridged to window.* for the page's inline module script.
 
-import { formatMonthText, formatDayText } from './dates.js?v=6';
+import { formatMonthText, formatDayText } from './dates.js?v=7';
 
 // Case/accent-insensitive, numeric-aware string comparison; null/undefined count as ''.
 function cmp(a, b) {

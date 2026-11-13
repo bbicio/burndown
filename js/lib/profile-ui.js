@@ -3,7 +3,7 @@
 // the password form's state, the header initials, the expiry line of a trusted device. Native ES module, bridged
 // onto `window`.
 
-import { formatDayText } from './dates.js?v=6';
+import { formatDayText } from './dates.js?v=7';
 
 export const PROFILE_SECTIONS = ['details', 'password', 'two-step', 'devices', 'privacy'];
 

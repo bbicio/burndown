@@ -144,7 +144,7 @@ describe('portfolio custom range', () => {
   });
 
   it('loads the picker assets', () => {
-    for (const s of ['css/controls.css?v=1', 'js/lib/dates.js?v=6', 'js/lib/cg-controls-calc.js?v=2', 'js/cg-controls.js?v=5']) {
+    for (const s of ['css/controls.css?v=1', 'js/lib/dates.js?v=7', 'js/lib/cg-controls-calc.js?v=2', 'js/cg-controls.js?v=5']) {
       expect(html, s).toContain(s);
     }
   });

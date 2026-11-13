@@ -23,7 +23,7 @@ describe('privacy-notice.html', () => {
   });
 
   it('loads the dates module and the terms endpoint, and names the page', () => {
-    expect(html).toContain('js/lib/dates.js?v=6');
+    expect(html).toContain('js/lib/dates.js?v=7');
     // apiFetch prepends API_BASE ('/api') itself: a path that repeats it would call /api/api/…
     expect(html).toContain("apiFetch('/app-settings/terms')");
     expect(html).not.toContain("apiFetch('/api/");

@@ -151,21 +151,24 @@ export function periodBounds(taskDates, side, twin) {
   return { min: t === '' ? m : m === '' ? t : maxOf(t, m), max: '' };
 }
 
-/**
- * The tasks ({ name, start, end, ref? }) that leave the period, each with its taskPeriodError, its ref, and two
- * facts about the period itself: periodInvalid (a side is not a month, or it is inverted) and periodRange (its text).
- */
+/** The tasks ({ name, start, end, ref? }) that leave the period, each with its taskPeriodError and its ref. */
 export function outOfPeriodTasks(tasks, periodStart, periodEnd, parent) {
   const out = [];
-  const ps = periodSide(periodStart);
-  const pe = periodSide(periodEnd);
-  const periodInvalid = isPeriodInvalid(ps, pe);
-  const periodRange = periodRangeText(ps, pe);
   for (const t of tasks || []) {
     const error = taskPeriodError(t.start, t.end, periodStart, periodEnd, { label: t.name, parent });
-    if (error !== null) out.push({ name: t.name, error, ref: t.ref, periodInvalid, periodRange });
+    if (error !== null) out.push({ name: t.name, error, ref: t.ref });
   }
   return out;
+}
+
+/**
+ * Two facts about a period (YYYYMM sides, either may be empty): `invalid` (a side is not a month, or the start is
+ * after the end) and `range` (the text to show, `2026-04 – 2026-12`, an empty side as `…`).
+ */
+export function periodState(periodStart, periodEnd) {
+  const ps = periodSide(periodStart);
+  const pe = periodSide(periodEnd);
+  return { invalid: isPeriodInvalid(ps, pe), range: periodRangeText(ps, pe) };
 }
 
 /** The banner text for tasks that leave the period; noun is 'proposal' or 'project'. */
@@ -280,5 +283,6 @@ if (typeof window !== 'undefined') {
   window.taskDateBounds = taskDateBounds;
   window.periodBounds = periodBounds;
   window.outOfPeriodTasks = outOfPeriodTasks;
+  window.periodState = periodState;
   window.outOfPeriodMessage = outOfPeriodMessage;
 }
