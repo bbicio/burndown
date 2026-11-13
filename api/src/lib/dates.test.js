@@ -164,3 +164,18 @@ test('monthKeysError treats an empty side as open', () => {
 test('monthKeysError tolerates an invalid stored period', () => {
   assert.equal(monthKeysError([{ key: '202601', label: 'P' }], { start: 'abc', end: '' }, []), null);
 });
+
+test('monthKeysError gives an inverted stored period no limit', () => {
+  assert.equal(monthKeysError([{ key: '202601', label: 'P' }], { start: '202609', end: '202607' }, []), null);
+});
+
+test('monthKeysError refuses a key that is not a month', () => {
+  const a = monthKeysError([{ key: '2026-07', label: 'P' }], { start: '202604', end: '202612' }, []);
+  assert.equal(a, 'P month "2026-07" is not a valid month (expected YYYYMM).');
+  const b = monthKeysError([{ key: 'zzz', label: 'P' }], { start: '202609', end: '' }, []);
+  assert.equal(b, 'P month "zzz" is not a valid month (expected YYYYMM).');
+});
+
+test('monthKeysError tolerates a stored key that is not a month', () => {
+  assert.equal(monthKeysError([{ key: 'zzz', label: 'P' }], { start: '202609', end: '' }, ['zzz']), null);
+});
