@@ -53,6 +53,9 @@ const GONE = new Map([
   ['js/pipeline-board.js',       'deleted 5a5cef5 (pipeline.html Vue migration)'],
   ['js/planning.js',             'deleted aed9679 (folded into planning.html)'],
   ['js/settings.js',             'deleted d79b6aa (Settings page cycle)'],
+  ['docs/OPERATIONAL_MANUAL.html',
+    'deleted by the user-manual cycle (2026-11-13), replaced by handbook/public/manual.md; ' +
+    'cited only in the past tense (docs/BACKLOG.md rows, docs/handoff-ciclo4.md)'],
   ['docs/OPERATIONAL_MANUAL.md',
     'added bd32246, deleted 8cac1ab (2026-09-16); superseded by ' +
     'docs/OPERATIONAL_MANUAL.html, which is what the operational-manual skill ' +
