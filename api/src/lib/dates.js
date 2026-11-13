@@ -198,8 +198,9 @@ function taskDatesError({ tasks, storedTasks, storedPeriod, nextPeriod, parent }
 }
 
 // Server only. keys: { key: 'YYYYMM', label }[] about to be written to a project; storedKeys: the keys
-// already saved. A blank key, a stored key, a project without period or with an invalid or inverted stored
-// period have no limit; an empty side of the period is open; any other key must be a YYYYMM month.
+// already saved. A blank key and a stored key are never checked. Any other key must be a YYYYMM month, whatever
+// the period, and must lie inside the stored period (an empty side is open) unless the project has no period or
+// its stored period is invalid or inverted, which leaves the key without a limit.
 function monthKeysError(keys, storedPeriod, storedKeys) {
   const ps = normalize((storedPeriod || {}).start);
   const pe = normalize((storedPeriod || {}).end);

@@ -44,7 +44,7 @@ describe('twins agree', () => {
   });
   it('the server twin does not export the browser-only text functions', () => {
     ['parseDayText', 'formatDayText', 'parseMonthText', 'formatMonthText', 'parseDateInput', 'isWithin',
-      'taskDateBounds', 'periodBounds', 'outOfPeriodTasks']
+      'taskDateBounds', 'periodBounds', 'outOfPeriodTasks', 'periodState']
       .forEach(n => expect(server[n]).toBeUndefined());
   });
 });

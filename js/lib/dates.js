@@ -87,6 +87,7 @@ export function periodError(start, end, { kind, label }) {
 
 const periodSide = v => (v === null || v === undefined ? '' : String(v).trim());
 
+// The two helpers below are used only by periodState, the one place that derives "invalid" and "range".
 // A period (YYYYMM sides, either may be empty) is invalid when a side is not a month or the start is after the end.
 function isPeriodInvalid(ps, pe) {
   return (ps !== '' && !isMonth(ps)) || (pe !== '' && !isMonth(pe)) || (ps !== '' && pe !== '' && ps > pe);
@@ -103,8 +104,8 @@ export function taskPeriodError(start, end, periodStart, periodEnd, { label, par
   const pe = periodSide(periodEnd);
   if ((!isEmpty(start) && !isDay(start)) || (!isEmpty(end) && !isDay(end))) return null;
   if (isEmpty(start) && isEmpty(end)) return null;
-  const range = periodRangeText(ps, pe);
-  if (isPeriodInvalid(ps, pe)) {
+  const { invalid, range } = periodState(ps, pe);
+  if (invalid) {
     return `The ${parent} period (${range}) is not valid: fix it before setting task dates.`;
   }
   const first = ps === '' ? null : monthFirstDay(ps);
@@ -176,7 +177,7 @@ export function outOfPeriodMessage({ list, start, end, noun }) {
   if (!list || !list.length) return '';
   const s = periodSide(start);
   const e = periodSide(end);
-  if (isPeriodInvalid(s, e)) return list[0].error;
+  if (periodState(s, e).invalid) return list[0].error;
   const n = list.length;
   const show = v => (v === '' ? '…' : formatMonthText(v));
   return n + ' ' + (n === 1 ? 'task is' : 'tasks are') + ' outside the ' + noun + ' period (' + show(s) + ' – ' + show(e)
