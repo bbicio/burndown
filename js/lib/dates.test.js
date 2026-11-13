@@ -191,7 +191,7 @@ describe('outOfPeriodTasks', () => {
   it('returns only the tasks outside the period', () => {
     const tasks = [{ name: 'A', start: '2026-05-01', end: '2026-05-02' }, { name: 'B', start: '2026-01-01', end: '' }];
     expect(outOfPeriodTasks(tasks, '202604', '202612', 'version')).toEqual([
-      { name: 'B', error: 'Task "B" starts on 2026-01-01, before the version period (2026-04 – 2026-12).' }
+      { name: 'B', error: 'Task "B" starts on 2026-01-01, before the version period (2026-04 – 2026-12).', periodInvalid: false, periodRange: '2026-04 – 2026-12' }
     ]);
   });
 });
@@ -228,4 +228,23 @@ describe('shared helpers, cycle 3', () => {
     ('parseDayText(%j) reads the day', (t, want = '2025-12-01') => expect(parseDayText(t)).toBe(want));
   it.each([['2025-00'], ['Dec 32, 2025'], ['Sept 31, 2025'], ['Dec 0, 2025']])
     ('parseDayText(%j) is null', t => expect(parseDayText(t)).toBeNull());
+});
+
+describe('outOfPeriodTasks period flags', () => {
+  const tasks = [{ name: 'B', start: '20260101', end: '' }];
+  it('flags an inverted period and carries the text to show', () => {
+    const [o] = outOfPeriodTasks(tasks, '202612', '202601', 'project');
+    expect(o.periodInvalid).toBe(true);
+    expect(o.periodRange).toBe('2026-12 – 2026-01');
+  });
+  it('flags a malformed period and shows an empty side as an ellipsis', () => {
+    const [o] = outOfPeriodTasks(tasks, 'abc', '', 'project');
+    expect(o.periodInvalid).toBe(true);
+    expect(o.periodRange).toBe('abc – …');
+  });
+  it('does not flag a valid period', () => {
+    const [o] = outOfPeriodTasks(tasks, '202604', '202612', 'project');
+    expect(o.periodInvalid).toBe(false);
+    expect(o.periodRange).toBe('2026-04 – 2026-12');
+  });
 });

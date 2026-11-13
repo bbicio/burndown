@@ -43,3 +43,17 @@ describe('cgOutOfPeriodNotice', () => {
     expect(cgOutOfPeriodNotice(tasks, 'abc', '')).toBe('The project period (abc – …) is not valid: fix it before adding tasks.');
   });
 });
+
+describe('cgOutOfPeriodNotice does not read the error text', () => {
+  const build = items => new Function('window', `${src}; return cgOutOfPeriodNotice;`)({ ...win, outOfPeriodTasks: () => items });
+  it('says the period is not valid from the flag, whatever the error says', () => {
+    const f = build([{ name: 'X', error: 'anything at all', periodInvalid: true, periodRange: '2026-12 – 2026-01' }]);
+    expect(f([{ name: 'X', startDate: '20260301', endDate: '' }], '202612', '202601'))
+      .toBe('The project period (2026-12 – 2026-01) is not valid: fix it before adding tasks.');
+  });
+  it('lists the tasks when the period is valid, whatever the error says', () => {
+    const f = build([{ name: 'X', error: 'The project period (a – b) is not valid', periodInvalid: false, periodRange: '' }]);
+    expect(f([{ name: 'X', startDate: '20260301', endDate: '' }], '202604', '202612'))
+      .toBe('These tasks are outside the project period (Apr 2026 – Dec 2026): "X". Move them inside it first.');
+  });
+});
