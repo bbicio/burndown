@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   isMonth, isDay, toYmd, toIso, monthFirstDay, monthLastDay, isOrdered, periodError,
   parseDayText, formatDayText, parseMonthText, formatMonthText, parseDateInput, isWithin,
-  taskPeriodError, taskDateBounds, periodBounds, outOfPeriodTasks
+  taskPeriodError, taskDateBounds, periodBounds, outOfPeriodTasks, outOfPeriodMessage
 } from './dates.js';
 
 describe('isDay / isMonth', () => {
@@ -194,4 +194,38 @@ describe('outOfPeriodTasks', () => {
       { name: 'B', error: 'Task "B" starts on 2026-01-01, before the version period (2026-04 – 2026-12).' }
     ]);
   });
+});
+
+describe('outOfPeriodMessage', () => {
+  const list = [{ name: 'A', error: 'Task "A" starts on 2026-03-01, before the project period (2026-04 – 2026-12).' }];
+  it('is empty without tasks outside the period', () => {
+    expect(outOfPeriodMessage({ list: [], start: '202604', end: '202612', noun: 'project' })).toBe('');
+  });
+  it('reports the first error when the period is invalid or inverted', () => {
+    expect(outOfPeriodMessage({ list, start: '202612', end: '202604', noun: 'project' })).toBe(list[0].error);
+    expect(outOfPeriodMessage({ list, start: 'abc', end: '', noun: 'project' })).toBe(list[0].error);
+  });
+  it('counts the tasks, names the noun and shows readable months', () => {
+    const one = outOfPeriodMessage({ list, start: '202604', end: '202612', noun: 'proposal' });
+    expect(one).toBe('1 task is outside the proposal period (Apr 2026 – Dec 2026). Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.');
+    const two = outOfPeriodMessage({ list: [...list, ...list], start: '202604', end: '', noun: 'project' });
+    expect(two).toContain('2 tasks are outside the project period (Apr 2026 – …)');
+  });
+});
+
+describe('shared helpers, cycle 3', () => {
+  it('taskDateBounds takes the raw twin in either format', () => {
+    expect(taskDateBounds('202604', '202612', '20260415', 'start')).toEqual(taskDateBounds('202604', '202612', '2026-04-15', 'start'));
+    expect(taskDateBounds('202604', '202612', '20260415', 'start')).toEqual({ min: '2026-04-01', max: '2026-04-15' });
+  });
+  it('outOfPeriodTasks carries the ref of each task', () => {
+    const ref = { id: 1 };
+    const out = outOfPeriodTasks([{ name: 'B', start: '20260101', end: '', ref }], '202604', '202612', 'version');
+    expect(out).toHaveLength(1);
+    expect(out[0].ref).toBe(ref);
+  });
+  it.each([['Dec 1,2025'], ['Sept 30, 2025', '2025-09-30'], ['Dec 1st, 2025'], ['1 Dec, 2025'], ['Dec 01, 2025'], ['2nd Dec 2025', '2025-12-02']])
+    ('parseDayText(%j) reads the day', (t, want = '2025-12-01') => expect(parseDayText(t)).toBe(want));
+  it.each([['2025-00'], ['Dec 32, 2025'], ['Sept 31, 2025'], ['Dec 0, 2025']])
+    ('parseDayText(%j) is null', t => expect(parseDayText(t)).toBeNull());
 });
