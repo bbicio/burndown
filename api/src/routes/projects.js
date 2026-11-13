@@ -216,17 +216,13 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
         return res.status(400).json({ error: `${key} must be a valid UUID` });
       }
     }
-    // One unlocked read feeds the early checks and the choice of path; the period is checked again, and
-    // written, under the project row lock below.
+    // One unlocked read feeds the rules below and the choice of path. A period that this read shows as
+    // unchanged is not written at all (and not locked), so it cannot overwrite a concurrent change; one that
+    // it shows as changed is checked, and written, under the project row lock.
     const { rows: [stored] } = await query(
-      'SELECT start_date, end_date, currency, cg_version_id FROM projects WHERE id = $1', [req.params.id]);
+      'SELECT id, name, start_date, end_date, currency, cg_version_id FROM projects WHERE id = $1', [req.params.id]);
     const bodyPeriod = { start: req.body.startDate, end: req.body.endDate };
     const periodMoved = !!stored && periodChanged(bodyPeriod, { start: stored.start_date, end: stored.end_date });
-    if (periodMoved) {
-      const periodErr = periodChangeError(bodyPeriod, { start: stored.start_date, end: stored.end_date },
-        { kind: 'month', label: 'project' });
-      if (periodErr) return res.status(400).json({ error: periodErr, code: DATE_RULE });
-    }
     const needsRules = req.body.currency !== undefined || req.body.cgVersionId !== undefined;
     const role = needsRules ? await liveRole(req.user.id) : null;
     if (needsRules) {
@@ -260,13 +256,23 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
 
     const fields = [];
     const params = [];
+    let periodOmitted = false;
     for (const key of allowed) {
       if (req.body[key] !== undefined) {
+        if ((key === 'startDate' || key === 'endDate') && !periodMoved) { periodOmitted = true; continue; }
         params.push(key === 'description' ? String(req.body[key] ?? '') : (req.body[key] || null));
         fields.push(`${map[key]} = $${params.length}`);
       }
     }
-    if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
+    if (!fields.length) {
+      // The body held only a period the project already has: nothing to write. The answer is read again, so it
+      // does not carry a name that a save finishing meanwhile has already changed.
+      if (periodOmitted) {
+        const { rows: [now] } = await query('SELECT id, name FROM projects WHERE id = $1', [req.params.id]);
+        return now ? res.json({ id: now.id, name: now.name }) : res.status(404).json({ error: 'Project not found' });
+      }
+      return res.status(400).json({ error: 'Nothing to update' });
+    }
 
     let prevCode = null;
     if (req.body.code !== undefined) {
@@ -285,10 +291,7 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
 
     let rows;
     let seedFromVersionId = null;
-    // Any body that carries a period takes the lock path: whether the period changed is decided on the locked row,
-    // so a save that looks unchanged against the unlocked read above cannot overwrite a concurrent change.
-    const periodPresent = req.body.startDate !== undefined || req.body.endDate !== undefined;
-    if (req.body.cgVersionId !== undefined || periodPresent) {
+    if (req.body.cgVersionId !== undefined || periodMoved) {
       // Read the previous link and write the new one under one row lock, so two overlapping
       // saves (js/api-sync.js re-sends cgVersionId on every save) cannot both observe
       // "no link yet" and both seed tags — only the first link ever seeds them. A period change takes the
@@ -306,7 +309,9 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
           'SELECT cg_version_id, currency, start_date, end_date FROM projects WHERE id = $1 FOR UPDATE', [req.params.id]);
         const prevCgVersionId = prev.rows[0]?.cg_version_id ?? null;
         const lockedPeriod = prev.rows[0] ? { start: prev.rows[0].start_date, end: prev.rows[0].end_date } : null;
-        if (lockedPeriod && periodChanged(bodyPeriod, lockedPeriod)) {
+        // Only a period that is going to be written is checked: when the unlocked read showed it as unchanged the
+        // columns are not in the UPDATE, so a change made by someone else meanwhile is not this request's business.
+        if (lockedPeriod && periodMoved && periodChanged(bodyPeriod, lockedPeriod)) {
           dateRefusal = periodChangeError(bodyPeriod, lockedPeriod, { kind: 'month', label: 'project' });
           if (!dateRefusal) {
             const tasks = (await client.query('SELECT name, start_date, end_date FROM project_tasks WHERE project_id = $1', [req.params.id]))

@@ -4523,6 +4523,18 @@ async function testDateRulesC3() {
   ok(d8.status === 400 && d8.data?.code === 'STRUCTURE_RULE', `DR-08 dropping a task linked by name only → 400 STRUCTURE_RULE (got ${d8.status}: ${d8.data?.error})`);
   const k8 = await put([{ title: 'P1', tasks: [{ taskId: linked?.id, title: 'Linked renamed' }, { title: 'Other' }] }]);
   ok(k8.status === 200, `DR-08 renaming the linked task under the same id → 200 (got ${k8.status}: ${k8.data?.error})`);
+
+  // DR-09: a period the project already has is not written; a month key must be a YYYYMM month
+  const same9 = await api('PATCH', `/api/projects/${pId}`, { startDate: '202604', endDate: '202610' }, adminCookie);
+  ok(same9.status === 200 && same9.data?.id === pId, `DR-09 PATCH re-sending the same period → 200 with the project id (got ${same9.status}: ${same9.data?.error})`);
+  const ren9 = await api('PATCH', `/api/projects/${pId}`, { name: '__test_dr_proj_renamed__', startDate: '202604', endDate: '202610' }, adminCookie);
+  const after9 = ((await api('GET', '/api/projects', null, adminCookie)).data || []).find(x => x.id === pId);
+  ok(ren9.status === 200 && after9?.name === '__test_dr_proj_renamed__' && `${String(after9?.start_date || '').trim()}|${String(after9?.end_date || '').trim()}` === '202604|202610',
+    `DR-09 PATCH renaming with the same period → 200, name changed, period unchanged (got ${ren9.status})`);
+  const key9 = await pt([{ month: '2026-07', amount: 1 }]);
+  ok(isRule(key9) && /is not a valid month/.test(key9.data?.error || ''), `DR-09 PTC row with a month that is not YYYYMM → 400 DATE_RULE naming the format (got ${key9.status}: ${key9.data?.error})`);
+  const key9b = await api('PATCH', `/api/projects/${p2Id}/ptc`, { ptc: [{ month: '2026-07', amount: 1 }] }, adminCookie);
+  ok(isRule(key9b) && /is not a valid month/.test(key9b.data?.error || ''), `DR-09 the same on a project without a period → 400 DATE_RULE (got ${key9b.status}: ${key9b.data?.error})`);
 }
 
 // ── Period travels with the tasks (2026-10-27) ─────────────────────────────────

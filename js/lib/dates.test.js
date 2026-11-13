@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   isMonth, isDay, toYmd, toIso, monthFirstDay, monthLastDay, isOrdered, periodError,
   parseDayText, formatDayText, parseMonthText, formatMonthText, parseDateInput, isWithin,
-  taskPeriodError, taskDateBounds, periodBounds, outOfPeriodTasks, outOfPeriodMessage
+  taskPeriodError, taskDateBounds, periodBounds, outOfPeriodTasks, outOfPeriodMessage, periodState
 } from './dates.js';
 
 describe('isDay / isMonth', () => {
@@ -228,4 +228,21 @@ describe('shared helpers, cycle 3', () => {
     ('parseDayText(%j) reads the day', (t, want = '2025-12-01') => expect(parseDayText(t)).toBe(want));
   it.each([['2025-00'], ['Dec 32, 2025'], ['Sept 31, 2025'], ['Dec 0, 2025']])
     ('parseDayText(%j) is null', t => expect(parseDayText(t)).toBeNull());
+});
+
+describe('periodState', () => {
+  it('flags an inverted period and gives the text to show', () => {
+    expect(periodState('202612', '202601')).toEqual({ invalid: true, range: '2026-12 – 2026-01' });
+  });
+  it('flags a malformed period and shows an empty side as an ellipsis', () => {
+    expect(periodState('abc', '')).toEqual({ invalid: true, range: 'abc – …' });
+  });
+  it('does not flag a valid period, an open side included', () => {
+    expect(periodState('202604', '202612')).toEqual({ invalid: false, range: '2026-04 – 2026-12' });
+    expect(periodState('', '202612')).toEqual({ invalid: false, range: '… – 2026-12' });
+  });
+  it('trims the sides and treats null and undefined as empty', () => {
+    expect(periodState(' 202604 ', null)).toEqual({ invalid: false, range: '2026-04 – …' });
+    expect(periodState(undefined, undefined)).toEqual({ invalid: false, range: '… – …' });
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveDistribution, reforecastDistribution, isProjectDirty, keepDistribution, spreadEvenly, splitState, phasingBalance } from './config-form-calc.js';
+import { deriveDistribution, reforecastDistribution, isProjectDirty, keepDistribution, spreadEvenly, splitState, phasingBalance, sumWithinMonths } from './config-form-calc.js';
 
 describe('isProjectDirty', () => {
   const p = { id: 'x', name: 'A', tasks: [{ name: 't', resources: [] }], phasing: { '202601': 10 } };
@@ -427,5 +427,18 @@ describe('phasingBalance', () => {
     expect(phasingBalance(993, 1000, 0, 12).balanced).toBe(false);
     expect(phasingBalance(999, 1000, 0, 1).balanced).toBe(false);
     expect(phasingBalance(17426.41, 17426.425, 2).balanced).toBe(false);
+  });
+});
+
+describe('sumWithinMonths', () => {
+  it('counts only the given months', () => {
+    expect(sumWithinMonths({ '202604': 2, '202611': 5 }, ['202604', '202605'])).toBe(2);
+  });
+  it('ignores values that are not numbers', () => {
+    expect(sumWithinMonths({ '202604': 'x', '202605': 3 }, ['202604', '202605'])).toBe(3);
+  });
+  it('gives 0 for no months or a missing object', () => {
+    expect(sumWithinMonths({ '202604': 2 }, [])).toBe(0);
+    expect(sumWithinMonths(undefined, ['202604'])).toBe(0);
   });
 });

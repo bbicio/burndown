@@ -85,14 +85,27 @@ export function periodError(start, end, { kind, label }) {
   return null;
 }
 
+const periodSide = v => (v === null || v === undefined ? '' : String(v).trim());
+
+// The two helpers below are used only by periodState, the one place that derives "invalid" and "range".
+// A period (YYYYMM sides, either may be empty) is invalid when a side is not a month or the start is after the end.
+function isPeriodInvalid(ps, pe) {
+  return (ps !== '' && !isMonth(ps)) || (pe !== '' && !isMonth(pe)) || (ps !== '' && pe !== '' && ps > pe);
+}
+
+// The period as shown in a message: `2026-04 – 2026-12`, an empty side as `…`, a side that is not a month as typed.
+function periodRangeText(ps, pe) {
+  const show = v => (v === '' ? '…' : isMonth(v) ? `${v.slice(0, 4)}-${v.slice(4)}` : v);
+  return `${show(ps)} – ${show(pe)}`;
+}
+
 export function taskPeriodError(start, end, periodStart, periodEnd, { label, parent }) {
-  const ps = periodStart === null || periodStart === undefined ? '' : String(periodStart).trim();
-  const pe = periodEnd === null || periodEnd === undefined ? '' : String(periodEnd).trim();
+  const ps = periodSide(periodStart);
+  const pe = periodSide(periodEnd);
   if ((!isEmpty(start) && !isDay(start)) || (!isEmpty(end) && !isDay(end))) return null;
   if (isEmpty(start) && isEmpty(end)) return null;
-  const show = v => (v === '' ? '…' : isMonth(v) ? `${v.slice(0, 4)}-${v.slice(4)}` : v);
-  const range = `${show(ps)} – ${show(pe)}`;
-  if ((ps !== '' && !isMonth(ps)) || (pe !== '' && !isMonth(pe)) || (ps !== '' && pe !== '' && ps > pe)) {
+  const { invalid, range } = periodState(ps, pe);
+  if (invalid) {
     return `The ${parent} period (${range}) is not valid: fix it before setting task dates.`;
   }
   const first = ps === '' ? null : monthFirstDay(ps);
@@ -139,7 +152,7 @@ export function periodBounds(taskDates, side, twin) {
   return { min: t === '' ? m : m === '' ? t : maxOf(t, m), max: '' };
 }
 
-/** The tasks ({ name, start, end }) that leave the period, each with its taskPeriodError. */
+/** The tasks ({ name, start, end, ref? }) that leave the period, each with its taskPeriodError and its ref. */
 export function outOfPeriodTasks(tasks, periodStart, periodEnd, parent) {
   const out = [];
   for (const t of tasks || []) {
@@ -149,13 +162,22 @@ export function outOfPeriodTasks(tasks, periodStart, periodEnd, parent) {
   return out;
 }
 
+/**
+ * Two facts about a period (YYYYMM sides, either may be empty): `invalid` (a side is not a month, or the start is
+ * after the end) and `range` (the text to show, `2026-04 – 2026-12`, an empty side as `…`).
+ */
+export function periodState(periodStart, periodEnd) {
+  const ps = periodSide(periodStart);
+  const pe = periodSide(periodEnd);
+  return { invalid: isPeriodInvalid(ps, pe), range: periodRangeText(ps, pe) };
+}
+
 /** The banner text for tasks that leave the period; noun is 'proposal' or 'project'. */
 export function outOfPeriodMessage({ list, start, end, noun }) {
   if (!list || !list.length) return '';
-  const s = isEmpty(start) ? '' : String(start).trim();
-  const e = isEmpty(end) ? '' : String(end).trim();
-  const valid = (s === '' || isMonth(s)) && (e === '' || isMonth(e)) && (s === '' || e === '' || s <= e);
-  if (!valid) return list[0].error;
+  const s = periodSide(start);
+  const e = periodSide(end);
+  if (periodState(s, e).invalid) return list[0].error;
   const n = list.length;
   const show = v => (v === '' ? '…' : formatMonthText(v));
   return n + ' ' + (n === 1 ? 'task is' : 'tasks are') + ' outside the ' + noun + ' period (' + show(s) + ' – ' + show(e)
@@ -262,5 +284,6 @@ if (typeof window !== 'undefined') {
   window.taskDateBounds = taskDateBounds;
   window.periodBounds = periodBounds;
   window.outOfPeriodTasks = outOfPeriodTasks;
+  window.periodState = periodState;
   window.outOfPeriodMessage = outOfPeriodMessage;
 }

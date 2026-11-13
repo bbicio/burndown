@@ -513,8 +513,8 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/status-rules.js?v=1"></script>
-<script type="module" src="js/lib/config-form-calc.js?v=7"></script>
-<script type="module" src="js/lib/dates.js?v=5"></script>
+<script type="module" src="js/lib/config-form-calc.js?v=8"></script>
+<script type="module" src="js/lib/dates.js?v=7"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
 <script type="module" src="js/lib/project-push-result.js?v=4"></script>
@@ -715,8 +715,8 @@
         while (cy < ey || (cy === ey && cm <= em)) { months.push(`${cy}${String(cm).padStart(2,'0')}`); cm++; if (cm > 12) { cm = 1; cy++; } }
         return months;
       },
-      phasingSum() { return Object.values(this.project?.phasing || {}).reduce((s, v) => s + v, 0); },
-      planningSum() { return Object.values(this.project?.planning || {}).reduce((s, v) => s + v, 0); },
+      phasingSum() { return window.sumWithinMonths(this.project?.phasing, this.projectMonths); },
+      planningSum() { return window.sumWithinMonths(this.project?.planning, this.projectMonths); },
       totalPtc() { return (this.project?.ptc || []).reduce((s, p) => s + (p.amount || 0), 0); },
     },
     async created() {

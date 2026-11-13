@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { extractBlock } from '../../scripts/lib/extract-source.mjs';
 import { summarizeGenerateResult } from './project-push-result.js';
-import { isOrdered, outOfPeriodTasks, periodError, formatMonthText, toYmd } from './dates.js';
+import { isOrdered, outOfPeriodTasks, periodState, periodError, formatMonthText, toYmd } from './dates.js';
 
 // js/costgrid.js is a classic script: the period check and the two copy functions are cut out and run against stubs.
 const js = readFileSync('js/costgrid.js', 'utf8');
@@ -15,7 +15,7 @@ let showInfo, config, draft, api, push;
 
 function build() {
   const stubs = {
-    window: { outOfPeriodTasks, periodError, formatMonthText }, showInfo, config, _cgDraft: draft, Api: api, _pushProjectToApiDetailed: push,
+    window: { outOfPeriodTasks, periodState, periodError, formatMonthText }, showInfo, config, _cgDraft: draft, Api: api, _pushProjectToApiDetailed: push,
     persistConfig: vi.fn(), toYmd, isOrdered, _cgActiveCgId: 'cg1', _cgActiveVersionId: 'v1',
     cgLoad: () => null, cgSave: vi.fn(), renderCgEditor: vi.fn(), _cgSelectionMode: true, _cgSelectedTaskIds: new Set(),
     cgAutoSave: vi.fn(), renderCgVersionTabs: vi.fn(), summarizeGenerateResult,

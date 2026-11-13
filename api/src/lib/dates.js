@@ -198,19 +198,22 @@ function taskDatesError({ tasks, storedTasks, storedPeriod, nextPeriod, parent }
 }
 
 // Server only. keys: { key: 'YYYYMM', label }[] about to be written to a project; storedKeys: the keys
-// already saved. A blank key, a stored key, a project without period or with an invalid stored period
-// have no limit; an empty side of the period is open.
+// already saved. A blank key and a stored key are never checked. Any other key must be a YYYYMM month, whatever
+// the period, and must lie inside the stored period (an empty side is open) unless the project has no period or
+// its stored period is invalid or inverted, which leaves the key without a limit.
 function monthKeysError(keys, storedPeriod, storedKeys) {
   const ps = normalize((storedPeriod || {}).start);
   const pe = normalize((storedPeriod || {}).end);
-  if ((ps !== '' && !isMonth(ps)) || (pe !== '' && !isMonth(pe))) return null;
-  if (ps === '' && pe === '') return null;
+  // Without a usable period there is no limit to enforce, but a key must still be a month.
+  const limited = !((ps !== '' && !isMonth(ps)) || (pe !== '' && !isMonth(pe)))
+    && !(ps === '' && pe === '') && !(ps !== '' && pe !== '' && ps > pe);
   const stored = new Set((storedKeys || []).map(normalize));
   const show = v => (v === '' ? '…' : `${v.slice(0, 4)}-${v.slice(4)}`);
   for (const { key: raw, label } of (keys || [])) {
     const k = normalize(raw);
     if (k === '' || stored.has(k)) continue;
-    if ((ps !== '' && k < ps) || (pe !== '' && k > pe)) {
+    if (!isMonth(k)) return `${label} month "${k}" is not a valid month (expected YYYYMM).`;
+    if (limited && ((ps !== '' && k < ps) || (pe !== '' && k > pe))) {
       return `${label} month ${show(k)} is outside the project period (${show(ps)} – ${show(pe)}).`;
     }
   }

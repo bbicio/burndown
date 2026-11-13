@@ -1,7 +1,7 @@
 // Pure row model of planning.html's grid: cell text, load level, search filter and the flat
 // rows the template renders. DOM-free; the hours themselves come from the server model.
 import { computeResidual, sumChildBreakdownHours } from './planning-calc.js?v=5';
-import { formatDayText } from './dates.js?v=5';
+import { formatDayText } from './dates.js?v=7';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 

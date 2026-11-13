@@ -241,6 +241,17 @@ export function phasingBalance(sum, total, decimals, months = 1) {
   return { balanced: Math.abs(sum - total) < 0.5 * 10 ** -decimals * Math.max(1, months), diff };
 }
 
+// The sum of values[ym] over the given months only: a month key saved outside the project period (left there
+// when the period was narrowed) is not part of what the form shows, so it is not part of its sums.
+export function sumWithinMonths(values, months) {
+  let sum = 0;
+  for (const ym of months || []) {
+    const v = values?.[ym];
+    if (typeof v === 'number' && Number.isFinite(v)) sum += v;
+  }
+  return sum;
+}
+
 window.deriveDistribution = deriveDistribution;
 window.reforecastDistribution = reforecastDistribution;
 window.isProjectDirty = isProjectDirty;
@@ -248,3 +259,4 @@ window.keepDistribution = keepDistribution;
 window.spreadEvenly = spreadEvenly;
 window.splitState = splitState;
 window.phasingBalance = phasingBalance;
+window.sumWithinMonths = sumWithinMonths;
