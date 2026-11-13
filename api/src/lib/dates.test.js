@@ -1,6 +1,9 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { periodChangeError, DATE_RULE, isValidCalendarDate, taskPeriodError, periodShrinkError } = require('./dates');
+const {
+  periodChangeError, DATE_RULE, isValidCalendarDate, taskPeriodError,
+  mergePeriod, periodChanged, periodColumn, taskDatesError, monthKeysError
+} = require('./dates');
 
 const V = { kind: 'month', label: 'version' };
 
@@ -62,26 +65,102 @@ test('taskPeriodError names an unnamed task as Untitled task', () => {
   );
 });
 
-test('periodShrinkError names the first task the new period pushes out', () => {
+
+test('mergePeriod keeps the stored side when absent and clears on empty string', () => {
+  assert.deepEqual(mergePeriod({ start: '202609' }, { start: '202601 ', end: '202612' }), { start: '202609', end: '202612' });
+  assert.deepEqual(mergePeriod({ end: '' }, { start: '202601', end: '202612' }), { start: '202601', end: '' });
+});
+
+test('periodChanged ignores a re-sent identical period and blank padding', () => {
+  assert.equal(periodChanged({ start: '202601', end: '202612' }, { start: '202601 ', end: '202612' }), false);
+  assert.equal(periodChanged({ end: '202611' }, { start: '202601', end: '202612' }), true);
+  assert.equal(periodChanged({}, { start: '202601', end: '202612' }), false);
+});
+
+test('periodColumn maps blank to null and trims the rest', () => {
+  assert.equal(periodColumn('  '), null);
+  assert.equal(periodColumn(null), null);
+  assert.equal(periodColumn(undefined), null);
+  assert.equal(periodColumn(' 202601'), '202601');
+});
+
+const P = { start: '202604', end: '202612' };
+const tdErr = (tasks, storedTasks, storedPeriod, nextPeriod) =>
+  taskDatesError({ tasks, storedTasks, storedPeriod, nextPeriod, parent: 'version' });
+
+test('taskDatesError accepts a valid task inside the period', () => {
+  const t = [{ name: 'A', start: '20260501', end: '20260601' }];
+  assert.equal(tdErr(t, [], P, P), null);
+});
+
+test('taskDatesError refuses a new task whose end is before its start', () => {
+  const t = [{ name: 'A', start: '20260601', end: '20260501' }];
+  assert.match(tdErr(t, [], P, P), /before its start date/);
+});
+
+test('taskDatesError checks an edited task in full, even with the same dates', () => {
+  const stored = [{ name: 'Old', start: '20260301', end: '' }];
+  const t = [{ name: 'New', start: '20260301', end: '' }];
+  assert.match(tdErr(t, stored, P, P), /before the version period/);
+});
+
+test('taskDatesError tolerates an unchanged task already outside the stored period', () => {
+  const t = [{ name: 'Out', start: '20260301', end: '' }];
+  assert.equal(tdErr(t, t, P, P), null);
+});
+
+test('taskDatesError names the first task a shrunk period pushes out', () => {
   const tasks = [{ name: 'A', start: '20260501', end: '20260601' }, { name: 'B', start: '20260410', end: '' }];
-  const stored = { start: '202604', end: '202612' };
   assert.equal(
-    periodShrinkError(tasks, stored, { start: '202605', end: '202612' }, { parent: 'version' }),
+    tdErr(tasks, tasks, P, { start: '202605', end: '202612' }),
     'Task "B" starts on 2026-04-10, before the version period (2026-05 – 2026-12).'
   );
-  assert.equal(periodShrinkError(tasks, stored, { start: '202603', end: '202612' }, { parent: 'version' }), null);
+  assert.equal(tdErr(tasks, tasks, P, { start: '202603', end: '202612' }), null);
 });
 
-test('periodShrinkError ignores tasks already outside the stored period and tasks without dates', () => {
-  const stored = { start: '202604', end: '202612' };
-  const tasks = [{ name: 'Out', start: '20260301', end: '' }, { name: 'None', start: '', end: null }];
-  assert.equal(periodShrinkError(tasks, stored, { start: '202605', end: '202612' }, { parent: 'project' }), null);
+test('taskDatesError gives the same shrink message whatever the stored list holds', () => {
+  const tasks = [{ name: 'B', start: '20260410', end: '' }];
+  const next = { start: '202605', end: '202612' };
+  const extra = [{ name: 'Z', start: '20260601', end: '' }, ...tasks];
+  assert.equal(tdErr(tasks, tasks, P, next), tdErr(tasks, extra, P, next));
 });
 
-test('periodShrinkError treats an inverted stored period as no baseline', () => {
-  const tasks = [{ name: 'A', start: '2026-08-01', end: '' }];
-  assert.equal(
-    periodShrinkError(tasks, { start: '202609', end: '202607' }, { start: '202608', end: '202612' }, { parent: 'version' }),
-    null
-  );
+test('taskDatesError ignores tasks without dates', () => {
+  const t = [{ name: 'None', start: '', end: null }];
+  assert.equal(tdErr(t, t, P, { start: '202605', end: '202612' }), null);
+});
+
+test('taskDatesError treats an inverted stored period as no baseline', () => {
+  const t = [{ name: 'A', start: '2026-08-01', end: '' }];
+  assert.equal(tdErr(t, t, { start: '202609', end: '202607' }, { start: '202608', end: '202612' }), null);
+});
+
+test('taskDatesError checks the second of two identical tasks when only one is stored', () => {
+  const t = { name: 'Dup', start: '20260301', end: '' };
+  assert.match(tdErr([t, { ...t }], [t], P, P), /Task "Dup" starts on 2026-03-01/);
+});
+
+test('monthKeysError refuses a key outside the period and names it', () => {
+  const err = monthKeysError([{ key: '202601', label: 'PTC row 1' }], { start: '202609', end: '202612' }, []);
+  assert.match(err, /PTC row 1/);
+  assert.match(err, /2026-09/);
+});
+
+test('monthKeysError accepts a key that is already stored', () => {
+  assert.equal(monthKeysError([{ key: '202601', label: 'P' }], { start: '202609', end: '202612' }, ['202601']), null);
+});
+
+test('monthKeysError gives a blank month and a project without period no limits', () => {
+  assert.equal(monthKeysError([{ key: '', label: 'P' }], { start: '202609', end: '202612' }, []), null);
+  assert.equal(monthKeysError([{ key: '202601', label: 'P' }], { start: '', end: '' }, []), null);
+});
+
+test('monthKeysError treats an empty side as open', () => {
+  const p = { start: '202609', end: '' };
+  assert.notEqual(monthKeysError([{ key: '202601', label: 'P' }], p, []), null);
+  assert.equal(monthKeysError([{ key: '202701', label: 'P' }], p, []), null);
+});
+
+test('monthKeysError tolerates an invalid stored period', () => {
+  assert.equal(monthKeysError([{ key: '202601', label: 'P' }], { start: 'abc', end: '' }, []), null);
 });

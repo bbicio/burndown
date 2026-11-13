@@ -135,19 +135,84 @@ function periodChangeError(body, stored, { kind, label }) {
   return periodError(start, end, { kind, label });
 }
 
-// Server only. The first stored task that sits inside the stored period but would fall outside the next
-// one: a period change is refused only for tasks it newly pushes out (already-outside tasks are tolerated).
-function periodShrinkError(tasks, stored, next, { parent }) {
-  const st = stored || {};
-  const nx = next || {};
+// Server only. body: { start?, end? } (absent = keep the stored side, '' = clear); stored: as read from the DB.
+function mergePeriod(body, stored) {
+  const b = body || {};
+  const s = stored || {};
+  return {
+    start: b.start === undefined ? normalize(s.start) : normalize(b.start),
+    end: b.end === undefined ? normalize(s.end) : normalize(b.end)
+  };
+}
+
+// True when a side present in the body differs from the stored one (a re-sent identical period is no change).
+function periodChanged(body, stored) {
+  const b = body || {};
+  const s = stored || {};
+  return ['start', 'end'].some(f => b[f] !== undefined && normalize(b[f]) !== normalize(s[f]));
+}
+
+// Value to write in a CHAR(6) period column: null for "no value", otherwise trimmed.
+function periodColumn(v) {
+  const n = normalize(v);
+  return n === '' ? null : n;
+}
+
+function taskKey(t) {
+  const day = v => toYmd(normalize(v)) ?? normalize(v);
+  return `${normalize(t.name).replace(/\s+/g, ' ')}|${day(t.start)}|${day(t.end)}`;
+}
+
+// Server only. tasks: the task list being written; storedTasks: what is saved now ({ name, start, end }).
+// A task identical to a saved one (name, start, end; each saved task matches once) is tolerated if it is
+// already outside the stored period, and checked against the next period otherwise. Any other task is
+// new or edited: checked in full against the next period, then for its own start/end order.
+function taskDatesError({ tasks, storedTasks, storedPeriod, nextPeriod, parent }) {
+  const st = storedPeriod || {};
+  const nx = nextPeriod || {};
+  const unused = new Map();
+  for (const t of (storedTasks || [])) {
+    const k = taskKey(t);
+    unused.set(k, (unused.get(k) || 0) + 1);
+  }
   for (const t of (tasks || [])) {
     const start = normalize(t.start);
     const end = normalize(t.end);
+    const k = taskKey(t);
+    const left = unused.get(k) || 0;
+    const unchanged = left > 0;
+    if (unchanged) unused.set(k, left - 1);
     if (start === '' && end === '') continue;
     const o = { label: t.name, parent };
-    if (taskPeriodError(start, end, st.start, st.end, o) !== null) continue;
-    const err = taskPeriodError(start, end, nx.start, nx.end, o);
-    if (err !== null) return err;
+    if (unchanged) {
+      if (taskPeriodError(start, end, st.start, st.end, o) !== null) continue;
+      const err = taskPeriodError(start, end, nx.start, nx.end, o);
+      if (err !== null) return err;
+      continue;
+    }
+    const err = taskPeriodError(start, end, nx.start, nx.end, o)
+      || periodError(start, end, { kind: 'day', label: `task "${normalize(t.name)}"` });
+    if (err) return err;
+  }
+  return null;
+}
+
+// Server only. keys: { key: 'YYYYMM', label }[] about to be written to a project; storedKeys: the keys
+// already saved. A blank key, a stored key, a project without period or with an invalid stored period
+// have no limit; an empty side of the period is open.
+function monthKeysError(keys, storedPeriod, storedKeys) {
+  const ps = normalize((storedPeriod || {}).start);
+  const pe = normalize((storedPeriod || {}).end);
+  if ((ps !== '' && !isMonth(ps)) || (pe !== '' && !isMonth(pe))) return null;
+  if (ps === '' && pe === '') return null;
+  const stored = new Set((storedKeys || []).map(normalize));
+  const show = v => (v === '' ? '…' : `${v.slice(0, 4)}-${v.slice(4)}`);
+  for (const { key: raw, label } of (keys || [])) {
+    const k = normalize(raw);
+    if (k === '' || stored.has(k)) continue;
+    if ((ps !== '' && k < ps) || (pe !== '' && k > pe)) {
+      return `${label} month ${show(k)} is outside the project period (${show(ps)} – ${show(pe)}).`;
+    }
   }
   return null;
 }
@@ -166,5 +231,9 @@ module.exports = {
   periodError,
   periodChangeError,
   taskPeriodError,
-  periodShrinkError
+  mergePeriod,
+  periodChanged,
+  periodColumn,
+  taskDatesError,
+  monthKeysError
 };
