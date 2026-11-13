@@ -144,7 +144,7 @@ describe('portfolio custom range', () => {
   });
 
   it('loads the picker assets', () => {
-    for (const s of ['css/controls.css?v=1', 'js/lib/dates.js?v=4', 'js/lib/cg-controls-calc.js?v=2', 'js/cg-controls.js?v=5']) {
+    for (const s of ['css/controls.css?v=1', 'js/lib/dates.js?v=5', 'js/lib/cg-controls-calc.js?v=2', 'js/cg-controls.js?v=5']) {
       expect(html, s).toContain(s);
     }
   });
@@ -176,6 +176,24 @@ describe('closing guards (Spec 2026-10-24 §2.7)', () => {
 
   it('every page that loads js/cg-controls.js loads css/controls.css', () => {
     const offenders = pages.filter(f => { const t = read(f); return /js\/cg-controls\.js/.test(t) && !/css\/controls\.css/.test(t); });
+    expect(offenders).toEqual([]);
+  });
+
+  it('scans at least one page, and project-config.html loads the picker assets itself', () => {
+    expect(pages.length).toBeGreaterThan(0);
+    const t = read('project-config.html');
+    expect(t).toContain('js/cg-controls.js');
+    expect(t).toContain('css/controls.css');
+  });
+
+  it('no page redefines the shared out-of-period functions', () => {
+    const offenders = [];
+    for (const f of pages) {
+      const t = read(f);
+      // The banner text is built only in js/lib/dates.js; a page computed may call it but not rebuild it.
+      if (/'tasks are'|Tasks and the period are not saved/.test(t)) offenders.push(`${f}: out-of-period banner text`);
+      if (/window\.toIso\(twin\)/.test(t)) offenders.push(`${f}: window.toIso(twin)`);
+    }
     expect(offenders).toEqual([]);
   });
 

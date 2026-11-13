@@ -30,8 +30,10 @@ describe('project-config task period bindings', () => {
 
   it('shows the per-task warning, the notice near Save and the derive line', () => {
     expect(html).toContain('>Outside the project period</');
-    expect(html).toContain("' outside the project period (' +");
-    expect(html).toContain('Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.');
+    // The text lives in the shared window.outOfPeriodMessage (js/lib/dates.js); the page only calls it.
+    const lib = fs.readFileSync(path.resolve(__dirname, 'dates.js'), 'utf8');
+    expect(lib).toContain('Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.');
+    expect(html).toContain("window.outOfPeriodMessage({ list: this.outOfPeriod, start: p?.startDate, end: p?.endDate, noun: 'project' })");
     expect(html).toMatch(/v-if="outOfPeriod\.length && !isViewer"/);
     expect(html).toContain('Outside the project period, not distributed');
     // hours alone count: zero-rate resources past the period have outsideBudget 0 but outsideHours > 0

@@ -2,7 +2,7 @@
 // Pure helpers of master-currencies.html ("Currencies"): rate format, inverse and parsing, history delta,
 // history entries, activation picker, rate dates and the trend chart points. Loaded as an ES module
 // (<script type="module" src="js/lib/master-currencies.js?v=N">) and bridged onto `window`.
-import { formatDayText } from './dates.js?v=4';
+import { formatDayText } from './dates.js?v=5';
 
 const num = v => (v === null || v === undefined || v === '' ? NaN : Number(v));
 

@@ -514,7 +514,7 @@
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/status-rules.js?v=1"></script>
 <script type="module" src="js/lib/config-form-calc.js?v=7"></script>
-<script type="module" src="js/lib/dates.js?v=4"></script>
+<script type="module" src="js/lib/dates.js?v=5"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
 <script type="module" src="js/lib/project-push-result.js?v=4"></script>
@@ -655,20 +655,13 @@
       outOfPeriod() {
         const p = this.project;
         if (!p) return [];
-        const tasks = (p.tasks || []).map(t => ({ name: t.name || 'Untitled task', start: t.startDate, end: t.endDate }));
+        const tasks = (p.tasks || []).map(t => ({ name: t.name || 'Untitled task', start: t.startDate, end: t.endDate, ref: t }));
         return window.outOfPeriodTasks(tasks, p.startDate, p.endDate, 'project');
       },
+      outOfPeriodRefs() { return new Set(this.outOfPeriod.map(o => o.ref)); },
       outOfPeriodMessage() {
-        const list = this.outOfPeriod;
-        if (!list.length) return '';
         const p = this.project;
-        const s = p.startDate || '', e = p.endDate || '';
-        const valid = (s === '' || window.isMonth(s)) && (e === '' || window.isMonth(e)) && (s === '' || e === '' || s <= e);
-        if (!valid) return list[0].error;
-        const n = list.length;
-        const show = v => (v === '' ? '…' : window.formatMonthText(v));
-        return n + ' ' + (n === 1 ? 'task is' : 'tasks are') + ' outside the project period (' + show(s) + ' – ' + show(e)
-          + '). Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.';
+        return window.outOfPeriodMessage({ list: this.outOfPeriod, start: p?.startDate, end: p?.endDate, noun: 'project' });
       },
       periodTaskDates() {
         return (this.project?.tasks || []).flatMap(t => [t.startDate, t.endDate]);
@@ -1277,12 +1270,9 @@
       toYmd(x) { return window.toYmd(x); },
       taskDateBounds(task, side) {
         const twin = side === 'start' ? task.endDate : task.startDate;
-        return window.taskDateBounds(this.project?.startDate, this.project?.endDate, window.toIso(twin) || '', side);
+        return window.taskDateBounds(this.project?.startDate, this.project?.endDate, twin || '', side);
       },
-      isTaskOutOfPeriod(task) {
-        return window.taskPeriodError(task.startDate, task.endDate, this.project?.startDate, this.project?.endDate,
-          { label: task.name || 'Untitled task', parent: 'project' }) !== null;
-      },
+      isTaskOutOfPeriod(task) { return this.outOfPeriodRefs.has(task); },
       monthLabel(ym, locale = 'en-US') {
         const [y, m] = [parseInt(ym.slice(0,4)), parseInt(ym.slice(4,6))];
         return new Date(y, m - 1, 1).toLocaleDateString(locale, { month: 'short', year: '2-digit' });
