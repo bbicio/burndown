@@ -20,8 +20,8 @@
 //   * .md under docs/, not everything under docs/ — docker-compose.yml mounts
 //     the whole repo root into nginx and its `location /` serves it, so
 //     docs/** is reachable over HTTP. 66 tracked files under docs/ are not
-//     Markdown, and one of them, docs/OPERATIONAL_MANUAL.html, can only be
-//     verified in a browser. A cycle regenerating it must never be told there
+//     Markdown, and an .html among them can only be
+//     verified in a browser. A cycle regenerating one must never be told there
 //     is nothing to verify there.
 //
 //   * .md under .claude/, not everything under .claude/ — git tracks only .md

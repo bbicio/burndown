@@ -125,7 +125,7 @@ describe('classifyNameStatus', () => {
     // be verified only in a browser, so a cycle regenerating it must keep the
     // browser question. Today the shared .md check covers it; this pins it
     // against a later refactor that splits the clauses and relaxes docs/.
-    expect(classifyNameStatus(Z('M', 'docs/OPERATIONAL_MANUAL.html')).kind).toBe('ordinary');
+    expect(classifyNameStatus(Z('M', 'docs/anything.html')).kind).toBe('ordinary');
   });
 });
 
