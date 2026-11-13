@@ -9,7 +9,7 @@ const { missingLinkedTasks, STRUCTURE_RULE_CODE } = require('../lib/structure-ru
 const refuse = (res, error) => res.status(400).json({ error, code: rules.RULE_CODE });
 const { sendShareNotification, sendOwnerReassignedEmail, APP_URL } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
-const { DATE_RULE, periodError, periodChangeError, periodShrinkError, taskPeriodError, toYmd } = require('../lib/dates');
+const { DATE_RULE, periodError, periodChangeError, taskDatesError, mergePeriod, periodChanged, periodColumn, toYmd } = require('../lib/dates');
 const { isAdminRole } = require('../lib/is-admin');
 const { parsePipelineYear, pipelineYearAvailabilityError } = require('../lib/pipeline-year');
 const { formatMoney } = require('../lib/money-format');
@@ -470,11 +470,9 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
       `UPDATE cost_grid_versions SET ${fields.join(', ')} WHERE id = $${params.length + 1} RETURNING *`,
       [...params, req.params.vId]
     )).rows;
-    const trimmed = v => String(v ?? '').trim();
-    const periodChanged = (startDate !== undefined && trimmed(startDate) !== trimmed(locked.rows[0]?.start_date))
-      || (endDate !== undefined && trimmed(endDate) !== trimmed(locked.rows[0]?.end_date));
+    const periodMoved = periodChanged({ start: startDate, end: endDate }, { start: locked.rows[0]?.start_date, end: locked.rows[0]?.end_date });
     let rows;
-    if (currency !== undefined || periodChanged) {
+    if (currency !== undefined || periodMoved) {
       // The currency rule, the task-period rule and the write run under the version lock, so a project cannot
       // be linked, nor a structure saved, in between.
       const role = currency !== undefined ? await liveRole(req.user.id) : null;
@@ -499,17 +497,19 @@ router.patch('/:id/versions/:vId', requireAuth, async (req, res, next) => {
             params.push(rate.rate); fields.push(`currency_rate = $${params.length}`);
           }
         }
-        if (periodChanged) {
+        if (periodMoved) {
           const tasks = (await client.query(
             'SELECT t.title, t.start_date, t.end_date FROM tasks t JOIN phases p ON p.id = t.phase_id WHERE p.version_id = $1',
             [req.params.vId]
           )).rows.map(t => ({ name: t.title, start: t.start_date, end: t.end_date }));
-          const dateErr = periodShrinkError(
+          const storedPeriod = { start: stored?.start_date, end: stored?.end_date };
+          const dateErr = taskDatesError({
             tasks,
-            { start: stored?.start_date, end: stored?.end_date },
-            { start: startDate !== undefined ? startDate || '' : stored?.start_date, end: endDate !== undefined ? endDate || '' : stored?.end_date },
-            { parent: 'version' }
-          );
+            storedTasks: tasks,
+            storedPeriod,
+            nextPeriod: mergePeriod({ start: startDate, end: endDate }, storedPeriod),
+            parent: 'version',
+          });
           if (dateErr) return { dateErr };
         }
         return { rows: await update(client.query.bind(client)) };
@@ -686,6 +686,8 @@ router.get('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
   } catch (err) { next(err); }
 });
 
+const taskLabel = tk => tk?.taskName || tk?.title || '';
+
 // PUT /api/cost-grids/:id/versions/:vId/structure
 router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) => {
   try {
@@ -708,7 +710,7 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
           for (const [code, days] of Object.entries(tk.hours)) {
             if (!isValidSoldHours(days)) {
               return res.status(400).json({
-                error: `Invalid sold hours "${days}" for role "${code}" in task "${tk.taskName || tk.title || ''}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`,
+                error: `Invalid sold hours "${days}" for role "${code}" in task "${taskLabel(tk)}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`,
               });
             }
           }
@@ -716,7 +718,7 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
         for (const tr of (tk?.roles || [])) {
           if (tr?.days != null && !isValidSoldHours(tr.days)) {
             return res.status(400).json({
-              error: `Invalid sold hours "${tr.days}" in task "${tk.taskName || tk.title || ''}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`,
+              error: `Invalid sold hours "${tr.days}" in task "${taskLabel(tk)}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`,
             });
           }
         }
@@ -766,7 +768,7 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
       for (const ph of phases) {
         for (const tk of (ph?.tasks || [])) {
           if (!tk) continue;
-          const tkLabel = tk.taskName || tk.title || '';
+          const tkLabel = taskLabel(tk);
           if (tk.ptc != null) {
             const err = amountError(tk.ptc, currency, `PTC of task "${tkLabel}"`, { max: MAX_DECIMAL_10_2 });
             if (err) {
@@ -790,49 +792,34 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
 
       // Optional version period carried with the tasks: an absent side keeps the stored value, '' clears it.
       const hasPeriod = periodBody !== null && typeof periodBody === 'object';
-      let next = { start: stored?.start_date, end: stored?.end_date };
+      const storedPeriod = { start: stored.start_date, end: stored.end_date };
+      const bodyPeriod = hasPeriod ? { start: periodBody.startDate, end: periodBody.endDate } : {};
       if (hasPeriod) {
-        const bodyStart = periodBody.startDate;
-        const bodyEnd = periodBody.endDate;
-        const periodErr = periodChangeError({ start: bodyStart, end: bodyEnd },
-          { start: stored?.start_date, end: stored?.end_date }, { kind: 'month', label: 'version' });
+        const periodErr = periodChangeError(bodyPeriod, storedPeriod, { kind: 'month', label: 'version' });
         if (periodErr) {
           await client.query('ROLLBACK');
           return res.status(400).json({ error: periodErr, code: DATE_RULE });
         }
-        next = {
-          start: bodyStart === undefined ? stored?.start_date : bodyStart,
-          end: bodyEnd === undefined ? stored?.end_date : bodyEnd,
-        };
       }
-      for (const ph of phases) {
-        for (const tk of (ph?.tasks || [])) {
-          const taskErr = taskPeriodError(tk?.taskStartDate || tk?.start_date, tk?.taskEndDate || tk?.end_date,
-            next.start, next.end, { label: tk?.taskName || tk?.title || '', parent: 'version' });
-          if (taskErr) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ error: taskErr, code: DATE_RULE });
-          }
-        }
+      const next = mergePeriod(bodyPeriod, storedPeriod);
+      const storedTasks = (await client.query(
+        'SELECT t.title, t.start_date, t.end_date FROM tasks t JOIN phases p ON p.id = t.phase_id WHERE p.version_id = $1',
+        [req.params.vId]
+      )).rows.map(t => ({ name: t.title, start: t.start_date, end: t.end_date }));
+      const bodyTasks = phases.flatMap(ph => (ph?.tasks || []).filter(Boolean).map(tk => ({
+        name: taskLabel(tk), start: tk.taskStartDate || tk.start_date, end: tk.taskEndDate || tk.end_date,
+      })));
+      const taskErr = taskDatesError({ tasks: bodyTasks, storedTasks, storedPeriod, nextPeriod: next, parent: 'version' });
+      if (taskErr) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: taskErr, code: DATE_RULE });
       }
-      // Task order (end before start): after the period check, so a task outside the period gets the period wording.
-      for (const ph of phases) {
-        for (const tk of (ph?.tasks || [])) {
-          const dateErr = periodError(tk?.taskStartDate || tk?.start_date, tk?.taskEndDate || tk?.end_date,
-            { kind: 'day', label: `task "${tk?.taskName || tk?.title || ''}"` });
-          if (dateErr) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ error: dateErr, code: DATE_RULE });
-          }
-        }
-      }
-      if (hasPeriod) {
-        const col = v => (v === undefined || v === null || String(v).trim() === '' ? null : String(v).trim());
+      if (hasPeriod && periodChanged(bodyPeriod, storedPeriod)) {
         await client.query('UPDATE cost_grid_versions SET start_date = $1, end_date = $2 WHERE id = $3',
-          [col(next.start), col(next.end), req.params.vId]);
+          [periodColumn(next.start), periodColumn(next.end), req.params.vId]);
       }
       const linkedRows = await client.query(
-        'SELECT task_ids FROM cg_version_projects WHERE cost_grid_version_id = $1', [req.params.vId]
+        'SELECT task_ids, task_names_direct FROM cg_version_projects WHERE cost_grid_version_id = $1', [req.params.vId]
       );
       const currentTasks = (await client.query(
         'SELECT t.id, t.title FROM tasks t JOIN phases p ON p.id = t.phase_id WHERE p.version_id = $1', [req.params.vId]
@@ -840,8 +827,10 @@ router.put('/:id/versions/:vId/structure', requireAuth, async (req, res, next) =
       const payloadTaskIds = phases.flatMap(ph => (ph?.tasks || []).map(tk => tk?.taskId || tk?.id).filter(Boolean));
       const missing = missingLinkedTasks({
         linkedTaskIds: linkedRows.rows.flatMap(r => r.task_ids || []),
+        linkedTaskNames: linkedRows.rows.flatMap(r => r.task_names_direct || []),
         currentTasks,
         payloadTaskIds,
+        payloadTaskNames: bodyTasks.map(t => t.name),
       });
       if (missing.length) {
         await client.query('ROLLBACK');

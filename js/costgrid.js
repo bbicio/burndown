@@ -54,7 +54,10 @@ function cgMigrateVersion(v) {
 function cgFmtMonth(isoDate) {
   // English "May 11, 2026" (js/lib/dates.js); the phase band this feeds once rendered
   // "11 mag 2026 – 31 dic 2026" through the browser locale.
-  return window.formatDayText(window.toIso(isoDate) || '');
+  const iso = window.toIso(isoDate);
+  if (iso) return window.formatDayText(iso);
+  // Not a real date (e.g. 2026-02-30): show what was typed rather than nothing.
+  return isoDate === null || isoDate === undefined ? '' : String(isoDate).trim();
 }
 
 // The period of a project generated from a version: the version's dates are authoritative, then the selected
@@ -81,6 +84,9 @@ function cgGeneratedPeriod(v, selTasks, now) {
 function cgOutOfPeriodNotice(tasks, periodStart, periodEnd) {
   const bad = window.outOfPeriodTasks(tasks.map(t => ({ name: t.name, start: t.startDate, end: t.endDate })), periodStart, periodEnd, 'project');
   if (!bad.length) return '';
+  // An invalid or inverted period makes every dated task "outside" it: say that, not "move the tasks".
+  const invalid = bad[0].error.match(/^The project period \((.*)\) is not valid/);
+  if (invalid) return `The project period (${invalid[1]}) is not valid: fix it before adding tasks.`;
   return `These tasks are outside the project period (${periodStart ? window.formatMonthText(periodStart) : '…'} – ${periodEnd ? window.formatMonthText(periodEnd) : '…'}): ${bad.map(b => `"${b.name}"`).join(', ')}. Move them inside it first.`;
 }
 

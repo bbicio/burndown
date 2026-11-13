@@ -144,19 +144,34 @@ export function outOfPeriodTasks(tasks, periodStart, periodEnd, parent) {
   const out = [];
   for (const t of tasks || []) {
     const error = taskPeriodError(t.start, t.end, periodStart, periodEnd, { label: t.name, parent });
-    if (error !== null) out.push({ name: t.name, error });
+    if (error !== null) out.push({ name: t.name, error, ref: t.ref });
   }
   return out;
+}
+
+/** The banner text for tasks that leave the period; noun is 'proposal' or 'project'. */
+export function outOfPeriodMessage({ list, start, end, noun }) {
+  if (!list || !list.length) return '';
+  const s = isEmpty(start) ? '' : String(start).trim();
+  const e = isEmpty(end) ? '' : String(end).trim();
+  const valid = (s === '' || isMonth(s)) && (e === '' || isMonth(e)) && (s === '' || e === '' || s <= e);
+  if (!valid) return list[0].error;
+  const n = list.length;
+  const show = v => (v === '' ? '…' : formatMonthText(v));
+  return n + ' ' + (n === 1 ? 'task is' : 'tasks are') + ' outside the ' + noun + ' period (' + show(s) + ' – ' + show(e)
+    + '). Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.';
 }
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August',
   'September', 'October', 'November', 'December'];
 
-// 1-based month number for an English month name or its 3-letter abbreviation (any case), else 0.
+const MONTHS_LOWER = MONTHS.map(n => n.toLowerCase());
+
+// 1-based month number for an English month name, its 3-letter abbreviation or 'Sept' (any case), else 0.
 function monthNumber(word) {
   const w = word.toLowerCase();
-  const i = MONTHS.findIndex(n => n.toLowerCase() === w || n.slice(0, 3).toLowerCase() === w);
-  return i + 1;
+  if (w === 'sept') return 9;
+  return MONTHS_LOWER.findIndex(n => n === w || n.slice(0, 3) === w) + 1;
 }
 
 function normText(text) {
@@ -174,9 +189,9 @@ export function parseDayText(text) {
   const s = normText(text);
   if (s === null) return null;
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return isDay(s) ? s : null;
-  let m = s.match(/^([a-z]+) (\d{1,2}),? (\d{4})$/i);
+  let m = s.match(/^([a-z]+) (\d{1,2})(?:st|nd|rd|th)?(?:,\s?|\s)(\d{4})$/i);
   if (m) return dayFrom(m[3], monthNumber(m[1]), m[2]);
-  m = s.match(/^(\d{1,2}) ([a-z]+) (\d{4})$/i);
+  m = s.match(/^(\d{1,2})(?:st|nd|rd|th)? ([a-z]+)(?:,\s?|\s)(\d{4})$/i);
   if (m) return dayFrom(m[3], monthNumber(m[2]), m[1]);
   return null;
 }
@@ -247,4 +262,5 @@ if (typeof window !== 'undefined') {
   window.taskDateBounds = taskDateBounds;
   window.periodBounds = periodBounds;
   window.outOfPeriodTasks = outOfPeriodTasks;
+  window.outOfPeriodMessage = outOfPeriodMessage;
 }

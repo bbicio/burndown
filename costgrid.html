@@ -764,11 +764,11 @@
 <script defer src="js/programs.js"></script>
 <script type="module" src="js/lib/cfg-parse.js?v=1"></script>
 <script type="module" src="js/lib/costgrid-calc.js?v=16"></script>
-<script type="module" src="js/lib/dates.js?v=4"></script>
+<script type="module" src="js/lib/dates.js?v=5"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
 <script type="module" src="js/lib/project-push-result.js?v=4"></script>
-<script defer src="js/costgrid.js?v=59"></script>
+<script defer src="js/costgrid.js?v=60"></script>
 <script defer src="js/api-sync.js?v=32"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script defer src="js/ratecards.js"></script>
@@ -1056,22 +1056,14 @@ Vue.createApp({
       const d = this.draft;
       if (!d) return [];
       const tasks = (d.phases || []).flatMap(ph => (ph.tasks || []).map(t => ({
-        name: t.taskName || 'Untitled task', start: t.taskStartDate, end: t.taskEndDate,
+        name: t.taskName || 'Untitled task', start: t.taskStartDate, end: t.taskEndDate, ref: t,
       })));
       return window.outOfPeriodTasks(tasks, d.startDate, d.endDate, 'version');
     },
+    outOfPeriodRefs() { return new Set(this.outOfPeriod.map(o => o.ref)); },
     outOfPeriodMessage() {
-      const list = this.outOfPeriod;
-      if (!list.length) return '';
       const d = this.draft;
-      const s = d.startDate || '', e = d.endDate || '';
-      const valid = (s === '' || window.isMonth(s)) && (e === '' || window.isMonth(e)) && (s === '' || e === '' || s <= e);
-      if (!valid) return list[0].error;
-      const n = list.length;
-      const show = v => (v === '' ? '…' : window.formatMonthText(v));
-      return n + ' ' + (n === 1 ? 'task is' : 'tasks are') + ' outside the proposal period ('
-        + show(s) + ' – ' + show(e)
-        + '). Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.';
+      return window.outOfPeriodMessage({ list: this.outOfPeriod, start: d?.startDate, end: d?.endDate, noun: 'proposal' });
     },
     periodTaskDates() {
       return (this.draft?.phases || []).flatMap(ph => (ph.tasks || []).flatMap(t => [t.taskStartDate, t.taskEndDate]));
@@ -1854,10 +1846,7 @@ Vue.createApp({
       const twin = side === 'start' ? task.taskEndDate : task.taskStartDate;
       return window.taskDateBounds(this.draft?.startDate, this.draft?.endDate, twin || '', side);
     },
-    isTaskOutOfPeriod(task) {
-      return window.taskPeriodError(task.taskStartDate, task.taskEndDate, this.draft?.startDate, this.draft?.endDate,
-        { label: task.taskName || 'Untitled task', parent: 'version' }) !== null;
-    },
+    isTaskOutOfPeriod(task) { return this.outOfPeriodRefs.has(task); },
     phasingFmtMonth(mo) {
       const [my, mm] = mo.split('-');
       return new Date(parseInt(my), parseInt(mm) - 1).toLocaleString('en', { month: 'short' }) + ' ' + my;

@@ -34,7 +34,10 @@ describe('costgrid task period bindings', () => {
   });
 
   it('the out-of-period banner says what is and is not saved (dates C4)', () => {
-    expect(html).toContain('Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.');
+    // The text lives in the shared window.outOfPeriodMessage (js/lib/dates.js); the page only calls it.
+    const lib = fs.readFileSync(path.resolve(__dirname, 'dates.js'), 'utf8');
+    expect(lib).toContain('Tasks and the period are not saved until the tasks are moved inside it or the period is widened; other changes are saved.');
+    expect(html).toContain("window.outOfPeriodMessage({ list: this.outOfPeriod, start: d?.startDate, end: d?.endDate, noun: 'proposal' })");
     expect(html).not.toContain('Changes to this version are not saved');
   });
 
