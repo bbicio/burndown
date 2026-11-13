@@ -24,4 +24,10 @@ function missingLinkedTasks({ linkedTaskIds, linkedTaskNames = [], currentTasks,
   });
 }
 
-module.exports = { missingLinkedTasks, STRUCTURE_RULE_CODE };
+// The title a task is saved with: trimmed, 'New Task' when blank. Every place that compares a payload task
+// with a saved one (the unchanged-task match, the linked-by-name check) uses this, so both sides agree.
+function taskTitle(tk) {
+  return (tk?.taskName || tk?.title || '').trim() || 'New Task';
+}
+
+module.exports = { missingLinkedTasks, taskTitle, STRUCTURE_RULE_CODE };

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { missingLinkedTasks, STRUCTURE_RULE_CODE } = require('./structure-rules');
+const { missingLinkedTasks, taskTitle, STRUCTURE_RULE_CODE } = require('./structure-rules');
 
 const T1 = { id: '11111111-1111-4111-8111-111111111111', title: 'T1' };
 const T2 = { id: '22222222-2222-4222-8222-222222222222', title: 'T2' };
@@ -69,5 +69,25 @@ test('missingLinkedTasks: a task linked by id is not kept by a new task that hap
 test('missingLinkedTasks: a task linked by id and renamed under the same id is kept', () => {
   assert.deepEqual(
     missingLinkedTasks({ linkedTaskIds: [T1.id], linkedTaskNames: [], currentTasks: [T1], payloadTaskIds: [T1.id], payloadTaskNames: ['Renamed'] }),
+    []);
+});
+
+test('taskTitle falls back to New Task for an empty or blank title', () => {
+  assert.equal(taskTitle({}), 'New Task');
+  assert.equal(taskTitle({ taskName: '  ' }), 'New Task');
+  assert.equal(taskTitle(null), 'New Task');
+});
+
+test('taskTitle trims and prefers taskName over title', () => {
+  assert.equal(taskTitle({ taskName: ' A ', title: 'B' }), 'A');
+  assert.equal(taskTitle({ title: ' B' }), 'B');
+});
+
+test('missingLinkedTasks: a task linked by id and by name is kept only by its id', () => {
+  assert.deepEqual(
+    missingLinkedTasks({ linkedTaskIds: [T1.id], linkedTaskNames: ['T1'], currentTasks: [T1], payloadTaskIds: ['new-id'], payloadTaskNames: ['T1'] }),
+    [T1]);
+  assert.deepEqual(
+    missingLinkedTasks({ linkedTaskIds: [T1.id], linkedTaskNames: ['T1'], currentTasks: [T1], payloadTaskIds: [T1.id], payloadTaskNames: [] }),
     []);
 });
