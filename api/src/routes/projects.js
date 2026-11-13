@@ -6,7 +6,7 @@ const rules = require('../lib/project-rules');
 const { withVersionLock, lockVersion } = require('../lib/version-lock');
 const { sendShareNotification, sendShareRevokedEmail } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
-const { DATE_RULE, periodError, periodChangeError, periodShrinkError, taskPeriodError, toYmd } = require('../lib/dates');
+const { DATE_RULE, periodError, periodChangeError, taskDatesError, mergePeriod, periodChanged, periodColumn, monthKeysError, toYmd } = require('../lib/dates');
 const { isAdminRole } = require('../lib/is-admin');
 const { enqueueProjectsQuiet } = require('../services/profile-engine');
 const { descriptionsSignature } = require('../lib/topic-extract');
@@ -216,33 +216,20 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
         return res.status(400).json({ error: `${key} must be a valid UUID` });
       }
     }
-    if (req.body.startDate !== undefined || req.body.endDate !== undefined) {
-      const { rows: [storedPeriod] } = await query('SELECT start_date, end_date FROM projects WHERE id = $1', [req.params.id]);
-      if (storedPeriod) {
-        const periodErr = periodChangeError(
-          { start: req.body.startDate, end: req.body.endDate },
-          { start: storedPeriod.start_date, end: storedPeriod.end_date },
-          { kind: 'month', label: 'project' }
-        );
-        if (periodErr) return res.status(400).json({ error: periodErr, code: DATE_RULE });
-        const tasks = (await query('SELECT name, start_date, end_date FROM project_tasks WHERE project_id = $1', [req.params.id]))
-          .rows.map(t => ({ name: t.name, start: t.start_date, end: t.end_date }));
-        const shrinkErr = periodShrinkError(
-          tasks,
-          { start: storedPeriod.start_date, end: storedPeriod.end_date },
-          {
-            start: req.body.startDate !== undefined ? req.body.startDate || '' : storedPeriod.start_date,
-            end: req.body.endDate !== undefined ? req.body.endDate || '' : storedPeriod.end_date,
-          },
-          { parent: 'project' }
-        );
-        if (shrinkErr) return res.status(400).json({ error: shrinkErr, code: DATE_RULE });
-      }
+    // One unlocked read feeds the early checks and the choice of path; the period is checked again, and
+    // written, under the project row lock below.
+    const { rows: [stored] } = await query(
+      'SELECT start_date, end_date, currency, cg_version_id FROM projects WHERE id = $1', [req.params.id]);
+    const bodyPeriod = { start: req.body.startDate, end: req.body.endDate };
+    const periodMoved = !!stored && periodChanged(bodyPeriod, { start: stored.start_date, end: stored.end_date });
+    if (periodMoved) {
+      const periodErr = periodChangeError(bodyPeriod, { start: stored.start_date, end: stored.end_date },
+        { kind: 'month', label: 'project' });
+      if (periodErr) return res.status(400).json({ error: periodErr, code: DATE_RULE });
     }
     const needsRules = req.body.currency !== undefined || req.body.cgVersionId !== undefined;
     const role = needsRules ? await liveRole(req.user.id) : null;
     if (needsRules) {
-      const { rows: [stored] } = await query('SELECT currency, cg_version_id FROM projects WHERE id = $1', [req.params.id]);
       if (stored) {
         if (req.body.currency !== undefined) {
           const err = rules.projectCurrencyChangeError({ role, currentCurrency: stored.currency, newCurrency: req.body.currency });
@@ -298,28 +285,43 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
 
     let rows;
     let seedFromVersionId = null;
-    if (req.body.cgVersionId !== undefined) {
+    if (req.body.cgVersionId !== undefined || periodMoved) {
       // Read the previous link and write the new one under one row lock, so two overlapping
       // saves (js/api-sync.js re-sends cgVersionId on every save) cannot both observe
-      // "no link yet" and both seed tags — only the first link ever seeds them.
+      // "no link yet" and both seed tags — only the first link ever seeds them. A period change takes the
+      // same lock, so the tasks it is checked against cannot change before the write.
       const client = await pool.connect();
       let refusedByLock = null;
+      let dateRefusal = null;
       try {
         await client.query('BEGIN');
         // Linking: take the version lock first (before the project row lock) so the currency check below
         // cannot interleave with a currency change of that version (see lib/version-lock.js).
         const target = req.body.cgVersionId || null;
         if (target) await lockVersion(client, target);
-        const prev = await client.query('SELECT cg_version_id FROM projects WHERE id = $1 FOR UPDATE', [req.params.id]);
+        const prev = await client.query(
+          'SELECT cg_version_id, currency, start_date, end_date FROM projects WHERE id = $1 FOR UPDATE', [req.params.id]);
         const prevCgVersionId = prev.rows[0]?.cg_version_id ?? null;
-        if (target && String(target).toLowerCase() !== String(prevCgVersionId || '').toLowerCase()) {
+        if (periodMoved && prev.rows[0]) {
+          const lockedPeriod = { start: prev.rows[0].start_date, end: prev.rows[0].end_date };
+          dateRefusal = periodChangeError(bodyPeriod, lockedPeriod, { kind: 'month', label: 'project' });
+          if (!dateRefusal) {
+            const tasks = (await client.query('SELECT name, start_date, end_date FROM project_tasks WHERE project_id = $1', [req.params.id]))
+              .rows.map(t => ({ name: t.name, start: t.start_date, end: t.end_date }));
+            dateRefusal = taskDatesError({
+              tasks, storedTasks: tasks, storedPeriod: lockedPeriod,
+              nextPeriod: mergePeriod(bodyPeriod, lockedPeriod), parent: 'project',
+            });
+          }
+        }
+        if (!dateRefusal && target && String(target).toLowerCase() !== String(prevCgVersionId || '').toLowerCase()) {
           const ver = (await client.query('SELECT currency FROM cost_grid_versions WHERE id = $1', [target])).rows[0];
-          const projCurrency = (await client.query('SELECT currency FROM projects WHERE id = $1', [req.params.id])).rows[0]?.currency;
+          const projCurrency = prev.rows[0]?.currency;
           refusedByLock = !ver
             ? rules.MESSAGES.versionNotFound
             : rules.linkCurrencyError({ role, projectCurrency: projCurrency, versionCurrency: ver.currency });
         }
-        if (refusedByLock) {
+        if (dateRefusal || refusedByLock) {
           await client.query('ROLLBACK');
         } else {
           ({ rows } = await client.query(updateSql, params));
@@ -332,6 +334,7 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       } finally {
         client.release();
       }
+      if (dateRefusal) return res.status(400).json({ error: dateRefusal, code: DATE_RULE });
       if (refusedByLock) return refuse(res, refusedByLock);
     } else {
       ({ rows } = await query(updateSql, params));
@@ -456,42 +459,32 @@ router.put('/:id/tasks', requireAuth, async (req, res, next) => {
         }
       }
       // An absent side keeps the stored value, '' clears it.
-      let next = { start: stored?.start_date, end: stored?.end_date };
+      const storedPeriod = { start: stored.start_date, end: stored.end_date };
+      const bodyPeriod = hasPeriod ? { start: period.startDate, end: period.endDate } : {};
       if (hasPeriod) {
-        const periodErr = periodChangeError({ start: period.startDate, end: period.endDate },
-          { start: stored?.start_date, end: stored?.end_date }, { kind: 'month', label: 'project' });
+        const periodErr = periodChangeError(bodyPeriod, storedPeriod, { kind: 'month', label: 'project' });
         if (periodErr) {
           await client.query('ROLLBACK');
           return res.status(400).json({ error: periodErr, code: DATE_RULE });
         }
-        next = {
-          start: period.startDate === undefined ? stored?.start_date : period.startDate,
-          end: period.endDate === undefined ? stored?.end_date : period.endDate,
-        };
       }
-      for (const t of tasks) {
-        const taskErr = taskPeriodError(t?.startDate, t?.endDate, next.start, next.end,
-          { label: t?.name || '', parent: 'project' });
-        if (taskErr) {
-          await client.query('ROLLBACK');
-          return res.status(400).json({ error: taskErr, code: DATE_RULE });
-        }
+      const next = mergePeriod(bodyPeriod, storedPeriod);
+      const before = await client.query('SELECT name, description, start_date, end_date FROM project_tasks WHERE project_id = $1', [req.params.id]);
+      const taskErr = taskDatesError({
+        tasks: tasks.map(t => ({ name: t?.name || '', start: t?.startDate, end: t?.endDate })),
+        storedTasks: before.rows.map(t => ({ name: t.name, start: t.start_date, end: t.end_date })),
+        storedPeriod, nextPeriod: next, parent: 'project',
+      });
+      if (taskErr) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: taskErr, code: DATE_RULE });
       }
-      // Task order (end before start): after the period check, so a task outside the period gets the period wording.
-      for (const t of tasks) {
-        const dateErr = periodError(t?.startDate, t?.endDate, { kind: 'day', label: `task "${t?.name || ''}"` });
-        if (dateErr) {
-          await client.query('ROLLBACK');
-          return res.status(400).json({ error: dateErr, code: DATE_RULE });
-        }
-      }
-      if (hasPeriod) {
-        const col = v => (v === undefined || v === null || String(v).trim() === '' ? null : String(v).trim());
+      if (hasPeriod && periodChanged(bodyPeriod, storedPeriod)) {
         await client.query('UPDATE projects SET start_date = $1, end_date = $2 WHERE id = $3',
-          [col(next.start), col(next.end), req.params.id]);
+          [periodColumn(next.start), periodColumn(next.end), req.params.id]);
       }
 
-      const before = await client.query('SELECT name, description FROM project_tasks WHERE project_id = $1', [req.params.id]);
+
       await client.query('DELETE FROM project_tasks WHERE project_id = $1', [req.params.id]);
 
       for (let i = 0; i < tasks.length; i++) {
@@ -535,7 +528,7 @@ router.patch('/:id/phasing', requireAuth, async (req, res, next) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const row = (await client.query('SELECT currency FROM projects WHERE id = $1 FOR UPDATE', [req.params.id])).rows[0];
+      const row = (await client.query('SELECT currency, start_date, end_date, phasing FROM projects WHERE id = $1 FOR UPDATE', [req.params.id])).rows[0];
       if (!row) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Project not found' });
@@ -544,6 +537,12 @@ router.patch('/:id/phasing', requireAuth, async (req, res, next) => {
       if (phErr) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: phErr, code: MONEY_RULE_CODE });
+      }
+      const phDateErr = monthKeysError(Object.keys(phasing).map(k => ({ key: k, label: `Phasing ${k}` })),
+        { start: row.start_date, end: row.end_date }, Object.keys(row.phasing || {}));
+      if (phDateErr) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: phDateErr, code: DATE_RULE });
       }
       await client.query('UPDATE projects SET phasing = $1 WHERE id = $2', [JSON.stringify(phasing), req.params.id]);
       await client.query('COMMIT');
@@ -568,7 +567,7 @@ router.patch('/:id/ptc', requireAuth, async (req, res, next) => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const row = (await client.query('SELECT currency FROM projects WHERE id = $1 FOR UPDATE', [req.params.id])).rows[0];
+      const row = (await client.query('SELECT currency, start_date, end_date, ptc FROM projects WHERE id = $1 FOR UPDATE', [req.params.id])).rows[0];
       if (!row) {
         await client.query('ROLLBACK');
         return res.status(404).json({ error: 'Project not found' });
@@ -577,6 +576,12 @@ router.patch('/:id/ptc', requireAuth, async (req, res, next) => {
       if (ptcErr) {
         await client.query('ROLLBACK');
         return res.status(400).json({ error: ptcErr, code: MONEY_RULE_CODE });
+      }
+      const ptcDateErr = monthKeysError(ptc.map((r, i) => ({ key: r.month, label: `PTC row ${i + 1}` })),
+        { start: row.start_date, end: row.end_date }, (Array.isArray(row.ptc) ? row.ptc : []).map(r => r?.month));
+      if (ptcDateErr) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: ptcDateErr, code: DATE_RULE });
       }
       await client.query('UPDATE projects SET ptc = $1 WHERE id = $2', [JSON.stringify(ptc), req.params.id]);
       await client.query('COMMIT');
@@ -593,11 +598,34 @@ router.patch('/:id/ptc', requireAuth, async (req, res, next) => {
 // PATCH /api/projects/:id/planning
 router.patch('/:id/planning', requireAuth, async (req, res, next) => {
   try {
+    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid project id' });
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
     const { planning } = req.body;
-    await query('UPDATE projects SET planning = $1 WHERE id = $2', [JSON.stringify(planning), req.params.id]);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const row = (await client.query('SELECT start_date, end_date, planning FROM projects WHERE id = $1 FOR UPDATE', [req.params.id])).rows[0];
+      if (!row) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Project not found' });
+      }
+      const keys = planning && typeof planning === 'object' && !Array.isArray(planning) ? Object.keys(planning) : [];
+      const plDateErr = monthKeysError(keys.map(k => ({ key: k, label: `Planning ${k}` })),
+        { start: row.start_date, end: row.end_date }, Object.keys(row.planning || {}));
+      if (plDateErr) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: plDateErr, code: DATE_RULE });
+      }
+      await client.query('UPDATE projects SET planning = $1 WHERE id = $2', [JSON.stringify(planning), req.params.id]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
