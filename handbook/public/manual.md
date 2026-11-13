@@ -209,6 +209,75 @@ Select tasks in the editor and choose **Generate project**. Each role's hours be
 
 </details>
 
+## Resource planning
+
+Planning compares the hours sold in offers and projects with the hours already worked, and shows what is still to be planned in the coming weeks. Rows can be grouped by role, by project or by owner.
+
+### What a row means
+
+| View | Rows |
+|---|---|
+| By role | One row per role. It opens into one row for each project and task that role covers. |
+| By project | Project, then task, then role. Each role row names the people who logged time on it. |
+| By owner | Owner, then project, then task. All the roles a person worked under on a task are added into that one row. |
+
+Every row has a column per month or week of the period you picked, and three summary columns: **Sold**, **From actuals** and **To be planned**. By owner lists the tasks that have nobody yet first, under "Unassigned (TBD)", marked "Needs owner".
+
+<details>
+<summary>Details</summary>
+
+- **Sold** is the hours estimated in the task's roles, added up for the row and the Team filter in force.
+- **From actuals** covers past weeks and is the timesheet hours matched to the task by its name and role.
+- **To be planned** spreads what is left over the task's remaining weeks. What is left is the sold hours minus the actuals, worked out for each task and role and never below zero. Because an over-consumed task contributes zero rather than a negative number, a row's To be planned can be larger than its Sold minus From actuals. This is intended, and the column header explains it.
+- If the task has a month-by-month distribution, the leftover follows it; otherwise it is split evenly over the task's own remaining weeks, so the figure does not change as you move through the calendar.
+- **Monthly pulse** applies to the even split when that would put less than one hour a week on a task: the month's share is shown once, on the month's first week, as "~Xh".
+- **Rounded** switches between whole numbers and two decimals. It only changes how numbers are shown, never a total or an export.
+- A person marked inactive in Team receives no share of the future hours; their share goes to the other owners of the task, or to "Unassigned (TBD)" when there are none. Their past hours stay as they were, with an "inactive" badge.
+
+</details>
+
+### Filters and controls
+
+| Control | What it does |
+|---|---|
+| Pipeline chips | One chip per pipeline stage; click to include or leave out that stage. |
+| Projects | Pick the projects to show, searching by name or client. |
+| Team | Pick the teams to show. |
+| By role / By project / By owner | Chooses how rows are grouped. |
+| Monthly / Weekly | Chooses the width of each column. |
+| Period | Arrows move the window by one month; its label opens 3, 6 or 12 months, **Whole range**, or a From and To month. **Today** goes back to the current month and the next three. |
+| Search | Narrows the rows to those that match, keeping their parents. |
+| Monthly pulse, Rounded | The two display switches described above. |
+| Expand all, Collapse all | Open or close every group. |
+| How estimates work | A short explanation of the numbers in the active view. |
+| Export XLS | Downloads the table as an Excel file. |
+| Load XLS | Uploads a timesheet file; see Timesheet upload. |
+
+<details>
+<summary>Details</summary>
+
+- A load of 24 hours a week or more for a person is shown in amber ("High load") and 30 or more in red ("Over-allocated"). It applies to the By owner view only and is a fixed display rule, not an analysis.
+- Below 1024 pixels the search, the filters, the switches and Load XLS move into a **Filters** panel whose button shows how many filters differ from their default.
+- On a phone the page is for reading only: a stepper shows one period at a time and each top-level row becomes a card that opens into its children.
+- Export XLS is disabled while the data is loading, and the export is not changed by the search box.
+
+</details>
+
+### Team assistant (admin)
+
+Administrators see a **Team assistant** button at the top of the page. It helps choose who to staff on a project. Pick a project already in Planning and press **Calculate team**, or ask in the chat, for example "Exclude Anna and recalculate" or "Why is X not among the best?".
+
+The answer is three tables for each role the project needs: the best team (people with that job title, ranked by experience), an alternative team (other job titles with relevant experience) and the available team (ranked by experience and free hours over the project's period).
+
+<details>
+<summary>Details</summary>
+
+- The experience score combines hours worked under the same job title, on the project's tags (market, brand, therapeutic area, service type), on similar tasks and on matching competence topics.
+- Free hours are counted as 32 a week minus the planned and actual load of everything else in Planning.
+- Calculate team uses no language model. The chat only turns your sentences into constraints and writes the summary; every number and table is calculated by the server. Chat messages, with the names, hours and project details they need, are sent to an external AI service.
+
+</details>
+
 ## Account, privacy and sharing
 
 ### My profile
