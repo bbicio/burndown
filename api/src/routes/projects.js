@@ -265,9 +265,11 @@ router.patch('/:id', requireAuth, async (req, res, next) => {
       }
     }
     if (!fields.length) {
-      // The body held only a period the project already has: nothing to write.
+      // The body held only a period the project already has: nothing to write. The answer is read again, so it
+      // does not carry a name that a save finishing meanwhile has already changed.
       if (periodOmitted) {
-        return stored ? res.json({ id: stored.id, name: stored.name }) : res.status(404).json({ error: 'Project not found' });
+        const { rows: [now] } = await query('SELECT id, name FROM projects WHERE id = $1', [req.params.id]);
+        return now ? res.json({ id: now.id, name: now.name }) : res.status(404).json({ error: 'Project not found' });
       }
       return res.status(400).json({ error: 'Nothing to update' });
     }

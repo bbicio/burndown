@@ -4,7 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const ID = '11111111-1111-4111-8111-111111111111';
-const state = { read: null, locked: null, tasks: [], log: [] };
+const state = { read: null, locked: null, fresh: null, tasks: [], log: [] };
 
 function stub(rel, exports) {
   const file = require.resolve(rel);
@@ -25,6 +25,7 @@ stub('../db/client', {
   async query(sql, params) {
     state.log.push({ sql: sql.trim(), params, via: 'query' });
     if (/cg_version_id FROM projects WHERE id/.test(sql)) return { rows: state.read ? [state.read] : [] };
+    if (/^SELECT id, name FROM projects WHERE id/.test(sql)) return { rows: state.fresh ? [state.fresh] : [] };
     if (/^\s*UPDATE projects/.test(sql)) return { rows: [{ id: ID, name: 'P' }] };
     return { rows: [] };
   },
@@ -40,9 +41,11 @@ const handler = layer.route.stack[layer.route.stack.length - 1].handle;
 
 const STORED = { id: ID, name: 'P', start_date: '202604 ', end_date: '202612 ', currency: 'EUR', cg_version_id: null };
 
-async function patch(body, { read = STORED, locked = STORED } = {}) {
+async function patch(body, { read = STORED, locked = STORED, fresh } = {}) {
   state.read = read;
   state.locked = locked;
+  // The row as a second read sees it: by default the same as the first.
+  state.fresh = fresh !== undefined ? fresh : (read ? { id: read.id, name: read.name } : null);
   state.log = [];
   const res = {
     statusCode: 200, body: undefined,
@@ -84,6 +87,16 @@ test('a body of only unchanged dates answers 200 with id and name', async () => 
   assert.equal(res.statusCode, 200);
   assert.deepEqual(res.body, { id: ID, name: 'P' });
   assert.equal(updates().length, 0);
+});
+
+test('a body of only unchanged dates answers with the name as a second read sees it', async () => {
+  const res = await patch({ startDate: '202604', endDate: '202612' }, { fresh: { id: ID, name: 'Renamed meanwhile' } });
+  assert.deepEqual(res.body, { id: ID, name: 'Renamed meanwhile' });
+});
+
+test('a body of only unchanged dates answers 404 when the project is gone by the second read', async () => {
+  const res = await patch({ startDate: '202604', endDate: '202612' }, { fresh: null });
+  assert.equal(res.statusCode, 404);
 });
 
 test('a missing project answers 404 for a body of dates', async () => {
