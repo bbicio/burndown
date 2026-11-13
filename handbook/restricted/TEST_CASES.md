@@ -431,6 +431,7 @@
 | PC-44 | Viewer (2026-11-02, redesign) | Open a project shared read-only | Banner under the head; no Save, Discard, Add, Spread, Clear or Remove; inputs disabled | |
 | PC-45 | Tablet and phone (2026-11-02, redesign) | Open the page at 1024 and at 390 wide; at 390 pick a section from the bottom sheet, then widen to 1440 | 1024: index as a tab row below 1024 only, no wrapped amounts; 390: one section at a time, 44px inputs, Save in the head; back at 1440 every card is visible | |
 | PC-46 | Reforecast nets overruns (2026-11-05) | On *BERMITS Maintenance 2026* click "Reforecast from actuals"; read the confirmation; confirm; do not save | The message shows Remaining budget 10.680,00 € and Remaining hours 87.3 h (the message rounds hours to one decimal); after confirming, Dec–Oct sum to 49.340 € / 416,75 h and Nov + Dec to 10.680 € / 87,25 h | |
+| PC-47 | Phasing and hours sums ignore months outside the period (2026-11-13, backlog cycle 3 follow-up, B-476) | Open a project with phasing on several months, narrow the end of the period by two or three months, save and reload | The grid shows only the months inside the period and the phasing and hours balance checks raise no false imbalance for the months left outside; the saved amounts of those months are kept, not deleted | |
 
 ---
 
