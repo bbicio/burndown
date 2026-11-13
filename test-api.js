@@ -4420,6 +4420,111 @@ async function testTaskPeriod() {
   ok(p6b.status === 200, `TD-06 first period that includes the task → 200 (got ${p6b.status})`);
 }
 
+// ── Date and period rules, cycle 3 (2026-11-13) ────────────────────────────────
+
+// DR-01..DR-08: one merge/check for every period write, month keys inside the project period, name-only links.
+// The case "a task already saved outside its period, or invalid" is not reachable from the API (every route
+// refuses it), so the unit tests of taskDatesError (api/src/lib/dates.test.js) are what prove it.
+async function testDateRulesC3() {
+  section('Date and period rules (cycle 3)');
+
+  const rpy = await api('POST', '/api/pipeline-years', { year: TEST_YEAR_C }, adminCookie);
+  if (![201, 409].includes(rpy.status)) { ok(false, 'DR-setup pipeline year unavailable'); return; }
+  if (rpy.status === 201 && rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
+
+  // Registered first, so cleanup (reverse order) deletes the projects before the proposal.
+  const rcg = await api('POST', '/api/cost-grids', { name: '__test_dr_cg__', pipelineYear: TEST_YEAR_C }, adminCookie);
+  const cgId = rcg.data?.id;
+  if (cgId) later('DELETE', `/api/cost-grids/${cgId}`);
+  const mk = async label => (cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label }, adminCookie)).data?.id : null);
+  const vId = await mk('v1');
+  const v2Id = await mk('v2-noperiod');
+  if (!ok(!!(cgId && vId && v2Id), 'DR-setup proposal with two versions')) return;
+  const base = `/api/cost-grids/${cgId}/versions/${vId}`;
+  const isRule = r => r.status === 400 && r.data?.code === 'DATE_RULE';
+  const setPeriod = await api('PATCH', base, { startDate: '202604', endDate: '202612' }, adminCookie);
+  if (!ok(setPeriod.status === 200, `DR-setup version period 202604-202612 (got ${setPeriod.status})`)) return;
+
+  const gen = await api('POST', '/api/projects', { name: '__test_dr_proj__', cgVersionId: vId, currency: 'EUR', startDate: '202604', endDate: '202612' }, adminCookie);
+  const pId = gen.data?.id;
+  if (pId) later('DELETE', `/api/projects/${pId}`);
+  if (!ok(gen.status === 201 && !!pId, `DR-setup project with period 202604-202612 (got ${gen.status})`)) return;
+  const gen2 = await api('POST', '/api/projects', { name: '__test_dr_proj2__', cgVersionId: v2Id, currency: 'EUR' }, adminCookie);
+  const p2Id = gen2.data?.id;
+  if (p2Id) later('DELETE', `/api/projects/${p2Id}`);
+  if (!ok(gen2.status === 201 && !!p2Id, `DR-setup project without period (got ${gen2.status})`)) return;
+
+  const put = (phases, period) => api('PUT', `${base}/structure`, period === undefined ? { phases } : { phases, period }, adminCookie);
+  const vPeriod = async () => {
+    const v = ((await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || []).find(x => x.id === vId);
+    return `${String(v?.start_date || '').trim()}|${String(v?.end_date || '').trim()}`;
+  };
+  const one = (title, s, e) => [{ title: 'P1', tasks: [{ title, taskStartDate: s, taskEndDate: e }] }];
+
+  // DR-01: the same period reduction gets the same refusal from the version PATCH and the structure PUT
+  const s0 = await put(one('Early', '2026-04-10', '2026-04-20'));
+  ok(s0.status === 200, `DR-setup structure with a task on 2026-04-10 (got ${s0.status})`);
+  const e1 = await api('PATCH', base, { startDate: '202605', endDate: '202612' }, adminCookie);
+  const e1b = await put(one('Early', '2026-04-10', '2026-04-20'), { startDate: '202605', endDate: '202612' });
+  ok(isRule(e1) && isRule(e1b) && e1.data.error === e1b.data.error,
+    `DR-01 version PATCH and structure PUT refuse the same reduction with the same text (got ${e1.status}: ${e1.data?.error} | ${e1b.status}: ${e1b.data?.error})`);
+
+  // DR-02: a renamed task is an edited task: checked in full
+  const e2 = await put(one('Renamed', '2026-03-01', '2026-03-05'));
+  ok(isRule(e2), `DR-02 structure with a renamed task outside the period → 400 DATE_RULE (got ${e2.status})`);
+  const tasksPath = `/api/projects/${pId}/tasks`;
+  const e2b = await api('PUT', tasksPath, [{ name: 'Renamed', startDate: '20260301', endDate: '20260305' }], adminCookie);
+  ok(isRule(e2b), `DR-02 project tasks with a task outside the period → 400 DATE_RULE (got ${e2b.status})`);
+
+  // DR-03: the same tasks and the same period change nothing
+  const r3 = await put(one('Early', '2026-04-10', '2026-04-20'), { startDate: '202604', endDate: '202612' });
+  ok(r3.status === 200 && await vPeriod() === '202604|202612',
+    `DR-03 structure re-sending tasks and period → 200, period unchanged (got ${r3.status}: ${r3.data?.error})`);
+
+  // DR-04 / DR-05: project tasks inside the period; a re-sent identical period is accepted
+  const r4 = await api('PUT', tasksPath, [{ name: 'Mid', startDate: '20260601', endDate: '20260630' }], adminCookie);
+  ok(r4.status === 200, `DR-04 project tasks inside the period → 200 (got ${r4.status}: ${r4.data?.error})`);
+  const r5 = await api('PATCH', `/api/projects/${pId}`, { startDate: '202604', endDate: '202612' }, adminCookie);
+  ok(r5.status === 200, `DR-05 project PATCH re-sending the same period with a task in it → 200 (got ${r5.status}: ${r5.data?.error})`);
+
+  // DR-06: month keys must sit inside the project period; a stored key is tolerated
+  const ph = body => api('PATCH', `/api/projects/${pId}/phasing`, { phasing: body }, adminCookie);
+  const pt = rows => api('PATCH', `/api/projects/${pId}/ptc`, { ptc: rows }, adminCookie);
+  const pl = body => api('PATCH', `/api/projects/${pId}/planning`, { planning: body }, adminCookie);
+  ok(isRule(await ph({ '202601': 1 })), 'DR-06 phasing with a month before the period → 400 DATE_RULE');
+  ok(isRule(await pt([{ month: '202601', amount: 1 }])), 'DR-06 PTC row with a month before the period → 400 DATE_RULE');
+  ok(isRule(await pl({ '202701': 8 })), 'DR-06 planning with a month after the period → 400 DATE_RULE');
+  const in6 = [await ph({ '202611': 5 }), await pt([{ month: '202611', amount: 1 }]), await pl({ '202611': 8 })];
+  ok(in6.every(r => r.status === 200), `DR-06 phasing, PTC and planning with a month inside the period → 200 (got ${in6.map(r => r.status)})`);
+  // Shrink the period under the stored keys (no task is pushed out), then re-send them with a new key.
+  const shrink = await api('PATCH', `/api/projects/${pId}`, { endDate: '202610' }, adminCookie);
+  ok(shrink.status === 200, `DR-06 setup: period shrunk under the stored month keys → 200 (got ${shrink.status}: ${shrink.data?.error})`);
+  const keep6 = [await ph({ '202611': 5, '202610': 1 }), await pt([{ month: '202611', amount: 1 }, { month: '202610', amount: 2 }]), await pl({ '202611': 8, '202610': 4 })];
+  ok(keep6.every(r => r.status === 200), `DR-06 re-sending a stored key outside the period with a new one inside → 200 (got ${keep6.map(r => r.status)})`);
+  ok(isRule(await ph({ '202611': 5, '202612': 1 })), 'DR-06 a new key outside the period next to a stored one → 400 DATE_RULE');
+
+  // DR-07: a project without a period has no limits; planning on a missing project is a 404
+  const q = [
+    await api('PATCH', `/api/projects/${p2Id}/phasing`, { phasing: { '202601': 1 } }, adminCookie),
+    await api('PATCH', `/api/projects/${p2Id}/ptc`, { ptc: [{ month: '', amount: 1 }, { month: '202601', amount: 1 }] }, adminCookie),
+    await api('PATCH', `/api/projects/${p2Id}/planning`, { planning: { '202601': 3 } }, adminCookie),
+  ];
+  ok(q.every(r => r.status === 200), `DR-07 project without period accepts any month, blank included (got ${q.map(r => r.status)})`);
+  const r7 = await api('PATCH', '/api/projects/00000000-0000-4000-8000-000000000000/planning', { planning: {} }, adminCookie);
+  ok(r7.status === 404, `DR-07 planning on a missing project → 404 (got ${r7.status})`);
+
+  // DR-08: a task linked to a project by name only cannot be dropped, nor lost by a rename that keeps its id
+  const s8 = await put([{ title: 'P1', tasks: [{ title: 'Linked' }, { title: 'Other' }] }], { startDate: '202604', endDate: '202612' });
+  ok(s8.status === 200, `DR-08 setup: two tasks (got ${s8.status}: ${s8.data?.error})`);
+  const linked = ((await api('GET', `${base}/structure`, null, adminCookie)).data?.phases || []).flatMap(p => p.tasks).find(t => t.title === 'Linked');
+  const lnk = await api('POST', `${base}/linked-projects`, { projectId: pId, taskIds: [], taskNames: ['Linked'] }, adminCookie);
+  ok(lnk.status === 201 && !!linked?.id, `DR-08 setup: project linked by name only (got ${lnk.status})`);
+  const d8 = await put([{ title: 'P1', tasks: [{ title: 'Other' }] }]);
+  ok(d8.status === 400 && d8.data?.code === 'STRUCTURE_RULE', `DR-08 dropping a task linked by name only → 400 STRUCTURE_RULE (got ${d8.status}: ${d8.data?.error})`);
+  const k8 = await put([{ title: 'P1', tasks: [{ taskId: linked?.id, title: 'Linked renamed' }, { title: 'Other' }] }]);
+  ok(k8.status === 200, `DR-08 renaming the linked task under the same id → 200 (got ${k8.status}: ${k8.data?.error})`);
+}
+
 // ── Period travels with the tasks (2026-10-27) ─────────────────────────────────
 
 // PS-01..: PUT structure may carry the version period; both are checked and written in one transaction.
@@ -5101,6 +5206,7 @@ async function main() {
     await testStructureRule();
     await testDateRule();
     await testTaskPeriod();
+    await testDateRulesC3();
     await testPeriodWithTasks();
     await testMoneyRules();
     await testRateIsCustom();
