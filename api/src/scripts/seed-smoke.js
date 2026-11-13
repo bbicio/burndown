@@ -89,7 +89,10 @@ async function main() {
   const roleId = {};
   for (const r of D.ROLES) roleId[r.code] = (await must('POST', '/api/roles', { label: r.label, code: r.code, team: r.team, hourlyRate: r.rate })).id;
   await must('POST', '/api/currencies/USD/activate', { rate: D.USD_RATE });
-  await must('POST', '/api/pipeline-years', { year, active: true });
+  // The migrations may already create the current year: read first, create or activate as needed.
+  const py = (await must('GET', '/api/pipeline-years')).find((y) => y.year === year);
+  if (!py) await must('POST', '/api/pipeline-years', { year, active: true });
+  else if (!py.active) await must('PATCH', `/api/pipeline-years/${py.id}`, { active: true });
   await must('POST', '/api/pots', { clientId: clientId[D.POT.client], year, amount: D.POT.amount });
   for (const p of D.TEAM) {
     const r = await must('POST', '/api/resources', { firstName: p.first, lastName: p.last, email: p.email, roleId: roleId[p.role] });
