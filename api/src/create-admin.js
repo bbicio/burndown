@@ -68,7 +68,7 @@ const pool = new Pool({ connectionString: process.env.DATABASE_URL });
       await pool.query(
         `UPDATE users
          SET password_hash = $1, password_changed_at = NOW(), role = 'admin', status = 'active',
-             invite_token = NULL, invite_expires = NULL, reset_token = NULL, reset_expires = NULL
+             invite_token_hash = NULL, invite_expires = NULL, reset_token_hash = NULL, reset_expires = NULL
          WHERE id = $2`,
         [hash, u.id]
       );

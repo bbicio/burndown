@@ -15,6 +15,7 @@
 'use strict';
 
 const http = require('http');
+const sha256 = t => require('crypto').createHash('sha256').update(t).digest('hex');
 const BASE = process.env.API_URL             || 'http://api:3000';
 const EMAIL = process.env.TEST_ADMIN_EMAIL    || 'test-admin@pdash.local';
 const PASS  = process.env.TEST_ADMIN_PASSWORD || 'TestAdmin123!';
@@ -484,7 +485,7 @@ async function testTwoStepRevocation() {
   const b = await armedUser('b');
   if (b) {
     const tok = `__test_ts_reset_${Date.now()}__`;
-    await sql(`UPDATE users SET reset_token = $2, reset_expires = NOW() + interval '1 hour' WHERE id = $1`, [b.id, tok]);
+    await sql(`UPDATE users SET reset_token_hash = $2, reset_expires = NOW() + interval '1 hour' WHERE id = $1`, [b.id, sha256(tok)]);
     const r = await api('POST', '/api/auth/reset-password', { token: tok, password: 'ResetPass123!', passwordConfirm: 'ResetPass123!' });
     ok(r.status === 200, `TS-21 reset-password → 200 (got ${r.status})`);
     await expectWiped('TS-21', b.id);
@@ -2258,23 +2259,23 @@ async function testUsers() {
 
   // A pending user's invite went to the old address: changing the email voids it (Resend invite issues a new one).
   const pend = await sql(
-    `INSERT INTO users (email, first_name, last_name, role, status, invite_token, invite_expires)
+    `INSERT INTO users (email, first_name, last_name, role, status, invite_token_hash, invite_expires)
      VALUES ($1, 'Pen', 'Ding', 'user', 'pending', $2, NOW() + interval '48 hours') RETURNING id`,
-    [`__test_pending_${Date.now()}@pdash.local`, `tok_${Date.now()}`]);
+    [`__test_pending_${Date.now()}@pdash.local`, sha256(`tok_${Date.now()}`)]);
   if (pend) {
     const pid = pend[0].id;
     const e12 = await api('PATCH', U(pid), { email: `__test_pending_fixed_${Date.now()}@pdash.local` }, sysadminCookie);
-    const tok = await sql('SELECT invite_token, invite_expires FROM users WHERE id = $1', [pid]);
-    ok(e12.status === 200 && tok?.[0]?.invite_token === null && tok?.[0]?.invite_expires === null,
-      `AD-ED-12 changing a pending user's email voids the invite sent to the old address (got ${e12.status}, token ${tok?.[0]?.invite_token === null ? 'cleared' : 'kept'})`);
+    const tok = await sql('SELECT invite_token_hash, invite_expires FROM users WHERE id = $1', [pid]);
+    ok(e12.status === 200 && tok?.[0]?.invite_token_hash === null && tok?.[0]?.invite_expires === null,
+      `AD-ED-12 changing a pending user's email voids the invite sent to the old address (got ${e12.status}, token ${tok?.[0]?.invite_token_hash === null ? 'cleared' : 'kept'})`);
     const e13 = await api('PATCH', U(pid), { email: 'anon_x@deleted.local' }, sysadminCookie);
     ok(e13.status === 400 && e13.data?.field === 'email', `AD-ED-13 the anonymized-address pattern is refused → 400 (got ${e13.status})`);
     // Any user: a reset link sent to the old address must not reset the corrected account.
-    await sql(`UPDATE users SET status = 'active', reset_token = $2, reset_expires = NOW() + interval '2 hours' WHERE id = $1`, [pid, `rst_${Date.now()}`]);
+    await sql(`UPDATE users SET status = 'active', reset_token_hash = $2, reset_expires = NOW() + interval '2 hours' WHERE id = $1`, [pid, sha256(`rst_${Date.now()}`)]);
     const e14 = await api('PATCH', U(pid), { email: `__test_reset_fixed_${Date.now()}@pdash.local` }, sysadminCookie);
-    const rst = await sql('SELECT reset_token, reset_expires FROM users WHERE id = $1', [pid]);
-    ok(e14.status === 200 && rst?.[0]?.reset_token === null && rst?.[0]?.reset_expires === null,
-      `AD-ED-14 changing an email voids a reset link sent to the old address (got ${e14.status}, token ${rst?.[0]?.reset_token === null ? 'cleared' : 'kept'})`);
+    const rst = await sql('SELECT reset_token_hash, reset_expires FROM users WHERE id = $1', [pid]);
+    ok(e14.status === 200 && rst?.[0]?.reset_token_hash === null && rst?.[0]?.reset_expires === null,
+      `AD-ED-14 changing an email voids a reset link sent to the old address (got ${e14.status}, token ${rst?.[0]?.reset_token_hash === null ? 'cleared' : 'kept'})`);
     await sql('DELETE FROM users WHERE id = $1', [pid]);
   }
 

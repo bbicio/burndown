@@ -12,6 +12,7 @@ const { rectificationError, normalizeDetails, detailsError } = require('../lib/u
 const T = require('../lib/two-step');
 const { createLimiter } = require('../lib/rate-limit');
 const { sessionClaims } = require('../lib/session');
+const { RESET_TTL_MS, isStr } = require('../lib/auth-tokens');
 const twoStep = require('../services/two-step');
 
 const router = express.Router();
@@ -111,7 +112,7 @@ function token48h() {
 
 function token2h() {
   const tok = crypto.randomBytes(32).toString('hex');
-  const exp = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  const exp = new Date(Date.now() + RESET_TTL_MS);
   return { tok, exp };
 }
 
@@ -407,9 +408,9 @@ router.post('/invite', requireAdmin, async (req, res, next) => {
 
     const { tok, exp } = token48h();
     const { rows } = await query(
-      `INSERT INTO users (email, first_name, last_name, role, status, invite_token, invite_expires, invited_by)
+      `INSERT INTO users (email, first_name, last_name, role, status, invite_token_hash, invite_expires, invited_by)
        VALUES ($1, $2, $3, $4, 'pending', $5, $6, $7) RETURNING id`,
-      [details.email, details.firstName, details.lastName, role, tok, exp, req.user.id]
+      [details.email, details.firstName, details.lastName, role, T.hashToken(tok), exp, req.user.id]
     );
 
     // The pending user is stored: a refused email is reported, and "Resend invite" retries it.
@@ -440,8 +441,8 @@ router.post('/:id/resend-invite', requireAdmin, async (req, res, next) => {
 
     const { tok, exp } = token48h();
     await query(
-      `UPDATE users SET invite_token = $1, invite_expires = $2 WHERE id = $3`,
-      [tok, exp, req.params.id]
+      `UPDATE users SET invite_token_hash = $1, invite_expires = $2 WHERE id = $3`,
+      [T.hashToken(tok), exp, req.params.id]
     );
 
     try {
@@ -459,8 +460,8 @@ router.get('/invite/:token', async (req, res, next) => {
   try {
     const { rows } = await query(
       `SELECT email, first_name, last_name FROM users
-       WHERE invite_token = $1 AND invite_expires > NOW() AND status = 'pending'`,
-      [req.params.token]
+       WHERE invite_token_hash = $1 AND invite_expires > NOW() AND status = 'pending'`,
+      [T.hashToken(req.params.token)]
     );
     if (!rows[0]) return res.status(410).json({ error: 'Invalid or expired invite link' });
     res.json({ email: rows[0].email, firstName: rows[0].first_name, lastName: rows[0].last_name });
@@ -471,19 +472,21 @@ router.get('/invite/:token', async (req, res, next) => {
 router.post('/activate', async (req, res, next) => {
   try {
     const { token, password, passwordConfirm } = req.body;
-    if (!token || !password) return res.status(400).json({ error: 'token and password required' });
+    if (!isStr(token) || !isStr(password) || !isStr(passwordConfirm) || !token || !password) {
+      return res.status(400).json({ error: 'token and password required' });
+    }
     if (password !== passwordConfirm) return res.status(400).json({ error: 'Passwords do not match' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
     const { rows } = await query(
-      `SELECT id FROM users WHERE invite_token = $1 AND invite_expires > NOW() AND status = 'pending'`,
-      [token]
+      `SELECT id FROM users WHERE invite_token_hash = $1 AND invite_expires > NOW() AND status = 'pending'`,
+      [T.hashToken(token)]
     );
     if (!rows[0]) return res.status(410).json({ error: 'Invalid or expired invite link' });
 
     const hash = await bcrypt.hash(password, 12);
     await query(
-      `UPDATE users SET password_hash = $1, password_changed_at = NOW(), status = 'active', invite_token = NULL, invite_expires = NULL WHERE id = $2`,
+      `UPDATE users SET password_hash = $1, password_changed_at = NOW(), status = 'active', invite_token_hash = NULL, invite_expires = NULL WHERE id = $2`,
       [hash, rows[0].id]
     );
     await twoStep.revokeTwoStepState(rows[0].id);
@@ -505,8 +508,8 @@ router.post('/forgot-password', async (req, res, next) => {
     if (rows[0]) {
       const { tok, exp } = token2h();
       await query(
-        `UPDATE users SET reset_token = $1, reset_expires = $2 WHERE id = $3`,
-        [tok, exp, rows[0].id]
+        `UPDATE users SET reset_token_hash = $1, reset_expires = $2 WHERE id = $3`,
+        [T.hashToken(tok), exp, rows[0].id]
       );
       // A refused email must not answer differently from an unknown address.
       try {
@@ -523,8 +526,8 @@ router.post('/forgot-password', async (req, res, next) => {
 router.get('/reset-password/:token', async (req, res, next) => {
   try {
     const { rows } = await query(
-      `SELECT id FROM users WHERE reset_token = $1 AND reset_expires > NOW()`,
-      [req.params.token]
+      `SELECT id FROM users WHERE reset_token_hash = $1 AND reset_expires > NOW()`,
+      [T.hashToken(req.params.token)]
     );
     if (!rows[0]) return res.status(410).json({ error: 'Invalid or expired reset link' });
     res.json({ valid: true });
@@ -535,19 +538,21 @@ router.get('/reset-password/:token', async (req, res, next) => {
 router.post('/reset-password', async (req, res, next) => {
   try {
     const { token, password, passwordConfirm } = req.body;
-    if (!token || !password) return res.status(400).json({ error: 'token and password required' });
+    if (!isStr(token) || !isStr(password) || !isStr(passwordConfirm) || !token || !password) {
+      return res.status(400).json({ error: 'token and password required' });
+    }
     if (password !== passwordConfirm) return res.status(400).json({ error: 'Passwords do not match' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
     const { rows } = await query(
-      `SELECT id FROM users WHERE reset_token = $1 AND reset_expires > NOW()`,
-      [token]
+      `SELECT id FROM users WHERE reset_token_hash = $1 AND reset_expires > NOW()`,
+      [T.hashToken(token)]
     );
     if (!rows[0]) return res.status(410).json({ error: 'Invalid or expired reset link' });
 
     const hash = await bcrypt.hash(password, 12);
     await query(
-      `UPDATE users SET password_hash = $1, password_changed_at = NOW(), reset_token = NULL, reset_expires = NULL WHERE id = $2`,
+      `UPDATE users SET password_hash = $1, password_changed_at = NOW(), reset_token_hash = NULL, reset_expires = NULL WHERE id = $2`,
       [hash, rows[0].id]
     );
     await twoStep.revokeTwoStepState(rows[0].id);

@@ -140,8 +140,8 @@ router.patch('/:id', requireAdmin, async (req, res, next) => {
     // Links already mailed to the old address (a pending invite, a password reset) must not activate or
     // reset the corrected account.
     if (details.email !== undefined && details.email !== target.email) {
-      fields.push('reset_token = NULL', 'reset_expires = NULL');
-      if (target.status === 'pending') fields.push('invite_token = NULL', 'invite_expires = NULL');
+      fields.push('reset_token_hash = NULL', 'reset_expires = NULL');
+      if (target.status === 'pending') fields.push('invite_token_hash = NULL', 'invite_expires = NULL');
     }
     if (!fields.length) return res.status(400).json({ error: 'Nothing to update' });
 
