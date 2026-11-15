@@ -501,8 +501,9 @@ router.post('/activate', async (req, res, next) => {
 router.post('/forgot-password', async (req, res, next) => {
   try {
     const { email } = req.body;
-    // Always answer 200 {ok:true}: nothing here may tell an existing address from an unknown one, a refused
-    // slot from an accepted one, or a mail sent from a mail withheld.
+    // Always answer 200 {ok:true}: the status and the body never tell an existing address from an unknown one,
+    // a refused slot from an accepted one, or a mail sent from a mail withheld. The response time is not
+    // equalised (the mail is awaited): a known gap, not part of this route's contract yet.
     if (!isStr(email) || !email.trim()) return res.json({ ok: true });
     const address = emailKey(email);
 
