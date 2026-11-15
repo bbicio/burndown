@@ -126,7 +126,7 @@ for f in api/src/db/migrations/*.sql; do
 done | docker exec -i "$DB_CONTAINER" psql -U "${POSTGRES_USER:-pdash}" -d "${POSTGRES_DB:-pdash}" -v ON_ERROR_STOP=1
 
 IMAGE_HASH_FILE=".run-tests-image-hash"
-CURRENT_HASH=$(cat api/Dockerfile api/package.json | sha256sum | cut -d' ' -f1)
+CURRENT_HASH=$(cat api/Dockerfile api/package.json api/package-lock.json | sha256sum | cut -d' ' -f1)
 
 API_BUILD_FLAG="--build"
 if [ -f "$IMAGE_HASH_FILE" ] && [ "$(cat "$IMAGE_HASH_FILE")" = "$CURRENT_HASH" ]; then
