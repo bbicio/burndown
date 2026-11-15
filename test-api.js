@@ -5329,8 +5329,8 @@ async function testAuthTokens() {
   const afterLegacy = await tokensFor(addrA, RESET);
   ok(afterLegacy.length === 2 && await col(idA, 'reset_token_hash') === sha256(afterLegacy[0]),
     `AT-02 a pending reset with an expiry beyond the current lifetime is replaced and mailed (got ${afterLegacy.length} mails)`);
-  // A reset issued longer ago than the cooldown (RESET_COOLDOWN_MS in api/src/lib/auth-tokens.js; keep the age
-  // below above it) is replaced; the second request above, right after the issue, shows the other side of the edge.
+  // A reset issued longer ago than the cooldown (RESET_COOLDOWN_MS in api/src/lib/auth-tokens.js; keep the row's
+  // age above it) is replaced; the second request above, right after the issue, shows the other side of the edge.
   await sql(`UPDATE users SET reset_expires = NOW() + interval '2 hours' - interval '3 minutes' WHERE id = $1`, [idA]);
   await fp({ email: addrA });
   const afterOld = await tokensFor(addrA, RESET);
