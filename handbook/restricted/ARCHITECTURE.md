@@ -892,7 +892,7 @@ flowchart LR
 | POST | /api/auth/:id/resend-invite | admin | Resend activation email to a pending user with a fresh 48h token; a refused email → `502 SEND_FAILED` |
 | GET | /api/auth/invite/:token | — | Validate invite token |
 | POST | /api/auth/activate | — | Set password, activate account |
-| POST | /api/auth/forgot-password | — | Request password reset; always `200`, a refused email included |
+| POST | /api/auth/forgot-password | — | Request password reset; always `200 {ok:true}` (refused email, unknown address, non-string body, throttled by address or IP, or a reset issued under 2 minutes ago included); see `docs/api/lib.md` (`auth-tokens.js`) |
 | GET | /api/auth/reset-password/:token | — | Validate reset token |
 | POST | /api/auth/reset-password | — | Set new password |
 | POST | /api/auth/change-password | ✅ | Change password (authenticated); writes `password_changed_at`. A wrong current password is `400 { error, field: 'currentPassword' }`, not 401 (the client would treat it as an expired session) |

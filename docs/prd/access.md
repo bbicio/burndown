@@ -22,7 +22,7 @@ Admin fills first name, last name, email, role → user created in `pending` sta
 
 ### 15.3 Password Reset
 
-Self-service, from "Forgot password?" on the sign-in page, which switches the same page to a recovery view (and back with "← Back to sign in"); the email already typed on sign-in is pre-filled there. Requesting a reset always returns success, regardless of whether the email matches an account (no enumeration). If it does match, a reset link is emailed, valid for **2 hours**. Following it lets the user set a new password (same 8-character minimum).
+Self-service, from "Forgot password?" on the sign-in page, which switches the same page to a recovery view (and back with "← Back to sign in"); the email already typed on sign-in is pre-filled there. Requesting a reset always returns success, regardless of whether the email matches an account (no enumeration). If it does match, a reset link is emailed, valid for **2 hours**. Asking again within 2 minutes of a link just sent sends nothing new and leaves that link valid, and the number of requests per address and per network address is limited per hour; the answer is the same in every case. Following it lets the user set a new password (same 8-character minimum).
 
 ### 15.4 Change Password
 

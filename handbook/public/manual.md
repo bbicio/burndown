@@ -26,7 +26,7 @@ The first time you sign in, and again each time an administrator publishes a new
 
 ### Activating your account and resetting a password
 
-The invitation email carries a link, valid for 48 hours, where you choose your password. If you forget it, use **Forgot password?** on the sign-in page: the same message appears whether or not the address has an account, and if it does, a reset link valid for 2 hours arrives by email. A password needs at least 8 characters.
+The invitation email carries a link, valid for 48 hours, where you choose your password. If you forget it, use **Forgot password?** on the sign-in page: the same message appears whether or not the address has an account, and if it does, a reset link valid for 2 hours arrives by email. If you ask again within 2 minutes, no second email is sent and the first link stays valid. A password needs at least 8 characters.
 
 <details>
 <summary>Details</summary>

@@ -186,3 +186,7 @@ Tests: `money-rules.test.js`, `money-format.test.js`; `test-api.js` `MR-01..MR-1
 ## xlsx-file.js (2026-11-15, security cycle 2)
 
 `xlsxFileError(buffer)` returns `null` for a `Buffer` of at least 4 bytes starting with `PK`, else `XLSX_FILE_ERROR` (`'Only .xlsx files are accepted'`); used by `routes/timesheets.js`. Detail: [timesheets.md](timesheets.md). Tests: `api/src/lib/xlsx-file.test.js`, `api/src/lib/xlsx-advisories.test.js`.
+
+## auth-tokens.js (2026-11-15, security cycle 3)
+
+Pure helpers of the invite/reset token routes in `routes/auth.js`: `isStr` (type guard for `token`, `password` and `email` bodies), `emailKey` (`trim().toLowerCase()`, the key of the forgot-password limiter and of its lookup), `resetCooldownBounds(now)` → `{ edge, ceiling }`, the bounds the forgot-password `UPDATE` puts in its `WHERE` so the cooldown check and the write are one atomic step, and the constants `RESET_TTL_MS` and `RESET_COOLDOWN_MS`. The stored value of a token is `hashToken(token)` of `two-step.js` (sha256, hex) in `users.invite_token_hash`/`users.reset_token_hash`. Tests: `api/src/lib/auth-tokens.test.js`; the route behaviour is `test-api.js` `AT-01`..`AT-05`.
