@@ -48,6 +48,17 @@ describe('notification url consumers go through the rule (S-01)', () => {
     expect(email).not.toContain("startsWith('http')");
     expect(email).toContain('notificationLink(');
   });
+  it('terms.html follows ?next= only through the rule, falling back to /pipeline.html', () => {
+    const html = read('terms.html');
+    const next = html.split('\n').filter(l => /^\s*next:/.test(l));
+    expect(next).toHaveLength(1);
+    expect(next[0]).toContain('notificationUrl(');
+    expect(next[0]).toContain("'/pipeline.html'");
+    expect(next[0]).not.toContain("get('next') ||");
+    const moduleTag = html.indexOf('js/lib/notification-url.js?v=');
+    expect(moduleTag).toBeGreaterThan(-1);
+    expect(moduleTag).toBeLessThan(html.indexOf('Vue.createApp'));
+  });
   it('every page that loads js/notifications.js loads js/lib/notification-url.js, with one ?v=', () => {
     const pages = readdirSync(process.cwd()).filter(f => /^[^/]+\.html$/.test(f));
     const versions = new Set();

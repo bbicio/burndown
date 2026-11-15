@@ -35,6 +35,7 @@ Tutto il resto è non valido: `javascript:`, `data:`, `//host`, `/\evil`, `https
 - **`js/notifications.js`**: un helper locale chiama `notificationUrl(n.url, location.origin)` e alimenta i tre punti (`:80`, `:156`, `:165-167`). Valore non valido: niente `data-url`, niente `<a>`, nessuna navigazione. Vale anche per le notifiche che arrivano via SSE.
 - **Righe già salvate**: nessuna migration; le neutralizza il render.
 - **`createNotification` interno**: invariato.
+- **`terms.html`** (aggiunto dopo `/security-review`): `next` si segue solo se `notificationUrl(next, location.origin)` lo accetta, altrimenti `/pipeline.html`. Un percorso valido per la regola, come `/terms.html?next=javascript:…`, altrimenti raggiungerebbe il `window.location.href = this.next` della pagina. `js/nav.js:374` costruisce solo il valore (percorso corrente codificato) e non cambia: il controllo sta dove si naviga.
 
 ## 4. Test
 
@@ -58,6 +59,8 @@ Header e CSP (ciclo 5); bonifica dei dati; il default mancante di `process.env.A
 6. **Guard limitato a `js/notifications.js` e `email.js`.** Alternativa scartata: guard sull'intero repo contro `location.href = <dato>`. Perché: le altre pagine assegnano `location.href` legittimamente in molti punti, e un guard globale darebbe falsi positivi.
 7. **`createNotification` interno non valida l'`url`.** Alternativa scartata: validare anche lì. Perché: i chiamanti sono codice del server con URL costruiti da noi, e il client neutralizza comunque al render.
 
+8. **`terms.html` entra nel ciclo: il suo `?next=` passa dalla stessa regola.** Alternativa scartata: Brief separato per `terms.html`. Perché: il `/security-review` ha mostrato che senza questo S-01 resta aggirabile con un percorso valido, e l'utente ha deciso di chiuderlo qui (correzione di una riga, stesso modulo).
+
 ## Criteri di accettazione
 
 1. **Rifiuto in scrittura** — `POST /api/notifications` con `url` `javascript:alert(1)`, `data:text/html,x`, `//example.com`, `https://example.com/x`, `/\evil` o un percorso con `\n` risponde `400` con `code: 'URL_RULE'` e nessuna riga nuova in `notifications` (query sul DB), anche in broadcast.
@@ -65,4 +68,5 @@ Header e CSP (ciclo 5); bonifica dei dati; il default mancante di `process.env.A
 3. **Neutralizzazione al render** — una riga con `url = 'javascript:…'` inserita direttamente nel DB non ha `href` né `data-url` nel DOM e il click non naviga (test jsdom).
 4. **Mail** — `sendAdminNotificationEmail` con un `url` non valido non emette link; con uno valido sì.
 5. **Notifiche di sistema** — share, riassegnazione e rettifica restano consegnate con il loro link (test esistenti verdi).
-6. **Suite** — `npm test` e la suite backend verdi; `/security-review` sul branch non trova più S-01 né ne introduce.
+6. **`terms.html`** — con `?next=javascript:…`, `?next=//example.com` o `?next=https://example.com` l'accettazione dei Terms porta a `/pipeline.html`; con `?next=/costgrid.html?cgId=1` porta a quella pagina (guard `js/lib/notification-url-guard.test.js`, verifica manuale al Gate 2).
+7. **Suite** — `npm test` e la suite backend verdi; `/security-review` sul branch non trova più S-01 né ne introduce.
