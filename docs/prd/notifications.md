@@ -14,7 +14,7 @@ The former Settings modal and everything in it were removed: the personal AI pro
 
 #### Send Notification
 
-Any authenticated user can compose and send a notification to a specific colleague; broadcasting to all active users is admin/sysadmin-only. Delivery channel is selectable — Push (in-app), Email, or both (at least one required). Supports an optional deep-link URL (e.g. `/pipeline.html`, `/costgrid.html?cgId=...`) with a custom label.
+Any authenticated user can compose and send a notification to a specific colleague; broadcasting to all active users is admin/sysadmin-only. Delivery channel is selectable — Push (in-app), Email, or both (at least one required). Supports an optional deep-link URL (e.g. `/pipeline.html`, `/costgrid.html?cgId=...`) with a custom label. The link must be a path on PDash or an address on PDash's own origin; any other link (another site, `javascript:`, `//host`) is refused with an error and nothing is sent, and a notification that somehow carries one shows no link.
 
 ---
 

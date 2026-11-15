@@ -357,7 +357,7 @@ A rule is restated here only when **no guard test pins it**; where a test does, 
 - `GET /api/notifications/unread-count` → badge on load
 - `PATCH /api/notifications/read-all` → "Mark all read" button
 - `PATCH /api/notifications/:id/read` → click on item
-- Notifications may carry a `url` deep-link (e.g. `/costgrid.html?cgId=...`) rendered as a clickable link
+- Notifications may carry a `url` deep-link (e.g. `/costgrid.html?cgId=...`) rendered as a clickable link; only a path on the app or an absolute URL on its own origin is accepted (`js/lib/notification-url.js`, server twin `api/src/lib/notification-url.js`; `js/lib/notification-url-guard.test.js` pins the consumers)
 - Any user can send a notification to another specific user (push and/or email) via the account dropdown's "📣 Send Notification" entry; broadcasting to all users is admin-only. See [Send Notification modal](#send-notification-modal).
 
 `notifications.js` defines a standalone `_esc` fallback at the top in case `core.js` is not loaded on the page.

@@ -735,4 +735,4 @@ The bell shows the number of unread notifications. Clicking it opens the last 50
 
 ### Sending a notification
 
-Choose **Send Notification** in the account menu, pick a colleague, write a title and, if you like, a message and a link, and decide whether it goes as a push notification, as an email, or both. Administrators can also address everyone at once.
+Choose **Send Notification** in the account menu, pick a colleague, write a title and, if you like, a message and a link (a PDash page such as `/pipeline.html`; a link to another site is refused), and decide whether it goes as a push notification, as an email, or both. Administrators can also address everyone at once.

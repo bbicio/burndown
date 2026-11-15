@@ -14,7 +14,7 @@ What lives in `api/src/services/`, and where each one is documented. `CLAUDE.md`
 
 ## email.js
 
-Nodemailer wrappers: `sendInvite`, `sendPasswordReset`, `sendShareNotification`, `sendShareRevokedEmail`, `sendOwnerReassignedEmail`, `sendExportEmail`, `sendAdminNotificationEmail`.
+Nodemailer wrappers: `sendInvite`, `sendPasswordReset`, `sendShareNotification`, `sendShareRevokedEmail`, `sendOwnerReassignedEmail`, `sendExportEmail`, `sendAdminNotificationEmail`. `renderAdminNotificationLink(url)` (exported, 2026-11-15) builds that mail's "Open in PDash" paragraph: a link only for a url `notificationLink()` accepts, escaped for the `href`; see `docs/api/lib.md` (`notification-url.js`).
 
 `sendShareRevokedEmail` (2026-09) is the access-removed counterpart to `sendShareNotification`. It is consumed **only** by `projects.js`'s `DELETE /:id/shares/:userId` — cost-grid share removal does not call it, a deliberate scope decision rather than an omission.
 

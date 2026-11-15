@@ -154,6 +154,10 @@ Two pure decision functions behind the browser-notification feature (see `docs/j
 
 Loaded via `<script type="module">` on every one of the 10 authenticated pages that also load `js/notifications.js`.
 
+## notification-url.js (2026-11-15, security cycle 1, S-01)
+
+`notificationUrl(value, origin)` returns `value` when it is a valid notification link for `origin` (`location.origin`), otherwise `null`; an absent value (`null`, `undefined`, `''`) is `null` too. Valid: a path on the app (starts with `/`, not `//`), or an absolute `http(s)` URL whose parsed origin equals `origin`. Anything with a control character, a space or a `\`, longer than 2048 characters, or not a string is refused. Bridged as `window.notificationUrl`, read at call time by `js/notifications.js`'s `safeNotifUrl()` and by `terms.html`'s `?next=`. Server twin `api/src/lib/notification-url.js`; `js/lib/notification-url-guard.test.js` pins that the two agree and which consumers go through the rule. Loaded as a module on every page that loads `js/notifications.js`, and on `terms.html`.
+
 ## team-ui.js (2026-09-25, Team UX cycle)
 
 Pure helpers for `team.html` (also loaded by `attribute-lists.html` since 2026-11-09, for `filterComboOptions` and `sessionProgress`; `<script type="module" src="js/lib/team-ui.js?v=N">`, each export bridged to `window` and read only inside computeds/methods, never at parse time). Spec `docs/superpowers/specs/2026-09-25-team-ux-design.md`, plan `docs/superpowers/plans/2026-09-25-team-ux.md`; tests in `js/lib/team-ui.test.js`.

@@ -13,3 +13,8 @@ The pipeline-stage-change broadcast (`notifyAdminsPipelineChange`, `cost-grids.j
 ## Stream ends with the session (2026-11-11, B-417)
 
 `GET /stream` passes `requireAuth` only when it opens. On every 25 s heartbeat it calls `sessionRowError(req.user)` (`api/src/middleware/auth.js`, the query `requireAuth` runs): a session error (account disabled or anonymized, password changed) removes the connection from `sseClients` and ends the response; the browser's `EventSource` reconnects, gets 401 and stops. The browser that changed its own password reconnects with the reissued cookie. A check still pending skips the next tick (no heartbeat written); a failed query keeps the stream and writes the heartbeat. Revocation therefore reaches an open stream within one interval. Spec: `docs/superpowers/specs/2026-11-11-backlog-b417-sse-revocation-design.md`. Tests: `notifications.test.js`; `test-api.js` `SSE-00..SSE-03`.
+
+
+## Notification url rule (2026-11-15, security cycle 1, S-01)
+
+`POST /` calls `notificationUrlError(url, process.env.APP_URL)` (`api/src/lib/notification-url.js`) right after the title check and before the user lookup, so an invalid url answers `400 { error, code: 'URL_RULE' }` and creates no row, for one user and for a broadcast alike. The stored value is the one sent, not normalised. An empty string counts as no url. `createNotification` is not validated: its callers build their own urls. Existing rows are not migrated; the client neutralises them at render. Tests: `test-api.js` `NU-00..NU-09`.
