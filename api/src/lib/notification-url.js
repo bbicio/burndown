@@ -5,7 +5,7 @@
 const URL_RULE = 'URL_RULE';
 const URL_RULE_MESSAGE = 'url must be an app path or an absolute URL on the app origin';
 const MAX_LENGTH = 2048;
-const FORBIDDEN = /[\u0000- \u007f\\]/;
+const FORBIDDEN = /[\x00-\x20\x7f\\]/;
 
 function isAbsent(value) {
   return value === null || value === undefined || value === '';
