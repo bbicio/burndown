@@ -10,11 +10,14 @@ function emailKey(v) {
   return v.trim().toLowerCase();
 }
 
-// A pending reset's age comes from its expiry: the token was issued RESET_TTL_MS before it expires.
-function resetIssuedRecently(resetExpires, now = Date.now()) {
-  if (resetExpires == null) return false;
-  const issuedAt = new Date(resetExpires).getTime() - RESET_TTL_MS;
-  return now - issuedAt < RESET_COOLDOWN_MS;
+// A reset issued within the cooldown expires in (edge, ceiling]: it was written RESET_TTL_MS before its expiry.
+// An expiry beyond the ceiling was written under a longer lifetime, so it is not "just issued".
+// The route puts both bounds in the UPDATE itself, so the check and the write are one atomic step.
+function resetCooldownBounds(now = Date.now()) {
+  return {
+    edge: new Date(now + RESET_TTL_MS - RESET_COOLDOWN_MS),
+    ceiling: new Date(now + RESET_TTL_MS),
+  };
 }
 
-module.exports = { RESET_TTL_MS, RESET_COOLDOWN_MS, isStr, emailKey, resetIssuedRecently };
+module.exports = { RESET_TTL_MS, RESET_COOLDOWN_MS, isStr, emailKey, resetCooldownBounds };

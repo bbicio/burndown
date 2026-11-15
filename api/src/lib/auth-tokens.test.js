@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { RESET_TTL_MS, RESET_COOLDOWN_MS, isStr, emailKey, resetIssuedRecently } = require('./auth-tokens');
+const { RESET_TTL_MS, RESET_COOLDOWN_MS, isStr, emailKey, resetCooldownBounds } = require('./auth-tokens');
 
 const NOW = Date.UTC(2026, 10, 15, 12, 0, 0);
 
@@ -19,22 +19,14 @@ test('emailKey trims and lowercases', () => {
   assert.equal(emailKey('  USER@X.COM '), 'user@x.com');
 });
 
-test('resetIssuedRecently: no pending reset is not recent', () => {
-  assert.equal(resetIssuedRecently(null, NOW), false);
+test('resetCooldownBounds: a reset just issued expires in (edge, ceiling]', () => {
+  const { edge, ceiling } = resetCooldownBounds(NOW);
+  assert.equal(ceiling.getTime(), NOW + RESET_TTL_MS);
+  assert.equal(edge.getTime(), NOW + RESET_TTL_MS - RESET_COOLDOWN_MS);
 });
 
-test('resetIssuedRecently: issued 1 minute ago is recent', () => {
-  assert.equal(resetIssuedRecently(new Date(NOW + RESET_TTL_MS - 60000), NOW), true);
-});
-
-test('resetIssuedRecently: issued exactly 2 minutes ago is not recent', () => {
-  assert.equal(resetIssuedRecently(new Date(NOW + RESET_TTL_MS - RESET_COOLDOWN_MS), NOW), false);
-});
-
-test('resetIssuedRecently: issued almost 2 hours ago is not recent', () => {
-  assert.equal(resetIssuedRecently(new Date(NOW + 1000), NOW), false);
-});
-
-test('resetIssuedRecently accepts an ISO string', () => {
-  assert.equal(resetIssuedRecently(new Date(NOW + RESET_TTL_MS - 60000).toISOString(), NOW), true);
+test('resetCooldownBounds: defaults to the current time', () => {
+  const before = Date.now();
+  const { ceiling } = resetCooldownBounds();
+  assert.ok(ceiling.getTime() >= before + RESET_TTL_MS && ceiling.getTime() <= Date.now() + RESET_TTL_MS);
 });

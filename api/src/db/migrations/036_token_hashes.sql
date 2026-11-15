@@ -24,4 +24,8 @@ BEGIN
   END IF;
 END $$;
 
+-- A hash names at most one pending token, and the link routes find it by index.
+CREATE UNIQUE INDEX IF NOT EXISTS users_invite_token_hash_key ON users (invite_token_hash) WHERE invite_token_hash IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS users_reset_token_hash_key  ON users (reset_token_hash)  WHERE reset_token_hash  IS NOT NULL;
+
 COMMIT;

@@ -12,7 +12,7 @@ const { rectificationError, normalizeDetails, detailsError } = require('../lib/u
 const T = require('../lib/two-step');
 const { createLimiter } = require('../lib/rate-limit');
 const { sessionClaims } = require('../lib/session');
-const { RESET_TTL_MS, isStr, emailKey, resetIssuedRecently } = require('../lib/auth-tokens');
+const { RESET_TTL_MS, isStr, emailKey, resetCooldownBounds } = require('../lib/auth-tokens');
 const twoStep = require('../services/two-step');
 
 const router = express.Router();
@@ -108,13 +108,13 @@ async function getCurrentTermsVersion() {
 }
 
 function token48h() {
-  const tok = crypto.randomBytes(32).toString('hex');
+  const tok = T.newToken();
   const exp = new Date(Date.now() + 48 * 60 * 60 * 1000);
   return { tok, exp };
 }
 
 function token2h() {
-  const tok = crypto.randomBytes(32).toString('hex');
+  const tok = T.newToken();
   const exp = new Date(Date.now() + RESET_TTL_MS);
   return { tok, exp };
 }
@@ -475,9 +475,10 @@ router.get('/invite/:token', async (req, res, next) => {
 router.post('/activate', async (req, res, next) => {
   try {
     const { token, password, passwordConfirm } = req.body;
-    if (!isStr(token) || !isStr(password) || !isStr(passwordConfirm) || !token || !password) {
+    if (!isStr(token) || !isStr(password) || !token || !password) {
       return res.status(400).json({ error: 'token and password required' });
     }
+    // A passwordConfirm that is not the same string, one of another type included, never equals a string password.
     if (password !== passwordConfirm) return res.status(400).json({ error: 'Passwords do not match' });
     if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
@@ -512,21 +513,27 @@ router.post('/forgot-password', async (req, res, next) => {
     if (!forgotEmailLimiter.hit(address).allowed) return res.json({ ok: true });
 
     const { rows } = await query(
-      `SELECT id, first_name, reset_expires FROM users WHERE email = $1 AND status = 'active'`,
+      `SELECT id, first_name FROM users WHERE email = $1 AND status = 'active'`,
       [address]
     );
-    // A link mailed a moment ago stays: a burst must not keep replacing the one the user already has.
-    if (rows[0] && !resetIssuedRecently(rows[0].reset_expires)) {
+    if (rows[0]) {
       const { tok, exp } = token2h();
-      await query(
-        `UPDATE users SET reset_token_hash = $1, reset_expires = $2 WHERE id = $3`,
-        [T.hashToken(tok), exp, rows[0].id]
+      const { edge, ceiling } = resetCooldownBounds();
+      // A link mailed a moment ago stays: the cooldown is part of the UPDATE, so a burst of parallel requests
+      // replaces the pending link once, not once per request. Only the request whose UPDATE took the row mails.
+      const { rows: taken } = await query(
+        `UPDATE users SET reset_token_hash = $1, reset_expires = $2
+          WHERE id = $3 AND (reset_expires IS NULL OR reset_expires <= $4 OR reset_expires > $5)
+          RETURNING id`,
+        [T.hashToken(tok), exp, rows[0].id, edge, ceiling]
       );
-      // A refused email must not answer differently from an unknown address.
-      try {
-        await sendPasswordReset({ to: address, firstName: rows[0].first_name, token: tok });
-      } catch (e) {
-        console.warn('[reset] email send failed:', e.message);
+      if (taken[0]) {
+        // A refused email must not answer differently from an unknown address.
+        try {
+          await sendPasswordReset({ to: address, firstName: rows[0].first_name, token: tok });
+        } catch (e) {
+          console.warn('[reset] email send failed:', e.message);
+        }
       }
     }
     res.json({ ok: true });
@@ -549,7 +556,7 @@ router.get('/reset-password/:token', async (req, res, next) => {
 router.post('/reset-password', async (req, res, next) => {
   try {
     const { token, password, passwordConfirm } = req.body;
-    if (!isStr(token) || !isStr(password) || !isStr(passwordConfirm) || !token || !password) {
+    if (!isStr(token) || !isStr(password) || !token || !password) {
       return res.status(400).json({ error: 'token and password required' });
     }
     if (password !== passwordConfirm) return res.status(400).json({ error: 'Passwords do not match' });
