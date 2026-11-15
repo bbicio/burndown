@@ -127,7 +127,7 @@ sequenceDiagram
   participant Email
   Admin->>Browser: firstName, lastName, email, role
   Browser->>API: POST /api/auth/invite
-  API->>DB: insert user (status pending, invite_token, 48h expiry)
+  API->>DB: insert user (status pending, invite_token_hash, 48h expiry)
   API->>Email: invite link with the token
   User->>Browser: opens the link
   Browser->>API: GET /api/auth/invite/:token
@@ -191,7 +191,7 @@ sequenceDiagram
   Browser->>API: POST /api/auth/forgot-password
   API-->>Browser: always 200
   opt an active user has that email
-    API->>DB: reset_token with 2h expiry
+    API->>DB: reset_token_hash with 2h expiry
     API->>Email: reset link
   end
   User->>Browser: opens the link
@@ -301,9 +301,9 @@ users (
   status            VARCHAR NOT NULL DEFAULT 'pending'
                     CHECK (status IN ('pending','active','disabled')),
   password_hash     VARCHAR,
-  invite_token      VARCHAR,
+  invite_token_hash VARCHAR(64),    -- migration 036: sha256 of the invite token
   invite_expires    TIMESTAMPTZ,
-  reset_token       VARCHAR,
+  reset_token_hash  VARCHAR(64),    -- migration 036: sha256 of the reset token
   reset_expires     TIMESTAMPTZ,
   invited_by        UUID REFERENCES users(id),
   terms_version     INTEGER,          -- migration 014: last accepted T&C version (NULL = never accepted)
