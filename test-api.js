@@ -5250,10 +5250,11 @@ async function testMailFailures() {
 
 // ── Auth tokens (S-03, S-04) ────────────────────────────────────────────────────
 // Invite and reset links are read from Mailpit; the database must hold only their sha256.
-// forgot-password slots per IP are 20 an hour in a process that lives on (routes/auth.js). The AT checks send
-// their forgot-password calls from their own forwarded client address (the API trusts one proxy hop, so
-// X-Forwarded-For sets req.ip), fresh on every run: a second run against the same API process finds its slots
-// untouched. One address takes at most AT-02 2 + AT-03 11 + 3 = 16 of the 20; the parallel burst has its own.
+// forgot-password slots per IP are limited per hour in a process that lives on (forgotIpLimiter in routes/auth.js).
+// The AT checks send their forgot-password calls from their own forwarded client addresses (the API trusts one
+// proxy hop, so X-Forwarded-For sets req.ip), fresh on every run: a second run against the same API process finds
+// its slots untouched, and no group of checks shares one address with another. This holds only when API_URL is the
+// API itself (the default): through nginx the peer is appended and the forged header is ignored.
 const fwd = () => ({ 'X-Forwarded-For': `10.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}` });
 
 async function tokensFor(address, page) {
@@ -5279,6 +5280,7 @@ async function testAuthTokens() {
   const RESET = 'reset-password.html';
   const ipA = fwd();
   const ipB = fwd();
+  const ipD = fwd();
   const fp = (body, headers = ipA) => api('POST', '/api/auth/forgot-password', body, null, headers);
 
   // AT-01: the invite link reaches the user, the database holds its hash only, resend replaces it, activation works.
@@ -5325,6 +5327,13 @@ async function testAuthTokens() {
   const afterLegacy = await tokensFor(addrA, RESET);
   ok(afterLegacy.length === 2 && await col(idA, 'reset_token_hash') === sha256(afterLegacy[0]),
     `AT-02 a pending reset with an expiry beyond the current lifetime is replaced and mailed (got ${afterLegacy.length} mails)`);
+  // The cooldown is 2 minutes: a reset issued 3 minutes ago is replaced (the second request above, right after
+  // the issue, shows the other side of the edge).
+  await sql(`UPDATE users SET reset_expires = NOW() + interval '2 hours' - interval '3 minutes' WHERE id = $1`, [idA]);
+  await fp({ email: addrA });
+  const afterOld = await tokensFor(addrA, RESET);
+  ok(afterOld.length === 3 && await col(idA, 'reset_token_hash') === sha256(afterOld[0]),
+    `AT-02 a reset issued 3 minutes ago is replaced and mailed (got ${afterOld.length} mails)`);
 
   // AT-03: a burst on one address sends one mail and keeps the first link; unknown addresses answer the same.
   const addrB = `__test_at_b_${stamp}@pdash.local`;
@@ -5348,7 +5357,7 @@ async function testAuthTokens() {
   const ghost = `__test_at_ghost_${stamp}@pdash.local`;
   const ghostAnswers = [];
   for (let i = 0; i < 3; i++) {
-    const r = await fp({ email: ghost });
+    const r = await fp({ email: ghost }, ipD);
     ghostAnswers.push(`${r.status} ${JSON.stringify(r.data)}`);
   }
   ok(ghostAnswers.every(a => a === '200 {"ok":true}') && (await tokensFor(ghost, RESET)).length === 0,
@@ -5372,7 +5381,7 @@ async function testAuthTokens() {
 
   // AT-04: input of the wrong type or shape never reaches a 500.
   for (const bad of [{}, [], 123]) {
-    const r = await fp({ email: bad });
+    const r = await fp({ email: bad }, ipD);
     ok(r.status === 200 && JSON.stringify(r.data) === '{"ok":true}', `AT-04 forgot-password with email ${JSON.stringify(bad)} → 200 {ok:true} (got ${r.status})`);
   }
   for (const [route, label] of [['activate', 'activate'], ['reset-password', 'reset-password']]) {

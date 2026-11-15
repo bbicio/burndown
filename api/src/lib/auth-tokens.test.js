@@ -19,14 +19,16 @@ test('emailKey trims and lowercases', () => {
   assert.equal(emailKey('  USER@X.COM '), 'user@x.com');
 });
 
-test('resetCooldownBounds: a reset just issued expires in (edge, ceiling]', () => {
+test('resetCooldownBounds: a reset issued within the cooldown expires in (edge, ceiling]', () => {
   const { edge, ceiling } = resetCooldownBounds(NOW);
-  assert.equal(ceiling.getTime(), NOW + RESET_TTL_MS);
   assert.equal(edge.getTime(), NOW + RESET_TTL_MS - RESET_COOLDOWN_MS);
+  assert.ok(ceiling.getTime() > NOW + RESET_TTL_MS, 'a reset a parallel request writes a few ms later still sits below the ceiling');
+  assert.equal(ceiling.getTime(), NOW + RESET_TTL_MS + RESET_COOLDOWN_MS);
 });
 
 test('resetCooldownBounds: defaults to the current time', () => {
   const before = Date.now();
-  const { ceiling } = resetCooldownBounds();
-  assert.ok(ceiling.getTime() >= before + RESET_TTL_MS && ceiling.getTime() <= Date.now() + RESET_TTL_MS);
+  const { edge } = resetCooldownBounds();
+  const lower = before + RESET_TTL_MS - RESET_COOLDOWN_MS;
+  assert.ok(edge.getTime() >= lower && edge.getTime() <= Date.now() + RESET_TTL_MS - RESET_COOLDOWN_MS);
 });
