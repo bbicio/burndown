@@ -62,7 +62,7 @@ Il guard non scarica nulla e non verifica che l'hash sia corretto: un hash sbagl
 
 ## Decisioni aperte
 
-1. **Mermaid passa al build UMD caricato su richiesta con `integrity`.** Alternative scartate: un import map con `integrity` per il modulo ESM e per tutti i suoi chunk, o Mermaid lasciato come eccezione motivata. Perché: un solo file e un solo hash da mantenere, nessun requisito di browser recente, criterio 3 soddisfatto senza eccezioni.
+1. **Mermaid passa al build UMD caricato su richiesta con `integrity`.** Alternativa scartata: un import map con `integrity` per il modulo ESM e per tutti i suoi chunk, oppure Mermaid lasciato come eccezione motivata. Perché: un solo file e un solo hash da mantenere, nessun requisito di browser recente, criterio 3 soddisfatto senza eccezioni.
 2. **Vue fissato a 3.5.45, la versione a cui `vue@3` risolve oggi.** Alternativa scartata: fissarlo all'ultima 3.x al momento dell'esecuzione. Perché: il Brief chiede di fissare la versione già in uso, non di fare un salto.
 3. **`nodemailer` a `^10.6.0` senza toccare `services/email.js`.** Alternativa scartata: fermarsi a 10.5.0, la prima versione con il fix. Perché: nessun breaking change tra 10.5 e 10.6 tocca l'uso di SMTP semplice, e l'ultima minor riduce il prossimo audit.
 4. **`uuid` rimossa, non aggiornata.** Alternativa scartata: aggiornarla a 14.x. Perché: nessun file la importa.
