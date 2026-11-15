@@ -12,7 +12,7 @@ const { rectificationError, normalizeDetails, detailsError } = require('../lib/u
 const T = require('../lib/two-step');
 const { createLimiter } = require('../lib/rate-limit');
 const { sessionClaims } = require('../lib/session');
-const { RESET_TTL_MS, isStr } = require('../lib/auth-tokens');
+const { RESET_TTL_MS, isStr, emailKey, resetIssuedRecently } = require('../lib/auth-tokens');
 const twoStep = require('../services/two-step');
 
 const router = express.Router();
@@ -29,6 +29,9 @@ const loginEmailLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
 const sendLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 10 });
 // Rectification requests: 5 per user per hour, each one notifies every admin.
 const rectificationLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 5 });
+// forgot-password: every request that names an address counts, whether or not the address exists.
+const forgotIpLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
+const forgotEmailLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 5 });
 
 const CHALLENGE_COOKIE = 'pdash_challenge';
 const DEVICE_COOKIE = 'pdash_device';
@@ -498,14 +501,21 @@ router.post('/activate', async (req, res, next) => {
 router.post('/forgot-password', async (req, res, next) => {
   try {
     const { email } = req.body;
-    // Always return 200 — do not reveal if email exists
-    if (!email) return res.json({ ok: true });
+    // Always answer 200 {ok:true}: nothing here may tell an existing address from an unknown one, a refused
+    // slot from an accepted one, or a mail sent from a mail withheld.
+    if (!isStr(email) || !email.trim()) return res.json({ ok: true });
+    const address = emailKey(email);
+
+    // Both slots are taken before the database is read, so every address is counted the same way.
+    if (!forgotIpLimiter.hit(req.ip).allowed) return res.json({ ok: true });
+    if (!forgotEmailLimiter.hit(address).allowed) return res.json({ ok: true });
 
     const { rows } = await query(
-      `SELECT id, first_name FROM users WHERE email = $1 AND status = 'active'`,
-      [email.toLowerCase()]
+      `SELECT id, first_name, reset_expires FROM users WHERE email = $1 AND status = 'active'`,
+      [address]
     );
-    if (rows[0]) {
+    // A link mailed a moment ago stays: a burst must not keep replacing the one the user already has.
+    if (rows[0] && !resetIssuedRecently(rows[0].reset_expires)) {
       const { tok, exp } = token2h();
       await query(
         `UPDATE users SET reset_token_hash = $1, reset_expires = $2 WHERE id = $3`,
@@ -513,7 +523,7 @@ router.post('/forgot-password', async (req, res, next) => {
       );
       // A refused email must not answer differently from an unknown address.
       try {
-        await sendPasswordReset({ to: email, firstName: rows[0].first_name, token: tok });
+        await sendPasswordReset({ to: address, firstName: rows[0].first_name, token: tok });
       } catch (e) {
         console.warn('[reset] email send failed:', e.message);
       }

@@ -5248,6 +5248,121 @@ async function testMailFailures() {
   }
 }
 
+// ── Auth tokens (S-03, S-04) ────────────────────────────────────────────────────
+// Invite and reset links are read from Mailpit; the database must hold only their sha256.
+// forgot-password slots per IP are 20 an hour (routes/auth.js): MAIL-08 takes 1, AT-02 2, AT-03 11 + 3 = 17.
+// Whoever adds a forgot-password call to the suite updates this count.
+
+async function tokensFor(address, page) {
+  const list = (await mailpit('GET', `/api/v1/search?query=${encodeURIComponent('to:' + address)}`)).data?.messages || [];
+  const out = [];
+  for (const m of list) {
+    const d = (await mailpit('GET', `/api/v1/message/${m.ID}`)).data;
+    const hit = `${d?.Text || ''}\n${d?.HTML || ''}`.match(new RegExp(`${page}[?]token=([0-9a-f]{64})`));
+    if (hit) out.push(hit[1]);
+  }
+  return out; // newest first
+}
+
+async function testAuthTokens() {
+  section('Auth tokens (S-03, S-04)');
+  if (!process.env.MAILPIT_URL) { fail('MAILPIT_URL unset — the stack does not send mail to Mailpit'); return; }
+  if (!adminCookie) { ok(false, 'AT-setup admin account unavailable'); return; }
+  await mailpit('DELETE', '/api/v1/messages');
+  const PASS = 'Abcdefg1!';
+  const stamp = Date.now();
+  const col = async (id, c) => (await sql(`SELECT ${c} AS v FROM users WHERE id = $1`, [id]))?.[0]?.v;
+  const ACTIVATE = 'activate.html';
+  const RESET = 'reset-password.html';
+
+  // AT-01: the invite link reaches the user, the database holds its hash only, resend replaces it, activation works.
+  const addrA = `__test_at_a_${stamp}@pdash.local`;
+  const inv = await api('POST', '/api/auth/invite', { email: addrA, firstName: 'At', lastName: 'One', role: 'user' }, adminCookie);
+  const idA = inv.data?.id;
+  if (idA) later('DELETE', `/api/users/${idA}`);
+  if (!ok(inv.status === 201 && inv.data?.emailSent === true && !!idA, `AT-01 invite → 201, mail sent (got ${inv.status}, ${JSON.stringify(inv.data)})`)) return;
+  const [tokOld] = await tokensFor(addrA, ACTIVATE);
+  if (!ok(!!tokOld, 'AT-01 the invite mail carries a token')) return;
+  const storedOld = await col(idA, 'invite_token_hash');
+  ok(storedOld === sha256(tokOld) && storedOld !== tokOld, 'AT-01 invite_token_hash is the sha256 of the mailed token, not the token');
+  const g1 = await api('GET', `/api/auth/invite/${tokOld}`);
+  ok(g1.status === 200 && g1.data?.email === addrA, `AT-01 GET /invite/:token → 200 (got ${g1.status})`);
+  const re = await api('POST', `/api/auth/${idA}/resend-invite`, null, adminCookie);
+  const tokNew = (await tokensFor(addrA, ACTIVATE)).find(t => t !== tokOld);
+  ok(re.status === 200 && !!tokNew && await col(idA, 'invite_token_hash') === sha256(tokNew), `AT-01 resend-invite stores the new hash (got ${re.status})`);
+  const gOld = await api('GET', `/api/auth/invite/${tokOld}`);
+  const gNew = tokNew ? await api('GET', `/api/auth/invite/${tokNew}`) : { status: 0 };
+  ok(gOld.status === 410 && gNew.status === 200, `AT-01 after a resend the old link is dead (${gOld.status}) and the new one works (${gNew.status})`);
+  const act = await api('POST', '/api/auth/activate', { token: tokNew, password: PASS, passwordConfirm: PASS });
+  ok(act.status === 200 && await col(idA, 'status') === 'active' && await col(idA, 'invite_token_hash') === null,
+    `AT-01 activate → 200, user active, invite hash cleared (got ${act.status})`);
+
+  // AT-02: reset link, hash only, a repeat within the cooldown changes nothing, the link changes the password.
+  const messy = `  ${addrA.toUpperCase()} `;
+  const fp1 = await api('POST', '/api/auth/forgot-password', { email: messy });
+  const resets1 = await tokensFor(addrA, RESET);
+  ok(fp1.status === 200 && JSON.stringify(fp1.data) === '{"ok":true}' && resets1.length === 1,
+    `AT-02 forgot-password with an upper-case, padded address → 200 {ok:true} and one mail to the normalised address (got ${fp1.status}, ${resets1.length} mail)`);
+  const storedReset = await col(idA, 'reset_token_hash');
+  ok(!!resets1[0] && storedReset === sha256(resets1[0]) && storedReset !== resets1[0], 'AT-02 reset_token_hash is the sha256 of the mailed token, not the token');
+  const gr = resets1[0] ? await api('GET', `/api/auth/reset-password/${resets1[0]}`) : { status: 0 };
+  ok(gr.status === 200, `AT-02 GET /reset-password/:token → 200 (got ${gr.status})`);
+  const fp2 = await api('POST', '/api/auth/forgot-password', { email: addrA });
+  ok(fp2.status === 200 && JSON.stringify(fp2.data) === '{"ok":true}' && (await tokensFor(addrA, RESET)).length === 1 && await col(idA, 'reset_token_hash') === storedReset,
+    'AT-02 a second request within the cooldown → same 200, no new mail, pending token unchanged');
+  const rs = resets1[0] ? await api('POST', '/api/auth/reset-password', { token: resets1[0], password: PASS + 'x', passwordConfirm: PASS + 'x' }) : { status: 0 };
+  ok(rs.status === 200 && await col(idA, 'reset_token_hash') === null, `AT-02 reset-password → 200, reset hash cleared (got ${rs.status})`);
+
+  // AT-03: a burst on one address sends one mail and keeps the first link; unknown addresses answer the same.
+  const addrB = `__test_at_b_${stamp}@pdash.local`;
+  const invB = await api('POST', '/api/auth/invite', { email: addrB, firstName: 'At', lastName: 'Two', role: 'user' }, adminCookie);
+  const idB = invB.data?.id;
+  if (idB) later('DELETE', `/api/users/${idB}`);
+  const tokB = (await tokensFor(addrB, ACTIVATE))[0];
+  const actB = tokB ? await api('POST', '/api/auth/activate', { token: tokB, password: PASS, passwordConfirm: PASS }) : { status: 0 };
+  if (ok(actB.status === 200, `AT-03 setup: second user activated (got ${actB.status})`)) {
+    const answers = [];
+    let firstHash = null;
+    for (let i = 0; i < 11; i++) {
+      const r = await api('POST', '/api/auth/forgot-password', { email: addrB });
+      answers.push(`${r.status} ${JSON.stringify(r.data)}`);
+      if (i === 0) firstHash = await col(idB, 'reset_token_hash');
+    }
+    ok(answers.every(a => a === '200 {"ok":true}'), `AT-03 11 consecutive requests all answer 200 {ok:true} (got ${[...new Set(answers)].join(' | ')})`);
+    ok((await tokensFor(addrB, RESET)).length === 1 && !!firstHash && await col(idB, 'reset_token_hash') === firstHash,
+      'AT-03 the burst sent one mail and left the first pending token in place');
+  }
+  const ghost = `__test_at_ghost_${stamp}@pdash.local`;
+  const ghostAnswers = [];
+  for (let i = 0; i < 3; i++) {
+    const r = await api('POST', '/api/auth/forgot-password', { email: ghost });
+    ghostAnswers.push(`${r.status} ${JSON.stringify(r.data)}`);
+  }
+  ok(ghostAnswers.every(a => a === '200 {"ok":true}') && (await tokensFor(ghost, RESET)).length === 0,
+    `AT-03 an unknown address answers the same 200 {ok:true} and gets no mail (got ${[...new Set(ghostAnswers)].join(' | ')})`);
+
+  // AT-04: input of the wrong type or shape never reaches a 500.
+  for (const bad of [{}, [], 123]) {
+    const r = await api('POST', '/api/auth/forgot-password', { email: bad });
+    ok(r.status === 200 && JSON.stringify(r.data) === '{"ok":true}', `AT-04 forgot-password with email ${JSON.stringify(bad)} → 200 {ok:true} (got ${r.status})`);
+  }
+  for (const [route, label] of [['activate', 'activate'], ['reset-password', 'reset-password']]) {
+    for (const body of [
+      { token: {}, password: PASS, passwordConfirm: PASS },
+      { token: [], password: PASS, passwordConfirm: PASS },
+      { token: 'x', password: { length: 99 }, passwordConfirm: { length: 99 } },
+      { token: 'x', password: PASS, passwordConfirm: { length: 99 } },
+    ]) {
+      const r = await api('POST', `/api/auth/${route}`, body);
+      ok(r.status === 400, `AT-04 ${label} with ${JSON.stringify(body)} → 400 (got ${r.status})`);
+    }
+  }
+  const long = 'x'.repeat(2000);
+  const gi = await api('GET', `/api/auth/invite/${long}`);
+  const gp = await api('GET', `/api/auth/reset-password/${long}`);
+  ok(gi.status === 410 && gp.status === 410, `AT-04 a 2000-character token in a GET → 410 (got ${gi.status}, ${gp.status})`);
+}
+
 // ── Notification url rule (S-01) ────────────────────────────────────────────────
 
 async function testNotificationUrl() {
@@ -5355,6 +5470,7 @@ async function main() {
     await testPlanningModel();
     await testPlanningAssistant();
     await testMailFailures();
+    await testAuthTokens();
     await testNotificationUrl();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
