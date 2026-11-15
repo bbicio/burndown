@@ -34,6 +34,7 @@ Le risposte delle pagine applicative portano gli header scelti dalla spec; il pu
 - Prima di decidere dove mettere gli header si chiede all'utente come produzione serve le pagine (nginx del repo o altro).
 - Modifiche a `nginx.conf` sullo stack principale: ricarica di `pdash-nginx` solo con conferma dell'utente; verifica su stack isolato (`scripts/test-branch.sh`). Mai `-v`.
 - Il guard di nginx (`scripts/nginx-serve.test.js`) continua a passare; se la soluzione aggiunge un test per gli header, fallisce quando una `location` ne è priva.
+- **`/security-review` obbligatoria nel ciclo:** prima di `/finish-cycle`, sul branch del ciclo (dopo le modifiche e i test verdi), si esegue la skill `/security-review`; verifica che i finding del ciclo non si ripresentino e che il ciclo non ne introduca di nuovi (il ciclo 1 ha trovato così un gadget same-origin non previsto dal Brief). Un finding nuovo è proposto come Brief a sé, salvo diversa decisione dell'utente. Il Piano ha un task o una nota per questo passo, e `/finish-cycle` non lo esegue da sé.
 
 ## Criteri di accettazione
 
@@ -42,6 +43,7 @@ Le risposte delle pagine applicative portano gli header scelti dalla spec; il pu
 3. Se è scelta una CSP: nessuna violazione in console aprendo `pipeline.html`, `costgrid.html`, `planning.html`, `portfolio.html`, `help.html` (con un diagramma Mermaid) e `login.html`.
 4. Il clickjacking è rifiutato: una pagina di prova che incorpora `admin.html` in un `<iframe>` non la mostra.
 5. `scripts/nginx-serve.test.js` e `npm test` verdi.
+6. **Security review** — `/security-review` eseguita sul branch prima di `/finish-cycle`, senza finding nuovi (o con quelli trovati trattati come da «Nuovi finding durante il ciclo»).
 
 ## Scope escluso esplicitamente
 

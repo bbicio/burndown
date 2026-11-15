@@ -31,6 +31,7 @@ Gli aggiornamenti delle librerie non sono governati da nessun processo: nessuno 
 - I major breaking (`nodemailer` 10) richiedono di verificare l'uso reale (`services/email.js`) e i test di invio; nessun cambio di comportamento delle mail.
 - Una modifica a `package.json` o al lockfile fa rigirare la suite backend via `scripts/run-tests.sh`.
 - `?v=N`: se un file servito dal repo cambia, aggiornarlo ovunque (`CLAUDE.md`, «Cache-busting»); le pagine HTML non sono versionate.
+- **`/security-review` obbligatoria nel ciclo:** prima di `/finish-cycle`, sul branch del ciclo (dopo le modifiche e i test verdi), si esegue la skill `/security-review`; verifica che i finding del ciclo non si ripresentino e che il ciclo non ne introduca di nuovi (il ciclo 1 ha trovato così un gadget same-origin non previsto dal Brief). Un finding nuovo è proposto come Brief a sé, salvo diversa decisione dell'utente. Il Piano ha un task o una nota per questo passo, e `/finish-cycle` non lo esegue da sé.
 
 ## Criteri di accettazione
 
@@ -40,6 +41,7 @@ Gli aggiornamenti delle librerie non sono governati da nessun processo: nessuno 
 4. Il guard test esiste ed è verde; è rosso se si toglie un `integrity` da una pagina (verificato una volta a mano).
 5. L'invio delle mail (invito, reset, codice di accesso, condivisione) funziona in `run-tests.sh` dopo l'aggiornamento di `nodemailer`.
 6. Le pagine che caricano Vue/Bootstrap/Chart.js/Mermaid/Marked si aprono e funzionano (verifica manuale su almeno `pipeline.html`, `costgrid.html`, `help.html`: nessun errore di integrity in console).
+7. **Security review** — `/security-review` eseguita sul branch prima di `/finish-cycle`, senza finding nuovi (o con quelli trovati trattati come da «Nuovi finding durante il ciclo»).
 
 ## Scope escluso esplicitamente
 

@@ -30,6 +30,7 @@
 - Risposte uniformi: nessun cambiamento che renda distinguibile un indirizzo esistente da uno inesistente.
 - I test di `test-api.js` che scrivono i token nel DB vanno adattati al nuovo formato, non rimossi.
 - Messaggi all'utente in inglese.
+- **`/security-review` obbligatoria nel ciclo:** prima di `/finish-cycle`, sul branch del ciclo (dopo le modifiche e i test verdi), si esegue la skill `/security-review`; verifica che i finding del ciclo non si ripresentino e che il ciclo non ne introduca di nuovi (il ciclo 1 ha trovato così un gadget same-origin non previsto dal Brief). Un finding nuovo è proposto come Brief a sé, salvo diversa decisione dell'utente. Il Piano ha un task o una nota per questo passo, e `/finish-cycle` non lo esegue da sé.
 
 ## Criteri di accettazione
 
@@ -39,6 +40,7 @@
 4. `{"email": {}}`, `{"email": []}`, `{"password": {"length": 99}}` → mai 500.
 5. Test esistenti `AD-ED-12`, `AD-ED-14` e il resto di `test-api.js` verdi dopo l'adattamento; test di unità per la funzione di hash.
 6. Migrazione applicata e verificata su stack isolato con dati clonati dal principale.
+7. **Security review** — `/security-review` eseguita sul branch prima di `/finish-cycle`, senza finding nuovi (o con quelli trovati trattati come da «Nuovi finding durante il ciclo»).
 
 ## Scope escluso esplicitamente
 

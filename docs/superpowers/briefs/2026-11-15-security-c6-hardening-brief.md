@@ -35,6 +35,7 @@
 - `USER node` e il volume `./api/src` montato: verificare che i permessi consentano la lettura e che `create-admin.js` e gli script continuino a funzionare.
 - **Lo stack principale non si tocca senza conferma:** applicare il nuovo compose o ricostruire l'immagine su `pdash-db`/`pdash-api` segue «Infrastructure safety» di `CLAUDE.md` (mai `-v`, backup con `scripts/backup-db.sh`, conferma esplicita dell'utente). Verifica su stack isolato (`scripts/test-branch.sh`, `scripts/run-tests.sh`).
 - `scripts/test-branch.sh` e `scripts/run-tests.sh` che dipendono dal compose o dalle porte devono continuare a funzionare (`docs/scripts/`).
+- **`/security-review` obbligatoria nel ciclo:** prima di `/finish-cycle`, sul branch del ciclo (dopo le modifiche e i test verdi), si esegue la skill `/security-review`; verifica che i finding del ciclo non si ripresentino e che il ciclo non ne introduca di nuovi (il ciclo 1 ha trovato così un gadget same-origin non previsto dal Brief). Un finding nuovo è proposto come Brief a sé, salvo diversa decisione dell'utente. Il Piano ha un task o una nota per questo passo, e `/finish-cycle` non lo esegue da sé.
 
 ## Criteri di accettazione
 
@@ -45,6 +46,7 @@
 5. Il servizio `test` si ferma con un messaggio chiaro se lanciato contro uno stack non di test.
 6. Con `APP_URL` non impostato, l'email di condivisione e la notifica di `cost-grids.js` portano un link su `http://localhost` e non `undefined/…` (test sul punto che costruisce il link).
 7. Suite backend e frontend verdi.
+8. **Security review** — `/security-review` eseguita sul branch prima di `/finish-cycle`, senza finding nuovi (o con quelli trovati trattati come da «Nuovi finding durante il ciclo»).
 
 ## Scope escluso esplicitamente
 
