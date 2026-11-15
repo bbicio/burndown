@@ -15,6 +15,7 @@
 'use strict';
 
 const http = require('http');
+const sha256 = t => require('crypto').createHash('sha256').update(t).digest('hex');
 const BASE = process.env.API_URL             || 'http://api:3000';
 const EMAIL = process.env.TEST_ADMIN_EMAIL    || 'test-admin@pdash.local';
 const PASS  = process.env.TEST_ADMIN_PASSWORD || 'TestAdmin123!';
@@ -48,8 +49,8 @@ function ok(cond, label) { cond ? pass(label) : fail(label); return !!cond; }
 function section(name) { process.stdout.write(`\n${bold('── ' + name + ' ──')}\n`); }
 function later(method, path) { cleanupQueue.push({ method, path }); }
 
-async function api(method, path, body, cookie) {
-  const headers = { 'Content-Type': 'application/json' };
+async function api(method, path, body, cookie, extraHeaders) {
+  const headers = { 'Content-Type': 'application/json', ...extraHeaders };
   if (cookie) headers['Cookie'] = cookie;
   try {
     const res = await fetch(`${BASE}${path}`, {
@@ -484,7 +485,7 @@ async function testTwoStepRevocation() {
   const b = await armedUser('b');
   if (b) {
     const tok = `__test_ts_reset_${Date.now()}__`;
-    await sql(`UPDATE users SET reset_token = $2, reset_expires = NOW() + interval '1 hour' WHERE id = $1`, [b.id, tok]);
+    await sql(`UPDATE users SET reset_token_hash = $2, reset_expires = NOW() + interval '1 hour' WHERE id = $1`, [b.id, sha256(tok)]);
     const r = await api('POST', '/api/auth/reset-password', { token: tok, password: 'ResetPass123!', passwordConfirm: 'ResetPass123!' });
     ok(r.status === 200, `TS-21 reset-password → 200 (got ${r.status})`);
     await expectWiped('TS-21', b.id);
@@ -2258,23 +2259,23 @@ async function testUsers() {
 
   // A pending user's invite went to the old address: changing the email voids it (Resend invite issues a new one).
   const pend = await sql(
-    `INSERT INTO users (email, first_name, last_name, role, status, invite_token, invite_expires)
+    `INSERT INTO users (email, first_name, last_name, role, status, invite_token_hash, invite_expires)
      VALUES ($1, 'Pen', 'Ding', 'user', 'pending', $2, NOW() + interval '48 hours') RETURNING id`,
-    [`__test_pending_${Date.now()}@pdash.local`, `tok_${Date.now()}`]);
+    [`__test_pending_${Date.now()}@pdash.local`, sha256(`tok_${Date.now()}`)]);
   if (pend) {
     const pid = pend[0].id;
     const e12 = await api('PATCH', U(pid), { email: `__test_pending_fixed_${Date.now()}@pdash.local` }, sysadminCookie);
-    const tok = await sql('SELECT invite_token, invite_expires FROM users WHERE id = $1', [pid]);
-    ok(e12.status === 200 && tok?.[0]?.invite_token === null && tok?.[0]?.invite_expires === null,
-      `AD-ED-12 changing a pending user's email voids the invite sent to the old address (got ${e12.status}, token ${tok?.[0]?.invite_token === null ? 'cleared' : 'kept'})`);
+    const tok = await sql('SELECT invite_token_hash, invite_expires FROM users WHERE id = $1', [pid]);
+    ok(e12.status === 200 && tok?.[0]?.invite_token_hash === null && tok?.[0]?.invite_expires === null,
+      `AD-ED-12 changing a pending user's email voids the invite sent to the old address (got ${e12.status}, token ${tok?.[0]?.invite_token_hash === null ? 'cleared' : 'kept'})`);
     const e13 = await api('PATCH', U(pid), { email: 'anon_x@deleted.local' }, sysadminCookie);
     ok(e13.status === 400 && e13.data?.field === 'email', `AD-ED-13 the anonymized-address pattern is refused → 400 (got ${e13.status})`);
     // Any user: a reset link sent to the old address must not reset the corrected account.
-    await sql(`UPDATE users SET status = 'active', reset_token = $2, reset_expires = NOW() + interval '2 hours' WHERE id = $1`, [pid, `rst_${Date.now()}`]);
+    await sql(`UPDATE users SET status = 'active', reset_token_hash = $2, reset_expires = NOW() + interval '2 hours' WHERE id = $1`, [pid, sha256(`rst_${Date.now()}`)]);
     const e14 = await api('PATCH', U(pid), { email: `__test_reset_fixed_${Date.now()}@pdash.local` }, sysadminCookie);
-    const rst = await sql('SELECT reset_token, reset_expires FROM users WHERE id = $1', [pid]);
-    ok(e14.status === 200 && rst?.[0]?.reset_token === null && rst?.[0]?.reset_expires === null,
-      `AD-ED-14 changing an email voids a reset link sent to the old address (got ${e14.status}, token ${rst?.[0]?.reset_token === null ? 'cleared' : 'kept'})`);
+    const rst = await sql('SELECT reset_token_hash, reset_expires FROM users WHERE id = $1', [pid]);
+    ok(e14.status === 200 && rst?.[0]?.reset_token_hash === null && rst?.[0]?.reset_expires === null,
+      `AD-ED-14 changing an email voids a reset link sent to the old address (got ${e14.status}, token ${rst?.[0]?.reset_token_hash === null ? 'cleared' : 'kept'})`);
     await sql('DELETE FROM users WHERE id = $1', [pid]);
   }
 
@@ -5247,6 +5248,172 @@ async function testMailFailures() {
   }
 }
 
+// ── Auth tokens (S-03, S-04) ────────────────────────────────────────────────────
+// Invite and reset links are read from Mailpit; the database must hold only their sha256.
+// forgot-password slots per IP are limited per hour in a process that lives on (forgotIpLimiter in routes/auth.js).
+// The AT checks send their forgot-password calls from their own forwarded client addresses (the API trusts one
+// proxy hop, so X-Forwarded-For sets req.ip), fresh on every run: a second run against the same API process finds
+// its slots untouched. Checks that share a forwarded address share its slots, and each address has its own limit:
+// whoever adds forgot-password calls to a group counts the calls already made for that address and for that IP.
+// This holds only when API_URL is the API itself (the default): through nginx the peer is appended and the forged
+// header is ignored.
+const fwd = () => ({ 'X-Forwarded-For': `10.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}` });
+
+async function tokensFor(address, page) {
+  const list = (await mailpit('GET', `/api/v1/search?query=${encodeURIComponent('to:' + address)}`)).data?.messages || [];
+  const out = [];
+  for (const m of list) {
+    const d = (await mailpit('GET', `/api/v1/message/${m.ID}`)).data;
+    const hit = `${d?.Text || ''}\n${d?.HTML || ''}`.match(new RegExp(`${page}[?]token=([0-9a-f]{64})`));
+    if (hit) out.push(hit[1]);
+  }
+  return out; // newest first
+}
+
+async function testAuthTokens() {
+  section('Auth tokens (S-03, S-04)');
+  if (!process.env.MAILPIT_URL) { fail('MAILPIT_URL unset — the stack does not send mail to Mailpit'); return; }
+  if (!adminCookie) { ok(false, 'AT-setup admin account unavailable'); return; }
+  await mailpit('DELETE', '/api/v1/messages');
+  const PASS = 'Abcdefg1!';
+  const stamp = Date.now();
+  const col = async (id, c) => (await sql(`SELECT ${c} AS v FROM users WHERE id = $1`, [id]))?.[0]?.v;
+  const ACTIVATE = 'activate.html';
+  const RESET = 'reset-password.html';
+  const ipA = fwd();
+  const ipB = fwd();
+  const ipD = fwd();
+  const fp = (body, headers = ipA) => api('POST', '/api/auth/forgot-password', body, null, headers);
+
+  // AT-01: the invite link reaches the user, the database holds its hash only, resend replaces it, activation works.
+  const addrA = `__test_at_a_${stamp}@pdash.local`;
+  const inv = await api('POST', '/api/auth/invite', { email: addrA, firstName: 'At', lastName: 'One', role: 'user' }, adminCookie);
+  const idA = inv.data?.id;
+  if (idA) later('DELETE', `/api/users/${idA}`);
+  if (!ok(inv.status === 201 && inv.data?.emailSent === true && !!idA, `AT-01 invite → 201, mail sent (got ${inv.status}, ${JSON.stringify(inv.data)})`)) return;
+  const [tokOld] = await tokensFor(addrA, ACTIVATE);
+  if (!ok(!!tokOld, 'AT-01 the invite mail carries a token')) return;
+  const storedOld = await col(idA, 'invite_token_hash');
+  ok(storedOld === sha256(tokOld) && storedOld !== tokOld, 'AT-01 invite_token_hash is the sha256 of the mailed token, not the token');
+  const g1 = await api('GET', `/api/auth/invite/${tokOld}`);
+  ok(g1.status === 200 && g1.data?.email === addrA, `AT-01 GET /invite/:token → 200 (got ${g1.status})`);
+  const re = await api('POST', `/api/auth/${idA}/resend-invite`, null, adminCookie);
+  const tokNew = (await tokensFor(addrA, ACTIVATE)).find(t => t !== tokOld);
+  ok(re.status === 200 && !!tokNew && await col(idA, 'invite_token_hash') === sha256(tokNew), `AT-01 resend-invite stores the new hash (got ${re.status})`);
+  const gOld = await api('GET', `/api/auth/invite/${tokOld}`);
+  const gNew = tokNew ? await api('GET', `/api/auth/invite/${tokNew}`) : { status: 0 };
+  ok(gOld.status === 410 && gNew.status === 200, `AT-01 after a resend the old link is dead (${gOld.status}) and the new one works (${gNew.status})`);
+  const act = await api('POST', '/api/auth/activate', { token: tokNew, password: PASS, passwordConfirm: PASS });
+  ok(act.status === 200 && await col(idA, 'status') === 'active' && await col(idA, 'invite_token_hash') === null,
+    `AT-01 activate → 200, user active, invite hash cleared (got ${act.status})`);
+
+  // AT-02: reset link, hash only, a repeat within the cooldown changes nothing, the link changes the password.
+  const messy = `  ${addrA.toUpperCase()} `;
+  const fp1 = await fp({ email: messy });
+  const resets1 = await tokensFor(addrA, RESET);
+  ok(fp1.status === 200 && JSON.stringify(fp1.data) === '{"ok":true}' && resets1.length === 1,
+    `AT-02 forgot-password with an upper-case, padded address → 200 {ok:true} and one mail to the normalised address (got ${fp1.status}, ${resets1.length} mail)`);
+  const storedReset = await col(idA, 'reset_token_hash');
+  ok(!!resets1[0] && storedReset === sha256(resets1[0]) && storedReset !== resets1[0], 'AT-02 reset_token_hash is the sha256 of the mailed token, not the token');
+  const gr = resets1[0] ? await api('GET', `/api/auth/reset-password/${resets1[0]}`) : { status: 0 };
+  ok(gr.status === 200, `AT-02 GET /reset-password/:token → 200 (got ${gr.status})`);
+  const fp2 = await fp({ email: addrA });
+  ok(fp2.status === 200 && JSON.stringify(fp2.data) === '{"ok":true}' && (await tokensFor(addrA, RESET)).length === 1 && await col(idA, 'reset_token_hash') === storedReset,
+    'AT-02 a second request within the cooldown → same 200, no new mail, pending token unchanged');
+  const rs = resets1[0] ? await api('POST', '/api/auth/reset-password', { token: resets1[0], password: PASS + 'x', passwordConfirm: PASS + 'x' }) : { status: 0 };
+  ok(rs.status === 200 && await col(idA, 'reset_token_hash') === null, `AT-02 reset-password → 200, reset hash cleared (got ${rs.status})`);
+  // A pending reset whose expiry lies beyond what the current lifetime allows (written under a longer one) is
+  // not "just issued": the next request replaces it and mails.
+  await sql(`UPDATE users SET reset_token_hash = $2, reset_expires = NOW() + interval '3 hours' WHERE id = $1`, [idA, sha256('legacy')]);
+  await fp({ email: addrA });
+  const afterLegacy = await tokensFor(addrA, RESET);
+  ok(afterLegacy.length === 2 && await col(idA, 'reset_token_hash') === sha256(afterLegacy[0]),
+    `AT-02 a pending reset with an expiry beyond the current lifetime is replaced and mailed (got ${afterLegacy.length} mails)`);
+  // A reset issued longer ago than the cooldown (RESET_COOLDOWN_MS in api/src/lib/auth-tokens.js; keep the row's
+  // age above it) is replaced; the second request above, right after the issue, shows the other side of the edge.
+  await sql(`UPDATE users SET reset_expires = NOW() + interval '2 hours' - interval '3 minutes' WHERE id = $1`, [idA]);
+  await fp({ email: addrA });
+  const afterOld = await tokensFor(addrA, RESET);
+  ok(afterOld.length === 3 && await col(idA, 'reset_token_hash') === sha256(afterOld[0]),
+    `AT-02 a reset issued 3 minutes ago is replaced and mailed (got ${afterOld.length} mails)`);
+
+  // AT-03: a burst on one address sends one mail and keeps the first link; unknown addresses answer the same.
+  const addrB = `__test_at_b_${stamp}@pdash.local`;
+  const invB = await api('POST', '/api/auth/invite', { email: addrB, firstName: 'At', lastName: 'Two', role: 'user' }, adminCookie);
+  const idB = invB.data?.id;
+  if (idB) later('DELETE', `/api/users/${idB}`);
+  const tokB = (await tokensFor(addrB, ACTIVATE))[0];
+  const actB = tokB ? await api('POST', '/api/auth/activate', { token: tokB, password: PASS, passwordConfirm: PASS }) : { status: 0 };
+  if (ok(actB.status === 200, `AT-03 setup: second user activated (got ${actB.status})`)) {
+    const answers = [];
+    let firstHash = null;
+    for (let i = 0; i < 11; i++) {
+      const r = await fp({ email: addrB });
+      answers.push(`${r.status} ${JSON.stringify(r.data)}`);
+      if (i === 0) firstHash = await col(idB, 'reset_token_hash');
+    }
+    ok(answers.every(a => a === '200 {"ok":true}'), `AT-03 11 consecutive requests all answer 200 {ok:true} (got ${[...new Set(answers)].join(' | ')})`);
+    ok((await tokensFor(addrB, RESET)).length === 1 && !!firstHash && await col(idB, 'reset_token_hash') === firstHash,
+      'AT-03 the burst sent one mail and left the first pending token in place');
+  }
+  const ghost = `__test_at_ghost_${stamp}@pdash.local`;
+  const ghostAnswers = [];
+  for (let i = 0; i < 3; i++) {
+    const r = await fp({ email: ghost }, ipD);
+    ghostAnswers.push(`${r.status} ${JSON.stringify(r.data)}`);
+  }
+  ok(ghostAnswers.every(a => a === '200 {"ok":true}') && (await tokensFor(ghost, RESET)).length === 0,
+    `AT-03 an unknown address answers the same 200 {ok:true} and gets no mail (got ${[...new Set(ghostAnswers)].join(' | ')})`);
+
+  // AT-03 (parallel): five requests at once for one address (the most the address allows an hour) send one
+  // mail, and the link stored is the link mailed. Checking the cooldown and writing the token must be one step.
+  const addrC = `__test_at_c_${stamp}@pdash.local`;
+  const invC = await api('POST', '/api/auth/invite', { email: addrC, firstName: 'At', lastName: 'Three', role: 'user' }, adminCookie);
+  const idC = invC.data?.id;
+  if (idC) later('DELETE', `/api/users/${idC}`);
+  const tokC = (await tokensFor(addrC, ACTIVATE))[0];
+  const actC = tokC ? await api('POST', '/api/auth/activate', { token: tokC, password: PASS, passwordConfirm: PASS }) : { status: 0 };
+  if (ok(actC.status === 200, `AT-03 setup: third user activated (got ${actC.status})`)) {
+    const burst = await Promise.all(Array.from({ length: 5 }, () => fp({ email: addrC }, ipB)));
+    const burstMails = await tokensFor(addrC, RESET);
+    ok(burst.every(r => r.status === 200 && JSON.stringify(r.data) === '{"ok":true}') && burstMails.length === 1
+      && await col(idC, 'reset_token_hash') === sha256(burstMails[0] || ''),
+    `AT-03 five parallel requests send one mail and the stored link is the one mailed (got ${burstMails.length} mails)`);
+  }
+
+  // AT-04: input of the wrong type or shape never reaches a 500.
+  for (const bad of [{}, [], 123]) {
+    const r = await fp({ email: bad });
+    ok(r.status === 200 && JSON.stringify(r.data) === '{"ok":true}', `AT-04 forgot-password with email ${JSON.stringify(bad)} → 200 {ok:true} (got ${r.status})`);
+  }
+  for (const [route, label] of [['activate', 'activate'], ['reset-password', 'reset-password']]) {
+    for (const body of [
+      { token: {}, password: PASS, passwordConfirm: PASS },
+      { token: [], password: PASS, passwordConfirm: PASS },
+      { token: 'x', password: { length: 99 }, passwordConfirm: { length: 99 } },
+      { token: 'x', password: PASS, passwordConfirm: { length: 99 } },
+    ]) {
+      const r = await api('POST', `/api/auth/${route}`, body);
+      ok(r.status === 400, `AT-04 ${label} with ${JSON.stringify(body)} → 400 (got ${r.status})`);
+    }
+  }
+  for (const route of ['activate', 'reset-password']) {
+    const r = await api('POST', `/api/auth/${route}`, { token: 'x', password: PASS });
+    ok(r.status === 400 && r.data?.error === 'Passwords do not match',
+      `AT-04 ${route} without passwordConfirm → 400 Passwords do not match (got ${r.status}, ${JSON.stringify(r.data)})`);
+  }
+  const long = 'x'.repeat(2000);
+  const gi = await api('GET', `/api/auth/invite/${long}`);
+  const gp = await api('GET', `/api/auth/reset-password/${long}`);
+  ok(gi.status === 410 && gp.status === 410, `AT-04 a 2000-character token in a GET → 410 (got ${gi.status}, ${gp.status})`);
+
+  // AT-05: a hash names one pending token at most, and the link routes look it up by index.
+  const idx = await sql(`SELECT indexname, indexdef FROM pg_indexes WHERE tablename = 'users'
+    AND indexname IN ('users_invite_token_hash_key', 'users_reset_token_hash_key')`);
+  if (idx) ok(idx.length === 2 && idx.every(i => i.indexdef.includes('UNIQUE')),
+    `AT-05 invite_token_hash and reset_token_hash each have a unique index (got ${idx.map(i => i.indexname).join(', ') || 'none'})`);
+}
+
 // ── Notification url rule (S-01) ────────────────────────────────────────────────
 
 async function testNotificationUrl() {
@@ -5354,6 +5521,7 @@ async function main() {
     await testPlanningModel();
     await testPlanningAssistant();
     await testMailFailures();
+    await testAuthTokens();
     await testNotificationUrl();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
