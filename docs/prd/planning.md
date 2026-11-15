@@ -23,7 +23,7 @@ Show the distribution of sold hours across the portfolio — by role, by project
 | Rounded | Toggle — round to whole numbers vs. two decimal places (display only, see §5.3) |
 | Expand all / Collapse all, How estimates work | Open or close every group of the view; a popover explains the active view's estimation logic |
 | Export XLS | Download the current table as Excel; disabled while the data is loading or failed to load |
-| Load XLS | Upload an Excel timesheet file to import actuals — a third entry point into the same upload mechanism described in §8, alongside Project Reporting's and the project configuration form's "Load Actuals" buttons; subject to the same blocking role/task validation (§8.3) |
+| Load XLSX | Upload an Excel (`.xlsx`) timesheet file to import actuals — a third entry point into the same upload mechanism described in §8, alongside Project Reporting's and the project configuration form's "Load Actuals" buttons; subject to the same blocking role/task validation (§8.3) |
 
 At 1024px wide and below, Team assistant and Export XLS become icon buttons and the search, the filters, the two toggles and Load XLS move into a "Filters" side panel whose button shows how many of them differ from their default.
 

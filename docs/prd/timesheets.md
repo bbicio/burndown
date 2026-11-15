@@ -6,7 +6,7 @@ Part of [PRD.md](../../PRD.md) — carries PRD §8 Excel Timesheet Upload.
 
 ### 8.1 Purpose
 
-Import actuals (hours consumed) from a weekly timesheet export.  
+Import actuals (hours consumed) from a weekly timesheet export. Only `.xlsx` files are accepted: the file is recognised by its ZIP signature, not by its name, and a CSV, an `.xls` or any other format is refused with "Only .xlsx files are accepted" (2026-11-15, security cycle 2).  
 Actuals are matched to projects and tasks to compute budget spent.
 
 ### 8.2 Expected Columns

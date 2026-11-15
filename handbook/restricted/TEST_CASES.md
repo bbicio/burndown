@@ -759,7 +759,8 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | TS-24 | Delete is confirmed once (2026-11-05) | ⋯ → Delete actuals → Confirm, double-clicking Confirm | One `DELETE /api/timesheets/:code` in the network tab; spinner on ⋯ while it runs; the list reloads | |
 | TS-25 | No match (2026-11-05) | Type `2150` in the project-code filter | Search icon, "No timesheets match the current filters." and a Reset filters link that clears every filter and the year | |
 | TS-26 | Phone layout (2026-11-05) | Open `/timesheets.html` at 390px wide | Section selector "TIMESHEETS · Actuals", one card per code with View · Download · ⋯ (44px), Filters (n) opens a bottom sheet with Client, Project and year; View opens full screen | |
-| TS-21 | Impossible ISO date blocks the upload (2026-10-24, dates C1) | Upload a CSV whose row 2 has the date `2026-13-45` | 400, the message names row 2 and says the value is not a valid calendar date; nothing is written | ✓ |
+| TS-21 | Impossible ISO date blocks the upload (2026-10-24, dates C1) | Upload an `.xlsx` whose row 2 has the date `2026-13-45` | 400, the message names row 2 and says the value is not a valid calendar date; nothing is written | ✓ |
+| TS-27 | Only .xlsx is accepted (2026-11-15, security cycle 2) | Upload a CSV, an `.xls` file, random bytes after a `PK` signature, and a ZIP with no workbook; then a real `.xlsx` named `ts.csv`; open a file picker on `portfolio.html`, `project-config.html` and `planning.html` | The first two answer 400 "Only .xlsx files are accepted" (code `FILE_FORMAT`), the last two 400 "File is empty or unreadable", none writes a row; the `.xlsx` named `ts.csv` is accepted (201); every picker offers only `.xlsx` and `planning.html` says "Load XLSX" | ✓ |
 
 ---
 
@@ -1000,7 +1001,7 @@ Third cycle toward AI-assisted resource allocation, first sub-cycle of the resou
 | MA-01 | Endpoints require auth | `GET /api/resources/unmatched` and `/aliases` with no session | 401 | ✓ |
 | MA-02 | Alias input validation | `POST /api/resources/aliases` with neither `resourceId` nor `ignore`, with both, an empty name, a punctuation-only name, a non-UUID or an unknown `resourceId` | 400 for each | ✓ |
 | MA-03 | Re-adding an alias upserts | `POST` the same name again (different case) | 200 (an update, not 201 and not a 500); still exactly one alias row for that normalized name | ✓ |
-| MA-04 | Upload feeds the queue | Upload a CSV/XLS of actuals (task/role valid on the project) | 201; the upload is unaffected if the queue refresh fails | ✓ |
+| MA-04 | Upload feeds the queue | Upload an `.xlsx` of actuals (task/role valid on the project) | 201; the upload is unaffected if the queue refresh fails | ✓ |
 | MA-05 | Automatic matching | Upload owners "SURNAME  Name" (inverted, different case) for an existing resource, an unknown person, and a blank owner | The inverted name is matched (not queued); the unknown person is queued with its hours and project count; the blank owner never enters the queue | ✓ |
 | MA-06 | Assign a name | `POST` an alias for a queued name → resource | 201; the name leaves the queue; listed in `GET /aliases` | ✓ |
 | MA-07 | Remove an alias | `DELETE /api/resources/aliases/:id` | 200; the name returns to the queue; a second `DELETE` → 404 | ✓ |

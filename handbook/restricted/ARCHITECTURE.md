@@ -1024,7 +1024,7 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 |---|---|---|---|
 | GET | /api/timesheets | ✅ | List uploaded timesheets (summary), one row per `project_code`; each row also carries `client_name`, `project_name`, `currency`, `pipeline_year` (visibility-scoped, see §5.8) |
 | GET | /api/timesheets/all-data | ✅ | All timesheet rows merged (for dashboard seed) |
-| POST | /api/timesheets/upload | ✅ | Upload XLS file; rejects the entire file (400, no partial writes) if any row's date cannot be resolved to a valid calendar date |
+| POST | /api/timesheets/upload | ✅ | Upload an `.xlsx` file (ZIP signature checked, else 400 `FILE_FORMAT`; an unreadable workbook is 400); rejects the entire file (400, no partial writes) if any row's date cannot be resolved to a valid calendar date |
 | GET | /api/timesheets/:projectCode | ✅ | Uploads for one project code. Admin/sysadmin: never denied, no actuals → `200 []` (2026-09-30; before, `visibleCodes()` only listed codes that had timesheets, so an admin got a 403). Non-admin: 403 unless the project is visible to them |
 | DELETE | /api/timesheets/:projectCode | owner/admin | Remove timesheet data |
 | GET | /api/reporting/portfolio | ✅ | Dead code on the frontend (2026-10-08): no page calls it, see the route's own comment in `api/src/routes/reporting.js` |

@@ -182,3 +182,7 @@ Tests: `money-rules.test.js`, `money-format.test.js`; `test-api.js` `MR-01..MR-1
 ## phasing-export.js (2026-11-11, backlog cycle 2)
 
 `phasingByVersion(rows, year)` builds the per-version months of `GET /api/exports/phasing` from its query rows: hours spread evenly over the task's months (version dates when the task has none, nothing when neither), clipped to the year; hours are `task_roles.days` as stored (no ×8); amounts are hours × rate divided by the version's `currency_rate` (EUR; null or 0 counts as 1). The route feeds it only reference versions, one per proposal. Tests: `phasing-export.test.js`.
+
+## xlsx-file.js (2026-11-15, security cycle 2)
+
+`xlsxFileError(buffer)` returns `null` for a `Buffer` of at least 4 bytes starting with `PK`, else `XLSX_FILE_ERROR` (`'Only .xlsx files are accepted'`); used by `routes/timesheets.js`. Detail: [timesheets.md](timesheets.md). Tests: `api/src/lib/xlsx-file.test.js`, `api/src/lib/xlsx-advisories.test.js`.

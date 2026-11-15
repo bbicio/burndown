@@ -255,13 +255,13 @@ Every row has a column per month or week of the period you picked, and three sum
 | Expand all, Collapse all | Open or close every group. |
 | How estimates work | A short explanation of the numbers in the active view. |
 | Export XLS | Downloads the table as an Excel file. |
-| Load XLS | Uploads a timesheet file; see Timesheet upload. |
+| Load XLSX | Uploads a timesheet file (`.xlsx` only); see Timesheet upload. |
 
 <details>
 <summary>Details</summary>
 
 - A load of 24 hours a week or more for a person is shown in amber ("High load") and 30 or more in red ("Over-allocated"). It applies to the By owner view only and is a fixed display rule, not an analysis.
-- Below 1024 pixels the search, the filters, the switches and Load XLS move into a **Filters** panel whose button shows how many filters differ from their default.
+- Below 1024 pixels the search, the filters, the switches and Load XLSX move into a **Filters** panel whose button shows how many filters differ from their default.
 - On a phone the page is for reading only: a stepper shows one period at a time and each top-level row becomes a card that opens into its children.
 - Export XLS is disabled while the data is loading, and the export is not changed by the search box.
 
@@ -488,7 +488,7 @@ Actual hours reach PDash from a timesheet export in Excel. The upload replaces w
 
 ### Where to upload
 
-The same upload is offered in three places: **Load Actuals** on a project's configuration form, **Load Actuals** on a project's report, and **Load XLS** in Planning. Anyone who can change the project can use it; viewers cannot.
+The same upload is offered in three places: **Load Actuals** on a project's configuration form, **Load Actuals** on a project's report, and **Load XLSX** in Planning. Anyone who can change the project can use it; viewers cannot.
 
 ### The file
 
@@ -502,6 +502,8 @@ The same upload is offered in three places: **Load Actuals** on a project's conf
 | D365 Project ID | Identifies the project. |
 | WF Project Name | A display name. |
 | Notes | Free text, not used in any calculation. |
+
+Only `.xlsx` files are accepted; any other format is refused and nothing is loaded.
 
 A new upload for a project code replaces every row loaded earlier for that code; it does not add to them. Rows with no project ID are skipped.
 
