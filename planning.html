@@ -22,7 +22,7 @@
 <div id="planningApp" v-cloak>
 
 <!-- Hidden file input for XLS upload -->
-<input type="file" id="fileInput" ref="fileInput" accept=".xls,.xlsx" style="display:none" @change="onFileInputChange">
+<input type="file" id="fileInput" ref="fileInput" accept=".xlsx" style="display:none" @change="onFileInputChange">
 <span id="fileStatus" style="display:none;font-size:var(--text-xs);margin-right:8px"></span>
 
 
@@ -44,7 +44,7 @@
       </div>
       <div class="ph-side"><div class="ph-actions">
         <button v-if="isAdminUser" type="button" class="ph-btn" ref="taOpenBtn" title="Find the best people to allocate to a project" aria-label="Team assistant" @click="taOpen = !taOpen"><ph-icon name="team" :size="14"></ph-icon><span class="pl-btn-text">Team assistant</span></button>
-        <button type="button" class="ph-btn pl-load-btn" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon><span class="pl-btn-text">Load XLS</span></button>
+        <button type="button" class="ph-btn pl-load-btn" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon><span class="pl-btn-text">Load XLSX</span></button>
         <button type="button" class="ph-btn" aria-label="Export XLS" :disabled="modelPending || !!modelError" @click="exportCurrentView"><ph-icon name="download" :size="14"></ph-icon><span class="pl-btn-text">Export XLS</span></button>
         <button v-if="isPhone" type="button" class="ph-btn pl-head-filters" data-bs-toggle="offcanvas" data-bs-target="#plFiltersPanel" aria-controls="plFiltersPanel"><ph-icon name="filter" :size="14"></ph-icon><span class="pl-btn-text">Filters</span><span v-if="activeFilterCount" class="pl-count">{{ activeFilterCount }}</span></button>
       </div></div>
@@ -196,7 +196,7 @@
           <input class="form-check-input" type="checkbox" role="switch" id="chkRoundHours" v-model="roundHours">
           <label class="form-check-label" for="chkRoundHours">Rounded</label>
         </div>
-        <button v-if="isTablet && !isPhone" type="button" class="ph-btn pl-filters-load" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon> Load XLS</button>
+        <button v-if="isTablet && !isPhone" type="button" class="ph-btn pl-filters-load" @click="$refs.fileInput.click()"><ph-icon name="upload" :size="14"></ph-icon> Load XLSX</button>
        </teleport>
        <teleport to="#plFiltersBody" v-if="isPhone">
         <div class="pl-sheet-foot pl-sheet-legend">

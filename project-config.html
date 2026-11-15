@@ -130,7 +130,7 @@
             <div class="pc-card-sub" v-html="actuals.info"></div>
           </div>
           <div class="pc-card-actions">
-            <label class="ph-btn pc-btn-outline mb-0" v-if="project.code && !isViewer"><ph-icon name="upload" :size="14"></ph-icon>Load actuals<input type="file" accept=".xls,.xlsx" class="d-none" @change="onActualsFileChange"></label>
+            <label class="ph-btn pc-btn-outline mb-0" v-if="project.code && !isViewer"><ph-icon name="upload" :size="14"></ph-icon>Load actuals<input type="file" accept=".xlsx" class="d-none" @change="onActualsFileChange"></label>
             <button type="button" class="ph-btn" v-if="actuals.exportRows" @click="openActualsViewModal"><ph-icon name="eye" :size="14"></ph-icon>View</button>
             <button type="button" class="ph-btn pc-icon-btn" v-if="actuals.exportRows" title="Download actuals" aria-label="Download actuals" @click="downloadActualsXlsx"><ph-icon name="download" :size="14"></ph-icon></button>
             <button type="button" class="ph-btn pc-icon-btn pc-icon-btn--danger" v-if="project.code && !isViewer" :disabled="actuals.deleting" title="Delete actuals" aria-label="Delete actuals" @click="onDeleteActuals"><ph-icon name="trash" :size="14"></ph-icon></button>

@@ -25,4 +25,18 @@ describe('xlsx version guard', () => {
       expect(read(f), f).not.toContain('xlsx@0.18.5');
     }
   });
+
+  it('the three actuals file inputs accept only .xlsx and the Load button says XLSX', () => {
+    for (const f of ['portfolio.html', 'project-config.html', 'planning.html']) {
+      const inputs = read(f).match(/<input type="file"[^>]*>/g) || [];
+      expect(inputs.length, f).toBeGreaterThan(0);
+      for (const input of inputs) {
+        expect(input, f).toContain('accept=".xlsx"');
+        expect(input, f).not.toContain('accept=".xls,.xlsx"');
+      }
+    }
+    const planning = read('planning.html').replace(/<!--[\s\S]*?-->/g, '');
+    expect(planning).not.toMatch(/Load XLS(?!X)/);
+    expect(count(planning, 'Load XLSX')).toBe(2);
+  });
 });
