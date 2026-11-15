@@ -5253,8 +5253,10 @@ async function testMailFailures() {
 // forgot-password slots per IP are limited per hour in a process that lives on (forgotIpLimiter in routes/auth.js).
 // The AT checks send their forgot-password calls from their own forwarded client addresses (the API trusts one
 // proxy hop, so X-Forwarded-For sets req.ip), fresh on every run: a second run against the same API process finds
-// its slots untouched, and no group of checks shares one address with another. This holds only when API_URL is the
-// API itself (the default): through nginx the peer is appended and the forged header is ignored.
+// its slots untouched. Checks that share a forwarded address share its slots, and each address has its own limit:
+// whoever adds forgot-password calls to a group counts the calls already made for that address and for that IP.
+// This holds only when API_URL is the API itself (the default): through nginx the peer is appended and the forged
+// header is ignored.
 const fwd = () => ({ 'X-Forwarded-For': `10.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}` });
 
 async function tokensFor(address, page) {
@@ -5327,8 +5329,8 @@ async function testAuthTokens() {
   const afterLegacy = await tokensFor(addrA, RESET);
   ok(afterLegacy.length === 2 && await col(idA, 'reset_token_hash') === sha256(afterLegacy[0]),
     `AT-02 a pending reset with an expiry beyond the current lifetime is replaced and mailed (got ${afterLegacy.length} mails)`);
-  // The cooldown is 2 minutes: a reset issued 3 minutes ago is replaced (the second request above, right after
-  // the issue, shows the other side of the edge).
+  // A reset issued longer ago than the cooldown (RESET_COOLDOWN_MS in api/src/lib/auth-tokens.js; keep the age
+  // below above it) is replaced; the second request above, right after the issue, shows the other side of the edge.
   await sql(`UPDATE users SET reset_expires = NOW() + interval '2 hours' - interval '3 minutes' WHERE id = $1`, [idA]);
   await fp({ email: addrA });
   const afterOld = await tokensFor(addrA, RESET);
@@ -5381,7 +5383,7 @@ async function testAuthTokens() {
 
   // AT-04: input of the wrong type or shape never reaches a 500.
   for (const bad of [{}, [], 123]) {
-    const r = await fp({ email: bad }, ipD);
+    const r = await fp({ email: bad });
     ok(r.status === 200 && JSON.stringify(r.data) === '{"ok":true}', `AT-04 forgot-password with email ${JSON.stringify(bad)} → 200 {ok:true} (got ${r.status})`);
   }
   for (const [route, label] of [['activate', 'activate'], ['reset-password', 'reset-password']]) {
