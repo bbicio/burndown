@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin, sessionRowError } = require('../middleware/auth');
 const { isAdminRole } = require('../lib/is-admin');
+const { notificationUrlError, URL_RULE } = require('../lib/notification-url');
 const { sendAdminNotificationEmail } = require('../services/email');
 
 const router = express.Router();
@@ -137,6 +138,8 @@ router.post('/', requireAuth, async (req, res, next) => {
   try {
     const { userId, type = 'info', title, body, url, urlLabel, channels } = req.body;
     if (!title?.trim()) return res.status(400).json({ error: 'title is required' });
+    const urlError = notificationUrlError(url, process.env.APP_URL);
+    if (urlError) return res.status(400).json({ error: urlError, code: URL_RULE });
 
     const chans = Array.isArray(channels) && channels.length ? channels : ['push'];
     const wantPush = chans.includes('push');

@@ -5172,6 +5172,55 @@ async function testMailFailures() {
   }
 }
 
+// ── Notification url rule (S-01) ────────────────────────────────────────────────
+
+async function testNotificationUrl() {
+  section('Notification url rule (S-01)');
+  const TITLE = '__nurl__';
+  const APP = process.env.APP_URL || 'http://localhost';
+  const plain = await getPlainUser();
+  const adminRow = await sql('SELECT id FROM users WHERE email = $1', [EMAIL]);
+  if (!plain.id || !adminRow?.[0]) return;
+  const adminId = adminRow[0].id;
+  const MESSAGE = 'url must be an app path or an absolute URL on the app origin';
+  const count = async () => (await sql('SELECT count(*)::int AS n FROM notifications WHERE title = $1', [TITLE]))?.[0]?.n;
+
+  try {
+    ok((await count()) === 0, 'NU-00 no leftover notification before the checks');
+    const bad = ['javascript:alert(1)', 'data:text/html,x', '//example.com', 'https://example.com/x',
+      '/\\evil', '/a\nb', 123];
+    for (const url of bad) {
+      const label = JSON.stringify(url);
+      const one = await api('POST', '/api/notifications', { userId: plain.id, title: TITLE, url, channels: ['push'] }, adminCookie);
+      ok(one.status === 400 && one.data?.code === 'URL_RULE' && one.data?.error === MESSAGE,
+        `NU-01 ${label} to one user is refused with 400 URL_RULE (got ${one.status} ${one.data?.code})`);
+      const all = await api('POST', '/api/notifications', { title: TITLE, url, channels: ['push'] }, adminCookie);
+      ok(all.status === 400 && all.data?.code === 'URL_RULE', `NU-02 ${label} as a broadcast is refused with 400 URL_RULE (got ${all.status})`);
+      ok((await count()) === 0, `NU-03 ${label} created no notification row`);
+    }
+
+    const viaPlain = await api('POST', '/api/notifications', { userId: adminId, title: TITLE, url: 'javascript:alert(1)', channels: ['push'] }, plain.cookie);
+    ok(viaPlain.status === 400 && viaPlain.data?.code === 'URL_RULE', `NU-04 a plain user is refused too (got ${viaPlain.status})`);
+    ok((await count()) === 0, 'NU-05 the plain user\'s refused notification created no row');
+
+    for (const url of ['/pipeline.html', `${APP}/pipeline.html`]) {
+      const r = await api('POST', '/api/notifications', { userId: plain.id, title: TITLE, url, channels: ['push'] }, adminCookie);
+      ok(r.status === 201, `NU-06 ${url} is accepted (got ${r.status})`);
+      const row = await sql('SELECT url FROM notifications WHERE title = $1 AND url = $2', [TITLE, url]);
+      ok(row?.length === 1, `NU-07 ${url} is stored as sent`);
+    }
+    const fromPlain = await api('POST', '/api/notifications', { userId: adminId, title: TITLE, url: '/pipeline.html', channels: ['push'] }, plain.cookie);
+    ok(fromPlain.status === 201, `NU-08 a plain user can send a valid url to another user (got ${fromPlain.status})`);
+
+    for (const url of [undefined, '']) {
+      const r = await api('POST', '/api/notifications', { userId: plain.id, title: TITLE, url, channels: ['push'] }, adminCookie);
+      ok(r.status === 201, `NU-09 ${JSON.stringify(url)} counts as no url (got ${r.status})`);
+    }
+  } finally {
+    await sql('DELETE FROM notifications WHERE title = $1', [TITLE]);
+  }
+}
+
 async function main() {
   process.stdout.write(`\n${bold('PDash API Integration Tests')} — ${BASE}\n`);
   process.stdout.write(`Admin: ${EMAIL}\n`);
@@ -5229,6 +5278,7 @@ async function main() {
     await testPlanningModel();
     await testPlanningAssistant();
     await testMailFailures();
+    await testNotificationUrl();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
     console.error(e.stack);
