@@ -1,9 +1,10 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { notificationUrl } from './notification-url.js';
 import { join } from 'node:path';
 
 const src = readFileSync(join(process.cwd(), 'js/notifications.js'), 'utf8');
-const n = new Function(src + '\nreturn { updateBadge, refreshBrowserNotifBanner };')();
+const n = new Function(src + '\nreturn { updateBadge, refreshBrowserNotifBanner, renderNotifItem, safeNotifUrl };')();
 
 beforeEach(() => {
   document.body.innerHTML =
@@ -63,5 +64,39 @@ describe('desktop-notification banner icon', () => {
       '<div id="nav-notif-browser-banner"></div><span id="nav-notif-browser-label"></span><button id="nav-notif-browser-enable"></button>';
     n.refreshBrowserNotifBanner();
     expect(document.getElementById('nav-notif-browser-label').textContent).toContain('Enable desktop notifications?');
+  });
+});
+
+describe('notification url (S-01)', () => {
+  const row = url => ({ id: 'a', title: 't', created_at: new Date().toISOString(), url });
+  beforeEach(() => { globalThis.notificationUrl = notificationUrl; });
+
+  it('renders no link and no data-url for a javascript: url', () => {
+    const html = n.renderNotifItem(row('javascript:alert(1)'));
+    expect(html).not.toContain('href=');
+    expect(html).not.toContain('data-url');
+  });
+  it('renders no link for a url on another origin', () => {
+    const html = n.renderNotifItem(row('http://evil.com/x'));
+    expect(html).not.toContain('href=');
+    expect(html).not.toContain('data-url');
+  });
+  it('renders the link and data-url for a path on the app', () => {
+    const html = n.renderNotifItem(row('/pipeline.html'));
+    expect(html).toContain('href="/pipeline.html"');
+    expect(html).toContain('data-url="/pipeline.html"');
+  });
+  it('keeps an absolute url on the page origin', () => {
+    const url = location.origin + '/pipeline.html';
+    expect(n.renderNotifItem(row(url))).toContain('href="' + url + '"');
+  });
+  it('safeNotifUrl re-checks a data-url value that was altered after the render', () => {
+    expect(n.safeNotifUrl('javascript:alert(1)')).toBeNull();
+    expect(n.safeNotifUrl('/costgrid.html?cgId=1')).toBe('/costgrid.html?cgId=1');
+  });
+  it('safeNotifUrl gives no url when the module is not loaded', () => {
+    delete globalThis.notificationUrl;
+    expect(n.safeNotifUrl('/pipeline.html')).toBeNull();
+    expect(n.renderNotifItem(row('/pipeline.html'))).not.toContain('href=');
   });
 });
