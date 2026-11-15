@@ -5,6 +5,7 @@ const { query } = require('../db/client');
 const { requireAuth } = require('../middleware/auth');
 const { parseFlexibleDate } = require('../lib/date-parse');
 const { toIso } = require('../lib/dates');
+const { xlsxFileError, XLSX_FILE_ERROR } = require('../lib/xlsx-file');
 const { resolveFee } = require('../lib/rate-resolve');
 const { isAdminRole } = require('../lib/is-admin');
 const { refreshUnmatched } = require('../services/resource-matching');
@@ -124,9 +125,18 @@ router.post('/upload', requireAuth, upload.single('file'), async (req, res, next
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 
-    const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
-    const sheetName = workbook.SheetNames[0];
-    const raw = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null }).map(trimRowKeys);
+    if (xlsxFileError(req.file.buffer)) {
+      return res.status(400).json({ error: XLSX_FILE_ERROR, code: 'FILE_FORMAT' });
+    }
+
+    let raw;
+    try {
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
+      const sheetName = workbook.SheetNames[0];
+      raw = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: null }).map(trimRowKeys);
+    } catch {
+      return res.status(400).json({ error: 'File is empty or unreadable' });
+    }
 
     if (!raw.length) return res.status(400).json({ error: 'File is empty or unreadable' });
 

@@ -110,10 +110,11 @@ async function sql(text, params = []) {
   }
 }
 
-// Multipart CSV upload (the suite's api() helper only speaks JSON). xlsx parses CSV buffers too.
-async function uploadCsv(path, csvText, cookie) {
+// Multipart upload of an arbitrary buffer (the suite's api() helper only speaks JSON).
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+async function uploadRaw(path, buffer, filename, contentType, cookie) {
   const form = new FormData();
-  form.append('file', new Blob([csvText], { type: 'text/csv' }), 'ts.csv');
+  if (buffer) form.append('file', new Blob([buffer], { type: contentType }), filename);
   try {
     const res = await fetch(`${BASE}${path}`, { method: 'POST', headers: { Cookie: cookie }, body: form });
     let data; try { data = await res.json(); } catch { data = null; }
@@ -122,6 +123,16 @@ async function uploadCsv(path, csvText, cookie) {
     fail(`FETCH ERROR POST ${path}: ${e.message}`);
     return { status: 0, data: null };
   }
+}
+
+// The upload accepts only .xlsx: the CSV the tests write is converted to a real workbook first.
+function csvToXlsx(csvText) {
+  const XLSX = require('/tmp/node_modules/xlsx');
+  const wb = XLSX.read(csvText, { type: 'string', raw: true });
+  return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+}
+async function uploadCsv(path, csvText, cookie) {
+  return uploadRaw(path, csvToXlsx(csvText), 'ts.xlsx', XLSX_MIME, cookie);
 }
 
 function extractCookie(headers) {
@@ -2918,6 +2929,70 @@ async function testTagLinking() {
   }
 }
 
+// ── Timesheet upload format gate (2026-11, security cycle 2, S-02) ──────────────
+
+// A ZIP with one stored text entry and no workbook: passes the signature gate, is not a workbook.
+function zipWithTextOnly() {
+  const name = Buffer.from('readme.txt'), data = Buffer.from('not a workbook');
+  let c, crc = 0xffffffff;
+  for (const b of data) { c = (crc ^ b) & 0xff; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; crc = (crc >>> 8) ^ c; }
+  crc = (crc ^ 0xffffffff) >>> 0;
+  const lh = Buffer.alloc(30); lh.writeUInt32LE(0x04034b50, 0); lh.writeUInt16LE(20, 4);
+  lh.writeUInt32LE(crc, 14); lh.writeUInt32LE(data.length, 18); lh.writeUInt32LE(data.length, 22); lh.writeUInt16LE(name.length, 26);
+  const local = Buffer.concat([lh, name, data]);
+  const ch = Buffer.alloc(46); ch.writeUInt32LE(0x02014b50, 0); ch.writeUInt16LE(20, 4); ch.writeUInt16LE(20, 6);
+  ch.writeUInt32LE(crc, 16); ch.writeUInt32LE(data.length, 20); ch.writeUInt32LE(data.length, 24); ch.writeUInt16LE(name.length, 28);
+  const central = Buffer.concat([ch, name]);
+  const end = Buffer.alloc(22); end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(1, 8); end.writeUInt16LE(1, 10);
+  end.writeUInt32LE(central.length, 12); end.writeUInt32LE(local.length, 16);
+  return Buffer.concat([local, central, end]);
+}
+
+async function testXlsxUploadGate() {
+  section('Timesheet upload format gate');
+  const XLSX = require('/tmp/node_modules/xlsx');
+  const ts = Date.now();
+  const code = `TXF${ts}`;
+  const url = '/api/timesheets/upload';
+  const rProj = await api('POST', '/api/projects', { name: `__test_xf_proj_${ts}__`, code }, sysadminCookie);
+  const projId = rProj.data?.id;
+  if (projId) later('DELETE', `/api/projects/${projId}`);
+  if (projId) {
+    await api('PUT', `/api/projects/${projId}/tasks`,
+      [{ name: 'Analysis', resources: [{ role: 'Consultant', soldHours: 8 }] }], adminCookie);
+  }
+  later('DELETE', `/api/timesheets/${code}`);
+
+  const header = ['projectId', 'date', 'task', 'role', 'owner', 'hours'];
+  const sheet = (rows) => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(rows), 'Sheet1');
+    return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  };
+  const good = sheet([header, [code, '2026-01-15', 'Analysis', 'Consultant', '', 4]]);
+
+  const r1 = await uploadRaw(url, Buffer.from(header.join(',') + `
+${code},2026-01-15,Analysis,Consultant,,4
+`), 'ts.csv', 'text/csv', adminCookie);
+  ok(r1.status === 400 && r1.data?.code === 'FILE_FORMAT', `XF-01 CSV → 400 FILE_FORMAT (got ${r1.status})`);
+  const r2 = await uploadRaw(url, Buffer.from([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1, 1, 2, 3]), 'ts.xls', 'application/vnd.ms-excel', adminCookie);
+  ok(r2.status === 400 && r2.data?.code === 'FILE_FORMAT', `XF-02 .xls (BIFF) → 400 FILE_FORMAT (got ${r2.status})`);
+  const r3 = await uploadRaw(url, Buffer.concat([Buffer.from([0x50, 0x4b, 0x03, 0x04]), require('crypto').randomBytes(64)]), 'ts.xlsx', XLSX_MIME, adminCookie);
+  ok(r3.status === 400 && r3.data?.error === 'File is empty or unreadable', `XF-03 PK signature + random bytes → 400 unreadable (got ${r3.status})`);
+  const r4 = await uploadRaw(url, zipWithTextOnly(), 'ts.xlsx', XLSX_MIME, adminCookie);
+  ok(r4.status === 400 && r4.data?.error === 'File is empty or unreadable', `XF-04 ZIP without a workbook → 400, not 500 (got ${r4.status})`);
+  const r7 = await uploadRaw(url, null, null, null, adminCookie);
+  ok(r7.status === 400 && r7.data?.error === 'No file uploaded', `XF-07 no file field → 400 No file uploaded (got ${r7.status})`);
+  const r6 = await uploadRaw(url, sheet([header]), 'ts.xlsx', XLSX_MIME, adminCookie);
+  ok(r6.status === 400 && r6.data?.error === 'File is empty or unreadable', `XF-06 header-only .xlsx → 400 unreadable (got ${r6.status})`);
+
+  const rows = await api('GET', `/api/timesheets/${code}`, null, adminCookie);
+  ok(rows.status === 200 && Array.isArray(rows.data) && rows.data.length === 0, 'XF-08 the refused uploads wrote no rows');
+
+  const r5 = await uploadRaw(url, good, 'ts.csv', 'text/csv', adminCookie);
+  ok(r5.status === 201, `XF-05 a real .xlsx named ts.csv (text/csv) → 201 (got ${r5.status}${r5.data?.error ? ': ' + r5.data.error : ''})`);
+}
+
 // ── Resource Matching (2026-09, Cycle 3b) ───────────────────────────────────────
 
 async function testResourceMatching() {
@@ -5253,6 +5328,7 @@ async function main() {
     await testAdminChangeOwner();
     await testCostGridReassignOwner();
     await testResourcesAndAttributeLists();
+    await testXlsxUploadGate();
     await testResourceMatching();
     await testProfileEngine();
     await testProfileEngineHooks();

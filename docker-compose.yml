@@ -78,7 +78,7 @@ services:
     working_dir: /app
     command: >
       sh -c "
-        npm install --prefix /tmp pg bcryptjs --silent --no-audit --no-fund &&
+        npm install --prefix /tmp pg bcryptjs https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz --silent --no-audit --no-fund &&
         NODE_PATH=/tmp/node_modules node src/create-admin.js $$TEST_ADMIN_EMAIL $$TEST_ADMIN_PASSWORD Test Admin &&
         NODE_PATH=/tmp/node_modules node src/create-admin.js $$TEST_SYSADMIN_EMAIL $$TEST_SYSADMIN_PASSWORD Test SysAdmin &&
         NODE_PATH=/tmp/node_modules node src/promote-sysadmin.js $$TEST_SYSADMIN_EMAIL &&
