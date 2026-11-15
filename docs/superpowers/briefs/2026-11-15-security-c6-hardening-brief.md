@@ -1,6 +1,6 @@
 # Brief — Sicurezza ciclo 6: hardening a bassa severità (S-08, S-05, S-10)
 
-**Tipo:** correzione di divergenza (audit-fix, Scenario 3). Finding coperti: **S-08**, **S-05**, **S-10**.
+**Tipo:** correzione di divergenza (audit-fix, Scenario 3). Finding coperti: **S-08**, **S-05**, **S-10**, più il candidato `APP_URL` emerso dal ciclo 1 (vedi «Comportamento attuale»).
 **Origine:** `docs/superpowers/audits/2026-11-15-security-review-audit.md`, raggruppamento confermato il 2026-11-15. Ordine: 6 di 6.
 **Criterio di raggruppamento:** natura e severità (tre correzioni piccole e a basso rischio), **non** una causa comune: toccano `api/src/index.js`, `docker-compose.yml` e `api/Dockerfile`. Se in `/brainstorming` conviene, S-08 si sposta nel ciclo 3 (anche lì c'è un 500 da input non valido) e gli altri due restano insieme.
 **Severità aggiornata dall'utente (2026-11-15):** il `docker-compose.yml` del repo **non** è quello di produzione (Azure ha il proprio), quindi S-05 e S-10 riguardano l'ambiente di sviluppo e scendono a Low. **S-07** (cookie `Secure` solo con `NODE_ENV=production`) non è un ciclo di codice: l'utente verifica che il compose Azure imposti `NODE_ENV=production`; resta aperta una scelta di design (vedi «Decisione aperta»).
@@ -12,6 +12,7 @@
 ## Comportamento attuale
 
 - `res.status(err.status || 500).json({ error: err.message || 'Internal server error' })` (`api/src/index.js:90-93`). Percorsi raggiungibili con input malformato: `userId` non validato in `routes/cost-grids.js:990` (share) e `routes/notifications.js:149`.
+- **Candidato aggiunto dal ciclo 1 (2026-11-15, non un finding dell'audit):** `api/src/routes/cost-grids.js:1023` (link dell'email di condivisione) e `:1035` (`url` della notifica) usano `process.env.APP_URL` senza il default `http://localhost` che usano `email.js` e `:1141`/`:1149` (`APP_URL` importato da `services/email`). Con la variabile assente il link diventa `undefined/pipeline.html`: l'email porta un link rotto e, dal ciclo 1, il client non mostra il link della notifica (non è un percorso né un URL sull'origine dell'app). `config.js:185`/`:198` e `projects.js:707`/`:719` usano un `appUrl` locale: verificarne la definizione in `/brainstorming`.
 - `docker-compose.yml`: `"5432:5432"` (`:21`), `adminer: image: adminer:latest`, `"8080:8080"` (`:88-92`), nessun indirizzo di bind.
 - `api/Dockerfile`: nessuna istruzione `USER`; l'immagine esegue `node src/index.js` come root.
 - Servizio `test` del compose: `create-admin.js` e `promote-sysadmin.js` con `${TEST_SYSADMIN_PASSWORD:-TestSysAdmin123!}` contro il `db` del progetto (`docker-compose.yml:72` e comando del servizio); `scripts/run-tests.sh` è la mitigazione perché usa uno stack isolato, ma il profilo del compose non ha nessuna guardia.
@@ -22,6 +23,7 @@
 2. Nel compose di sviluppo PostgreSQL e Adminer ascoltano solo su `127.0.0.1`, e Adminer ha una versione fissata.
 3. Il container API non gira come root.
 4. Il profilo `test` rifiuta di creare gli account con password predefinita se non è su uno stack di test (la regola esatta, es. nome del database o variabile esplicita, è della spec).
+5. (Candidato del ciclo 1) Ogni punto che costruisce un link da `APP_URL` usa lo stesso valore e lo stesso default di `services/email.js` (`APP_URL`), senza leggere `process.env.APP_URL` direttamente.
 
 ## Decisione aperta (da portare in `/brainstorming`, non assunta)
 
@@ -41,7 +43,8 @@
 3. `docker compose config` mostra `127.0.0.1:5432`, `127.0.0.1:8080` e un tag di versione per Adminer.
 4. `docker exec pdash-api id` (su stack isolato) non mostra `uid=0`; le suite `run-tests.sh` passano.
 5. Il servizio `test` si ferma con un messaggio chiaro se lanciato contro uno stack non di test.
-6. Suite backend e frontend verdi.
+6. Con `APP_URL` non impostato, l'email di condivisione e la notifica di `cost-grids.js` portano un link su `http://localhost` e non `undefined/…` (test sul punto che costruisce il link).
+7. Suite backend e frontend verdi.
 
 ## Scope escluso esplicitamente
 
