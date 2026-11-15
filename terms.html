@@ -87,11 +87,12 @@
   </div>
 
   <script defer src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+  <script type="module" src="js/lib/notification-url.js?v=1"></script>
   <script type="module">
     Vue.createApp({
       data() {
         return {
-          next: new URLSearchParams(window.location.search).get('next') || '/pipeline.html',
+          next: (window.notificationUrl && window.notificationUrl(new URLSearchParams(window.location.search).get('next'), window.location.origin)) || '/pipeline.html',
           version: null,
           effectiveDate: '',
           termsContent: '',

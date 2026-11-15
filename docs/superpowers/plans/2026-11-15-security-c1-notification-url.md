@@ -127,6 +127,16 @@ I task non sono indipendenti: T2 e T6 leggono il modulo di T1, T5 legge quello d
 
 ---
 
+### Task 7: `terms.html` segue `?next=` solo attraverso la regola (aggiunto dopo `/security-review`)
+
+**Files:**
+- Modify: `terms.html` (riga `next:` del `data()` e uno `<script type="module" src="js/lib/notification-url.js?v=1">` prima del modulo inline)
+- Test: `js/lib/notification-url-guard.test.js`
+
+- [x] **Step 1: Write the failing test** — `terms.html follows ?next= only through the rule, falling back to /pipeline.html`: una sola riga `next:` che contiene `notificationUrl(` e `'/pipeline.html'` e non `get('next') ||`, e il tag del modulo precede `Vue.createApp`. Run: `npx vitest run js/lib/notification-url-guard.test.js`. Expected: FAIL (visto).
+- [x] **Step 2: Implement** `next: (window.notificationUrl && window.notificationUrl(<next>, window.location.origin)) || '/pipeline.html'` (senza modulo ricade su `/pipeline.html`, così la pagina resta usabile). Expected: PASS; `npm test` 3203/3203.
+- [x] **Step 3: Commit.**
+
 La documentazione (`docs/js/lib.md`, `docs/api/lib.md`, `docs/api/notifications.md`, `docs/js/notifications.md`) la aggiorna `/sync-docs` dentro `/finish-cycle`, non un task di questo piano.
 
 ## Decisioni aperte
@@ -136,3 +146,4 @@ La documentazione (`docs/js/lib.md`, `docs/api/lib.md`, `docs/api/notifications.
 3. **`testNotificationUrl` legge l'`APP_URL` del server come `process.env.APP_URL || 'http://localhost'` e non cambia `docker-compose.yml`.** Alternativa scartata: aggiungere `APP_URL` al servizio `test`. Perché: tocca un file Docker condiviso, e il default coincide con quello della route; se `.env` imposta un `APP_URL` diverso, il caso `201` assoluto fallisce visibilmente.
 4. **Senza `window.notificationUrl` il client non mostra nessun link.** Alternativa scartata: ricadere sul valore grezzo. Perché: un modulo non caricato non deve riaprire il buco; il guard di T6 impone che le pagine lo carichino.
 5. **Il click rilegge `safeNotifUrl(el.dataset.url)` invece di fidarsi del `data-url` già filtrato al render.** Alternativa scartata: leggere `data-url` direttamente. Perché: l'attributo è nel DOM e può essere stato alterato dopo il render.
+6. **Task 7: `terms.html` entra nel ciclo (decisione dell'utente dopo il `/security-review`).** Alternativa scartata: Brief separato. Perché: senza questo, un percorso valido per la regola (`/terms.html?next=javascript:…`) riapre S-01; `js/nav.js:374` non cambia perché costruisce solo il valore.

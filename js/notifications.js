@@ -70,6 +70,12 @@ function wireBrowserNotifBanner() {
   });
 }
 
+// The only way a notification url reaches a link or a navigation: the rule of js/lib/notification-url.js,
+// read at call time. Without the module there is no link.
+function safeNotifUrl(url) {
+  return typeof window.notificationUrl === 'function' ? window.notificationUrl(url, window.location.origin) : null;
+}
+
 function maybeShowBrowserNotification(n) {
   if (typeof Notification === 'undefined') return;
   const isVisible = document.hasFocus() && !document.hidden;
@@ -77,7 +83,8 @@ function maybeShowBrowserNotification(n) {
   const browserNotif = new Notification(n.title, { body: n.body || '' });
   browserNotif.onclick = () => {
     window.focus();
-    if (n.url) window.location.href = n.url;
+    const url = safeNotifUrl(n.url);
+    if (url) window.location.href = url;
   };
 }
 
@@ -152,7 +159,7 @@ async function renderNotifications() {
           const curr = parseInt(badge?.textContent || '0') - 1;
           updateBadge(Math.max(0, curr));
         }
-        const url = el.dataset.url;
+        const url = safeNotifUrl(el.dataset.url);
         if (url) window.location.href = url;
       });
     });
@@ -162,9 +169,10 @@ async function renderNotifications() {
 function renderNotifItem(n) {
   const ago = timeAgo(new Date(n.created_at));
   const unreadClass = n.read_at ? '' : 'unread';
-  const urlAttr = n.url ? `data-url="${_esc(n.url)}"` : '';
-  const linkHtml = n.url
-    ? `<div class="mt-1"><a href="${_esc(n.url)}" style="font-size:.78rem;color:var(--brand-magenta)" onclick="event.stopPropagation()">${_esc(n.url_label || 'Open →')}</a></div>`
+  const url = safeNotifUrl(n.url);
+  const urlAttr = url ? `data-url="${_esc(url)}"` : '';
+  const linkHtml = url
+    ? `<div class="mt-1"><a href="${_esc(url)}" style="font-size:.78rem;color:var(--brand-magenta)" onclick="event.stopPropagation()">${_esc(n.url_label || 'Open →')}</a></div>`
     : '';
   return `<div class="notif-item ${unreadClass} px-3 py-2 border-bottom" data-id="${_esc(n.id)}" ${urlAttr} style="cursor:pointer">
     <div class="d-flex justify-content-between align-items-start gap-2">
