@@ -5203,6 +5203,30 @@ async function testMailFailures() {
   if (pId) later('DELETE', `/api/projects/${pId}`);
   if (!ok(!!(target && prg.status === 201 && cgId && vId && pId), 'MAIL-setup user, program, proposal and project created')) return;
 
+  // Delivered mails, addressed to `address`, with their body.
+  const mailsTo = async (address) => {
+    const list = (await mailpit('GET', `/api/v1/search?query=${encodeURIComponent('to:' + address)}`)).data?.messages || [];
+    return Promise.all(list.map(async (m) => {
+      const d = (await mailpit('GET', `/api/v1/message/${m.ID}`)).data;
+      return { subject: m.Subject || '', body: `${d?.Text || ''}\n${d?.HTML || ''}` };
+    }));
+  };
+
+  // MAIL-09: the sign-in code of the two-step login reaches Mailpit
+  await mailpit('DELETE', '/api/v1/messages');
+  const ch = await openChallenge(target);
+  const codes = (await mailsTo(target.email)).filter(m => m.subject === 'PDash — Your sign-in code');
+  ok(!!ch.cookie && codes.length === 1 && /<strong>\d{6}<\/strong>/.test(codes[0].body),
+    `MAIL-09 login → the sign-in code mail is delivered with a six-digit code (challenge ${!!ch.cookie}, ${codes.length} mail)`);
+
+  // MAIL-10: a share notification reaches the recipient
+  await mailpit('DELETE', '/api/v1/messages');
+  const shareTarget = await makeTsUser('mailshare');
+  const sh = shareTarget ? await api('POST', `/api/cost-grids/${cgId}/shares`, { userId: shareTarget.id, permission: 'viewer' }, sysadminCookie) : null;
+  const shared = shareTarget ? (await mailsTo(shareTarget.email)).filter(m => m.subject.includes('shared a')) : [];
+  ok(sh?.status === 201 && sh.data?.emailSent === true && shared.length === 1,
+    `MAIL-10 cost grid share → 201, emailSent true, one share mail delivered (got ${sh?.status}, ${JSON.stringify(sh?.data)}, ${shared.length} mail)`);
+
   const shareRow = async (type, id) =>
     ((await sql('SELECT 1 FROM resource_shares WHERE resource_type = $1 AND resource_id = $2 AND user_id = $3',
       [type, id, target.id])) || []).length === 1;
