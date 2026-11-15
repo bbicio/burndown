@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const { renderEmailHtml } = require('../lib/email-template');
 const { escapeHtml } = require('../lib/user-details');
+const { notificationLink } = require('../lib/notification-url');
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -145,8 +146,14 @@ async function sendExportEmail({ to, firstName, exports }) {
   });
 }
 
+// The "Open in PDash" paragraph of a notification email: a link only for a url the notification rule
+// accepts, escaped for the href attribute; empty otherwise.
+function renderAdminNotificationLink(url) {
+  const link = notificationLink(url, APP_URL);
+  return link ? `<p><a href="${escapeHtml(link)}">Open in PDash</a></p>` : '';
+}
+
 async function sendAdminNotificationEmail({ to, firstName, title, body, url }) {
-  const link = url ? (url.startsWith('http') ? url : `${APP_URL}${url}`) : null;
   await transporter.sendMail({
     from: FROM,
     to,
@@ -157,10 +164,10 @@ async function sendAdminNotificationEmail({ to, firstName, title, body, url }) {
         <p>Hi ${escapeHtml(firstName || 'there')},</p>
         <p><strong>${escapeHtml(title)}</strong></p>
         ${body ? `<p>${escapeHtml(body).replace(/\n/g, '<br>')}</p>` : ''}
-        ${link ? `<p><a href="${link}">Open in PDash</a></p>` : ''}
+        ${renderAdminNotificationLink(url)}
       `,
     }),
   });
 }
 
-module.exports = { sendInvite, sendLoginCode, sendPasswordReset, sendShareNotification, sendShareRevokedEmail, sendOwnerReassignedEmail, sendExportEmail, sendAdminNotificationEmail, APP_URL };
+module.exports = { sendInvite, sendLoginCode, sendPasswordReset, sendShareNotification, sendShareRevokedEmail, sendOwnerReassignedEmail, sendExportEmail, sendAdminNotificationEmail, renderAdminNotificationLink, APP_URL };
