@@ -826,11 +826,10 @@ async function testSecurity() {
   ok(empty.status !== 400, `UV-08 an empty userId is still a broadcast, not a 400 (got ${empty.status})`);
 
   // SEC-20..23: an unexpected (database) error answers a generic 500; client errors stay 4xx.
-  // SEC-20 reaches the 500 through B-500 (userId not validated): fixing B-500 needs another 500 trigger here.
-  const dbErr = await api('POST', '/api/cost-grids/00000000-0000-0000-0000-000000000000/shares',
-    { userId: 'not-a-uuid', permission: 'viewer' }, adminCookie);
+  // SEC-20 reaches the 500 through a non-UUID :id (no validation yet, BACKLOG row of the :id params): when it is fixed, SEC-20 needs another trigger
+  const dbErr = await api('GET', '/api/cost-grids/not-a-uuid/shares', null, adminCookie);
   ok(dbErr.status === 500 && dbErr.data?.error === 'Internal server error',
-    `SEC-20 share with a non-UUID userId → 500 generic (got ${dbErr.status} ${JSON.stringify(dbErr.data)})`);
+    `SEC-20 share list with a non-UUID :id → 500 generic (got ${dbErr.status} ${JSON.stringify(dbErr.data)})`);
   ok(!/uuid|syntax/i.test(JSON.stringify(dbErr.data)), 'SEC-21 the 500 body carries no PostgreSQL text');
   const badJson = await fetch(`${BASE}/api/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{bad',
