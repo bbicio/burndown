@@ -22,4 +22,14 @@ describe('run-tests.sh image hash', () => {
     expect(copied).toContain('api/package-lock.json');
     for (const f of copied) expect(line, f).toContain(f);
   });
+
+  // Every checkout shares one compose project, so one image: a hash file alone would let a checkout
+  // reuse an image another checkout built from a different lockfile.
+  it('ties the stored hash to the id of the shared image', () => {
+    const sh = read('scripts/run-tests.sh');
+    expect(sh).toContain('API_IMAGE="${PROJECT}-api"');
+    expect(sh).toContain(`docker image inspect --format '{{.Id}}' "$API_IMAGE"`);
+    expect(sh).toContain('[ "$(cat "$IMAGE_HASH_FILE")" = "$CURRENT_HASH $(image_id)" ]');
+    expect(sh).toContain('echo "$CURRENT_HASH $(image_id)" > "$IMAGE_HASH_FILE"');
+  });
 });
