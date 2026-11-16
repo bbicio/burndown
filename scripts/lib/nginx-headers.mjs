@@ -34,11 +34,14 @@ export function parseCsp(value) {
   return csp;
 }
 
-// A CSP host source (`https://host[/path]`, no wildcard) as a URL; null for keywords, schemes and
-// wildcards. A source without a path reads as path `/`.
+// A CSP host source (`[https://]host[:port][/path]`, no wildcard) as a URL; null for keywords,
+// schemes and wildcards. A source without a scheme reads as https, one without a path as path `/`.
 function hostSource(source) {
-  if (source.includes('*') || !/^https?:\/\/[^/]/i.test(source)) return null;
-  try { return new URL(source); } catch { return null; }
+  if (source.includes('*') || source.startsWith("'") || /^[a-z][a-z0-9+.-]*:$/i.test(source)) return null;
+  const withScheme = /^https?:\/\/[^/]/i.test(source) ? source
+    : /^[a-z0-9.-]+(?::\d+)?(?:\/|$)/i.test(source) ? `https://${source}` : null;
+  if (!withScheme) return null;
+  try { return new URL(withScheme); } catch { return null; }
 }
 
 /**

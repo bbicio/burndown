@@ -100,3 +100,29 @@ describe('notification url (S-01)', () => {
     expect(n.renderNotifItem(row('/pipeline.html'))).not.toContain('href=');
   });
 });
+
+// CSP cycle 8: script-src has no 'unsafe-inline', so the link cannot carry onclick="event.stopPropagation()";
+// the item's own listener leaves a click on its link to the link.
+describe('the notification link under the CSP', () => {
+  const row = { id: 'a', title: 't', created_at: new Date().toISOString(), url: '/pipeline.html', read_at: null };
+  beforeEach(() => { globalThis.notificationUrl = notificationUrl; });
+
+  it('renders the link without an inline handler', () => {
+    expect(n.renderNotifItem(row)).not.toMatch(/\son[a-z]+=/i);
+  });
+
+  it('a click on the link does not mark the item read', async () => {
+    const calls = [];
+    globalThis.apiFetch = async (path, opts) => { calls.push([path, opts?.method ?? 'GET']); return path === '/notifications' ? [row] : {}; };
+    document.body.innerHTML = '<div id="nav-notif-list"></div><span id="nav-notif-badge">1</span>';
+    const r = new Function(src + '\nreturn { renderNotifications };')();
+    await r.renderNotifications();
+    const link = document.querySelector('.notif-item a');
+    link.addEventListener('click', e => e.preventDefault());
+    link.click();
+    await new Promise(ok => setTimeout(ok, 0));
+    expect(calls).toEqual([['/notifications', 'GET']]);
+    expect(document.querySelector('.notif-item').classList.contains('unread')).toBe(true);
+    delete globalThis.apiFetch;
+  });
+});

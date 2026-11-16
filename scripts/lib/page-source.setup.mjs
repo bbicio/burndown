@@ -1,5 +1,12 @@
 // vitest setupFiles: every test's readFileSync of a root page returns pageSource(...), the page with
 // its js/pages/*.js scripts back inline. Tests that need the HTML as it is on disk use rawReadFileSync.
+//
+// What it covers: readFileSync of `node:fs`, named or default import, in the test process.
+// What it does not: fs.promises / `node:fs/promises`, readFile with a callback, createReadStream,
+// require('fs') in a CommonJS file, and reads made by a worker or child process; those see the page
+// as it is on disk, without its scripts. scripts/page-source.test.js pins the covered forms.
+// A structural check on the served page (no <script> body, a tag's position or ?v=) reads it with
+// rawReadFileSync, as scripts/security-headers-guard.test.js does.
 import { vi } from 'vitest';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';

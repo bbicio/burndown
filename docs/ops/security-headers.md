@@ -6,7 +6,7 @@ The values live once, in the `SECURITY HEADERS` block at `server` level of [`ngi
 
 ## Scripts under the CSP
 
-`script-src` has no `'unsafe-inline'`: a page carries no inline `<script>` and no `on…=` attribute. A page's own code lives in `js/pages/` (served from `'self'`): `<page>.js`, plus `<page>-overrides.js` for a module that overrides `js/*.js` globals before a classic page script; the `<head>` sidebar snippet is `js/sidebar-state.js` and the `esc()` shim `js/esc-shim.js`. Each is loaded by a tag of the same type, in the position its inline block had; a handler is wired with `addEventListener`.
+`script-src` has no `'unsafe-inline'`: a page carries no inline `<script>` and no `on…=` attribute. A page's own code lives in `js/pages/` (served from `'self'`): `<page>.js`, plus `<page>-overrides.js` for a module that overrides `js/*.js` globals before a classic page script; the `<head>` sidebar snippet is `js/sidebar-state.js`. Each is loaded by a tag of the same type, in the position its inline block had; a handler is wired with `addEventListener`.
 
 A CDN script is admitted by its exact URL, one `script-src` source per file. Adding a CDN library, or changing its version, changes its source in `nginx.conf` in the same commit; the guard fails until both agree, and a deployed stack refuses the new file until nginx is reloaded.
 

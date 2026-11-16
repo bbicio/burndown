@@ -511,17 +511,16 @@ describe('Pipelines & POTs responsive styles', () => {
   });
 });
 
-describe('the esc() shim is one shared classic script', () => {
-  const ESC = "function esc(s) {\n  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;');\n}";
-  it('js/esc-shim.js holds the esc() the pages used to inline', () => {
-    expect(read('js/esc-shim.js')).toContain(ESC);
-  });
+// nav.js calls esc() only after DOMContentLoaded; core.js, deferred before it, defines esc().
+// These pages used to inline an esc() shim for nav.js, which core.js always replaced first.
+describe('nav.js gets esc() from core.js, with no shim', () => {
   it.each(['admin', 'master-clients', 'master-currencies', 'master-pipelines', 'master-roles', 'timesheets'])(
-    '%s.html loads it before core.js and inlines no esc()', name => {
+    '%s.html loads core.js before nav.js and no esc shim', name => {
       const html = read(name + '.html');
-      expect(html).not.toMatch(/<script>\s*(\/\/[^\n]*\n\s*)?function esc\(/);
-      const at = html.indexOf('<script src="js/esc-shim.js?v=1"></script>');
-      expect(at).toBeGreaterThan(-1);
-      expect(at).toBeLessThan(html.indexOf('js/core.js?v='));
+      expect(html).not.toContain('esc-shim.js');
+      expect(html).not.toMatch(/function esc\(/);
+      const core = html.indexOf('<script defer src="js/core.js?v=');
+      expect(core).toBeGreaterThan(-1);
+      expect(core).toBeLessThan(html.indexOf('<script defer src="js/nav.js?v='));
     });
 });

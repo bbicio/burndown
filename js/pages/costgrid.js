@@ -1,7 +1,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('clientNewBtn').addEventListener('click', () => openClientEditModal(null));
-  document.getElementById('clientSaveBtn').addEventListener('click', () => saveClientFromModal());
+  document.getElementById('clientNewBtn')?.addEventListener('click', () => openClientEditModal(null));
+  document.getElementById('clientSaveBtn')?.addEventListener('click', () => saveClientFromModal());
 
 function updateNavState() {}
 function cgHideAll() {}

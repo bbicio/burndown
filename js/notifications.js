@@ -150,7 +150,8 @@ async function renderNotifications() {
     }
     list.innerHTML = notifs.map(renderNotifItem).join('');
     list.querySelectorAll('.notif-item[data-id]').forEach(el => {
-      el.addEventListener('click', async () => {
+      el.addEventListener('click', async (e) => {
+        if (e.target.closest('a')) return; // the link navigates by itself, without marking the item read
         const id = el.dataset.id;
         if (el.classList.contains('unread')) {
           el.classList.remove('unread');
@@ -172,7 +173,7 @@ function renderNotifItem(n) {
   const url = safeNotifUrl(n.url);
   const urlAttr = url ? `data-url="${_esc(url)}"` : '';
   const linkHtml = url
-    ? `<div class="mt-1"><a href="${_esc(url)}" style="font-size:.78rem;color:var(--brand-magenta)" onclick="event.stopPropagation()">${_esc(n.url_label || 'Open →')}</a></div>`
+    ? `<div class="mt-1"><a href="${_esc(url)}" style="font-size:.78rem;color:var(--brand-magenta)">${_esc(n.url_label || 'Open →')}</a></div>`
     : '';
   return `<div class="notif-item ${unreadClass} px-3 py-2 border-bottom" data-id="${_esc(n.id)}" ${urlAttr} style="cursor:pointer">
     <div class="d-flex justify-content-between align-items-start gap-2">

@@ -64,3 +64,16 @@ describe('the readFileSync of every test', () => {
     expect(readFileSync(join(ROOT, 'nginx.conf'), 'utf8')).toBe(rawReadFileSync(join(ROOT, 'nginx.conf'), 'utf8'));
   });
 });
+
+describe('test files read pages only through the covered readFileSync', () => {
+  const UNCOVERED = /node:fs\/promises|['"]fs\/promises['"]|\bfs\.promises\b|\breadFile\(|createReadStream\(|require\(['"](?:node:)?fs['"]\)/;
+  const tests = ['js', 'scripts'].flatMap((dir) => fs.readdirSync(join(ROOT, dir), { recursive: true })
+    .map((n) => `${dir}/${String(n).replace(/\\/g, '/')}`).filter((n) => n.endsWith('.test.js')));
+  it('finds the test files', () => {
+    expect(tests.length).toBeGreaterThan(0);
+  });
+  it('none uses an fs form the setup does not cover', () => {
+    const self = 'scripts/page-source.test.js';
+    expect(tests.filter((f) => f !== self && UNCOVERED.test(rawReadFileSync(join(ROOT, f), 'utf8')))).toEqual([]);
+  });
+});

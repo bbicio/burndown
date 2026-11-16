@@ -49,8 +49,8 @@ describe('cost grid guard', () => {
     expect(html).not.toMatch(/\sonclick=/);
     expect(html).toMatch(/<button class="btn btn-sm btn-primary" id="clientNewBtn">/);
     expect(html).toMatch(/<button class="btn btn-primary btn-sm" id="clientSaveBtn">Save<\/button>/);
-    expect(html).toMatch(/getElementById\('clientNewBtn'\)\.addEventListener\('click', \(\) => openClientEditModal\(null\)\)/);
-    expect(html).toMatch(/getElementById\('clientSaveBtn'\)\.addEventListener\('click', \(\) => saveClientFromModal\(\)\)/);
+    expect(html).toMatch(/getElementById\('clientNewBtn'\)\?\.addEventListener\('click', \(\) => openClientEditModal\(null\)\)/);
+    expect(html).toMatch(/getElementById\('clientSaveBtn'\)\?\.addEventListener\('click', \(\) => saveClientFromModal\(\)\)/);
   });
 });
 
