@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { query, pool } = require('../db/client');
 const { withTransaction } = require('../db/transaction');
 const { notifyAdmins } = require('../services/users');
-const { setAuthCookie, clearAuthCookie } = require('../services/jwt');
+const { setAuthCookie, clearAuthCookie, cookieSecure } = require('../services/jwt');
 const { sendInvite, sendPasswordReset, sendAdminNotificationEmail, sendLoginCode } = require('../services/email');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { pushToUser } = require('./notifications');
@@ -41,7 +41,7 @@ function setChallengeCookie(res, token) {
   res.cookie(CHALLENGE_COOKIE, token, {
     httpOnly: true,
     sameSite: 'strict',
-    secure: process.env.NODE_ENV === 'production',
+    secure: cookieSecure(),
     path: COOKIE_PATH,
     maxAge: T.CHALLENGE_TTL_MS,
   });
@@ -51,7 +51,7 @@ function setDeviceCookie(res, token) {
   res.cookie(DEVICE_COOKIE, token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: cookieSecure(),
     path: COOKIE_PATH,
     maxAge: T.TRUST_DAYS * 24 * 60 * 60 * 1000,
   });

@@ -11,12 +11,17 @@ function verifyToken(token) {
   return jwt.verify(token, SECRET);
 }
 
+// Cookies carry Secure unless NODE_ENV is exactly 'development'.
+function cookieSecure() {
+  return process.env.NODE_ENV !== 'development';
+}
+
 function setAuthCookie(res, payload) {
   const token = signToken(payload);
   res.cookie('pdash_token', token, {
     httpOnly: true,
     sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    secure: cookieSecure(),
     maxAge: 8 * 60 * 60 * 1000, // 8h in ms
   });
 }
@@ -25,4 +30,4 @@ function clearAuthCookie(res) {
   res.clearCookie('pdash_token');
 }
 
-module.exports = { signToken, verifyToken, setAuthCookie, clearAuthCookie };
+module.exports = { cookieSecure, signToken, verifyToken, setAuthCookie, clearAuthCookie };
