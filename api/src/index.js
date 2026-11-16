@@ -3,6 +3,7 @@ const cookieParser = require('cookie-parser');
 const cors = require('cors');
 
 const { testConnection } = require('./db/client');
+const { errorResponse } = require('./lib/error-response');
 const authRoutes      = require('./routes/auth');
 const usersRoutes     = require('./routes/users');
 const configRoutes    = require('./routes/config');
@@ -89,7 +90,8 @@ app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 // Error handler
 app.use((err, req, res, next) => {
   console.error(err);
-  res.status(err.status || 500).json({ error: err.message || 'Internal server error' });
+  const { status, body } = errorResponse(err);
+  res.status(status).json(body);
 });
 
 app.listen(PORT, () => {
