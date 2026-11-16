@@ -68,7 +68,12 @@ test('uploadError makes a status-less parser error a 400 and keeps a MulterError
 
 test('storedErrorText hides a PostgreSQL error and keeps any other message', () => {
   const pgErr = Object.assign(new Error('relation "x" does not exist'), { severity: 'ERROR', code: '42P01' });
-  assert.equal(storedErrorText(pgErr), 'Database error');
+  assert.equal(storedErrorText(pgErr), 'Database error (42P01)');
+  const other = Object.assign(new Error('duplicate key'), { severity: 'ERROR', code: '23505' });
+  assert.notEqual(storedErrorText(other), storedErrorText(pgErr));
+  const conn = Object.assign(new Error('connect ECONNREFUSED 172.18.0.2:5432'), { code: 'ECONNREFUSED', syscall: 'connect' });
+  assert.equal(storedErrorText(conn), 'Connection error (ECONNREFUSED)');
+  assert.equal(storedErrorText(Object.assign(new Error('LLM is not configured'), { code: 'LLM_NOT_CONFIGURED' })), 'LLM is not configured');
   assert.equal(storedErrorText(new Error('LLM request timed out')), 'LLM request timed out');
   assert.equal(storedErrorText('plain'), 'plain');
   assert.equal(storedErrorText(undefined), 'Unknown error');
@@ -89,12 +94,14 @@ test('errorHandler answers with errorResponse and logs the error', (t) => {
   assert.equal(logged[0], err);
 });
 
-test('errorHandler hands the error to next once headers are sent', (t) => {
-  t.mock.method(console, 'error', () => {});
+test('errorHandler hands the error to next once headers are sent, without logging it twice', (t) => {
+  const logged = [];
+  t.mock.method(console, 'error', (e) => logged.push(e));
   const res = fakeRes(true);
   const err = new Error('late');
   let passed;
   errorHandler(err, {}, res, (e) => { passed = e; });
   assert.equal(passed, err);
   assert.equal(res.statusCode, undefined);
+  assert.equal(logged.length, 0);   // Express's default handler logs it
 });

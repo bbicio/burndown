@@ -20,8 +20,8 @@ function errorResponse(err) {
 
 // Express error middleware: logs the error; once a response has started, Express's own handler closes it.
 function errorHandler(err, req, res, next) {
+  if (res.headersSent) return next(err);   // Express's default handler logs it
   console.error(err);
-  if (res.headersSent) return next(err);
   const { status, body } = errorResponse(err);
   res.status(status).json(body);
 }
@@ -32,9 +32,11 @@ function uploadError(err) {
   return err;
 }
 
-// Text an error leaves in a row an admin page shows: a PostgreSQL error becomes generic (the detail goes to the log).
+// Text an error leaves in a row an admin page shows: a PostgreSQL or a socket error keeps only its code
+// (the detail goes to the log).
 function storedErrorText(err) {
-  if (err && typeof err === 'object' && typeof err.severity === 'string' && typeof err.code === 'string') return 'Database error';
+  if (err && typeof err === 'object' && typeof err.severity === 'string' && typeof err.code === 'string') return `Database error (${err.code})`;
+  if (err && typeof err === 'object' && typeof err.syscall === 'string' && typeof err.code === 'string') return `Connection error (${err.code})`;
   if (err && typeof err === 'object') return String(err.message || 'Unknown error');
   return err == null ? 'Unknown error' : String(err);
 }
