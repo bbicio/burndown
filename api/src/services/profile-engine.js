@@ -4,6 +4,7 @@ const { pool, query } = require('../db/client');
 const { buildMatchContext } = require('../lib/match-resource');
 const { buildContributions, aggregateProfile } = require('../lib/resource-profile');
 const { composeRunError, shouldRecordRun } = require('../lib/job-schedule');
+const { storedErrorText } = require('../lib/error-response');
 const { refreshUnmatched } = require('./resource-matching');
 const { extractForCode } = require('./topic-extraction');
 
@@ -225,7 +226,8 @@ async function processNext(exclude, only = null) {
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     if (!code) throw err;                       // failure before a code was claimed
-    const message = String(err.message || err).slice(0, 500);
+    console.error(`[profile] ${code} failed:`, err);
+    const message = storedErrorText(err).slice(0, 500);
     await query('UPDATE profile_project_state SET last_error = $2, queued_at = now() WHERE project_code = $1',
       [code, message]).catch(() => {});
     return { code, error: message };

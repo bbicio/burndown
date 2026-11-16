@@ -8,11 +8,13 @@ const { toIso } = require('../lib/dates');
 const { xlsxFileError, XLSX_FILE_ERROR } = require('../lib/xlsx-file');
 const { resolveFee } = require('../lib/rate-resolve');
 const { isAdminRole } = require('../lib/is-admin');
+const { uploadError } = require('../lib/error-response');
 const { refreshUnmatched } = require('../services/resource-matching');
 const { enqueueProjectsQuiet } = require('../services/profile-engine');
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
+const uploadFile = (req, res, next) => upload.single('file')(req, res, (err) => next(err ? uploadError(err) : undefined));
 
 // Shared "can this user see this project" predicate, used everywhere a project
 // needs to be scoped to the calling user's ownership/sharing. Kept as one
@@ -121,7 +123,7 @@ router.get('/:projectCode', requireAuth, async (req, res, next) => {
 });
 
 // POST /api/timesheets/upload
-router.post('/upload', requireAuth, upload.single('file'), async (req, res, next) => {
+router.post('/upload', requireAuth, uploadFile, async (req, res, next) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
 

@@ -3,7 +3,7 @@ const cookieParser = require('cookie-parser');
 const cors = require('cors');
 
 const { testConnection } = require('./db/client');
-const { errorResponse } = require('./lib/error-response');
+const { errorHandler } = require('./lib/error-response');
 const authRoutes      = require('./routes/auth');
 const usersRoutes     = require('./routes/users');
 const configRoutes    = require('./routes/config');
@@ -88,11 +88,7 @@ app.use('/api',               configRoutes);
 app.use((req, res) => res.status(404).json({ error: 'Not found' }));
 
 // Error handler
-app.use((err, req, res, next) => {
-  console.error(err);
-  const { status, body } = errorResponse(err);
-  res.status(status).json(body);
-});
+app.use(errorHandler);
 
 app.listen(PORT, () => {
   console.log(`PDash API running on port ${PORT}`);
