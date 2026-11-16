@@ -31,86 +31,24 @@
 //   * WHETHER A HASH IS CORRECT. The guard downloads nothing; a wrong hash
 //     shows only in the browser (resource blocked, integrity error in the
 //     console). The manual check of the cycle that changes a URL covers it.
-//   * Hosts outside CDN_HOSTS. A library from a new CDN is invisible here
-//     until its host is added to the list.
+//   * Hosts outside CDN_HOSTS (in scripts/lib/cdn-urls.mjs). A library from a
+//     new CDN is invisible here until its host is added to that list.
 //   * Whether the CDN sends CORS headers, without which `crossorigin` +
 //     `integrity` block the file. Verified by hand for every host in
 //     CDN_HOSTS when this guard was written.
 //   * Files outside the scope above (handbook/, css/, docs/). CSS has no CDN
 //     @import today.
 //   * Commented-out tags are checked like live ones: fail-closed.
+//
+// The reading (tags, lazy loaders, the files in scope) lives in
+// scripts/lib/cdn-urls.mjs, shared with scripts/security-headers-guard.test.js.
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { jsCode, inlineScripts } from './lib/js-code.mjs';
+import { scanCdnUrls as scan, scopeFiles as scopeOf } from './lib/cdn-urls.mjs';
 
 const ROOT = process.cwd();
-const CDN_HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'cdn.sheetjs.com'];
-const HOSTS = CDN_HOSTS.map((h) => h.replace(/\./g, '\\.')).join('|');
-const URL_RE = new RegExp(`https://(?:${HOSTS})/[^\\s'"\`<>)]+`, 'g');
-const TAG_RE = /<(?:script|link)\b[^>]*>/gi;
-const EXACT_RE = /^https:\/\/[^/]+\/(?:npm\/)?(?:@[^/]+\/)?[^/@]+[@-]\d+\.\d+\.\d+\//;
-const SRI_RE = /^sha384-[A-Za-z0-9+/]+={0,2}$/;
-
-const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-// `name` holds the URL's { src, integrity } object: in the code (comments dropped, long strings
-// blanked -- scripts/lib/js-code.mjs) its own integrity must be assigned, not compared, or set as an
-// attribute, and crossOrigin must be set to anonymous.
-function loaderApplies(code, name) {
-  if (!name) return false;
-  const n = escapeRe(name);
-  // attribute names are case-insensitive in HTML; the object name and the property are not
-  const anyCase = (s) => [...s].map((ch) => `[${ch.toLowerCase()}${ch.toUpperCase()}]`).join('');
-  const assigned = new RegExp(`\\.integrity\\s*=(?!=)\\s*${n}\\.integrity\\b`).test(code)
-    || new RegExp(`setAttribute\\(\\s*['"]${anyCase('integrity')}['"]\\s*,\\s*${n}\\.integrity\\b`).test(code);
-  const cross = /\.crossOrigin\s*=(?!=)\s*['"]anonymous['"]/.test(code)
-    || new RegExp(`setAttribute\\(\\s*['"]${anyCase('crossorigin')}['"]\\s*,\\s*['"]anonymous['"]`).test(code);
-  return assigned && cross;
-}
-
-// One finding per CDN URL: { url, inTag, integrity, errors[] }. `html`: read the code of the page's
-// inline scripts only, so markup text never reads as code.
-function scan(src, { html = false } = {}) {
-  let code = null;
-  const codeOf = () => (code ??= (html ? inlineScripts(src) : [src]).map(jsCode).join('\n'));
-  const tags = [...src.matchAll(TAG_RE)].map((m) => ({ start: m.index, end: m.index + m[0].length, text: m[0] }));
-  const out = [];
-  for (const m of src.matchAll(URL_RE)) {
-    const url = m[0];
-    const errors = [];
-    if (!EXACT_RE.test(url)) errors.push('no exact x.y.z version');
-    const tag = tags.find((t) => m.index >= t.start && m.index < t.end);
-    let integrity = null;
-    if (tag) {
-      integrity = /\bintegrity="([^"]*)"/i.exec(tag.text)?.[1] ?? null;
-      if (!integrity || !SRI_RE.test(integrity)) errors.push('tag without sha384 integrity');
-      if (!/\bcrossorigin="anonymous"/i.test(tag.text)) errors.push('tag without crossorigin="anonymous"');
-    } else {
-      // The URL's own object: its name ends the line before the URL, its integrity follows the URL.
-      const before = src.slice(src.lastIndexOf('\n', m.index) + 1, m.index);
-      const lineEnd = src.indexOf('\n', m.index);
-      const after = src.slice(m.index, lineEnd < 0 ? src.length : lineEnd);
-      const name = /(?:^|[^\w$.])([\w$]+)\s*=\s*\{[^{}]*$/.exec(before)?.[1]; // not `cfg.NAME = {`
-      integrity = /^[^{}]*?\bintegrity:\s*'([^']*)'/.exec(after)?.[1] ?? null;
-      if (!integrity || !SRI_RE.test(integrity)) errors.push("URL outside a tag without integrity: 'sha384-...' on its line");
-      if (!loaderApplies(codeOf(), name)) {
-        errors.push("URL outside a tag whose loader does not set .integrity = <NAME>.integrity and crossOrigin 'anonymous'");
-      }
-    }
-    out.push({ url, inTag: !!tag, integrity, errors });
-  }
-  return out;
-}
-
-function scopeFiles() {
-  const html = readdirSync(ROOT).filter((n) => n.endsWith('.html'));
-  const js = readdirSync(join(ROOT, 'js'), { recursive: true })
-    .map((n) => String(n).replace(/\\/g, '/'))
-    .filter((n) => n.endsWith('.js') && !n.endsWith('.test.js'))
-    .map((n) => `js/${n}`);
-  return [...html, ...js];
-}
+const scopeFiles = () => scopeOf(ROOT);
 
 const H = 'sha384-' + 'A'.repeat(64);
 const V = 'https://unpkg.com/vue@3.5.45/dist/vue.global.prod.js';
@@ -127,6 +65,10 @@ describe('scan (synthetic cases)', () => {
   it('rejects a tag without integrity or crossorigin', () => {
     expect(errs(`<script src="${V}" crossorigin="anonymous"></script>`)).toEqual(['tag without sha384 integrity']);
     expect(errs(`<script src="${V}" integrity="${H}"></script>`)).toEqual(['tag without crossorigin="anonymous"']);
+  });
+  it('does not read data-integrity or data-crossorigin as the real attributes', () => {
+    expect(errs(`<script src="${V}" data-integrity="${H}" data-crossorigin="anonymous"></script>`))
+      .toEqual(['tag without sha384 integrity', 'tag without crossorigin="anonymous"']);
   });
   it('rejects a non-sha384 integrity', () => {
     expect(errs(`<script src="${V}" integrity="sha512-${'A'.repeat(86)}" crossorigin="anonymous"></script>`)).toEqual(['tag without sha384 integrity']);
