@@ -17,9 +17,10 @@
 //   * a CDN URL outside a tag (help.html's lazy Mermaid loader) must sit on a
 //     line that also holds `integrity: 'sha384-` -- one form,
 //     `const X = { src: '...', integrity: 'sha384-...' };`, no heuristics --
-//     and its file must assign `.integrity = ...` and
-//     `.crossOrigin = 'anonymous'` somewhere (that the assignments reach the
-//     element that loads this URL is not checked);
+//     and its file, comments excluded, must assign `.integrity = X.integrity`
+//     (or `setAttribute('integrity', X.integrity)`) and crossOrigin
+//     `anonymous`; that both reach the element loading X.src is not checked,
+//     and crossOrigin is checked once per file, not per URL;
 //   * the same URL has the same hash everywhere.
 //
 // WHAT IS DELIBERATELY NOT CHECKED, and why -- named limits, not gaps:
@@ -46,8 +47,25 @@ const TAG_RE = /<(?:script|link)\b[^>]*>/gi;
 const EXACT_RE = /^https:\/\/[^/]+\/(?:npm\/)?(?:@[^/]+\/)?[^/@]+[@-]\d+\.\d+\.\d+\//;
 const SRI_RE = /^sha384-[A-Za-z0-9+/]+={0,2}$/;
 
+// The source without comments, for the loader check only. `//` counts as a comment only after
+// whitespace or a statement character, so `https://` survives.
+const stripComments = (src) => src
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/<!--[\s\S]*?-->/g, '')
+  .replace(/(^|[\s;{}])\/\/.*$/gm, '$1');
+
+// `name` is the constant on the URL's line ({ src, integrity }): its own integrity must be assigned
+// (not compared) or set as an attribute, and crossOrigin must be set to anonymous.
+function loaderApplies(code, name) {
+  if (!name) return false;
+  const integrity = new RegExp(`\\.integrity\\s*=(?!=)\\s*${name}\\.integrity\\b|setAttribute\\(\\s*['"]integrity['"]\\s*,\\s*${name}\\.integrity\\b`);
+  const cross = /\.crossOrigin\s*=(?!=)\s*['"]anonymous['"]|setAttribute\(\s*['"]crossorigin['"]\s*,\s*['"]anonymous['"]/;
+  return integrity.test(code) && cross.test(code);
+}
+
 // One finding per CDN URL: { url, inTag, integrity, errors[] }.
 function scan(src) {
+  const code = stripComments(src);
   const tags = [...src.matchAll(TAG_RE)].map((m) => ({ start: m.index, end: m.index + m[0].length, text: m[0] }));
   const lines = src.split('\n');
   const out = [];
@@ -65,8 +83,8 @@ function scan(src) {
       const line = lines[src.slice(0, m.index).split('\n').length - 1];
       integrity = /integrity:\s*'([^']*)'/.exec(line)?.[1] ?? null;
       if (!integrity || !SRI_RE.test(integrity)) errors.push("URL outside a tag without integrity: 'sha384-...' on its line");
-      if (!/\.integrity\s*=\s*\S/.test(src) || !/\.crossOrigin\s*=\s*'anonymous'/.test(src)) {
-        errors.push("URL outside a tag in a file that does not set .integrity and .crossOrigin = 'anonymous'");
+      if (!loaderApplies(code, /(?:const|let|var)\s+(\w+)\s*=\s*\{/.exec(line)?.[1])) {
+        errors.push("URL outside a tag whose loader does not set .integrity = <NAME>.integrity and crossOrigin 'anonymous'");
       }
     }
     out.push({ url, inTag: !!tag, integrity, errors });
@@ -116,15 +134,30 @@ describe('scan (synthetic cases)', () => {
   it('accepts a URL outside a tag only with its integrity on the same line', () => {
     const url = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
     expect(errs(`const MERMAID = { src: '${url}', integrity: '${H}' };${LOADER}`)).toEqual([]);
-    expect(errs(`const MERMAID_URL = '${url}';\nconst SRI = '${H}';${LOADER}`)).toEqual(["URL outside a tag without integrity: 'sha384-...' on its line"]);
+    expect(errs(`const MERMAID_URL = '${url}';\nconst SRI = '${H}';${LOADER}`)).toEqual([
+      "URL outside a tag without integrity: 'sha384-...' on its line",
+      "URL outside a tag whose loader does not set .integrity = <NAME>.integrity and crossOrigin 'anonymous'",
+    ]);
   });
   it('rejects a URL outside a tag whose file never applies integrity and crossOrigin', () => {
     const url = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
     const decl = `const MERMAID = { src: '${url}', integrity: '${H}' };`;
-    const MISSING = 'URL outside a tag in a file that does not set .integrity and .crossOrigin = \'anonymous\'';
+    const MISSING = "URL outside a tag whose loader does not set .integrity = <NAME>.integrity and crossOrigin 'anonymous'";
     expect(errs(decl)).toEqual([MISSING]);
     expect(errs(`${decl}\ns.integrity = MERMAID.integrity;`)).toEqual([MISSING]);
     expect(errs(`${decl}\ns.crossOrigin = 'anonymous';`)).toEqual([MISSING]);
+    // a comparison is not an assignment
+    expect(errs(`${decl}\nif (s.integrity === MERMAID.integrity) {}\ns.crossOrigin = 'anonymous';`)).toEqual([MISSING]);
+    // a commented-out loader does not count
+    expect(errs(`${decl}\n// s.integrity = MERMAID.integrity;\n/* s.crossOrigin = 'anonymous'; */`)).toEqual([MISSING]);
+    // the integrity applied must be this URL's own
+    const other = `const OTHER = { src: 'https://cdn.jsdelivr.net/npm/foo@1.2.3/foo.js', integrity: '${H}' };`;
+    expect(scan(`${decl}\n${other}${LOADER}`).map((f) => f.errors)).toEqual([[], [MISSING]]);
+  });
+  it('accepts the other spellings of the loader', () => {
+    const decl = `const MERMAID = { src: 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js', integrity: '${H}' };`;
+    expect(errs(`${decl}\ns.integrity = MERMAID.integrity;\ns.crossOrigin = "anonymous";`)).toEqual([]);
+    expect(errs(`${decl}\ns.setAttribute('integrity', MERMAID.integrity);\ns.setAttribute("crossorigin", 'anonymous');`)).toEqual([]);
   });
   it('ignores hosts outside the list', () => {
     expect(scan('<link rel="icon" href="https://ik.imagekit.io/x/letter-f.png">')).toEqual([]);
