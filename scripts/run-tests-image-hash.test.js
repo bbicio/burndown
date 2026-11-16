@@ -38,6 +38,9 @@ describe('run-tests.sh image hash', () => {
   it('builds when the image id cannot be read', () => {
     const sh = read('scripts/run-tests.sh');
     const cond = sh.split('\n').find((l) => l.includes('"$CURRENT_HASH $CURRENT_ID"'));
-    expect(cond).toContain('[ -n "$CURRENT_ID" ]');
+    // the whole chain, so that `||` or a reordering cannot bring back the silent skip
+    expect(cond).toBe('if [ -n "$CURRENT_ID" ] && [ -f "$IMAGE_HASH_FILE" ] && [ "$(cat "$IMAGE_HASH_FILE")" = "$CURRENT_HASH $CURRENT_ID" ]; then');
+    // and an unreadable id is said, not silent
+    expect(sh).toContain('[ -n "$CURRENT_ID" ] || echo "No ${API_IMAGE} image found: building it."');
   });
 });

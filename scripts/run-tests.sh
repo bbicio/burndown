@@ -133,6 +133,7 @@ CURRENT_HASH=$(cat api/Dockerfile api/package.json api/package-lock.json | sha25
 API_IMAGE="${PROJECT}-api"
 image_id() { docker image inspect --format '{{.Id}}' "$API_IMAGE" 2>/dev/null; }
 CURRENT_ID=$(image_id || true)
+[ -n "$CURRENT_ID" ] || echo "No ${API_IMAGE} image found: building it."
 
 API_BUILD_FLAG="--build"
 if [ -n "$CURRENT_ID" ] && [ -f "$IMAGE_HASH_FILE" ] && [ "$(cat "$IMAGE_HASH_FILE")" = "$CURRENT_HASH $CURRENT_ID" ]; then
