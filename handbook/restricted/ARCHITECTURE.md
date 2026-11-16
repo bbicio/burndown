@@ -1104,7 +1104,7 @@ Every POT route counts a proposal once, through its reference version (`pot_v`, 
 | GET | /api/app-settings/terms/draft | **sysadmin** | The in-progress draft (`app_settings.terms_content`/`terms_version`), same response shape as above — what `_terms-editor.html` loads into its textarea |
 | GET | /api/app-settings/terms/versions | **sysadmin** | List of published versions, no `content` field: `[{ version, publishedAt, publishedBy }, ...]` DESC by version |
 | GET | /api/app-settings/terms/versions/:version | **sysadmin** | Full text of one past published version; 404 if unknown |
-| PUT | /api/app-settings/terms | **sysadmin** | `{ content, publishNewVersion }`. `false` writes only the draft (unaffected by `terms.html`). `true` additionally computes `newVersion = MAX(terms_versions.version)+1`, inserts a new immutable row, and syncs the draft to match. No transactional guard against a concurrent double-publish race — a pre-existing risk class carried over from the old single-row storage's identical read-then-increment race, explicitly descoped (`docs/superpowers/specs/2026-09-11-terms-version-history-design.md`) |
+| PUT | /api/app-settings/terms | **sysadmin** | `{ content, publishNewVersion }`. `false` writes only the draft (unaffected by `terms.html`). `true` additionally computes `newVersion = MAX(terms_versions.version)+1`, inserts a new immutable row, and syncs the draft to match. No transactional guard against a concurrent double-publish race — a pre-existing risk class carried over from the old single-row storage's identical read-then-increment race, explicitly descoped (`docs/superpowers/specs/2026-09-11-terms-version-history-design.md`). A `content` that is not a string or exceeds 100000 characters → `400` |
 
 ### Admin — Bulk Reset
 

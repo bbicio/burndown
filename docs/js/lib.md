@@ -344,3 +344,7 @@ Client twin of `api/src/lib/slugify.js`, used by `attribute-lists.html` for the 
 ## attribute-lists-ui.js (2026-11-09, Attribute Lists redesign)
 
 Pure helpers for `attribute-lists.html`, bridged to `window`: `itemCounts(items, text)` and `filterItems(items, { status, text })` (search trimmed, case- and accent-insensitive), `topicCounts`, `filterTopics(topics, { status, text })` (proposed by usage then name, the others by name), `descriptionsText(n)`, `mergeTargetOptions(topics, source)` (combo options: approved, then proposed only for a proposed source; never the source or a rejected topic), `emptyItemsLine(status, text)`. Tests: `js/lib/attribute-lists-ui.test.js`.
+
+## terms-html.js (2026-11-16, security cycle 7, U-01)
+
+`safeTermsHtml(html)`, bridged to `window`: `window.DOMPurify.sanitize(html, CONFIG)` with `ALLOWED_TAGS` limited to text formatting, lists, links and simple tables, `ALLOWED_ATTR: ['href']`, and `ALLOWED_URI_REGEXP` admitting an app path (not `//`), `https:`, `http:` and `mailto:`; without a usable `window.DOMPurify` it returns the text escaped (`& < > "`); a non-string gives `''`. Used by `terms.html` and `privacy-notice.html` ([docs/pages/terms.md](../pages/terms.md)). DOMPurify is a root `devDependency` for the tests only. Tests: `js/lib/terms-html.test.js`, `js/lib/terms-html-guard.test.js`.
