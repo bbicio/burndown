@@ -1,6 +1,7 @@
-# Brief — Sicurezza ciclo 7: CSP senza `'unsafe-inline'` in `script-src` (B-497 parziale)
+# Brief — Sicurezza ciclo 8: CSP senza `'unsafe-inline'` in `script-src` (B-497 parziale)
 
 **Tipo:** evoluzione (Scenario 2), confermata dall'utente il 2026-11-16.
+**Ordine:** ciclo 8, dopo l'audit dei punti che scrivono HTML (ciclo 7), per decisione dell'utente del 2026-11-16: prima si correggono i bug reali, poi la CSP come seconda rete.
 **Origine:** `docs/BACKLOG.md` B-497 (aperta dalla spec `security-c5-headers` §6); perimetro "parziale" deciso nella spec `docs/superpowers/specs/2026-11-16-security-c6-hardening-design.md` §6.
 
 ## Problema
