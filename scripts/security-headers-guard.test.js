@@ -42,7 +42,7 @@ import { locationBlocks, serverLevel } from './lib/nginx-locations.mjs';
 import { addHeaders, parseCsp } from './lib/nginx-headers.mjs';
 
 const ROOT = process.cwd();
-const CSP_HEADER = 'Content-Security-Policy-Report-Only';
+const CSP_HEADER = 'Content-Security-Policy';
 const CSP_NAMES = ['Content-Security-Policy', 'Content-Security-Policy-Report-Only'];
 const HEADERS = {
   'X-Frame-Options': 'DENY',
