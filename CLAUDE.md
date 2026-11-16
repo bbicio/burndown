@@ -219,7 +219,9 @@ scripts/site-export.mjs  — `npm run export:list` / `export:copy`: classifies a
 scripts/site-export-guard.test.js — fails when a tracked file matches no rule of `scripts/site-export.rules`, or a
                             process file is included. Limits: own header.
 scripts/cdn-integrity-guard.test.js — fails when a CDN library lacks an exact version, SRI or crossorigin; reads
-                            lazy loaders through `scripts/lib/js-code.mjs`. Limits: own header.
+                            tags and lazy loaders through `scripts/lib/cdn-urls.mjs`. Limits: own header.
+scripts/security-headers-guard.test.js — fails when `nginx.conf` loses a security header, a `location` overrides
+                            them, or a page loads from an origin the CSP refuses. [docs/ops/security-headers.md](docs/ops/security-headers.md).
 scripts/shoot.mjs        — renders pages of the running app with headless Chrome, one PNG per width, for comparing a
                             redesign against its design boards. **Reading the PNGs back is part of visual
                             verification — "the page can't be rendered here" is not a valid reason to skip it.**
