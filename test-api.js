@@ -803,6 +803,28 @@ async function testSecurity() {
     // Unauthenticated → 401; non-admin → 403 requires a second user (manual)
     ok((await api(m, p, b)).status === 401, `SEC-10 ${m} ${p} without cookie → 401`);
   }
+
+  // SEC-20..23: an unexpected (database) error answers a generic 500; client errors stay 4xx.
+  // SEC-20 reaches the 500 through B-500 (userId not validated): fixing B-500 needs another 500 trigger here.
+  const dbErr = await api('POST', '/api/cost-grids/00000000-0000-0000-0000-000000000000/shares',
+    { userId: 'not-a-uuid', permission: 'viewer' }, adminCookie);
+  ok(dbErr.status === 500 && dbErr.data?.error === 'Internal server error',
+    `SEC-20 share with a non-UUID userId → 500 generic (got ${dbErr.status} ${JSON.stringify(dbErr.data)})`);
+  ok(!/uuid|syntax/i.test(JSON.stringify(dbErr.data)), 'SEC-21 the 500 body carries no PostgreSQL text');
+  const badJson = await fetch(`${BASE}/api/auth/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{bad',
+  });
+  const badJsonBody = await badJson.json().catch(() => null);
+  ok(badJson.status === 400 && badJsonBody?.error === 'Malformed JSON body',
+    `SEC-22 malformed JSON → 400 'Malformed JSON body', the body not echoed (got ${badJson.status} ${JSON.stringify(badJsonBody)})`);
+  const truncated = await fetch(`${BASE}/api/timesheets/upload`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'multipart/form-data; boundary=x', Cookie: adminCookie },
+    body: '--x\r\nContent-Disposition: form-data; name="file"; filename="a.xlsx"\r\n\r\npartial',
+  });
+  const truncatedBody = await truncated.json().catch(() => null);
+  ok(truncated.status === 400 && typeof truncatedBody?.error === 'string' && truncatedBody.error !== 'Internal server error',
+    `SEC-23 truncated multipart upload → 400 (got ${truncated.status} ${JSON.stringify(truncatedBody)})`);
 }
 
 // ── Pipeline Years ────────────────────────────────────────────────────────────

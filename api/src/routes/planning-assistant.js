@@ -4,6 +4,7 @@ const { isoDate } = require('../lib/planning-calendar');
 const { parseParams } = require('../lib/team-params');
 const { SYSTEM_PROMPT, TOOLS, buildContextBlock, compactRankResult, runChat, normalizeMessages } = require('../lib/assistant-chat');
 const svc = require('../services/planning-assistant');
+const { isClientStatus } = require('../lib/error-response');
 
 const CHAT_DEADLINE_MS = 80_000;   // whole /chat request; each LLM call also keeps its own 30 s timeout
 
@@ -22,7 +23,7 @@ function makeRouter(deps = {}) {
   }
 
   function sendError(res, next, err) {
-    if (err && err.status) return res.status(err.status).json({ error: err.message, ...(err.fields ? { fields: err.fields } : {}) });
+    if (err && isClientStatus(err.status)) return res.status(err.status).json({ error: err.message, ...(err.fields ? { fields: err.fields } : {}) });
     if (err && err.code === '22P02') return res.status(404).json({ error: 'Project not found' });   // malformed UUID
     return next(err);
   }

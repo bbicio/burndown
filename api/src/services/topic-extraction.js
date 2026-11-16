@@ -2,6 +2,7 @@
 // Called by the profile engine right BEFORE a project code is processed, never inside a request
 // and never inside the per-code transaction (no row lock is held during the LLM call).
 const { pool, query } = require('../db/client');
+const { storedErrorText } = require('../lib/error-response');
 const {
   buildVocabulary, buildItems, buildPrompt, parseExtraction, resolveCandidates, hashText, isExtractable,
   normalizeTopicName, finalTopic, chunk,
@@ -125,8 +126,9 @@ async function extractForCode(code) {
       for (const [ref, cands] of parseExtraction(raw, new Set(batch.map(i => i.ref)))) candidatesByRef.set(ref, cands);
     }
   } catch (err) {
-    await markFailed(projectId, todo, err.name === 'TimeoutError' ? 'LLM request timed out' : err.message);
-    return { status: 'error', error: err.message };
+    if (err.name !== 'TimeoutError') console.error('[topics] extraction failed:', err);
+    await markFailed(projectId, todo, err.name === 'TimeoutError' ? 'LLM request timed out' : storedErrorText(err));
+    return { status: 'error', error: err.name === 'TimeoutError' ? 'LLM request timed out' : storedErrorText(err) };
   }
 
   const client = await pool.connect();
@@ -165,8 +167,9 @@ async function extractForCode(code) {
     await client.query('COMMIT');
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
-    await markFailed(projectId, todo, err.message);
-    return { status: 'error', error: err.message };
+    console.error('[topics] saving failed:', err);
+    await markFailed(projectId, todo, storedErrorText(err));
+    return { status: 'error', error: storedErrorText(err) };
   } finally {
     client.release();
   }

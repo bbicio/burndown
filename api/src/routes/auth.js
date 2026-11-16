@@ -4,7 +4,7 @@ const crypto = require('crypto');
 const { query, pool } = require('../db/client');
 const { withTransaction } = require('../db/transaction');
 const { notifyAdmins } = require('../services/users');
-const { setAuthCookie, clearAuthCookie } = require('../services/jwt');
+const { setAuthCookie, clearAuthCookie, cookieOptions } = require('../services/jwt');
 const { sendInvite, sendPasswordReset, sendAdminNotificationEmail, sendLoginCode } = require('../services/email');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { pushToUser } = require('./notifications');
@@ -37,28 +37,19 @@ const CHALLENGE_COOKIE = 'pdash_challenge';
 const DEVICE_COOKIE = 'pdash_device';
 const COOKIE_PATH = '/api/auth';
 
+const CHALLENGE_OPTS = { sameSite: 'strict', path: COOKIE_PATH };
+const DEVICE_OPTS = { sameSite: 'lax', path: COOKIE_PATH };
+
 function setChallengeCookie(res, token) {
-  res.cookie(CHALLENGE_COOKIE, token, {
-    httpOnly: true,
-    sameSite: 'strict',
-    secure: process.env.NODE_ENV === 'production',
-    path: COOKIE_PATH,
-    maxAge: T.CHALLENGE_TTL_MS,
-  });
+  res.cookie(CHALLENGE_COOKIE, token, cookieOptions({ ...CHALLENGE_OPTS, maxAge: T.CHALLENGE_TTL_MS }));
 }
 
 function setDeviceCookie(res, token) {
-  res.cookie(DEVICE_COOKIE, token, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: COOKIE_PATH,
-    maxAge: T.TRUST_DAYS * 24 * 60 * 60 * 1000,
-  });
+  res.cookie(DEVICE_COOKIE, token, cookieOptions({ ...DEVICE_OPTS, maxAge: T.TRUST_DAYS * 24 * 60 * 60 * 1000 }));
 }
 
-function clearChallengeCookie(res) { res.clearCookie(CHALLENGE_COOKIE, { path: COOKIE_PATH }); }
-function clearDeviceCookie(res) { res.clearCookie(DEVICE_COOKIE, { path: COOKIE_PATH }); }
+function clearChallengeCookie(res) { res.clearCookie(CHALLENGE_COOKIE, cookieOptions(CHALLENGE_OPTS)); }
+function clearDeviceCookie(res) { res.clearCookie(DEVICE_COOKIE, cookieOptions(DEVICE_OPTS)); }
 
 const seconds = ms => Math.max(1, Math.ceil(ms / 1000));
 
