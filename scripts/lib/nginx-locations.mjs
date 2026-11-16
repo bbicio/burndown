@@ -18,21 +18,26 @@
 
 const HEADER = /\blocation\s+(=|\^~|~\*|~)?\s*(\S+)\s*\{/g;
 
-// The config without its comments: a `#` outside quotes starts one, up to the end of the line.
+// The config without its comments. As in nginx's own reader, a `#` starts a comment and a quote
+// opens a string only at the start of a token (after whitespace, `;`, `{`, `}` or at the start);
+// elsewhere, as in `/page.html#anchor` or `o'b`, they are ordinary characters. `\` escapes the
+// next character inside and outside quotes.
 function stripComments(confText) {
   const text = String(confText);
   let out = '';
   let quote = null;
   for (let i = 0; i < text.length; i++) {
     const ch = text[i];
-    if (quote) {
+    const tokenStart = i === 0 || /[\s;{}]/.test(text[i - 1]);
+    if (ch === '\\' && i + 1 < text.length) {
+      out += ch + text[++i];
+    } else if (quote) {
       out += ch;
-      if (ch === '\\' && i + 1 < text.length) out += text[++i];
-      else if (ch === quote) quote = null;
-    } else if (ch === '#') {
+      if (ch === quote) quote = null;
+    } else if (ch === '#' && tokenStart) {
       while (i + 1 < text.length && text[i + 1] !== '\n') i++;
     } else {
-      if (ch === '"' || ch === "'") quote = ch;
+      if ((ch === '"' || ch === "'") && tokenStart) quote = ch;
       out += ch;
     }
   }

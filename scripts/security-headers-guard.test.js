@@ -24,12 +24,15 @@
 //     string is not pinned: a new origin for a new page is added without
 //     rewriting this test.
 // In the root *.html pages and js/**/*.js (tests excluded), every external
-// (`https://`, `//`) <script src> has its origin in script-src, every
-// <link rel="stylesheet"> in style-src, every <link rel="icon"> and <img src>
-// in img-src; any other <link> to an external origin fails until it is
-// classified here, and a plain `http://` URL always fails. A CDN URL outside a
-// tag (a lazy loader) must have its origin in script-src. In handbook/**/*.md
-// (rendered by help.html), every external image has its origin in img-src.
+// <script src> has its origin in script-src, every <link rel="stylesheet"> in
+// style-src, every <link rel="icon"> and <img src> in img-src; any other
+// <link> to an external origin fails until it is classified here. "External"
+// is read as a browser reads it (spaces trimmed, `\` as `/`, `https:host`), and
+// a plain `http:` or protocol-relative `//` URL always fails: a `https://` CSP
+// source does not admit it from an http page. A CDN URL outside a tag (a lazy
+// loader) must have its origin in script-src. In handbook/**/*.md (rendered by
+// help.html), every external inline, reference-style or <img> image has its
+// origin in img-src.
 //
 // WHAT IS DELIBERATELY NOT CHECKED -- named limits, not gaps:
 //   * `if` and `include` in nginx.conf: neither exists today, and the readers
@@ -45,7 +48,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { externalResources, markdownImages, scanCdnUrls, scopeFiles } from './lib/cdn-urls.mjs';
+import { externalOrigin, externalResources, markdownImages, scanCdnUrls, scopeFiles } from './lib/cdn-urls.mjs';
 import { locationBlocks, serverLevel } from './lib/nginx-locations.mjs';
 import { addHeaders, cspSourceProblems, parseCsp } from './lib/nginx-headers.mjs';
 
@@ -93,10 +96,35 @@ describe('externalResources', () => {
   });
 });
 
+describe('externalResources (forms a browser normalises)', () => {
+  it('reads a URL with leading spaces, backslashes or a scheme without slashes', () => {
+    for (const u of [' https://x.example/a.js', '\\\\x.example/a.js', '/\\x.example/a.js', 'https:x.example/a.js']) {
+      expect(externalResources(`<script src="${u}"></script>`), u).toEqual([{ kind: 'script', url: u }]);
+    }
+  });
+});
+
+describe('externalOrigin', () => {
+  it('gives the https origin of an external URL', () => {
+    expect(externalOrigin('https://cdn.example/a.js')).toEqual({ origin: 'https://cdn.example' });
+    expect(externalOrigin(' https:x.example/a.js')).toEqual({ origin: 'https://x.example' });
+  });
+  it('refuses plain http and protocol-relative URLs, backslash forms included', () => {
+    for (const u of ['http://x.example/a.js', '//x.example/a.js', '\\\\x.example/a.js', '/\\x.example/a.js']) {
+      expect(externalOrigin(u).error, u).toBeTruthy();
+    }
+  });
+});
+
 describe('markdownImages', () => {
   it('reads external markdown and HTML images, not local ones', () => {
     expect(markdownImages('![a](https://i.example/a.png "t")\n![b](img/b.png)\n<img src="https://i.example/c.png">'))
       .toEqual(['https://i.example/a.png', 'https://i.example/c.png']);
+  });
+  it('reads an alt with brackets and reference-style images', () => {
+    expect(markdownImages('![a [b]](https://i.example/a.png)')).toEqual(['https://i.example/a.png']);
+    const refs = '![x][R1] ![r2][] ![R3]\n\n[r1]: https://i.example/1.png\n[R2]: <https://i.example/2.png> "t"\n[r3]: https://i.example/3.png\n[link]: https://other.example/';
+    expect(markdownImages(refs).sort()).toEqual(['https://i.example/1.png', 'https://i.example/2.png', 'https://i.example/3.png']);
   });
 });
 
@@ -156,6 +184,12 @@ describe('nginx readers', () => {
       .toEqual([{ name: 'A', value: 'x#y', always: true }]);
     expect(locationBlocks("server { location / { add_header B 'p#q'; } }")[0].body).toContain("'p#q'");
   });
+  it('starts a comment or a quote only at the start of a token, as nginx does', () => {
+    const conf = 'server {\n location = /x { return 301 /m.html#by-group; }\n location = /y { return 302 /b#c; add_header X y; }\n location ~ o\'b { root /z; }\n # add_header Z "1";\n}';
+    expect(locationBlocks(conf).map((l) => l.pattern)).toEqual(['/x', '/y', "o'b"]);
+    expect(locationBlocks(conf)[1].body).toContain('add_header X y');
+    expect(serverLevel(conf)).not.toContain('add_header Z');
+  });
   it('throws on a brace in a location pattern, like parseLocations', () => {
     expect(() => locationBlocks('server { location ~ ^/a{2}$ { root /x; } }')).toThrow();
   });
@@ -207,10 +241,9 @@ describe('nginx.conf security headers', () => {
       const DIRECTIVE = { script: 'script-src', stylesheet: 'style-src', icon: 'img-src', image: 'img-src' };
       const missing = [];
       const check = (file, url, d) => {
-        if (/^http:/i.test(url)) missing.push(`${file}: ${url} -- plain http`);
-        else if (!(csp.get(d) ?? []).includes(new URL(url, 'https://protocol-relative.invalid/').origin)) {
-          missing.push(`${file}: ${url} -- origin not in ${d}`);
-        }
+        const { origin, error } = externalOrigin(url);
+        if (error) missing.push(`${file}: ${url} -- ${error}`);
+        else if (!(csp.get(d) ?? []).includes(origin)) missing.push(`${file}: ${url} -- origin not in ${d}`);
       };
       for (const file of scopeFiles(ROOT)) {
         const src = readFileSync(join(ROOT, file), 'utf8');

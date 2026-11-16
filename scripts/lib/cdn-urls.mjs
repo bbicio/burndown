@@ -79,8 +79,23 @@ function attr(tag, name) {
   return m ? (m[1] ?? m[2] ?? m[3]) : null;
 }
 
-// A URL on another origin: `https://`, `http://` or protocol-relative `//`.
-const EXTERNAL_RE = /^(?:https?:)?\/\//i;
+// A URL as a browser reads it in an http(s) page: leading and trailing spaces dropped, `\` read as `/`.
+const normalise = (url) => url.trim().replace(/\\/g, '/');
+// A URL on another origin: an `http:`/`https:` scheme (with or without slashes) or protocol-relative `//`.
+const EXTERNAL_RE = /^(?:https?:|\/\/)/i;
+const isExternal = (url) => EXTERNAL_RE.test(normalise(url));
+
+/**
+ * @param {string} url an external URL as written in a page
+ * @returns {{ origin: string } | { error: string }} its https origin; plain `http:` and protocol-relative
+ *   URLs are refused, since a `https://` CSP source does not admit them from an http page
+ */
+export function externalOrigin(url) {
+  const u = normalise(url);
+  if (/^http:/i.test(u)) return { error: 'plain http' };
+  if (u.startsWith('//')) return { error: 'protocol-relative URL' };
+  return { origin: new URL(u).origin };
+}
 
 // Every <script src>, <link href> and <img src> of the text pointing at another origin, any host:
 // { kind: 'script'|'stylesheet'|'icon'|'image'|'other', url } with the URL as written. A <link>'s
@@ -91,7 +106,7 @@ export function externalResources(src) {
     const tag = m[0];
     const name = /^<(\w+)/.exec(tag)[1].toLowerCase();
     const url = attr(tag, name === 'link' ? 'href' : 'src');
-    if (!url || !EXTERNAL_RE.test(url)) continue;
+    if (!url || !isExternal(url)) continue;
     let kind = name === 'img' ? 'image' : 'script';
     if (name === 'link') {
       const rel = (attr(tag, 'rel') ?? '').toLowerCase().split(/\s+/);
@@ -102,11 +117,21 @@ export function externalResources(src) {
   return out;
 }
 
-// The external images of a markdown document: `![alt](url)` and HTML <img> tags, URLs as written.
+// An image's alt text: brackets nested one level deep are allowed, as in `![a [b]](url)`.
+const ALT = String.raw`!\[((?:[^\[\]]|\[[^\[\]]*\])*)\]`;
+
+// The external images of a markdown document, URLs as written: inline `![alt](url)`, reference
+// images (`![alt][label]`, `![label][]`, `![label]`) resolved through their `[label]: url`
+// definitions, and HTML <img> tags. Images inside code fences are read too (a false failure only).
 export function markdownImages(src) {
-  const md = [...src.matchAll(/!\[[^\]]*\]\(\s*<?([^\s)>]+)/g)].map((m) => m[1]);
+  const inline = [...src.matchAll(new RegExp(`${ALT}\\(\\s*<?([^\\s)>]+)`, 'g'))].map((m) => m[2]);
+  const defs = new Map([...src.matchAll(/^ {0,3}\[([^\]]+)\]:\s*<?([^\s>]+)>?/gm)]
+    .map((m) => [m[1].trim().toLowerCase(), m[2]]));
+  const labels = [...src.matchAll(new RegExp(`${ALT}(?:\\[([^\\]]*)\\])?(?![(:])`, 'g'))]
+    .map((m) => (m[2] || m[1]).trim().toLowerCase());
+  const refs = labels.filter((l) => defs.has(l)).map((l) => defs.get(l));
   const html = externalResources(src).filter((r) => r.kind === 'image').map((r) => r.url);
-  return [...md, ...html].filter((u) => EXTERNAL_RE.test(u));
+  return [...inline, ...refs, ...html].filter(isExternal);
 }
 
 // The root *.html pages and js/**/*.js (tests excluded), as paths relative to `root`.
