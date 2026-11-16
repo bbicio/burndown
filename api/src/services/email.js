@@ -20,6 +20,9 @@ const transporter = nodemailer.createTransport({
 const FROM = `PDash <${process.env.SMTP_USER}>`;
 const APP_URL = process.env.APP_URL || 'http://localhost';
 
+// An absolute link into the app, for emails and notifications.
+const appLink = (path) => `${APP_URL}${path}`;
+
 async function sendInvite({ to, firstName, token }) {
   const link = `${APP_URL}/activate.html?token=${token}`;
   await transporter.sendMail({
@@ -170,4 +173,4 @@ async function sendAdminNotificationEmail({ to, firstName, title, body, url }) {
   });
 }
 
-module.exports = { sendInvite, sendLoginCode, sendPasswordReset, sendShareNotification, sendShareRevokedEmail, sendOwnerReassignedEmail, sendExportEmail, sendAdminNotificationEmail, renderAdminNotificationLink, APP_URL };
+module.exports = { sendInvite, sendLoginCode, sendPasswordReset, sendShareNotification, sendShareRevokedEmail, sendOwnerReassignedEmail, sendExportEmail, sendAdminNotificationEmail, renderAdminNotificationLink, APP_URL, appLink };
