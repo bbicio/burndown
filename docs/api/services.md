@@ -22,7 +22,7 @@ The module also exports an `APP_URL` constant (2026-09) used for building the li
 
 ## jwt.js
 
-Token signing/verification behind the `pdash_token` cookie. The middleware that consumes it is `api/src/middleware/auth.js` (see `CLAUDE.md`).
+Token signing/verification behind the `pdash_token` cookie. The middleware that consumes it is `api/src/middleware/auth.js` (see `CLAUDE.md`). `cookieSecure()` is `true` unless `NODE_ENV` is exactly `development`, read on every call; `cookieOptions(opts)` adds `httpOnly` and that flag, and every set and clear of `pdash_token`, `pdash_challenge` and `pdash_device` (`routes/auth.js`) goes through it (2026-11-16, security cycle 6, S-07). Tests: `api/src/services/jwt.test.js`.
 
 ## The other services, in one line each
 
