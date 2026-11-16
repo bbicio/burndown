@@ -990,6 +990,7 @@ router.post('/:id/shares', requireAuth, async (req, res, next) => {
     if (!['editor', 'viewer'].includes(permission)) {
       return res.status(400).json({ error: 'permission must be editor or viewer' });
     }
+    if (!isUuid(userId)) return res.status(400).json({ error: 'userId must be a valid UUID' });
 
     const target = await query(
       'SELECT email, first_name FROM users WHERE id = $1 AND status = $2',
@@ -1045,6 +1046,7 @@ router.delete('/:id/shares/:userId', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
+    if (!isUuid(req.params.userId)) return res.status(400).json({ error: 'userId must be a valid UUID' });
     const isOwner = await query(
       `SELECT 1 FROM resource_shares WHERE resource_type = 'cost_grid'
        AND resource_id = $1 AND user_id = $2 AND permission = 'owner'`,
