@@ -94,7 +94,11 @@ export function externalOrigin(url) {
   const u = normalise(url);
   if (/^http:/i.test(u)) return { error: 'plain http' };
   if (u.startsWith('//')) return { error: 'protocol-relative URL' };
-  return { origin: new URL(u).origin };
+  try {
+    return { origin: new URL(u).origin };
+  } catch {
+    return { error: 'invalid URL' };
+  }
 }
 
 // Every <script src>, <link href> and <img src> of the text pointing at another origin, any host:
@@ -125,10 +129,16 @@ const ALT = String.raw`!\[((?:[^\[\]]|\[[^\[\]]*\])*)\]`;
 // definitions, and HTML <img> tags. Images inside code fences are read too (a false failure only).
 export function markdownImages(src) {
   const inline = [...src.matchAll(new RegExp(`${ALT}\\(\\s*<?([^\\s)>]+)`, 'g'))].map((m) => m[2]);
-  const defs = new Map([...src.matchAll(/^ {0,3}\[([^\]]+)\]:\s*<?([^\s>]+)>?/gm)]
-    .map((m) => [m[1].trim().toLowerCase(), m[2]]));
-  const labels = [...src.matchAll(new RegExp(`${ALT}(?:\\[([^\\]]*)\\])?(?![(:])`, 'g'))]
-    .map((m) => (m[2] || m[1]).trim().toLowerCase());
+  // Labels compare as marked compares them: case-insensitive, inner whitespace collapsed; the first
+  // definition of a label wins.
+  const norm = (l) => l.trim().toLowerCase().replace(/\s+/g, ' ');
+  const defs = new Map();
+  for (const m of src.matchAll(/^ {0,3}\[([^\]]+)\]:\s*<?([^\s>]+)>?/gm)) {
+    if (!defs.has(norm(m[1]))) defs.set(norm(m[1]), m[2]);
+  }
+  // `![alt][label]`, `![label][]`, or `![label]` not followed by `(` (that one is inline).
+  const labels = [...src.matchAll(new RegExp(`${ALT}(?:\\[([^\\]]*)\\]|(?!\\())`, 'g'))]
+    .map((m) => norm(m[2] || m[1]));
   const refs = labels.filter((l) => defs.has(l)).map((l) => defs.get(l));
   const html = externalResources(src).filter((r) => r.kind === 'image').map((r) => r.url);
   return [...inline, ...refs, ...html].filter(isExternal);

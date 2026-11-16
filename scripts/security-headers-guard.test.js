@@ -126,6 +126,19 @@ describe('markdownImages', () => {
     const refs = '![x][R1] ![r2][] ![R3]\n\n[r1]: https://i.example/1.png\n[R2]: <https://i.example/2.png> "t"\n[r3]: https://i.example/3.png\n[link]: https://other.example/';
     expect(markdownImages(refs).sort()).toEqual(['https://i.example/1.png', 'https://i.example/2.png', 'https://i.example/3.png']);
   });
+  it('resolves references as marked does: colon after a shortcut, first definition, inner spaces, label before (', () => {
+    const E = 'https://evil.example/x.png';
+    expect(markdownImages(`![logo]: the logo\n\n[logo]: ${E}`)).toEqual([E]);
+    expect(markdownImages(`![x]\n\n[x]: ${E}\n[x]: img/a.png`)).toEqual([E]);
+    expect(markdownImages(`![my  logo]\n\n[My Logo]: ${E}`)).toEqual([E]);
+    expect(markdownImages(`![a][b](x)\n\n[b]: ${E}\n[a]: img/a.png`)).toEqual([E]);
+  });
+});
+
+describe('externalOrigin (malformed)', () => {
+  it('refuses a URL with no host instead of throwing', () => {
+    for (const u of ['https:', 'https:/', 'https://']) expect(externalOrigin(u).error, u).toBe('invalid URL');
+  });
 });
 
 describe('cspSourceProblems', () => {
