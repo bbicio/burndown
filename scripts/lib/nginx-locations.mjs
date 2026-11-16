@@ -11,6 +11,10 @@
 // `alias`, `try_files` resolution, named and `internal` locations (skipped, a
 // client cannot select them). A config it cannot read makes it throw rather
 // than return a wrong answer.
+//
+// For scripts/security-headers-guard.test.js it also returns the raw blocks:
+// `locationBlocks` (every location, named and `internal` ones included) and
+// `serverLevel` (the server block's own directives, which locations inherit).
 
 const HEADER = /\blocation\s+(=|\^~|~\*|~)?\s*(\S+)\s*\{/g;
 
@@ -47,6 +51,63 @@ export function parseLocations(confText) {
     locations.push({ modifier, pattern, action, auth: authBy !== null, authBy });
   }
   return locations;
+}
+
+// Every location block, named and `internal` ones included, with its span in the comment-free text.
+function blocks(text) {
+  const out = [];
+  const re = new RegExp(HEADER.source, 'g');
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const pattern = m[2];
+    const bodyStart = re.lastIndex;
+    const bodyEnd = text.indexOf('}', bodyStart);
+    if (bodyEnd === -1) throw new Error(`nginx-locations: unterminated location ${pattern}`);
+    const body = text.slice(bodyStart, bodyEnd);
+    if (body.includes('{')) throw new Error(`nginx-locations: nested block inside location ${pattern}`);
+    out.push({ modifier: m[1] ?? '', pattern, body, start: m.index, end: bodyEnd + 1 });
+    re.lastIndex = bodyEnd + 1;
+  }
+  return out;
+}
+
+/**
+ * @param {string} confText the text of an nginx.conf
+ * @returns {{ modifier: string, pattern: string, body: string }[]} every location block, named and `internal` ones
+ *   included, in file order; comments removed
+ */
+export function locationBlocks(confText) {
+  return blocks(String(confText).replace(/#[^\n]*/g, '')).map(({ modifier, pattern, body }) => ({ modifier, pattern, body }));
+}
+
+/**
+ * @param {string} confText the text of an nginx.conf
+ * @returns {string} the text of its (only) server block, without comments and without its location
+ *   blocks: the directives every location inherits
+ */
+export function serverLevel(confText) {
+  const text = String(confText).replace(/#[^\n]*/g, '');
+  const head = /\bserver\s*\{/g;
+  const m = head.exec(text);
+  if (!m) throw new Error('nginx-locations: no server block');
+  if (head.exec(text)) throw new Error('nginx-locations: more than one server block');
+  let depth = 1;
+  let i = m.index + m[0].length;
+  for (; i < text.length && depth > 0; i++) {
+    if (text[i] === '{') depth++;
+    else if (text[i] === '}') depth--;
+  }
+  if (depth > 0) throw new Error('nginx-locations: unterminated server block');
+  const inner = text.slice(m.index + m[0].length, i - 1);
+  let level = '';
+  let last = 0;
+  for (const b of blocks(inner)) {
+    level += inner.slice(last, b.start);
+    last = b.end;
+  }
+  level += inner.slice(last);
+  if (level.includes('{')) throw new Error('nginx-locations: unsupported block at server level');
+  return level;
 }
 
 /**
