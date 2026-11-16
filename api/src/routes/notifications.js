@@ -2,6 +2,7 @@ const express = require('express');
 const { query } = require('../db/client');
 const { requireAuth, requireAdmin, sessionRowError } = require('../middleware/auth');
 const { isAdminRole } = require('../lib/is-admin');
+const { isUuid } = require('../lib/input-rules');
 const { notificationUrlError, URL_RULE } = require('../lib/notification-url');
 const { sendAdminNotificationEmail } = require('../services/email');
 
@@ -147,6 +148,7 @@ router.post('/', requireAuth, async (req, res, next) => {
 
     let targets;
     if (userId) {
+      if (!isUuid(userId)) return res.status(400).json({ error: 'userId must be a valid UUID' });
       const { rows } = await query(
         `SELECT id, email, first_name FROM users WHERE id = $1 AND status = 'active'`,
         [userId]

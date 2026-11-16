@@ -7,7 +7,7 @@ const { missingLinkedTasks, taskTitle, STRUCTURE_RULE_CODE } = require('../lib/s
 
 // A refusal by the project rules: 400 with a code, so a client can tell it from other errors.
 const refuse = (res, error) => res.status(400).json({ error, code: rules.RULE_CODE });
-const { sendShareNotification, sendOwnerReassignedEmail, APP_URL } = require('../services/email');
+const { sendShareNotification, sendOwnerReassignedEmail, appLink } = require('../services/email');
 const { isValidSoldHours } = require('../lib/sold-hours');
 const { DATE_RULE, periodError, periodChangeError, taskDatesError, mergePeriod, periodChanged, periodColumn, toYmd } = require('../lib/dates');
 const { isAdminRole } = require('../lib/is-admin');
@@ -990,6 +990,7 @@ router.post('/:id/shares', requireAuth, async (req, res, next) => {
     if (!['editor', 'viewer'].includes(permission)) {
       return res.status(400).json({ error: 'permission must be editor or viewer' });
     }
+    if (!isUuid(userId)) return res.status(400).json({ error: 'userId must be a valid UUID' });
 
     const target = await query(
       'SELECT email, first_name FROM users WHERE id = $1 AND status = $2',
@@ -1020,7 +1021,7 @@ router.post('/:id/shares', requireAuth, async (req, res, next) => {
         resourceType: 'cost grid',
         resourceName: cg.rows[0].name,
         sharedBy: sharerName,
-        link: `${process.env.APP_URL}/pipeline.html`,
+        link: appLink('/pipeline.html'),
       });
     } catch (e) {
       emailSent = false;
@@ -1032,7 +1033,7 @@ router.post('/:id/shares', requireAuth, async (req, res, next) => {
       type: 'share',
       title: `Cost grid shared: ${cg.rows[0].name}`,
       body: `${sharerName} shared the cost grid "${cg.rows[0].name}" with you.`,
-      url: `${process.env.APP_URL}/pipeline.html`,
+      url: appLink('/pipeline.html'),
       urlLabel: 'Open Pipeline',
     });
 
@@ -1045,6 +1046,7 @@ router.delete('/:id/shares/:userId', requireAuth, async (req, res, next) => {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
+    if (!isUuid(req.params.userId)) return res.status(400).json({ error: 'userId must be a valid UUID' });
     const isOwner = await query(
       `SELECT 1 FROM resource_shares WHERE resource_type = 'cost_grid'
        AND resource_id = $1 AND user_id = $2 AND permission = 'owner'`,
@@ -1138,7 +1140,7 @@ router.patch('/:id/reassign-owner', requireAuth, async (req, res, next) => {
       cgName: cg.rows[0].name,
       reassignedBy: reassignerName,
       linkedProjectNames: linked.rows.map(r => r.project_name),
-      link: `${APP_URL}/pipeline.html`,
+      link: appLink('/pipeline.html'),
     }).catch(e => console.warn('[reassign-owner] email failed:', e.message));
 
     if (!_createNotification) _createNotification = require('./notifications').createNotification;
@@ -1146,7 +1148,7 @@ router.patch('/:id/reassign-owner', requireAuth, async (req, res, next) => {
       type: 'share',
       title: `You are now the owner: ${cg.rows[0].name}`,
       body: `${reassignerName} made you the owner of "${cg.rows[0].name}".`,
-      url: `${APP_URL}/pipeline.html`,
+      url: appLink('/pipeline.html'),
       urlLabel: 'Open Pipeline',
     }).catch(e => console.warn('[reassign-owner] notification failed:', e.message));
 

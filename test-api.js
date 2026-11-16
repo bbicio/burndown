@@ -804,12 +804,32 @@ async function testSecurity() {
     ok((await api(m, p, b)).status === 401, `SEC-10 ${m} ${p} without cookie → 401`);
   }
 
+  // UV-01..08: a non-UUID userId on the share and notification routes answers 400 before any query
+  const Z = '00000000-0000-0000-0000-000000000000';
+  const IS400 = r => r.status === 400 && r.data?.error === 'userId must be a valid UUID';
+  const uv = async (label, method, path, body) => {
+    const r = await api(method, path, body, adminCookie);
+    ok(IS400(r), `${label} ${method} ${path} → 400 userId must be a valid UUID (got ${r.status} ${JSON.stringify(r.data)})`);
+  };
+  await uv('UV-01', 'POST', `/api/cost-grids/${Z}/shares`, { userId: 'not-a-uuid', permission: 'viewer' });
+  await uv('UV-02', 'POST', `/api/cost-grids/${Z}/shares`, { userId: 123, permission: 'viewer' });
+  await uv('UV-03', 'POST', `/api/projects/${Z}/shares`, { userId: 'not-a-uuid', permission: 'viewer' });
+  await uv('UV-04', 'DELETE', `/api/cost-grids/${Z}/shares/not-a-uuid`, null);
+  await uv('UV-05', 'DELETE', `/api/projects/${Z}/shares/not-a-uuid`, null);
+  await uv('UV-06', 'POST', '/api/notifications', { userId: 'not-a-uuid', title: '__uv__' });
+  const upper = await api('POST', `/api/cost-grids/${Z}/shares`,
+    { userId: 'AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA', permission: 'viewer' }, adminCookie);
+  ok(upper.status === 404 && upper.data?.error === 'User not found',
+    `UV-07 an unknown upper-case UUID keeps today's 404 User not found (got ${upper.status} ${JSON.stringify(upper.data)})`);
+  const empty = await api('POST', '/api/notifications', { userId: '', title: '__uv__', channels: ['push'] }, adminCookie);
+  await sql('DELETE FROM notifications WHERE title = $1', ['__uv__']);
+  ok(empty.status !== 400, `UV-08 an empty userId is still a broadcast, not a 400 (got ${empty.status})`);
+
   // SEC-20..23: an unexpected (database) error answers a generic 500; client errors stay 4xx.
-  // SEC-20 reaches the 500 through B-500 (userId not validated): fixing B-500 needs another 500 trigger here.
-  const dbErr = await api('POST', '/api/cost-grids/00000000-0000-0000-0000-000000000000/shares',
-    { userId: 'not-a-uuid', permission: 'viewer' }, adminCookie);
+  // SEC-20 reaches the 500 through a non-UUID :id (no validation yet, BACKLOG row of the :id params): when it is fixed, SEC-20 needs another trigger
+  const dbErr = await api('GET', '/api/cost-grids/not-a-uuid/shares', null, adminCookie);
   ok(dbErr.status === 500 && dbErr.data?.error === 'Internal server error',
-    `SEC-20 share with a non-UUID userId → 500 generic (got ${dbErr.status} ${JSON.stringify(dbErr.data)})`);
+    `SEC-20 share list with a non-UUID :id → 500 generic (got ${dbErr.status} ${JSON.stringify(dbErr.data)})`);
   ok(!/uuid|syntax/i.test(JSON.stringify(dbErr.data)), 'SEC-21 the 500 body carries no PostgreSQL text');
   const badJson = await fetch(`${BASE}/api/auth/login`, {
     method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{bad',
