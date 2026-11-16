@@ -34,6 +34,30 @@ export function parseCsp(value) {
   return csp;
 }
 
+// A CSP host source (`https://host[/path]`, no wildcard) as a URL; null for keywords, schemes and
+// wildcards. A source without a path reads as path `/`.
+function hostSource(source) {
+  if (source.includes('*') || !/^https?:\/\/[^/]/i.test(source)) return null;
+  try { return new URL(source); } catch { return null; }
+}
+
+/**
+ * Whether a CSP host source admits a URL. Path `/` (or none) admits the whole origin, a path ending
+ * with `/` admits what is below it, any other path only itself; query and fragment are ignored.
+ * Keywords ('self' included: the URLs read here are external) and wildcards admit nothing.
+ * @param {string} source one CSP source
+ * @param {string} url an absolute URL
+ */
+export function cspSourceMatches(source, url) {
+  const s = hostSource(source);
+  if (!s) return false;
+  let u;
+  try { u = new URL(String(url).trim()); } catch { return false; }
+  if (u.origin !== s.origin) return false;
+  if (s.pathname.endsWith('/')) return u.pathname.startsWith(s.pathname);
+  return u.pathname === s.pathname;
+}
+
 // Directives a browser applies before script-src/style-src; the guard reads only those two.
 const SHADOWING = ['script-src-elem', 'script-src-attr', 'style-src-elem', 'style-src-attr'];
 
@@ -51,6 +75,9 @@ export function cspSourceProblems(csp) {
   }
   for (const s of csp.get('script-src') ?? []) {
     if (['data:', 'blob:', 'filesystem:'].includes(s.toLowerCase())) out.push(`script-src: scheme source ${s}`);
+    if (s.toLowerCase() === "'unsafe-inline'") out.push(`script-src: ${s}`);
+    const url = hostSource(s);
+    if (url && url.pathname === '/') out.push(`script-src: ${s} admits every file of its host, name the file`);
   }
   for (const d of SHADOWING) if (csp.has(d)) out.push(`${d}: not read by the guard, would override its parent directive`);
   return out;

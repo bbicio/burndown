@@ -14,7 +14,7 @@
 //     exists today;
 //   * every CDN URL pins an exact x.y.z version (`vue@3/`, `@latest`, ranges
 //     are red);
-//   * a CDN URL outside a tag (help.html's lazy Mermaid loader) must sit on a
+//   * a CDN URL outside a tag (the lazy Mermaid loader of js/pages/help.js) must sit on a
 //     line that also holds `integrity: 'sha384-` -- one form,
 //     `X = { src: '...', integrity: 'sha384-...' }` (with or without
 //     const/let/var), each URL tied to its own object -- and the file's code

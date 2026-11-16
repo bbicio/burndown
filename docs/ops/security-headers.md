@@ -4,6 +4,14 @@ Every response of the site carries a Content-Security-Policy, `X-Frame-Options`,
 
 The values live once, in the `SECURITY HEADERS` block at `server` level of [`nginx.conf`](../../nginx.conf). `scripts/security-headers-guard.test.js` holds the rules they must keep, including: no `location` block carries its own `add_header` or `proxy_hide_header`.
 
+## Scripts under the CSP
+
+`script-src` has no `'unsafe-inline'`: a page carries no inline `<script>` and no `on…=` attribute. A page's code lives in `js/pages/<page>.js` (served from `'self'`), loaded by a tag of the same type in the same position; a handler is wired with `addEventListener`.
+
+A CDN script is admitted by its exact URL, one `script-src` source per file. Adding a CDN library, or changing its version, changes its source in `nginx.conf` in the same commit; the guard fails until both agree, and a deployed stack refuses the new file until nginx is reloaded.
+
+Tests read a root page through `scripts/lib/page-source.setup.mjs`: `readFileSync` of a page returns it with its `js/pages/` scripts put back inline. `rawReadFileSync`, exported by the same file, reads the page as it is on disk.
+
 ## Checking a deployment
 
 Run against the deployed site, a public page and a protected one without a cookie (the 302):

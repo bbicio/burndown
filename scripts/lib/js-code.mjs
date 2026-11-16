@@ -96,3 +96,19 @@ export function inlineScripts(html) {
   }
   return out;
 }
+
+// The inline event-handler attributes (`on<name>=`, lower case) of a page's tags, in document
+// order. Comments and the bodies of <script> elements are skipped; a quoted attribute value is
+// read as one piece, so `title="a onclick=b"` is not a handler. Vue's `@click`/`v-on:` are not.
+export function handlerAttributes(html) {
+  const out = [];
+  const TAG = /<!--[\s\S]*?-->|<script\b(?:"[^"]*"|'[^']*'|[^'">])*>[\s\S]*?<\/script\s*>|<[a-zA-Z](?:"[^"]*"|'[^']*'|[^'">])*>/gi;
+  for (const [tag] of html.matchAll(TAG)) {
+    if (tag.startsWith('<!--')) continue;
+    const open = /^<[^\s>]*((?:"[^"]*"|'[^']*'|[^'">])*)>/.exec(tag)[1];
+    for (const m of open.matchAll(/"[^"]*"|'[^']*'|(?<=\s)(on[a-z]+)\s*=/gi)) {
+      if (m[1]) out.push(m[1].toLowerCase());
+    }
+  }
+  return out;
+}
