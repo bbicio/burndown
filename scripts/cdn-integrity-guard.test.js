@@ -16,7 +16,10 @@
 //     are red);
 //   * a CDN URL outside a tag (help.html's lazy Mermaid loader) must sit on a
 //     line that also holds `integrity: 'sha384-` -- one form,
-//     `const X = { src: '...', integrity: 'sha384-...' };`, no heuristics;
+//     `const X = { src: '...', integrity: 'sha384-...' };`, no heuristics --
+//     and its file must assign `.integrity = ...` and
+//     `.crossOrigin = 'anonymous'` somewhere (that the assignments reach the
+//     element that loads this URL is not checked);
 //   * the same URL has the same hash everywhere.
 //
 // WHAT IS DELIBERATELY NOT CHECKED, and why -- named limits, not gaps:
@@ -26,7 +29,8 @@
 //   * Hosts outside CDN_HOSTS. A library from a new CDN is invisible here
 //     until its host is added to the list.
 //   * Whether the CDN sends CORS headers, without which `crossorigin` +
-//     `integrity` block the file. Verified by hand for the four in use.
+//     `integrity` block the file. Verified by hand for every host in
+//     CDN_HOSTS when this guard was written.
 //   * Files outside the scope above (handbook/, css/, docs/). CSS has no CDN
 //     @import today.
 //   * Commented-out tags are checked like live ones: fail-closed.
@@ -61,6 +65,9 @@ function scan(src) {
       const line = lines[src.slice(0, m.index).split('\n').length - 1];
       integrity = /integrity:\s*'([^']*)'/.exec(line)?.[1] ?? null;
       if (!integrity || !SRI_RE.test(integrity)) errors.push("URL outside a tag without integrity: 'sha384-...' on its line");
+      if (!/\.integrity\s*=\s*\S/.test(src) || !/\.crossOrigin\s*=\s*'anonymous'/.test(src)) {
+        errors.push("URL outside a tag in a file that does not set .integrity and .crossOrigin = 'anonymous'");
+      }
     }
     out.push({ url, inTag: !!tag, integrity, errors });
   }
@@ -105,10 +112,19 @@ describe('scan (synthetic cases)', () => {
     expect(scan('<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js">')[0].errors).not.toContain('no exact x.y.z version');
     expect(scan('<script src="https://cdn.jsdelivr.net/npm/@scope/pkg@1.2.3/x.js">')[0].errors).not.toContain('no exact x.y.z version');
   });
+  const LOADER = "\ns.integrity = MERMAID.integrity;\ns.crossOrigin = 'anonymous';";
   it('accepts a URL outside a tag only with its integrity on the same line', () => {
     const url = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
-    expect(errs(`const MERMAID = { src: '${url}', integrity: '${H}' };`)).toEqual([]);
-    expect(errs(`const MERMAID_URL = '${url}';\nconst SRI = '${H}';`)).toEqual(["URL outside a tag without integrity: 'sha384-...' on its line"]);
+    expect(errs(`const MERMAID = { src: '${url}', integrity: '${H}' };${LOADER}`)).toEqual([]);
+    expect(errs(`const MERMAID_URL = '${url}';\nconst SRI = '${H}';${LOADER}`)).toEqual(["URL outside a tag without integrity: 'sha384-...' on its line"]);
+  });
+  it('rejects a URL outside a tag whose file never applies integrity and crossOrigin', () => {
+    const url = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
+    const decl = `const MERMAID = { src: '${url}', integrity: '${H}' };`;
+    const MISSING = 'URL outside a tag in a file that does not set .integrity and .crossOrigin = \'anonymous\'';
+    expect(errs(decl)).toEqual([MISSING]);
+    expect(errs(`${decl}\ns.integrity = MERMAID.integrity;`)).toEqual([MISSING]);
+    expect(errs(`${decl}\ns.crossOrigin = 'anonymous';`)).toEqual([MISSING]);
   });
   it('ignores hosts outside the list', () => {
     expect(scan('<link rel="icon" href="https://ik.imagekit.io/x/letter-f.png">')).toEqual([]);
@@ -129,7 +145,7 @@ describe('CDN libraries in the repo', () => {
   it('every CDN URL pins an exact x.y.z version', () => {
     expect(broken(['no exact'])).toEqual([]);
   });
-  it('a CDN URL outside a tag sits on a line with its integrity', () => {
+  it('a CDN URL outside a tag sits on a line with its integrity, which its file applies', () => {
     expect(broken(['URL outside a tag'])).toEqual([]);
   });
   it('the same URL has the same hash everywhere', () => {
