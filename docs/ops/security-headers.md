@@ -17,6 +17,8 @@ Both answers carry every header of the `SECURITY HEADERS` block, `Server: nginx`
 
 If they are missing there while the branch stack has them, a layer in front of nginx (a proxy, a gateway, a different web server) serves or rewrites the responses: the headers are replicated on that layer.
 
-## Known effect
+## Known effects
+
+With DevTools open, the console shows `connect-src` refusals of `.map` files on `https://cdn.jsdelivr.net` (e.g. `bootstrap.min.css.map`): DevTools fetches source maps under the page's `connect-src`. The page and its stylesheets are unaffected.
 
 On a network whose DNS filter redirects `ik.imagekit.io` through another host (Cisco Umbrella/OpenDNS answers through `*.id.opendns.com`), `img-src` blocks the favicon: the tab shows no icon, nothing else changes. The browser console names it as an `img-src` refusal of `https://ik.imagekit.io/...`.
