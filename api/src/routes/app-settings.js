@@ -122,7 +122,9 @@ router.get('/terms/versions/:version', requireSysAdmin, async (req, res, next) =
 router.put('/terms', requireSysAdmin, async (req, res, next) => {
   try {
     const { content, publishNewVersion } = req.body;
-    if (content === undefined) return res.status(400).json({ error: 'content is required' });
+    if (typeof content !== 'string' || content.length > 100000) {
+      return res.status(400).json({ error: 'content must be a string of at most 100000 characters' });
+    }
 
     let newVersion = null;
     if (publishNewVersion) {

@@ -845,6 +845,23 @@ async function testSecurity() {
   const truncatedBody = await truncated.json().catch(() => null);
   ok(truncated.status === 400 && typeof truncatedBody?.error === 'string' && truncatedBody.error !== 'Internal server error',
     `SEC-23 truncated multipart upload → 400 (got ${truncated.status} ${JSON.stringify(truncatedBody)})`);
+
+  // TV-01..04: the Terms content is a string of at most 100000 characters; the draft is put back, nothing is published
+  const TV_MSG = 'content must be a string of at most 100000 characters';
+  const draft = await api('GET', '/api/app-settings/terms/draft', null, sysadminCookie);
+  if (!ok(draft.status === 200 && typeof draft.data?.content === 'string', `TV-setup draft read (got ${draft.status})`)) return;
+  try {
+    const t1 = await api('PUT', '/api/app-settings/terms', { content: 42 }, sysadminCookie);
+    ok(t1.status === 400 && t1.data?.error === TV_MSG, `TV-01 non-string content → 400 (got ${t1.status} ${JSON.stringify(t1.data)})`);
+    const t2 = await api('PUT', '/api/app-settings/terms', { content: 'x'.repeat(100001) }, sysadminCookie);
+    ok(t2.status === 400 && t2.data?.error === TV_MSG, `TV-02 100001 characters → 400 (got ${t2.status})`);
+    const t3 = await api('PUT', '/api/app-settings/terms', { content: '<p>ok</p>', publishNewVersion: false }, sysadminCookie);
+    ok(t3.status === 200 && t3.data?.ok === true, `TV-03 valid content → 200 as before (got ${t3.status})`);
+    const t4 = await api('PUT', '/api/app-settings/terms', { content: '', publishNewVersion: false }, sysadminCookie);
+    ok(t4.status === 200, `TV-04 empty content is still accepted (got ${t4.status})`);
+  } finally {
+    await api('PUT', '/api/app-settings/terms', { content: draft.data.content, publishNewVersion: false }, sysadminCookie);
+  }
 }
 
 // ── Pipeline Years ────────────────────────────────────────────────────────────
