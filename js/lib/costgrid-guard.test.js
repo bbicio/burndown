@@ -44,6 +44,14 @@ describe('cost grid guard', () => {
   it('the Bootstrap table class is gone from the grid (G-14)', () => {
     expect(region).toContain('<table class="cg-grid mb-0" id="cgGridTable"');
   });
+
+  it('wires the Clients modal buttons with addEventListener, not onclick (CSP)', () => {
+    expect(html).not.toMatch(/\sonclick=/);
+    expect(html).toMatch(/<button class="btn btn-sm btn-primary" id="clientNewBtn">/);
+    expect(html).toMatch(/<button class="btn btn-primary btn-sm" id="clientSaveBtn">Save<\/button>/);
+    expect(html).toMatch(/getElementById\('clientNewBtn'\)\.addEventListener\('click', \(\) => openClientEditModal\(null\)\)/);
+    expect(html).toMatch(/getElementById\('clientSaveBtn'\)\.addEventListener\('click', \(\) => saveClientFromModal\(\)\)/);
+  });
 });
 
 // 2026-10-07, Gate 2 regression: cgSyncHeaderFromForm() read the header fields back out

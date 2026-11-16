@@ -2,10 +2,11 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-export const SNIPPET =
-  "<script>try{if(localStorage.getItem('PDash_sidebarCollapsed')==='1')document.documentElement.setAttribute('data-sidebar','collapsed')}catch(e){}</script>";
+export const SNIPPET = '<script src="js/sidebar-state.js?v=1"></script>';
+const BODY =
+  "try{if(localStorage.getItem('PDash_sidebarCollapsed')==='1')document.documentElement.setAttribute('data-sidebar','collapsed')}catch(e){}";
 
-const code = SNIPPET.replace(/^<script>/, '').replace(/<\/script>$/, '');
+const code = readFileSync(join(process.cwd(), 'js/sidebar-state.js'), 'utf8');
 const run = () => new Function(code)();
 
 afterEach(() => {
@@ -15,6 +16,10 @@ afterEach(() => {
 });
 
 describe('sidebar-state head snippet', () => {
+  it('js/sidebar-state.js is the former inline snippet body', () => {
+    expect(code.trim()).toBe(BODY);
+  });
+
   it("sets data-sidebar=collapsed when the key is '1'", () => {
     localStorage.setItem('PDash_sidebarCollapsed', '1');
     run();

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-<script>try{if(localStorage.getItem('PDash_sidebarCollapsed')==='1')document.documentElement.setAttribute('data-sidebar','collapsed')}catch(e){}</script>
+<script src="js/sidebar-state.js?v=1"></script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDash — Cost Grid</title>
@@ -715,7 +715,7 @@
     <div class="modal-content">
       <div class="modal-header"><h5 class="modal-title fw-bold">Clients</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body p-0">
-        <div class="p-3 border-bottom d-flex justify-content-end"><button class="btn btn-sm btn-primary" onclick="openClientEditModal(null)">＋ New client</button></div>
+        <div class="p-3 border-bottom d-flex justify-content-end"><button class="btn btn-sm btn-primary" id="clientNewBtn">＋ New client</button></div>
         <table class="table table-sm align-middle mb-0">
           <thead style="background:var(--surface-light)"><tr><th class="ps-3">Name</th><th></th></tr></thead>
           <tbody id="clientsTableBody"><tr id="clientsEmptyRow"><td colspan="2" class="text-center text-muted py-4">No clients. Click <strong>＋ New client</strong>.</td></tr></tbody>
@@ -734,7 +734,7 @@
         <div id="clientModalError" class="alert alert-danger py-2 d-none"></div>
         <div class="mb-3"><label class="form-label small fw-semibold">Client name</label><input type="text" class="form-control form-control-sm" id="clientName" placeholder="e.g. Acme Corp"></div>
       </div>
-      <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" id="clientSaveBtn" onclick="saveClientFromModal()">Save</button></div>
+      <div class="modal-footer"><button class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary btn-sm" id="clientSaveBtn">Save</button></div>
     </div>
   </div>
 </div>
@@ -780,6 +780,8 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('clientNewBtn').addEventListener('click', () => openClientEditModal(null));
+  document.getElementById('clientSaveBtn').addEventListener('click', () => saveClientFromModal());
 
 function updateNavState() {}
 function cgHideAll() {}
