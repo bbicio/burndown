@@ -67,7 +67,7 @@
       <h1>Terms of Use &amp; Privacy Notice <span class="version-badge">{{ version ? 'v' + version : '…' }}</span></h1>
       <p style="color:var(--text-muted);font-size:.82rem">{{ effectiveDate || 'Loading…' }}</p>
       <div style="min-height:200px">
-        <div v-if="termsContent" v-html="termsContent"></div>
+        <div v-if="termsContent" v-html="safeContent"></div>
         <div v-else-if="loadError">{{ loadError }}</div>
       </div>
       <div style="height:80px"></div>
@@ -89,6 +89,8 @@
 
   <script defer src="https://unpkg.com/vue@3.5.45/dist/vue.global.prod.js" integrity="sha384-K2FjvpG1y48yCE+7CBPhnKc16ShPmT3dlNwvoA3dhjV18+L5ugI0P8PWPvdjm/Fa" crossorigin="anonymous"></script>
   <script type="module" src="js/lib/notification-url.js?v=1"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/dompurify@3.4.18/dist/purify.min.js" integrity="sha384-lkArbWjiZKuE+bzKbj1vOEF7DKYBDNvgwZMCt5OH8bdRB92zpzyNska9Q/XKPHQD" crossorigin="anonymous"></script>
+  <script type="module" src="js/lib/terms-html.js?v=1"></script>
   <script type="module">
     Vue.createApp({
       data() {
@@ -102,6 +104,9 @@
           saving: false,
           errorMsg: '',
         };
+      },
+      computed: {
+        safeContent() { return window.safeTermsHtml(this.termsContent); },
       },
       async mounted() {
         try {
