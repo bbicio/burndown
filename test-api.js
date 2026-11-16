@@ -5203,15 +5203,6 @@ async function testMailFailures() {
   if (pId) later('DELETE', `/api/projects/${pId}`);
   if (!ok(!!(target && prg.status === 201 && cgId && vId && pId), 'MAIL-setup user, program, proposal and project created')) return;
 
-  // Delivered mails, addressed to `address`, with their body.
-  const mailsTo = async (address) => {
-    const list = (await mailpit('GET', `/api/v1/search?query=${encodeURIComponent('to:' + address)}`)).data?.messages || [];
-    return Promise.all(list.map(async (m) => {
-      const d = (await mailpit('GET', `/api/v1/message/${m.ID}`)).data;
-      return { subject: m.Subject || '', body: `${d?.Text || ''}\n${d?.HTML || ''}` };
-    }));
-  };
-
   // MAIL-09: the sign-in code of the two-step login reaches Mailpit
   await mailpit('DELETE', '/api/v1/messages');
   const ch = await openChallenge(target);
@@ -5283,12 +5274,21 @@ async function testMailFailures() {
 // header is ignored.
 const fwd = () => ({ 'X-Forwarded-For': `10.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}.${Math.floor(Math.random() * 250) + 1}` });
 
-async function tokensFor(address, page) {
+// Delivered mails addressed to `address`, newest first, with subject and body (Text + HTML).
+async function mailsTo(address) {
   const list = (await mailpit('GET', `/api/v1/search?query=${encodeURIComponent('to:' + address)}`)).data?.messages || [];
   const out = [];
   for (const m of list) {
     const d = (await mailpit('GET', `/api/v1/message/${m.ID}`)).data;
-    const hit = `${d?.Text || ''}\n${d?.HTML || ''}`.match(new RegExp(`${page}[?]token=([0-9a-f]{64})`));
+    out.push({ subject: m.Subject || '', body: `${d?.Text || ''}\n${d?.HTML || ''}` });
+  }
+  return out;
+}
+
+async function tokensFor(address, page) {
+  const out = [];
+  for (const m of await mailsTo(address)) {
+    const hit = m.body.match(new RegExp(`${page}[?]token=([0-9a-f]{64})`));
     if (hit) out.push(hit[1]);
   }
   return out; // newest first
