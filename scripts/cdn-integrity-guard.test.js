@@ -16,11 +16,15 @@
 //     are red);
 //   * a CDN URL outside a tag (help.html's lazy Mermaid loader) must sit on a
 //     line that also holds `integrity: 'sha384-` -- one form,
-//     `const X = { src: '...', integrity: 'sha384-...' };`, no heuristics --
-//     and its file, comments excluded, must assign `.integrity = X.integrity`
-//     (or `setAttribute('integrity', X.integrity)`) and crossOrigin
-//     `anonymous`; that both reach the element loading X.src is not checked,
-//     and crossOrigin is checked once per file, not per URL;
+//     `X = { src: '...', integrity: 'sha384-...' }` (with or without
+//     const/let/var), each URL tied to its own object -- and the file's code
+//     must assign `.integrity = X.integrity` (or
+//     `setAttribute('integrity', X.integrity)`) and crossOrigin `anonymous`.
+//     "Code" is what scripts/lib/js-code.mjs keeps: comments dropped, long
+//     strings blanked, and in a page only its inline scripts; its own header
+//     names where that tokeniser can be wrong. That both assignments reach the
+//     element loading X.src is not checked, and crossOrigin is checked once
+//     per file, not per URL;
 //   * the same URL has the same hash everywhere.
 //
 // WHAT IS DELIBERATELY NOT CHECKED, and why -- named limits, not gaps:
@@ -38,6 +42,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { jsCode, inlineScripts } from './lib/js-code.mjs';
 
 const ROOT = process.cwd();
 const CDN_HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'cdn.sheetjs.com'];
@@ -47,27 +52,27 @@ const TAG_RE = /<(?:script|link)\b[^>]*>/gi;
 const EXACT_RE = /^https:\/\/[^/]+\/(?:npm\/)?(?:@[^/]+\/)?[^/@]+[@-]\d+\.\d+\.\d+\//;
 const SRI_RE = /^sha384-[A-Za-z0-9+/]+={0,2}$/;
 
-// The source without comments, for the loader check only. `//` counts as a comment only after
-// whitespace or a statement character, so `https://` survives.
-const stripComments = (src) => src
-  .replace(/\/\*[\s\S]*?\*\//g, '')
-  .replace(/<!--[\s\S]*?-->/g, '')
-  .replace(/(^|[\s;{}])\/\/.*$/gm, '$1');
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// `name` is the constant on the URL's line ({ src, integrity }): its own integrity must be assigned
-// (not compared) or set as an attribute, and crossOrigin must be set to anonymous.
+// `name` holds the URL's { src, integrity } object: in the code (comments dropped, long strings
+// blanked -- scripts/lib/js-code.mjs) its own integrity must be assigned, not compared, or set as an
+// attribute, and crossOrigin must be set to anonymous.
 function loaderApplies(code, name) {
   if (!name) return false;
-  const integrity = new RegExp(`\\.integrity\\s*=(?!=)\\s*${name}\\.integrity\\b|setAttribute\\(\\s*['"]integrity['"]\\s*,\\s*${name}\\.integrity\\b`);
-  const cross = /\.crossOrigin\s*=(?!=)\s*['"]anonymous['"]|setAttribute\(\s*['"]crossorigin['"]\s*,\s*['"]anonymous['"]/;
-  return integrity.test(code) && cross.test(code);
+  const n = escapeRe(name);
+  const assigned = new RegExp(`\\.integrity\\s*=(?!=)\\s*${n}\\.integrity\\b`).test(code)
+    || new RegExp(`setAttribute\\(\\s*['"]integrity['"]\\s*,\\s*${n}\\.integrity\\b`, 'i').test(code);
+  const cross = /\.crossOrigin\s*=(?!=)\s*['"]anonymous['"]/.test(code)
+    || /setAttribute\(\s*['"]crossorigin['"]\s*,\s*['"]anonymous['"]/i.test(code);
+  return assigned && cross;
 }
 
-// One finding per CDN URL: { url, inTag, integrity, errors[] }.
-function scan(src) {
-  const code = stripComments(src);
+// One finding per CDN URL: { url, inTag, integrity, errors[] }. `html`: read the code of the page's
+// inline scripts only, so markup text never reads as code.
+function scan(src, { html = false } = {}) {
+  let code = null;
+  const codeOf = () => (code ??= (html ? inlineScripts(src) : [src]).map(jsCode).join('\n'));
   const tags = [...src.matchAll(TAG_RE)].map((m) => ({ start: m.index, end: m.index + m[0].length, text: m[0] }));
-  const lines = src.split('\n');
   const out = [];
   for (const m of src.matchAll(URL_RE)) {
     const url = m[0];
@@ -80,10 +85,14 @@ function scan(src) {
       if (!integrity || !SRI_RE.test(integrity)) errors.push('tag without sha384 integrity');
       if (!/\bcrossorigin="anonymous"/i.test(tag.text)) errors.push('tag without crossorigin="anonymous"');
     } else {
-      const line = lines[src.slice(0, m.index).split('\n').length - 1];
-      integrity = /integrity:\s*'([^']*)'/.exec(line)?.[1] ?? null;
+      // The URL's own object: its name ends the line before the URL, its integrity follows the URL.
+      const before = src.slice(src.lastIndexOf('\n', m.index) + 1, m.index);
+      const lineEnd = src.indexOf('\n', m.index);
+      const after = src.slice(m.index, lineEnd < 0 ? src.length : lineEnd);
+      const name = /(?:\b(?:const|let|var)\s+)?([\w$]+)\s*=\s*\{[^{}]*$/.exec(before)?.[1];
+      integrity = /^[^{}]*?\bintegrity:\s*'([^']*)'/.exec(after)?.[1] ?? null;
       if (!integrity || !SRI_RE.test(integrity)) errors.push("URL outside a tag without integrity: 'sha384-...' on its line");
-      if (!loaderApplies(code, /(?:const|let|var)\s+(\w+)\s*=\s*\{/.exec(line)?.[1])) {
+      if (!loaderApplies(codeOf(), name)) {
         errors.push("URL outside a tag whose loader does not set .integrity = <NAME>.integrity and crossOrigin 'anonymous'");
       }
     }
@@ -154,6 +163,33 @@ describe('scan (synthetic cases)', () => {
     const other = `const OTHER = { src: 'https://cdn.jsdelivr.net/npm/foo@1.2.3/foo.js', integrity: '${H}' };`;
     expect(scan(`${decl}\n${other}${LOADER}`).map((f) => f.errors)).toEqual([[], [MISSING]]);
   });
+  it('ties each URL to its own object when two share a line', () => {
+    const u1 = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
+    const u2 = 'https://cdn.jsdelivr.net/npm/foo@1.2.3/foo.js';
+    const H2 = 'sha384-' + 'B'.repeat(64);
+    const found = scan(`const MERMAID = { src: '${u1}', integrity: '${H}' }; const OTHER = { src: '${u2}', integrity: '${H2}' };${LOADER}`);
+    expect(found.map((f) => f.integrity)).toEqual([H, H2]);
+    expect(found.map((f) => f.errors.length)).toEqual([0, 1]);
+  });
+  it('does not count a loader commented out after any character, or quoted in a string', () => {
+    const decl = `const MERMAID = { src: 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js', integrity: '${H}' };`;
+    expect(errs(`${decl}\nload(s)// s.integrity = MERMAID.integrity;\nload(s)// s.crossOrigin = 'anonymous';`)).toHaveLength(1);
+    expect(errs(`${decl}\nconst help = "s.integrity = MERMAID.integrity; s.crossOrigin = 'anonymous'";`)).toHaveLength(1);
+  });
+  it('keeps code after a /* inside a string', () => {
+    const decl = `const MERMAID = { src: 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js', integrity: '${H}' };`;
+    expect(errs(`${decl}\nconst g = 'src/*';${LOADER}\nconst e = '*/';`)).toEqual([]);
+  });
+  it('accepts $ names, a plain assignment, and any case in setAttribute names', () => {
+    const u = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
+    expect(errs(`$m = { src: '${u}', integrity: '${H}' };\ns.integrity = $m.integrity;\ns.crossOrigin = 'anonymous';`)).toEqual([]);
+    expect(errs(`const M = { src: '${u}', integrity: '${H}' };\ns.setAttribute('Integrity', M.integrity);\ns.setAttribute('crossOrigin', 'anonymous');`)).toEqual([]);
+  });
+  it('reads an HTML page only inside its inline scripts', () => {
+    const decl = `const MERMAID = { src: 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js', integrity: '${H}' };`;
+    expect(scan(`<p>Don't</p>\n<script type="module">\n${decl}${LOADER}\n</script>`, { html: true })[0].errors).toEqual([]);
+    expect(scan(`<p>${LOADER}</p>\n<script type="module">\n${decl}\n</script>`, { html: true })[0].errors).toHaveLength(1);
+  });
   it('accepts the other spellings of the loader', () => {
     const decl = `const MERMAID = { src: 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js', integrity: '${H}' };`;
     expect(errs(`${decl}\ns.integrity = MERMAID.integrity;\ns.crossOrigin = "anonymous";`)).toEqual([]);
@@ -165,7 +201,7 @@ describe('scan (synthetic cases)', () => {
 });
 
 describe('CDN libraries in the repo', () => {
-  const findings = scopeFiles().flatMap((file) => scan(readFileSync(join(ROOT, file), 'utf8')).map((f) => ({ file, ...f })));
+  const findings = scopeFiles().flatMap((file) => scan(readFileSync(join(ROOT, file), 'utf8'), { html: file.endsWith('.html') }).map((f) => ({ file, ...f })));
   const broken = (kinds) => findings.filter((f) => f.errors.some((e) => kinds.some((k) => e.startsWith(k))))
     .map((f) => `${f.file}: ${f.url} -- ${f.errors.join(', ')}`);
 
