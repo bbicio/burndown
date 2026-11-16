@@ -31,8 +31,8 @@
 //   * WHETHER A HASH IS CORRECT. The guard downloads nothing; a wrong hash
 //     shows only in the browser (resource blocked, integrity error in the
 //     console). The manual check of the cycle that changes a URL covers it.
-//   * Hosts outside CDN_HOSTS. A library from a new CDN is invisible here
-//     until its host is added to the list.
+//   * Hosts outside CDN_HOSTS (in scripts/lib/cdn-urls.mjs). A library from a
+//     new CDN is invisible here until its host is added to that list.
 //   * Whether the CDN sends CORS headers, without which `crossorigin` +
 //     `integrity` block the file. Verified by hand for every host in
 //     CDN_HOSTS when this guard was written.
@@ -65,6 +65,10 @@ describe('scan (synthetic cases)', () => {
   it('rejects a tag without integrity or crossorigin', () => {
     expect(errs(`<script src="${V}" crossorigin="anonymous"></script>`)).toEqual(['tag without sha384 integrity']);
     expect(errs(`<script src="${V}" integrity="${H}"></script>`)).toEqual(['tag without crossorigin="anonymous"']);
+  });
+  it('does not read data-integrity or data-crossorigin as the real attributes', () => {
+    expect(errs(`<script src="${V}" data-integrity="${H}" data-crossorigin="anonymous"></script>`))
+      .toEqual(['tag without sha384 integrity', 'tag without crossorigin="anonymous"']);
   });
   it('rejects a non-sha384 integrity', () => {
     expect(errs(`<script src="${V}" integrity="sha512-${'A'.repeat(86)}" crossorigin="anonymous"></script>`)).toEqual(['tag without sha384 integrity']);

@@ -15,31 +15,39 @@
 //     `add_header` or `proxy_hide_header`: in nginx one such directive inside
 //     a `location` replaces every one inherited from `server`;
 //   * the CSP closes object-src, base-uri, form-action and frame-ancestors,
-//     keeps default-src and connect-src to 'self', and has no wildcard source
-//     (`*`, `https:`, `http:`) in script-src or style-src, nor `data:` in
-//     script-src. The rest of the CSP string is not pinned: a new origin for a
-//     new page is added without rewriting this test.
+//     keeps default-src and connect-src to 'self', has no source containing
+//     `*` nor `https:`/`http:` in script-src or style-src, no
+//     `data:`/`blob:`/`filesystem:` in script-src, and no
+//     script-src-elem/-attr or style-src-elem/-attr directive (a browser would
+//     apply it instead of the directive this test reads) --
+//     cspSourceProblems in scripts/lib/nginx-headers.mjs. The rest of the CSP
+//     string is not pinned: a new origin for a new page is added without
+//     rewriting this test.
 // In the root *.html pages and js/**/*.js (tests excluded), every external
-// <script src> has its origin in script-src, every <link rel="stylesheet"> in
-// style-src, every <link rel="icon"> in img-src; any other <link> to an
-// external origin fails until it is classified here. A CDN URL outside a tag
-// (a lazy loader) must have its origin in script-src.
+// (`https://`, `//`) <script src> has its origin in script-src, every
+// <link rel="stylesheet"> in style-src, every <link rel="icon"> and <img src>
+// in img-src; any other <link> to an external origin fails until it is
+// classified here, and a plain `http://` URL always fails. A CDN URL outside a
+// tag (a lazy loader) must have its origin in script-src. In handbook/**/*.md
+// (rendered by help.html), every external image has its origin in img-src.
 //
 // WHAT IS DELIBERATELY NOT CHECKED -- named limits, not gaps:
 //   * `if` and `include` in nginx.conf: neither exists today, and the readers
 //     in scripts/lib/nginx-locations.mjs throw on a nested block.
-//   * Resources loaded from CSS (`url()`, `@import`), by `fetch`, or built at
-//     runtime: scripts/lib/cdn-urls.mjs does not see them.
-//   * Lazy loaders are assumed to load scripts; the only one today (Mermaid in
-//     help.html) is a <script>.
+//   * Resources loaded from CSS (`url()`, `@import`), by `fetch`, bound at
+//     runtime (a Vue `:src`) or built from pieces: scripts/lib/cdn-urls.mjs
+//     does not see them.
+//   * Lazy loaders are seen only on a host in CDN_HOSTS
+//     (scripts/lib/cdn-urls.mjs), and are assumed to load scripts; the only one
+//     today (Mermaid in help.html) is a <script>.
 //   * Whether the browser actually accepts the policy: the branch-stack
 //     measure of the cycle that changes it covers that.
 import { describe, it, expect } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { externalResources, scanCdnUrls, scopeFiles } from './lib/cdn-urls.mjs';
+import { externalResources, markdownImages, scanCdnUrls, scopeFiles } from './lib/cdn-urls.mjs';
 import { locationBlocks, serverLevel } from './lib/nginx-locations.mjs';
-import { addHeaders, parseCsp } from './lib/nginx-headers.mjs';
+import { addHeaders, cspSourceProblems, parseCsp } from './lib/nginx-headers.mjs';
 
 const ROOT = process.cwd();
 const CSP_HEADER = 'Content-Security-Policy';
@@ -73,6 +81,44 @@ describe('externalResources', () => {
   it('ignores local scripts and anchors', () => {
     expect(externalResources('<script src="js/core.js?v=3"></script>\n<a href="https://example.com">x</a>')).toEqual([]);
   });
+  it('reads protocol-relative and plain-http URLs too', () => {
+    expect(externalResources('<script src="//evil.example/x.js"></script>'))
+      .toEqual([{ kind: 'script', url: '//evil.example/x.js' }]);
+    expect(externalResources('<link rel="stylesheet" href="http://evil.example/x.css">'))
+      .toEqual([{ kind: 'stylesheet', url: 'http://evil.example/x.css' }]);
+  });
+  it('reads an external <img>, not a local or data: one', () => {
+    expect(externalResources('<img alt="" src="https://i.example/x.png"><img src="img/a.png"><img src="data:image/png;base64,AA">'))
+      .toEqual([{ kind: 'image', url: 'https://i.example/x.png' }]);
+  });
+});
+
+describe('markdownImages', () => {
+  it('reads external markdown and HTML images, not local ones', () => {
+    expect(markdownImages('![a](https://i.example/a.png "t")\n![b](img/b.png)\n<img src="https://i.example/c.png">'))
+      .toEqual(['https://i.example/a.png', 'https://i.example/c.png']);
+  });
+});
+
+describe('cspSourceProblems', () => {
+  const problems = (v) => cspSourceProblems(parseCsp(v));
+  it('accepts the shape of the real policy', () => {
+    expect(problems("script-src 'self' 'unsafe-inline' https://cdn.example; style-src 'self' https://cdn.example")).toEqual([]);
+  });
+  it('rejects any wildcard in script-src or style-src', () => {
+    for (const s of ['*', 'https:', 'http:', 'https://*', '*.example.com', 'https://*.example.com']) {
+      expect(problems(`script-src 'self' ${s}; style-src 'self'`), s).toHaveLength(1);
+      expect(problems(`script-src 'self'; style-src 'self' ${s}`), s).toHaveLength(1);
+    }
+  });
+  it('rejects data:, blob: and filesystem: in script-src', () => {
+    for (const s of ['data:', 'blob:', 'filesystem:']) expect(problems(`script-src 'self' ${s}; style-src 'self'`), s).toHaveLength(1);
+  });
+  it('rejects the -elem and -attr directives the guard does not read', () => {
+    for (const d of ['script-src-elem', 'script-src-attr', 'style-src-elem', 'style-src-attr']) {
+      expect(problems(`script-src 'self'; style-src 'self'; ${d} 'self'`), d).toHaveLength(1);
+    }
+  });
 });
 
 describe('nginx readers', () => {
@@ -101,6 +147,17 @@ describe('nginx readers', () => {
   });
   it('drops comments from the server level', () => {
     expect(serverLevel('server {\n # add_header A "1" always;\n listen 80;\n}')).not.toContain('add_header');
+  });
+  it('does not read a location named /server as a second server block', () => {
+    expect(serverLevel('server { listen 80; location /server { root /x; } location /api/server { root /y; } }')).toContain('listen 80');
+  });
+  it('keeps a # inside a quoted value', () => {
+    expect(addHeaders(serverLevel('server { add_header A "x#y" always; # a comment\n}')))
+      .toEqual([{ name: 'A', value: 'x#y', always: true }]);
+    expect(locationBlocks("server { location / { add_header B 'p#q'; } }")[0].body).toContain("'p#q'");
+  });
+  it('throws on a brace in a location pattern, like parseLocations', () => {
+    expect(() => locationBlocks('server { location ~ ^/a{2}$ { root /x; } }')).toThrow();
   });
   it('throws on a config it cannot read', () => {
     expect(() => serverLevel('http { }')).toThrow();
@@ -142,26 +199,32 @@ describe('nginx.conf security headers', () => {
       expect(csp.get('form-action')).toEqual(["'self'"]);
       expect(csp.get('frame-ancestors')).toEqual(["'none'"]);
     });
-    it('has no wildcard source in script-src or style-src, nor data: in script-src', () => {
-      for (const d of ['script-src', 'style-src']) {
-        expect(csp.get(d), d).toBeDefined();
-        expect((csp.get(d) ?? []).filter((s) => ['*', 'https:', 'http:'].includes(s.toLowerCase())), d).toEqual([]);
-      }
-      expect((csp.get('script-src') ?? []).filter((s) => s.toLowerCase() === 'data:')).toEqual([]);
+    it('has no source or directive that empties or overrides the script/style allowlist', () => {
+      for (const d of ['script-src', 'style-src']) expect(csp.get(d), d).toBeDefined();
+      expect(cspSourceProblems(csp)).toEqual([]);
     });
-    it('admits every origin the pages and js/ load from', () => {
-      const DIRECTIVE = { script: 'script-src', stylesheet: 'style-src', icon: 'img-src' };
+    it('admits every origin the pages, js/ and handbook/ load from', () => {
+      const DIRECTIVE = { script: 'script-src', stylesheet: 'style-src', icon: 'img-src', image: 'img-src' };
       const missing = [];
+      const check = (file, url, d) => {
+        if (/^http:/i.test(url)) missing.push(`${file}: ${url} -- plain http`);
+        else if (!(csp.get(d) ?? []).includes(new URL(url, 'https://protocol-relative.invalid/').origin)) {
+          missing.push(`${file}: ${url} -- origin not in ${d}`);
+        }
+      };
       for (const file of scopeFiles(ROOT)) {
         const src = readFileSync(join(ROOT, file), 'utf8');
         for (const { kind, url } of externalResources(src)) {
-          const d = DIRECTIVE[kind];
-          if (!d) missing.push(`${file}: ${url} -- <link> of an unclassified kind`);
-          else if (!(csp.get(d) ?? []).includes(new URL(url).origin)) missing.push(`${file}: ${url} -- origin not in ${d}`);
+          if (!DIRECTIVE[kind]) missing.push(`${file}: ${url} -- <link> of an unclassified kind`);
+          else check(file, url, DIRECTIVE[kind]);
         }
-        for (const { url } of scanCdnUrls(src, { html: file.endsWith('.html') }).filter((f) => !f.inTag)) {
-          if (!(csp.get('script-src') ?? []).includes(new URL(url).origin)) missing.push(`${file}: ${url} -- origin not in script-src`);
-        }
+        for (const { url } of scanCdnUrls(src, { html: file.endsWith('.html') }).filter((f) => !f.inTag)) check(file, url, 'script-src');
+      }
+      const handbook = readdirSync(join(ROOT, 'handbook'), { recursive: true })
+        .map((n) => `handbook/${String(n).replace(/\\/g, '/')}`).filter((n) => n.endsWith('.md'));
+      expect(handbook.length).toBeGreaterThan(0);
+      for (const file of handbook) {
+        for (const url of markdownImages(readFileSync(join(ROOT, file), 'utf8'))) check(file, url, 'img-src');
       }
       expect(missing).toEqual([]);
     });

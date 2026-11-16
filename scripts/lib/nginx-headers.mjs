@@ -33,3 +33,25 @@ export function parseCsp(value) {
   }
   return csp;
 }
+
+// Directives a browser applies before script-src/style-src; the guard reads only those two.
+const SHADOWING = ['script-src-elem', 'script-src-attr', 'style-src-elem', 'style-src-attr'];
+
+/**
+ * @param {Map<string, string[]>} csp from parseCsp
+ * @returns {string[]} one message per source that empties the script/style allowlist, and per
+ *   directive that would override it unseen; empty when there is none
+ */
+export function cspSourceProblems(csp) {
+  const out = [];
+  for (const d of ['script-src', 'style-src']) {
+    for (const s of csp.get(d) ?? []) {
+      if (s.includes('*') || ['https:', 'http:'].includes(s.toLowerCase())) out.push(`${d}: wildcard source ${s}`);
+    }
+  }
+  for (const s of csp.get('script-src') ?? []) {
+    if (['data:', 'blob:', 'filesystem:'].includes(s.toLowerCase())) out.push(`script-src: scheme source ${s}`);
+  }
+  for (const d of SHADOWING) if (csp.has(d)) out.push(`${d}: not read by the guard, would override its parent directive`);
+  return out;
+}

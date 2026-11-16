@@ -2,24 +2,25 @@
 // scripts/cdn-integrity-guard.test.js (version and SRI of every CDN library)
 // and scripts/security-headers-guard.test.js (every origin is in the CSP).
 //
-// What it reads: <script> and <link> tags anywhere in the text (a tag over
-// several lines, attributes in any order), and CDN URLs outside a tag -- the
-// lazy loaders -- with the { src, integrity } object they sit in and the code
-// that applies it (scripts/lib/js-code.mjs). What it does not: resources
-// loaded from CSS (`url()`, `@import`), from `fetch`/`XMLHttpRequest`, or
-// built at runtime from pieces; a `>` inside an attribute value ends the tag
-// (a false failure, never a false pass). Outside a tag, only hosts in
-// CDN_HOSTS are seen.
+// What it reads: <script>, <link> and <img> tags anywhere in the text (a tag
+// over several lines, attributes in any order), markdown images, and CDN URLs
+// outside a tag -- the lazy loaders -- with the { src, integrity } object they
+// sit in and the code that applies it (scripts/lib/js-code.mjs). What it does
+// not: resources loaded from CSS (`url()`, `@import`), from
+// `fetch`/`XMLHttpRequest`, bound at runtime (a Vue `:src`) or built from
+// pieces; a `>` inside an attribute value ends the tag (a false failure, never
+// a false pass). Outside a tag, only hosts in CDN_HOSTS are seen.
 import { readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { jsCode, inlineScripts } from './js-code.mjs';
 
-export const CDN_HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'cdn.sheetjs.com'];
+const CDN_HOSTS = ['cdn.jsdelivr.net', 'unpkg.com', 'cdn.sheetjs.com'];
 const HOSTS = CDN_HOSTS.map((h) => h.replace(/\./g, '\\.')).join('|');
 const URL_RE = new RegExp(`https://(?:${HOSTS})/[^\\s'"\`<>)]+`, 'g');
 const TAG_RE = /<(?:script|link)\b[^>]*>/gi;
 const EXACT_RE = /^https:\/\/[^/]+\/(?:npm\/)?(?:@[^/]+\/)?[^/@]+[@-]\d+\.\d+\.\d+\//;
 const SRI_RE = /^sha384-[A-Za-z0-9+/]+={0,2}$/;
+const RESOURCE_TAG_RE = /<(?:script|link|img)\b[^>]*>/gi;
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
@@ -52,9 +53,9 @@ export function scanCdnUrls(src, { html = false } = {}) {
     const tag = tags.find((t) => m.index >= t.start && m.index < t.end);
     let integrity = null;
     if (tag) {
-      integrity = /\bintegrity="([^"]*)"/i.exec(tag.text)?.[1] ?? null;
+      integrity = attr(tag.text, 'integrity');
       if (!integrity || !SRI_RE.test(integrity)) errors.push('tag without sha384 integrity');
-      if (!/\bcrossorigin="anonymous"/i.test(tag.text)) errors.push('tag without crossorigin="anonymous"');
+      if ((attr(tag.text, 'crossorigin') ?? '').toLowerCase() !== 'anonymous') errors.push('tag without crossorigin="anonymous"');
     } else {
       // The URL's own object: its name ends the line before the URL, its integrity follows the URL.
       const before = src.slice(src.lastIndexOf('\n', m.index) + 1, m.index);
@@ -78,23 +79,34 @@ function attr(tag, name) {
   return m ? (m[1] ?? m[2] ?? m[3]) : null;
 }
 
-// Every <script src="https://..."> and <link href="https://..."> of the text, any host:
-// { kind: 'script'|'stylesheet'|'icon'|'other', url }. A <link>'s kind comes from its rel tokens.
+// A URL on another origin: `https://`, `http://` or protocol-relative `//`.
+const EXTERNAL_RE = /^(?:https?:)?\/\//i;
+
+// Every <script src>, <link href> and <img src> of the text pointing at another origin, any host:
+// { kind: 'script'|'stylesheet'|'icon'|'image'|'other', url } with the URL as written. A <link>'s
+// kind comes from its rel tokens.
 export function externalResources(src) {
   const out = [];
-  for (const m of src.matchAll(TAG_RE)) {
+  for (const m of src.matchAll(RESOURCE_TAG_RE)) {
     const tag = m[0];
-    const isScript = /^<script/i.test(tag);
-    const url = attr(tag, isScript ? 'src' : 'href');
-    if (!url || !/^https:\/\//i.test(url)) continue;
-    let kind = 'script';
-    if (!isScript) {
+    const name = /^<(\w+)/.exec(tag)[1].toLowerCase();
+    const url = attr(tag, name === 'link' ? 'href' : 'src');
+    if (!url || !EXTERNAL_RE.test(url)) continue;
+    let kind = name === 'img' ? 'image' : 'script';
+    if (name === 'link') {
       const rel = (attr(tag, 'rel') ?? '').toLowerCase().split(/\s+/);
       kind = rel.includes('stylesheet') ? 'stylesheet' : rel.includes('icon') ? 'icon' : 'other';
     }
     out.push({ kind, url });
   }
   return out;
+}
+
+// The external images of a markdown document: `![alt](url)` and HTML <img> tags, URLs as written.
+export function markdownImages(src) {
+  const md = [...src.matchAll(/!\[[^\]]*\]\(\s*<?([^\s)>]+)/g)].map((m) => m[1]);
+  const html = externalResources(src).filter((r) => r.kind === 'image').map((r) => r.url);
+  return [...md, ...html].filter((u) => EXTERNAL_RE.test(u));
 }
 
 // The root *.html pages and js/**/*.js (tests excluded), as paths relative to `root`.
