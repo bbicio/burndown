@@ -18,7 +18,7 @@ Nodemailer wrappers: `sendInvite`, `sendPasswordReset`, `sendShareNotification`,
 
 `sendShareRevokedEmail` (2026-09) is the access-removed counterpart to `sendShareNotification`. It is consumed **only** by `projects.js`'s `DELETE /:id/shares/:userId` — cost-grid share removal does not call it, a deliberate scope decision rather than an omission.
 
-The module also exports an `APP_URL` constant (2026-09) used for building the links inside emails.
+The module also exports an `APP_URL` constant (2026-09) used for building the links inside emails, and `appLink(path)` (`${APP_URL}${path}`, 2026-11-16, B-499), which builds every share and owner-reassignment link of `routes/cost-grids.js`. Tests: `api/src/services/email-app-link.test.js`.
 
 ## jwt.js
 

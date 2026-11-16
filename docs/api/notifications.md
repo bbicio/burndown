@@ -18,3 +18,7 @@ The pipeline-stage-change broadcast (`notifyAdminsPipelineChange`, `cost-grids.j
 ## Notification url rule (2026-11-15, security cycle 1, S-01)
 
 `POST /` calls `notificationUrlError(url, process.env.APP_URL)` (`api/src/lib/notification-url.js`) right after the title check and before the user lookup, so an invalid url answers `400 { error, code: 'URL_RULE' }` and creates no row, for one user and for a broadcast alike. The stored value is the one sent, not normalised. An empty string counts as no url. `createNotification` is not validated: its callers build their own urls. Existing rows are not migrated; the client neutralises them at render. Tests: `test-api.js` `NU-00..NU-09`.
+
+## userId validated (2026-11-16, B-500)
+
+A present, non-UUID `userId` answers `400 { error: 'userId must be a valid UUID' }` before the user lookup; an absent or empty one is still a broadcast (admin only). The same check and message guard the share routes of `routes/cost-grids.js` and `routes/projects.js` (`POST /:id/shares` body, `DELETE /:id/shares/:userId` path), after their permission check. Tests: `test-api.js` `UV-01..UV-08`.
