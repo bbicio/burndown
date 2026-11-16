@@ -857,6 +857,8 @@ Third tier above `admin` — sysadmin inherits every admin capability, plus two 
 | SEC-10 | Non-admin can read ratecards | Log in as `user` role; `GET /api/ratecards` and `GET /api/ratecards/:id` | 200 — read access is requireAuth; POST/PATCH/DELETE still return 403 (unauthenticated write → 401 checked in auto suite) | |
 | SEC-11 | Date writes are validated (2026-10-24, dates C1) | Send a malformed (`2026-05`), impossible (`202613`, `20260431`) or inverted period to version POST/PATCH, project POST/PATCH, `PUT …/structure` and `PUT /api/projects/:id/tasks` | 400 `{ code: 'DATE_RULE' }`, the record is unchanged; a body that re-sends the stored dates unchanged is accepted | ✓ |
 | SEC-12 | Only site files are served (2026-11-11, nginx-serve-allowlist) | Signed in, open `/.env`, `/backups/<a dump>`, `/CLAUDE.md`, `/js/lib/money.test.js`, `/js/lib/money.Test.js`; then `/pipeline.html`, `/TEST_CASES.md`, `/css/style.css` | The first five answer 404; the last three load. Signed out, `/pipeline.html` and `/TEST_CASES.md` redirect to `/login.html` | ✓ (vitest) |
+| SEC-13 | CDN libraries are pinned and integrity-checked (2026-11-16, security c4) | DevTools open, load `/pipeline.html`, `/portfolio.html` (a project Dashboard), `/project-config.html?projectId=…`, `/help.html?doc=architecture`; in Network, filter `vue` | Every page renders styled; the Vue request is `vue@3.5.45`; no console error mentioning `integrity` or `Failed to find a valid digest`; every CDN `<script>`/`<link>` has `integrity` and `crossorigin="anonymous"` (`scripts/cdn-integrity-guard.test.js`) | ✓ (vitest) |
+| SEC-14 | Mail still delivered after the nodemailer 10 upgrade (2026-11-16, security c4) | Branch stack with Mailpit: sign in without a trusted device; share a proposal with another user | The sign-in code mail arrives with a six-digit code (`MAIL-09`); the share mail arrives and the share answers `emailSent: true` (`MAIL-10`) | ✓ |
 
 ---
 
@@ -1307,6 +1309,7 @@ Spec: `docs/superpowers/specs/2026-11-11-handbook-viewer-design.md`. One page sh
 | HB-05 | Old test-cases address | Open `/test-cases.html` | Lands on `/help.html?doc=test-cases` with Test cases open | ✓ (vitest) |
 | HB-06 | Test case results kept | As an admin, mark a case passed in Test cases, reload | The case is still passed; results saved before 2026-11-11 on the same address are still there | |
 | HB-07 | Mermaid diagram | As an admin, open a document containing a `mermaid` code block | The block is drawn as a diagram, not shown as code | |
+| HB-10 | Mermaid loaded once, with integrity (2026-11-16, security c4) | As an admin, DevTools Network filtered on `mermaid`: open Architecture, then User manual, then Architecture again | The diagram is drawn both times; one request only, to `mermaid@11.4.1/dist/mermaid.min.js`; no integrity error in the console | |
 | HB-08 | Session expired while reading | Open `/help.html`, sign out in another tab, then pick another document | "Could not load this document. Reload the page; if you are signed out, sign in first." instead of the login page rendered as text | ✓ (vitest) |
 | HB-09 | User manual renders | Open `/help.html?doc=manual` as a user | The ten chapters show, every table is a table, each "Details" block opens on click, and no chapter names a button the page does not have | |
 

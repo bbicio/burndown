@@ -218,6 +218,8 @@ scripts/site-export.mjs  — `npm run export:list` / `export:copy`: classifies a
                             `scripts/site-export.rules`, copies the site into a local clone. Detail: [docs/scripts/site-export.md](docs/scripts/site-export.md).
 scripts/site-export-guard.test.js — fails when a tracked file matches no rule of `scripts/site-export.rules`, or a
                             process file is included. Limits: own header.
+scripts/cdn-integrity-guard.test.js — fails when a CDN library lacks an exact version, SRI or crossorigin; reads
+                            lazy loaders through `scripts/lib/js-code.mjs`. Limits: own header.
 scripts/shoot.mjs        — renders pages of the running app with headless Chrome, one PNG per width, for comparing a
                             redesign against its design boards. **Reading the PNGs back is part of visual
                             verification — "the page can't be rendered here" is not a valid reason to skip it.**
@@ -320,7 +322,7 @@ If a future `js/lib/` module needs another `js/lib/` module's function, use a na
 
 No bundler means no content-hashed filenames — every `<script src="...">`/`<link href="...">` tag that references a project-owned `js/*.js`, `js/lib/*.js`, or `css/*.css` file carries its own `?v=N` query string (e.g. `js/nav.js?v=17`, `css/style.css?v=21`, `js/lib/pipeline-calc.js?v=2`). The full URL — path *and* query string — is the browser's cache key, so **editing a versioned file's content without bumping every `?v=N` reference to it is a live production bug**.
 
-**Rule for every future change to a versioned file:** grep the whole repo for every `?v=N` reference to that exact file path before merging, and bump every one of them to the same new `N`. CDN-hosted libraries (Bootstrap, Chart.js, ExcelJS, etc.) are exempt. **`css/tokens.css` is NOT exempt**; `js/lib/foundations-guard.test.js` fails if the references to `tokens.css`, `style.css`, `admin-crud.css`, `auth.css` or `core.js` disagree on `?v=N`. **The `.html` pages themselves are not versioned**, so a browser may keep serving a cached page (with its old `<script ?v=N>` tags) after a deploy until its heuristic cache expires, and a developer testing an edited page needs a hard reload.
+**Rule for every future change to a versioned file:** grep the whole repo for every `?v=N` reference to that exact file path before merging, and bump every one of them to the same new `N`. CDN-hosted libraries (Bootstrap, Chart.js, ExcelJS, etc.) are exempt: they carry an exact version and `integrity="sha384-…"` + `crossorigin="anonymous"` instead (`scripts/cdn-integrity-guard.test.js`), so changing one means a new hash too. **`css/tokens.css` is NOT exempt**; `js/lib/foundations-guard.test.js` fails if the references to `tokens.css`, `style.css`, `admin-crud.css`, `auth.css` or `core.js` disagree on `?v=N`. **The `.html` pages themselves are not versioned**, so a browser may keep serving a cached page (with its old `<script ?v=N>` tags) after a deploy until its heuristic cache expires, and a developer testing an edited page needs a hard reload.
 
 ### Linked project resolution
 

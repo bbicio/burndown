@@ -43,7 +43,7 @@ flowchart LR
 
 | Layer | Technology | Rationale |
 |---|---|---|
-| Frontend | Vue 3 (CDN, multi-page) | No build step; each page is a self-contained HTML file with an inline `Vue.createApp(...)` |
+| Frontend | Vue 3 (CDN, multi-page) | No build step; each page is a self-contained HTML file with an inline `Vue.createApp(...)`. Every CDN library is pinned to an exact version and loaded with `integrity` + `crossorigin="anonymous"` (`scripts/cdn-integrity-guard.test.js`) |
 | Backend | Node.js + Express | Same language as frontend; mature auth/email ecosystem |
 | Database | PostgreSQL | Relational + JSONB; scales well for analytical queries |
 | Auth | JWT + httpOnly cookies | Stateless; protected from XSS |

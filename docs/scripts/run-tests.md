@@ -23,3 +23,7 @@ After the `api` container is healthy and before the `test` service starts, the s
 ## Mail goes to Mailpit (2026-11-11, B-416)
 
 The generated `docker-compose.test.yml` adds a `mailpit` service (`axllent/mailpit`, pinned tag in the script's `MAILPIT_IMAGE`, no host ports) and points `api` at it with `SMTP_HOST: mailpit` and `SMTP_PORT: "1025"`, plus `depends_on` so Compose starts it with `api`. `SMTP_HOST: mailpit` keeps all mail inside the stack; Mailpit accepts the `.env` credentials. Its chaos API is enabled (`MP_ENABLE_CHAOS`), and the `test` service gets `MAILPIT_URL: http://mailpit:8025`: `test-api.js`'s `MAIL-*` section reads the mailbox and switches chaos on to make SMTP refuse every recipient, then off in a `finally`. `docker-compose.yml` has no `mailpit` service, so the main stack cannot reach it.
+
+## Image reuse follows the lockfile and the shared image (2026-11-16, security c4)
+
+Since `api/Dockerfile` installs with `npm ci`, the hash that decides `--build` covers `api/Dockerfile`, `api/package.json` and `api/package-lock.json`. Every checkout shares the `pdash_test` compose project, so one `pdash_test-api` image: `.run-tests-image-hash` stores `<hash> <image id>` (`docker image inspect`), and the build is skipped only when both match. An id that cannot be read (no image, or a name Compose no longer uses) prints `No pdash_test-api image found: building it.` and builds. Pinned by `scripts/run-tests-image-hash.test.js`.
