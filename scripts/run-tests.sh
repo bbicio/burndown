@@ -128,12 +128,14 @@ done | docker exec -i "$DB_CONTAINER" psql -U "${POSTGRES_USER:-pdash}" -d "${PO
 IMAGE_HASH_FILE=".run-tests-image-hash"
 CURRENT_HASH=$(cat api/Dockerfile api/package.json api/package-lock.json | sha256sum | cut -d' ' -f1)
 # Every checkout shares this compose project, so one image: the stored image id makes a rebuild by
-# another checkout (another lockfile) count as a change. No image → empty id → build.
+# another checkout (another lockfile) count as a change. An id that cannot be read (no image, or a
+# name Compose no longer uses) always builds.
 API_IMAGE="${PROJECT}-api"
 image_id() { docker image inspect --format '{{.Id}}' "$API_IMAGE" 2>/dev/null; }
+CURRENT_ID=$(image_id || true)
 
 API_BUILD_FLAG="--build"
-if [ -f "$IMAGE_HASH_FILE" ] && [ "$(cat "$IMAGE_HASH_FILE")" = "$CURRENT_HASH $(image_id)" ]; then
+if [ -n "$CURRENT_ID" ] && [ -f "$IMAGE_HASH_FILE" ] && [ "$(cat "$IMAGE_HASH_FILE")" = "$CURRENT_HASH $CURRENT_ID" ]; then
   API_BUILD_FLAG=""
 fi
 

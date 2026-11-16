@@ -29,7 +29,15 @@ describe('run-tests.sh image hash', () => {
     const sh = read('scripts/run-tests.sh');
     expect(sh).toContain('API_IMAGE="${PROJECT}-api"');
     expect(sh).toContain(`docker image inspect --format '{{.Id}}' "$API_IMAGE"`);
-    expect(sh).toContain('[ "$(cat "$IMAGE_HASH_FILE")" = "$CURRENT_HASH $(image_id)" ]');
+    expect(sh).toContain('CURRENT_ID=$(image_id || true)');
+    expect(sh).toContain('[ "$(cat "$IMAGE_HASH_FILE")" = "$CURRENT_HASH $CURRENT_ID" ]');
     expect(sh).toContain('echo "$CURRENT_HASH $(image_id)" > "$IMAGE_HASH_FILE"');
+  });
+
+  // A wrong image name makes image_id empty on both sides of the comparison: it must build, not match.
+  it('builds when the image id cannot be read', () => {
+    const sh = read('scripts/run-tests.sh');
+    const cond = sh.split('\n').find((l) => l.includes('"$CURRENT_HASH $CURRENT_ID"'));
+    expect(cond).toContain('[ -n "$CURRENT_ID" ]');
   });
 });
