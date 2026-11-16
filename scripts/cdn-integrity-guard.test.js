@@ -60,10 +60,12 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function loaderApplies(code, name) {
   if (!name) return false;
   const n = escapeRe(name);
+  // attribute names are case-insensitive in HTML; the object name and the property are not
+  const anyCase = (s) => [...s].map((ch) => `[${ch.toLowerCase()}${ch.toUpperCase()}]`).join('');
   const assigned = new RegExp(`\\.integrity\\s*=(?!=)\\s*${n}\\.integrity\\b`).test(code)
-    || new RegExp(`setAttribute\\(\\s*['"]integrity['"]\\s*,\\s*${n}\\.integrity\\b`, 'i').test(code);
+    || new RegExp(`setAttribute\\(\\s*['"]${anyCase('integrity')}['"]\\s*,\\s*${n}\\.integrity\\b`).test(code);
   const cross = /\.crossOrigin\s*=(?!=)\s*['"]anonymous['"]/.test(code)
-    || /setAttribute\(\s*['"]crossorigin['"]\s*,\s*['"]anonymous['"]/i.test(code);
+    || new RegExp(`setAttribute\\(\\s*['"]${anyCase('crossorigin')}['"]\\s*,\\s*['"]anonymous['"]`).test(code);
   return assigned && cross;
 }
 
@@ -89,7 +91,7 @@ function scan(src, { html = false } = {}) {
       const before = src.slice(src.lastIndexOf('\n', m.index) + 1, m.index);
       const lineEnd = src.indexOf('\n', m.index);
       const after = src.slice(m.index, lineEnd < 0 ? src.length : lineEnd);
-      const name = /(?:\b(?:const|let|var)\s+)?([\w$]+)\s*=\s*\{[^{}]*$/.exec(before)?.[1];
+      const name = /(?:^|[^\w$.])([\w$]+)\s*=\s*\{[^{}]*$/.exec(before)?.[1]; // not `cfg.NAME = {`
       integrity = /^[^{}]*?\bintegrity:\s*'([^']*)'/.exec(after)?.[1] ?? null;
       if (!integrity || !SRI_RE.test(integrity)) errors.push("URL outside a tag without integrity: 'sha384-...' on its line");
       if (!loaderApplies(codeOf(), name)) {
@@ -184,6 +186,12 @@ describe('scan (synthetic cases)', () => {
     const u = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
     expect(errs(`$m = { src: '${u}', integrity: '${H}' };\ns.integrity = $m.integrity;\ns.crossOrigin = 'anonymous';`)).toEqual([]);
     expect(errs(`const M = { src: '${u}', integrity: '${H}' };\ns.setAttribute('Integrity', M.integrity);\ns.setAttribute('crossOrigin', 'anonymous');`)).toEqual([]);
+  });
+  it('matches the object name exactly, case included, and not as a property', () => {
+    const u = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
+    const decl = `const MERMAID = { src: '${u}', integrity: '${H}' };`;
+    expect(errs(`${decl}\ns.setAttribute('integrity', mermaid.integrity);\ns.crossOrigin = 'anonymous';`)).toHaveLength(1);
+    expect(errs(`cfg.MERMAID = { src: '${u}', integrity: '${H}' };${LOADER}`)).toHaveLength(1);
   });
   it('reads an HTML page only inside its inline scripts', () => {
     const decl = `const MERMAID = { src: 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js', integrity: '${H}' };`;
