@@ -126,16 +126,23 @@ for f in api/src/db/migrations/*.sql; do
 done | docker exec -i "$DB_CONTAINER" psql -U "${POSTGRES_USER:-pdash}" -d "${POSTGRES_DB:-pdash}" -v ON_ERROR_STOP=1
 
 IMAGE_HASH_FILE=".run-tests-image-hash"
-CURRENT_HASH=$(cat api/Dockerfile api/package.json | sha256sum | cut -d' ' -f1)
+CURRENT_HASH=$(cat api/Dockerfile api/package.json api/package-lock.json | sha256sum | cut -d' ' -f1)
+# Every checkout shares this compose project, so one image: the stored image id makes a rebuild by
+# another checkout (another lockfile) count as a change. An id that cannot be read (no image, or a
+# name Compose no longer uses) always builds.
+API_IMAGE="${PROJECT}-api"
+image_id() { docker image inspect --format '{{.Id}}' "$API_IMAGE" 2>/dev/null; }
+CURRENT_ID=$(image_id || true)
+[ -n "$CURRENT_ID" ] || echo "No ${API_IMAGE} image found: building it."
 
 API_BUILD_FLAG="--build"
-if [ -f "$IMAGE_HASH_FILE" ] && [ "$(cat "$IMAGE_HASH_FILE")" = "$CURRENT_HASH" ]; then
+if [ -n "$CURRENT_ID" ] && [ -f "$IMAGE_HASH_FILE" ] && [ "$(cat "$IMAGE_HASH_FILE")" = "$CURRENT_HASH $CURRENT_ID" ]; then
   API_BUILD_FLAG=""
 fi
 
 $COMPOSE up -d $API_BUILD_FLAG api
 wait_healthy "$API_CONTAINER"
-echo "$CURRENT_HASH" > "$IMAGE_HASH_FILE"
+echo "$CURRENT_HASH $(image_id)" > "$IMAGE_HASH_FILE"
 
 echo "Running backend unit tests (node --test)..."
 docker exec "$API_CONTAINER" node --test 'src/**/*.test.js'
