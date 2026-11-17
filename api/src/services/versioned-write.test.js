@@ -166,3 +166,13 @@ test('respondSaveError maps Stale to 409 STALE and NotFound to 404', () => {
   assert.equal(respondSaveError(r3, new Error('other')), false);
   assert.equal(r3.code, null);
 });
+
+test('no route reads change_log: the register has no API', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const dir = path.join(__dirname, '..', 'routes');
+  const readers = fs.readdirSync(dir)
+    .filter(f => f.endsWith('.js') && !f.endsWith('.test.js'))
+    .filter(f => /(FROM|JOIN)\s+change_log/i.test(fs.readFileSync(path.join(dir, f), 'utf8')));
+  assert.deepEqual(readers, []);
+});
