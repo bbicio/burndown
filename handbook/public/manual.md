@@ -31,7 +31,7 @@ The invitation email carries a link, valid for 48 hours, where you choose your p
 <details>
 <summary>Details</summary>
 
-- On the activation, reset and profile pages a strength indicator (Too weak, Fair, Good, Strong) fills as you type and grows with the length: a longer passphrase is stronger. While the password breaks the rule, the reason appears under the indicator. The button is enabled when the rule is met and the confirmation matches.
+- On the activation, reset and profile pages a strength indicator (Too weak, Fair, Good, Strong) fills as you type and grows with the length: a longer passphrase is stronger. A password that is too short, too long or repetitive, or that contains your name or email, is explained under the indicator as you type (when you submit instead: your last name on the activation page, your name and email on the reset page); a common or breached password is refused when you submit. The button is enabled when the rule is met and the confirmation matches.
 - If an invitation expired or was lost, ask an administrator to resend it.
 
 </details>

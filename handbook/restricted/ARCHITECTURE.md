@@ -1221,7 +1221,7 @@ burndown/
       lib/                ← pure functions for unit testing (node:test), mirroring the frontend's js/lib/. Detail: docs/api/lib.md
       middleware/         ← auth guard: requireAuth, requireAdmin, requireSysAdmin (see §3.1), liveRole(userId), sessionRowError(claims)
       db/                 ← PostgreSQL pool client, migrations/
-      services/           ← email, jwt, passwords, resource-matching, profile-engine/worker, llm, planning-assistant, planning-data, topic-extraction. Index: docs/api/services.md
+      services/           ← email, jwt, passwords, resource-matching, profile-engine/worker, llm, planning-assistant, planning-data, topic-extraction, two-step, users. Index: docs/api/services.md
       create-admin.js     ← CLI bootstrap: create/reset admin user (always role='admin')
       promote-sysadmin.js ← CLI: promote an existing user to role='sysadmin'
     Dockerfile

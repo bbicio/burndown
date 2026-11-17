@@ -403,7 +403,7 @@ Full detail: [docs/js/lib.md](docs/js/lib.md), [docs/api/lib.md](docs/api/lib.md
 - **Every hash of a password goes through `hashNewPassword`** (`api/src/services/passwords.js`); a refusal is `400 { error, code: 'PASSWORD_RULE' }`.
 - **No page rewrites the rule**: placeholder, hint, strength and errors come from the twin.
 
-`scripts/password-policy-guard.test.js` pins the three. Full detail: [docs/api/lib.md](docs/api/lib.md), [docs/api/services.md](docs/api/services.md), [docs/js/lib.md](docs/js/lib.md) (`password-policy.js`).
+`scripts/password-policy-guard.test.js` pins the last two. Full detail: [docs/api/lib.md](docs/api/lib.md), [docs/api/services.md](docs/api/services.md), [docs/js/lib.md](docs/js/lib.md) (`password-policy.js`).
 
 ### Project currency lock
 
