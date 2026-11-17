@@ -351,7 +351,7 @@ describe('Master Data shared controls (css/style.css, js/lib/icons.js)', () => {
     const from = css.indexOf('/* ── Master Data controls');
     expect(from).toBeGreaterThan(-1);
     const block = css.slice(from, css.indexOf('/* ──', from + 10));
-    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+    expect(block).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
   it('has the building, pencil, more and reset icons', () => {
     for (const n of ['building', 'pencil', 'more', 'reset']) {

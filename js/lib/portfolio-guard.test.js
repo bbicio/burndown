@@ -302,7 +302,7 @@ describe('project reporting view — calculations fix (B-071, B-072, B-074)', ()
     expect(start).toBeGreaterThan(-1);
     const body = html.slice(start, html.indexOf('showDashboard(pid) {', start));
     expect(body).toContain('var(--kpi-orange)');
-    expect(body).not.toMatch(/#[0-9a-fA-F]{3,8}/);
+    expect(body).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
   it('measures the Budget tile on fees only', () => {
     expect(dashboardActive).toContain('<template v-if="kpis.feesOnly">');

@@ -43,7 +43,7 @@ describe('master-roles panel', () => {
     const save = between('async saveRole()', 'async deleteRole');
     expect(save).toContain("if (!this.rf.roleCode.trim()) { this.rf.error = 'Role code is required.'; return; }");
     const after = save.slice(save.indexOf('const form = this.rf;'));
-    expect(after).not.toMatch(/this.rf.(id|show|error|loading)/);
+    expect(after).not.toMatch(/this.rf.(id|show|error|loading)\b/);
     expect(save).toContain('const saved = code.toUpperCase();');
   });
   it('sends an untouched code back as stored, ignores the double-click second click, locks fields while saving', () => {

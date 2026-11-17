@@ -35,7 +35,7 @@
 //     scripts/lib/mermaid-facts.mjs; ER relationships and cardinality, message
 //     order, prose and the §1 context diagram are not.
 //   * WHERE in §5 a name appears. Both presence checks below are a bare-word
-//     match (`name`) against the whole of §5 — ~20 KB of hand-written
+//     match (`\bname\b`) against the whole of §5 — ~20 KB of hand-written
 //     SQL-ish prose — not against the block of the table being checked. So a
 //     table or a column whose name occurs anywhere in §5 (another table's
 //     block, a comment, the prose) passes even when §5 never documents it. The
