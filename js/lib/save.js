@@ -4,8 +4,8 @@
 //   ok       — 2xx JSON (or an empty body): { data }
 //   conflict — 409 STALE: { message, version }; the page offers Reload
 //   rule     — a *_RULE refusal: { code, message }
-//   error    — any other HTTP error, a 4xx that is not JSON, a 401: { status, message }
-//   unknown  — timeout, network, a 5xx or 2xx that is not JSON: the write may have happened
+//   error    — any other 4xx (JSON or not), a 401: { status, message }
+//   unknown  — timeout, network, any 5xx, a 2xx that is not JSON: the write may have happened
 // Loaded as an ES module (<script type="module" src="js/lib/save.js?v=N">) and bridged onto `window`.
 
 export const UNKNOWN_MESSAGE = "The server's answer was lost — the change may have been saved. Reload to check.";
@@ -16,7 +16,7 @@ export async function apiSave(method, path, body) {
     return { kind: 'ok', data };
   } catch (err) {
     const status = err?.status;
-    if (err?.timeout || err?.network || (err?.nonJson && (status >= 500 || status < 400))) {
+    if (err?.timeout || err?.network || status >= 500 || (err?.nonJson && status < 400)) {
       return { kind: 'unknown', message: UNKNOWN_MESSAGE };
     }
     const data = err?.data;

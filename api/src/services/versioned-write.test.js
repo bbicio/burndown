@@ -12,7 +12,7 @@ function fakeDb({ stored = 2, missing = false, failLog = false, order = [] } = {
     released: false,
     query: async (text, params) => {
       log.push({ text, params });
-      if (/FOR UPDATE/.test(text)) return { rows: missing ? [] : [{ version: stored }] };
+      if (/FOR (NO KEY )?UPDATE/.test(text)) return { rows: missing ? [] : [{ version: stored }] };
       if (/SET version = version \+ 1/.test(text)) return { rows: [{ version: stored + 1 }] };
       if (/INSERT INTO change_log/.test(text)) {
         if (failLog) throw new Error('log failed');
@@ -175,4 +175,14 @@ test('no route reads change_log: the register has no API', () => {
     .filter(f => f.endsWith('.js') && !f.endsWith('.test.js'))
     .filter(f => /(FROM|JOIN)\s+change_log/i.test(fs.readFileSync(path.join(dir, f), 'utf8')));
   assert.deepEqual(readers, []);
+});
+
+test('an update locks FOR NO KEY UPDATE (FK inserts do not wait); a delete locks FOR UPDATE', async () => {
+  fakeRole();
+  const up = fakeDb();
+  await versionedWrite(up.pool, { type: 'role', id: 'r1', expectedVersion: 2, userId: 'u1', action: 'update', write: async () => {} });
+  assert.ok(up.texts().some(t => /SELECT version FROM roles WHERE id = \$1 FOR NO KEY UPDATE/.test(t)), up.texts().join(' | '));
+  const del = fakeDb();
+  await versionedWrite(del.pool, { type: 'role', id: 'r1', expectedVersion: 2, userId: 'u1', action: 'delete', write: async () => {} });
+  assert.ok(del.texts().some(t => /SELECT version FROM roles WHERE id = \$1 FOR UPDATE/.test(t)), del.texts().join(' | '));
 });

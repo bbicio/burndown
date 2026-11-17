@@ -93,6 +93,12 @@ describe('master-clients rate card sub-view', () => {
     expect(rows).toContain('initial: { ...texts }');
     expect(rows).toContain('const stored = { EUR: eur == null ? null : Number(eur) };');
   });
+  // The rows are rebuilt from the server's card after a save: text typed while it runs would be lost.
+  it('locks every rate input while a save runs', () => {
+    const inputs = html.match(/<input type="text" inputmode="decimal" v-model="r\.row\.texts[^>]*>/g) || [];
+    expect(inputs.length).toBe(3);
+    for (const input of inputs) expect(input).toContain(':readonly="rc.saving"');
+  });
   it('offers Reload on a conflict or a lost answer', () => {
     expect(method('saveClientRatecard')).toContain("state.reloadable = res.kind === 'conflict' || res.kind === 'unknown';");
     expect(html).toContain('@click="reloadClientRatecard">Reload</button>');

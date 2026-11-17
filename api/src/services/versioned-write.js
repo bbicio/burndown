@@ -45,7 +45,10 @@ async function run(client, { type, id, expectedVersion, userId, action, write })
     return { entity, version: 0 };
   }
 
-  const locked = await client.query(`SELECT version FROM ${def.table} WHERE id = $1 FOR UPDATE`, [id]);
+  // An update takes the lock the old plain UPDATEs took, so inserts referencing the row (FK key
+  // share) do not wait for it; a delete needs the full lock.
+  const lock = action === 'delete' ? 'FOR UPDATE' : 'FOR NO KEY UPDATE';
+  const locked = await client.query(`SELECT version FROM ${def.table} WHERE id = $1 ${lock}`, [id]);
   if (!locked.rows[0]) throw new NotFoundError(type);
   const stored = locked.rows[0].version;
   if (!Number.isInteger(expectedVersion) || expectedVersion !== stored) throw new StaleError(type, stored);

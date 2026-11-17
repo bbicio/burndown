@@ -362,8 +362,8 @@ Pure helpers for `attribute-lists.html`, bridged to `window`: `itemCounts(items,
 | `ok` | a 2xx JSON answer, or an empty body (`data: null`) | `data` |
 | `conflict` | `409` with `code: 'STALE'` | `message`, `version` |
 | `rule` | an HTTP error whose `code` ends in `_RULE` | `code`, `message` |
-| `error` | any other HTTP error with a JSON body; a 4xx that is not JSON; a 401 (the redirect is already under way) | `status`, `message` |
-| `unknown` | timeout, network error, a 5xx or a 2xx that is not JSON | `message`: "The server's answer was lost — the change may have been saved. Reload to check." |
+| `error` | any other 4xx, JSON or not; a 401 (the redirect is already under way) | `status`, `message` |
+| `unknown` | timeout, network error, any 5xx (the write may have committed), a 2xx that is not JSON | `message`: "The server's answer was lost — the change may have been saved. Reload to check." |
 
 `message` is the server's `error`, else `HTTP <status>`. A `409` without `STALE` (a duplicate role code) is an `error`, not a `conflict`.
 

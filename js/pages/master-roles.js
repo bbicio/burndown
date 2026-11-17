@@ -100,8 +100,10 @@ window.__cfgApp = Vue.createApp({
         ]);
         this.roles    = roles.map(r => this.fromApi(r));
         this.currencies    = currencies;
+        return true;
       } catch (e) {
         this.loadError = e.message || 'Failed to load data.';
+        return false;
       }
     },
     // A role as the server answers it (GET /roles row or the saved snapshot) → the row in memory.
@@ -257,8 +259,12 @@ window.__cfgApp = Vue.createApp({
     // Reload after a conflict or a lost answer: the server's values replace the edits.
     async reloadRole() {
       if (this.rf.loading) return;
-      const id = this.rf.id;
-      await this.loadAll();
+      const form = this.rf, id = form.id;
+      form.loading = true;   // one reload at a time; Save, Cancel and Reload wait for it
+      const loaded = await this.loadAll();
+      form.loading = false;
+      if (this.rf !== form) return;
+      if (!loaded) { form.error = this.loadError; return; }
       const role = id && this.roles.find(r => r.id === id);
       if (role) { this.openRoleForm(role); return; }
       this.closePanel();

@@ -25,6 +25,7 @@ const CASES = [
   ['400 MONEY_RULE → rule', () => res('{"error":"M","code":"MONEY_RULE"}', 400), { kind: 'rule', code: 'MONEY_RULE', message: 'M' }],
   ['404 JSON → error', () => res('{"error":"Role not found"}', 404), { kind: 'error', status: 404, message: 'Role not found' }],
   ['413 HTML → error', () => res('<html>too large</html>', 413), { kind: 'error', status: 413, message: 'HTTP 413' }],
+  ['500 JSON → unknown (the write may have committed)', () => res('{"error":"Internal server error"}', 500), { kind: 'unknown', message: UNKNOWN }],
   ['502 HTML → unknown', () => res('<html>bad gateway</html>', 502), { kind: 'unknown', message: UNKNOWN }],
   ['200 HTML → unknown', () => res('<html>proxy</html>'), { kind: 'unknown', message: UNKNOWN }],
   ['timeout → unknown', () => Promise.reject(Object.assign(new Error('aborted'), { name: 'AbortError' })), { kind: 'unknown', message: UNKNOWN }],

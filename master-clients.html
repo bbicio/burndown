@@ -543,7 +543,7 @@
                 <td class="rc-col-client">
                   <div class="rc-input-wrap" :class="{ 'is-custom': r.cells.EUR.kind === 'custom' }">
                     <span class="rc-sym">{{ eurSymbol }}</span>
-                    <input type="text" inputmode="decimal" v-model="r.row.texts.EUR" :placeholder="cellPlaceholder(r.cells.EUR, 'EUR')"
+                    <input type="text" inputmode="decimal" v-model="r.row.texts.EUR" :readonly="rc.saving" :placeholder="cellPlaceholder(r.cells.EUR, 'EUR')"
                            @focus="onRcFocus(r.row, 'EUR')" @blur="onRcBlur(r.row, 'EUR')">
                   </div>
                   <div class="rc-cap" :class="'is-' + r.cells.EUR.kind">{{ cellCaption(r.cells.EUR, 'EUR') }}</div>
@@ -551,7 +551,7 @@
                 <td v-for="cu in rcExtraCurrencies" :key="cu.code" class="rc-col-cur">
                   <div class="rc-input-wrap" :class="{ 'is-custom': r.cells[cu.code].kind === 'custom' }">
                     <span class="rc-sym">{{ cu.symbol }}</span>
-                    <input type="text" inputmode="decimal" v-model="r.row.texts[cu.code]" :placeholder="cellPlaceholder(r.cells[cu.code], cu.code)"
+                    <input type="text" inputmode="decimal" v-model="r.row.texts[cu.code]" :readonly="rc.saving" :placeholder="cellPlaceholder(r.cells[cu.code], cu.code)"
                            @focus="onRcFocus(r.row, cu.code)" @blur="onRcBlur(r.row, cu.code)">
                   </div>
                   <div class="rc-cap" :class="'is-' + r.cells[cu.code].kind">{{ cellCaption(r.cells[cu.code], cu.code) }}</div>
@@ -588,7 +588,7 @@
             </div>
             <div class="rc-input-wrap" :class="{ 'is-custom': r.cells[rcPhoneCurrency].kind === 'custom', 'is-missing': r.cells[rcPhoneCurrency].kind === 'missing' }">
               <span class="rc-sym">{{ rcPhoneSymbol }}</span>
-              <input type="text" inputmode="decimal" v-model="r.row.texts[rcPhoneCurrency]" :placeholder="cellPlaceholder(r.cells[rcPhoneCurrency], rcPhoneCurrency)"
+              <input type="text" inputmode="decimal" v-model="r.row.texts[rcPhoneCurrency]" :readonly="rc.saving" :placeholder="cellPlaceholder(r.cells[rcPhoneCurrency], rcPhoneCurrency)"
                      @focus="onRcFocus(r.row, rcPhoneCurrency)" @blur="onRcBlur(r.row, rcPhoneCurrency)">
             </div>
           </div>

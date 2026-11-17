@@ -56,7 +56,12 @@ describe('master-roles panel', () => {
     expect(between('async confirmDelete()', 'hideDeleteDialog(del) {')).toContain("del.reloadable = res.kind === 'conflict' || res.kind === 'unknown' || res.status === 404;");
     expect(html).toContain('@click="reloadRole">Reload</button>');
     expect(html).toContain('@click="reloadAfterDelete">Reload</button>');
-    expect(between('async reloadRole()', 'async saveRole()')).toContain("'This role no longer exists.'");
+    const reload = between('async reloadRole()', 'async saveRole()');
+    expect(reload).toContain("'This role no longer exists.'");
+    // one reload at a time, and a failed reload never reopens the panel on the stale version
+    expect(reload).toContain('form.loading = true;');
+    expect(reload).toContain('const loaded = await this.loadAll();');
+    expect(reload).toContain('if (!loaded) { form.error = this.loadError; return; }');
   });
   it('sends an untouched code back as stored, ignores the double-click second click, locks fields while saving', () => {
     expect(between('openRoleForm(role) {', 'closePanel({')).toContain('origCode, origTeam: team, origRole: roleCode,');
