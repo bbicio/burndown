@@ -33,6 +33,8 @@ const rectificationLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 5 })
 // forgot-password: every request that names an address counts, whether or not the address exists.
 const forgotIpLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
 const forgotEmailLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 5 });
+// change-password: wrong current passwords only, per user, as for login (reserved, refunded once right).
+const changePasswordLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
 
 const CHALLENGE_COOKIE = 'pdash_challenge';
 const DEVICE_COOKIE = 'pdash_device';
@@ -574,6 +576,8 @@ router.post('/reset-password', async (req, res, next) => {
 
 // POST /api/auth/change-password
 router.post('/change-password', requireAuth, async (req, res, next) => {
+  let refundSlot = () => {};
+  let judged = false;
   try {
     const { currentPassword, newPassword, newPasswordConfirm } = req.body;
     if (!isStr(currentPassword) || !isStr(newPassword) || !currentPassword || !newPassword) {
@@ -581,10 +585,17 @@ router.post('/change-password', requireAuth, async (req, res, next) => {
     }
     if (newPassword !== newPasswordConfirm) return res.status(400).json({ error: 'Passwords do not match' });
 
+    const key = req.user.id;
+    const slot = changePasswordLimiter.hit(key);
+    refundSlot = () => { if (slot.allowed) changePasswordLimiter.refund(key, Date.now(), slot.window); };
+    if (!slot.allowed) return rateLimited(res, slot.retryInMs);
+
     const { rows } = await query('SELECT password_hash, email, first_name, last_name FROM users WHERE id = $1', [req.user.id]);
     const valid = await bcrypt.compare(currentPassword, rows[0].password_hash);
+    judged = true;
     // 400, not 401: the shared client treats a 401 as an expired session and redirects to login.
     if (!valid) return res.status(400).json({ error: 'Current password is incorrect', field: 'currentPassword' });
+    refundSlot();
 
     const { email, first_name, last_name } = rows[0];
     const { hash, error } = await hashNewPassword(newPassword, { email, firstName: first_name, lastName: last_name });
@@ -601,7 +612,10 @@ router.post('/change-password', requireAuth, async (req, res, next) => {
       id: req.user.id, role: req.user.role, email: changed.email, password_changed_at: changed.password_changed_at,
     }));
     res.json({ ok: true });
-  } catch (err) { next(err); }
+  } catch (err) {
+    if (!judged) refundSlot();
+    next(err);
+  }
 });
 
 module.exports = router;

@@ -47,5 +47,5 @@ Things to verify the first time the app runs outside a development machine, and 
 
 ## Known limits to accept or plan for
 
-- [ ] The failed-login and code-sending counters live in the API process: a restart resets them, and a second API instance would count separately.
+- [ ] The rate-limit counters of `api/src/routes/auth.js` (failed logins, codes sent, rectification requests, forgot-password, wrong current passwords) live in the API process: a restart resets them, and a second API instance would count separately.
 - [ ] Automated tools that log in (`scripts/shoot.mjs`, `api/src/scripts/seed-planning-golden.js`) need a trusted device minted on that environment; see `docs/scripts/shoot.md`.
