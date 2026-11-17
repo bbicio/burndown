@@ -122,6 +122,8 @@ body {
   box-shadow: none;
 }
 .invalid-feedback { color: var(--color-danger); font-size: 11.5px; }
+/* The password hint sits where the rule error appears: same size, so the next field never moves. */
+.form-text { color: var(--text-muted); font-size: 11.5px; }
 
 /* ── Buttons and links ── */
 .btn-primary {
