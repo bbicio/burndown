@@ -401,7 +401,8 @@ clients (
 programs (
   id         VARCHAR PRIMARY KEY,   -- user-defined string e.g. "PROG_01"
   name       VARCHAR NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  version    INTEGER NOT NULL DEFAULT 0  -- 037: save-contract version (not checked yet)
 )
 
 roles (
@@ -411,7 +412,8 @@ roles (
   team           VARCHAR,
   hourly_rate    DECIMAL(10,2),
   rate_overrides JSONB NOT NULL DEFAULT '{}',  -- migration 013: per-currency agency defaults e.g. {"USD": 140}
-  created_at     TIMESTAMPTZ DEFAULT NOW()
+  created_at     TIMESTAMPTZ DEFAULT NOW(),
+  version        INTEGER NOT NULL DEFAULT 0    -- 037: save-contract version, checked by every write
 )
 
 ratecards (
@@ -419,7 +421,7 @@ ratecards (
   client_id  UUID REFERENCES clients(id),  -- required on create; NULL only after its client is deleted (ON DELETE SET NULL)
   name       VARCHAR NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
-  version    INTEGER NOT NULL DEFAULT 0  -- 035: optimistic version of the entry set
+  version    INTEGER NOT NULL DEFAULT 0  -- 035; since 037 checked by every write of the card
 )
 
 ratecard_entries (
@@ -429,6 +431,17 @@ ratecard_entries (
   hourly_rate    DECIMAL(10,2),               -- NULL = no client EUR rate, the agency default applies (029)
   rate_overrides JSONB NOT NULL DEFAULT '{}',  -- per-currency overrides for this client e.g. {"USD": 120}
   UNIQUE (ratecard_id, role_id)
+)
+
+change_log (                         -- 037: one full snapshot per successful save, no route reads it
+  id          BIGSERIAL PRIMARY KEY,
+  entity_type TEXT NOT NULL,          -- 'role', 'ratecard'
+  entity_id   TEXT NOT NULL,
+  version     INTEGER NOT NULL,       -- the version after the save; a delete logs the stored one + 1
+  action      TEXT NOT NULL,          -- create, update, update-entries, delete, role-deleted
+  user_id     UUID REFERENCES users(id) ON DELETE SET NULL,
+  at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  snapshot    JSONB NOT NULL
 )
 
 currencies (                          -- migration 012: master table, seeded with 20 codes
@@ -583,7 +596,8 @@ cost_grids (
   id         UUID PRIMARY KEY,
   name       VARCHAR NOT NULL,
   owner_id   UUID NOT NULL REFERENCES users(id),
-  created_at TIMESTAMPTZ DEFAULT NOW()
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  version    INTEGER NOT NULL DEFAULT 0  -- 037: save-contract version (not checked yet)
 )
 
 cost_grid_versions (
@@ -602,7 +616,8 @@ cost_grid_versions (
   ratecard_id   UUID REFERENCES ratecards(id),
   client_id     UUID REFERENCES clients(id) ON DELETE SET NULL,  -- migration 008
   project_name  VARCHAR(255) NOT NULL DEFAULT '',                -- migration 009
-  created_at    TIMESTAMPTZ DEFAULT NOW()
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  version       INTEGER NOT NULL DEFAULT 0  -- 037: save-contract version (not checked yet)
 )
 
 phases (
@@ -684,7 +699,8 @@ projects (
   ptc           JSONB,              -- [{ label, amount, month }]
   planning      JSONB,              -- { "YYYYMM": hours } monthly hour planning
   groups        JSONB,              -- [{ name, roles[] }] functional role groups
-  created_at    TIMESTAMPTZ DEFAULT NOW()
+  created_at    TIMESTAMPTZ DEFAULT NOW(),
+  version       INTEGER NOT NULL DEFAULT 0  -- 037: save-contract version (not checked yet)
 )
 
 project_tasks (
@@ -926,12 +942,12 @@ flowchart LR
 | DELETE | /api/programs/:id | admin | Delete (blocked while any project is still linked) |
 | POST | /api/programs/:id/share | ✅ | Share every project in a program with a user; caller must be admin or owner/editor on at least one of the program's projects (2026-09 — this pre-existing route previously had no ownership check at all); answers `201 { ok, shared, emailSent }`, a refused email keeps the shares and the notifications |
 | GET/POST | /api/roles | admin | List / create — `GET` returns `rate_overrides` JSONB field; (2026-10-29) `POST` stores `rateOverrides`, and an `hourlyRate` or override value that is not a number ≥ 0 with its currency's decimals answers **400 `{ code: 'MONEY_RULE' }`** (`docs/api/lib.md` → `money-rules.js`) |
-| PATCH/DELETE | /api/roles/:id | admin | Update / delete — `PATCH` accepts `rateOverrides` body field (saved to `rate_overrides` column); (2026-10-29) the `hourlyRate`/`rateOverrides` present in the body are checked, **400 `MONEY_RULE`**. `DELETE` → 400 if the role is used in cost grids (`task_roles`) or, since 2026-09-25, assigned to a team resource (`resources.role_id`; a race that trips the `resources` FK is mapped to the same 400, any other FK error falls through) |
+| PATCH/DELETE | /api/roles/:id | admin | (2026-11-17) Save contract: the body carries `version`, a stale or missing one → **409 `STALE`**, the answer is the saved role and a `change_log` row is written; deleting a role also bumps every rate card holding it (`docs/api/config.md`). Update / delete — `PATCH` accepts `rateOverrides` body field (saved to `rate_overrides` column); (2026-10-29) the `hourlyRate`/`rateOverrides` present in the body are checked, **400 `MONEY_RULE`**. `DELETE` → 400 if the role is used in cost grids (`task_roles`) or, since 2026-09-25, assigned to a team resource (`resources.role_id`; a race that trips the `resources` FK is mapped to the same 400, any other FK error falls through) |
 | GET | /api/ratecards | ✅ | List (all authenticated users) |
-| POST | /api/ratecards | admin | Create; `clientId` required (400, also for an unknown client). Under a client-row lock it returns the client's existing card (200, with `entries`) instead of creating a second one; a new card answers 201 with `version: 0` |
+| POST | /api/ratecards | admin | (2026-11-17) Every write of a rate card follows the save contract (`version` in the body, **409 `STALE`**, the card as answer, a `change_log` row). Create; `clientId` required (400, also for an unknown client). Under a client-row lock it returns the client's existing card (200, with `entries`) instead of creating a second one; a new card answers 201 with `version: 0` |
 | GET | /api/ratecards/:id | ✅ | Detail (all authenticated users) |
 | PATCH | /api/ratecards/:id | admin | Rename / update the rate card itself |
-| PATCH | /api/ratecards/:id/entries | admin | Replaces the whole entry set in one transaction (2026-10-30): roles missing from the body lose their entry. `hourlyRate` may be `null` (agency default) when the entry has a currency override; every entry is checked first — an invalid amount or an entry with neither answers **400 `MONEY_RULE`** and changes nothing. (2026-11-11) The body is `{ version, entries }`: a bare array or a `version` other than the stored one → **409 `RATECARD_STALE`**, a non-integer `version` or a repeated role → 400, entries of a role that no longer exists are dropped; the response is `{ ok, version }` with `version` incremented. Malformed ids → 400, unknown card → 404. Detail: `docs/api/config.md` |
+| PATCH | /api/ratecards/:id/entries | admin | Replaces the whole entry set in one transaction (2026-10-30): roles missing from the body lose their entry. `hourlyRate` may be `null` (agency default) when the entry has a currency override; every entry is checked first — an invalid amount or an entry with neither answers **400 `MONEY_RULE`** and changes nothing. (2026-11-11) The body is `{ version, entries }`: a bare array or a missing, non-integer or stale `version` → **409 `STALE`** (2026-11-17), a repeated role → 400, entries of a role that no longer exists are dropped; the response is the whole card with `version` incremented. Malformed ids → 400, unknown card → 404. Detail: `docs/api/config.md` |
 | DELETE | /api/ratecards/:id | admin | Delete |
 
 ### Resources & Attribute Lists (2026-09)

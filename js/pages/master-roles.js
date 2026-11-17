@@ -1,4 +1,6 @@
 
+const ROLE_CONFLICT = 'This role was changed by someone else since you opened it. Reload to see the current values — your edits will be discarded.';
+
 window.__cfgApp = Vue.createApp({
   data() {
     return {
@@ -16,10 +18,10 @@ window.__cfgApp = Vue.createApp({
       lastTeam:      '',   // team of the last role opened or saved: a new role starts in it
 
       // Role panel state; the saved code is joinCode(team, roleCode)
-      rf: { show: false, id: null, title: '', label: '', team: '', roleCode: '', teamOpen: false, teamIdx: -1, rateText: '', overrideTexts: {}, stored: {}, error: null, loading: false },
+      rf: { show: false, id: null, version: null, title: '', label: '', team: '', roleCode: '', teamOpen: false, teamIdx: -1, rateText: '', overrideTexts: {}, stored: {}, error: null, reloadable: false, loading: false },
 
       // Delete dialog state
-      del: { role: null, error: null, blocked: false, loading: false, closeWhenShown: false },
+      del: { role: null, error: null, blocked: false, reloadable: false, loading: false, closeWhenShown: false },
 
       currencies:    [],
 
@@ -96,11 +98,17 @@ window.__cfgApp = Vue.createApp({
           Api.roles.list(),
           Api.currencies.list(),
         ]);
-        this.roles    = roles.map(r => ({ id: r.id, label: r.label, code: r.code, rate: r.hourly_rate || 0, rateOverrides: r.rate_overrides || {} }));
+        this.roles    = roles.map(r => this.fromApi(r));
         this.currencies    = currencies;
+        return true;
       } catch (e) {
         this.loadError = e.message || 'Failed to load data.';
+        return false;
       }
+    },
+    // A role as the server answers it (GET /roles row or the saved snapshot) → the row in memory.
+    fromApi(r) {
+      return { id: r.id, label: r.label, code: r.code, rate: r.hourly_rate || 0, rateOverrides: r.rate_overrides || {}, version: r.version };
     },
 
     // ── List ──
@@ -163,6 +171,7 @@ window.__cfgApp = Vue.createApp({
       this.rf = {
         show:         true,
         id:           role?.id    || null,
+        version:      role?.version ?? null,   // the version the edit starts from, sent back with the save
         title:        role?.label || '',
         label:        role?.label || '',
         team, roleCode,
@@ -173,7 +182,7 @@ window.__cfgApp = Vue.createApp({
         overrideTexts,
         // the amounts the form opened with: an untouched field is sent back as the stored value, not re-rounded
         stored,
-        error: null, loading: false,
+        error: null, reloadable: false, loading: false,
       };
       this.$nextTick(() => this.$refs.rfLabel?.focus());
     },
@@ -247,6 +256,22 @@ window.__cfgApp = Vue.createApp({
       this.setMoneyText(code, window.formatMoney(v, code, this.currencies));
     },
 
+    // Reload after a conflict or a lost answer: the server's values replace the edits.
+    async reloadRole() {
+      if (this.rf.loading) return;
+      const form = this.rf, id = form.id;
+      form.loading = true;   // one reload at a time; Save, Cancel and Reload wait for it
+      const loaded = await this.loadAll();
+      form.loading = false;
+      if (this.rf !== form) return;
+      if (!loaded) { form.error = this.loadError; return; }
+      const role = id && this.roles.find(r => r.id === id);
+      if (role) { this.openRoleForm(role); return; }
+      this.closePanel();
+      // a new role's lost answer: the reloaded list shows whether it was saved
+      if (id) window.showInfo('This role no longer exists.');
+    },
+
     async saveRole() {
       if (this.rf.loading) return;
       const label = this.rf.label.trim();
@@ -274,27 +299,29 @@ window.__cfgApp = Vue.createApp({
       if (dup) { this.rf.error = `Code "${code}" is already used by role "${dup.label}".`; return; }
 
       const form = this.rf;
-      const saved = code.toUpperCase();   // what the server stores (trim + uppercase)
       form.loading = true;
+      form.reloadable = false;
       try {
-        if (form.id) {
-          await Api.roles.update(form.id, { label, code, hourlyRate: rate, rateOverrides });
-          const r = this.roles.find(r => r.id === form.id);
-          if (r) { r.label = label; r.code = saved; r.rate = rate; r.rateOverrides = rateOverrides; }
-        } else {
-          const created = await Api.roles.create({ label, code, hourlyRate: rate, rateOverrides });
-          this.roles.push({ id: created.id, label, code: created.code || saved, rate, rateOverrides });
-          form.id = created.id;   // lets focusBack fall back to the new role's button if the opener is gone
+        const res = form.id
+          ? await window.apiSave('PATCH', '/roles/' + form.id, { label, code, hourlyRate: rate, rateOverrides, version: form.version })
+          : await window.apiSave('POST', '/roles', { label, code, hourlyRate: rate, rateOverrides });
+        if (res.kind !== 'ok') {
+          form.error = res.kind === 'conflict' ? ROLE_CONFLICT : res.message;
+          form.reloadable = res.kind === 'conflict' || res.kind === 'unknown' || res.status === 404;
+          if (this.rf === form) this.$nextTick(() => this.$refs.rfLabel?.focus());
+          return;
         }
+        // the row is the server's answer, not the form's inputs
+        const row = this.fromApi(res.data);
+        const i = this.roles.findIndex(r => r.id === row.id);
+        if (i >= 0) this.roles.splice(i, 1, row); else this.roles.push(row);
+        form.id = row.id;   // lets focusBack fall back to the new role's button if the opener is gone
         // open the role's group, keep search and filter
-        const team = window.extractTeam(saved);
+        const team = window.extractTeam(row.code);
         if (form.team.trim()) this.lastTeam = team;
         if (this.closedTeams.has(team)) { const next = new Set(this.closedTeams); next.delete(team); this.closedTeams = next; }
         form.loading = false;
         if (this.rf === form) this.closePanel();
-      } catch (e) {
-        form.error = e.message || 'Save failed.';
-        if (this.rf === form) this.$nextTick(() => this.$refs.rfLabel?.focus());
       } finally {
         form.loading = false;
       }
@@ -303,7 +330,7 @@ window.__cfgApp = Vue.createApp({
     // ── Delete ──
     async deleteRole(role) {
       if (!this._delOpener) this._delOpener = document.activeElement;
-      this.del = { role, error: null, blocked: false, loading: false, closeWhenShown: false };
+      this.del = { role, error: null, blocked: false, reloadable: false, loading: false, closeWhenShown: false };
       await this.$nextTick();
       bootstrap.Modal.getOrCreateInstance(document.getElementById('roleDeleteModal')).show();
     },
@@ -321,22 +348,34 @@ window.__cfgApp = Vue.createApp({
       const del = this.del, role = del.role;
       del.loading = true;
       del.error = null;
+      del.reloadable = false;
       try {
-        await Api.roles.delete(role.id);
+        const res = await window.apiSave('DELETE', '/roles/' + role.id, { version: role.version });
+        if (res.kind !== 'ok') {
+          del.error = res.message;
+          del.blocked = res.kind === 'error' && res.status === 400 && /^Cannot delete role /.test(res.message);
+          del.reloadable = res.kind === 'conflict' || res.kind === 'unknown' || res.status === 404;
+          // the clicked Delete is now disabled: keep focus (and Esc) inside the dialog
+          if (this.del === del) this.$nextTick(() => document.querySelector('#roleDeleteModal .mdr-cancel')?.focus());
+          return;
+        }
         this.roles = this.roles.filter(r => r.id !== role.id);
         del.loading = false;   // before hide(): the hide.bs.modal guard refuses while a delete runs
-        if (this.del === del) {
-          if (this._delShown) bootstrap.Modal.getInstance(document.getElementById('roleDeleteModal'))?.hide();
-          else del.closeWhenShown = true;
-        }
-      } catch (e) {
-        del.error = e.message || 'Delete failed.';
-        del.blocked = /^Cannot delete role /.test(e.data?.error || '');
-        // the clicked Delete is now disabled: keep focus (and Esc) inside the dialog
-        if (this.del === del) this.$nextTick(() => document.querySelector('#roleDeleteModal .mdr-cancel')?.focus());
+        if (this.del === del) this.hideDeleteDialog(del);
       } finally {
         del.loading = false;
       }
+    },
+    hideDeleteDialog(del) {
+      if (this._delShown) bootstrap.Modal.getInstance(document.getElementById('roleDeleteModal'))?.hide();
+      else del.closeWhenShown = true;
+    },
+    // Reload from the delete dialog: the list is read again and the dialog closes.
+    async reloadAfterDelete() {
+      const del = this.del;
+      if (del.loading) return;
+      await this.loadAll();
+      if (this.del === del) this.hideDeleteDialog(del);
     },
   },
 }).component('ph-icon', window.PhIcon).mount('#app');

@@ -20,7 +20,7 @@ window.__cfgApp = Vue.createApp({
       rcSearch: '', rcOnlyCustom: false, rcHowOpen: false, rcFamClosed: {}, rcPhoneCurrency: 'EUR',
 
       // Client rate card state
-      rc: { title: 'Rate Card', loading: false, loadError: null, msg: null, msgKind: 'success', msgSeq: 0, saving: false, id: null, rows: [] },
+      rc: { title: 'Rate Card', client: null, loading: false, loadError: null, msg: null, msgKind: 'success', msgSeq: 0, saving: false, reloadable: false, id: null, version: 0, roles: [], rows: [] },
 
       // New client row / client name edit / new group row / group rename
       cf: { show: false, name: '', groupId: null, error: null, loading: false },
@@ -465,7 +465,7 @@ window.__cfgApp = Vue.createApp({
     },
 
     async openClientRatecard(client) {
-      this.rc = { title: `Rate Card — ${client.name}`, loading: true, loadError: null, msg: null, msgKind: 'success', msgSeq: 0, saving: false, id: null, version: 0, rows: [] };
+      this.rc = { title: `Rate Card — ${client.name}`, client, loading: true, loadError: null, msg: null, msgKind: 'success', msgSeq: 0, saving: false, reloadable: false, id: null, version: 0, roles: [], rows: [] };
       // A later open replaces this.rc: this load writes only to the state it was started for.
       const state = this.rc;
 
@@ -481,31 +481,13 @@ window.__cfgApp = Vue.createApp({
         // Find or auto-create this client's ratecard
         let rc = allRc.find(r => r.client_id === client.id);
         if (!rc) {
-          rc = await Api.ratecards.create(`${client.name}`, client.id);
-          rc = { ...rc, entries: rc.entries ?? [] };
+          const res = await window.apiSave('POST', '/ratecards', { name: client.name, clientId: client.id });
+          if (res.kind !== 'ok') { state.loadError = res.message; return; }
+          rc = res.data;
         }
 
-        const entryOf = {};
-        (rc.entries || []).forEach(e => { entryOf[String(e.roleId ?? e.role_id)] = e; });
-
-        const extra = this.rcExtraCurrencies.map(cu => cu.code);
-        state.rows = roles.map(r => {
-          const e = entryOf[String(r.id)];
-          const eur = e ? (e.hourlyRate ?? e.hourly_rate ?? null) : null;
-          const ov = (e && (e.rateOverrides ?? e.rate_overrides)) || {};
-          const defaults = { EUR: r.rate != null ? Number(r.rate) : null };
-          const texts = { EUR: this.amountText(eur, 'EUR') };
-          const stored = { EUR: eur == null ? null : Number(eur) };
-          extra.forEach(c => {
-            defaults[c] = r.rateOverrides?.[c] ?? null;
-            texts[c] = this.amountText(ov[c], c);
-            stored[c] = ov[c] == null ? null : Number(ov[c]);
-          });
-          // Overrides in a currency with no column (deactivated since) are kept, so a save does not drop them.
-          const hidden = {};
-          Object.entries(ov).forEach(([c, v]) => { if (v != null && c !== 'EUR' && !extra.includes(c)) hidden[c] = v; });
-          return { roleId: String(r.id), label: r.label, code: r.code, defaults, texts, stored, hidden, initial: { ...texts } };
-        });
+        state.roles = roles;
+        state.rows = this.ratecardRows(rc, roles);
         state.id = rc.id;
         state.version = rc.version ?? 0;
       } catch (e) {
@@ -513,6 +495,31 @@ window.__cfgApp = Vue.createApp({
       } finally {
         state.loading = false;
       }
+    },
+
+    // The modal's rows for a card as the server answers it (list, create or save): one per role.
+    ratecardRows(rc, roles) {
+      const entryOf = {};
+      (rc.entries || []).forEach(e => { entryOf[String(e.roleId ?? e.role_id)] = e; });
+
+      const extra = this.rcExtraCurrencies.map(cu => cu.code);
+      return roles.map(r => {
+        const e = entryOf[String(r.id)];
+        const eur = e ? (e.hourlyRate ?? e.hourly_rate ?? null) : null;
+        const ov = (e && (e.rateOverrides ?? e.rate_overrides)) || {};
+        const defaults = { EUR: r.rate != null ? Number(r.rate) : null };
+        const texts = { EUR: this.amountText(eur, 'EUR') };
+        const stored = { EUR: eur == null ? null : Number(eur) };
+        extra.forEach(c => {
+          defaults[c] = r.rateOverrides?.[c] ?? null;
+          texts[c] = this.amountText(ov[c], c);
+          stored[c] = ov[c] == null ? null : Number(ov[c]);
+        });
+        // Overrides in a currency with no column (deactivated since) are kept, so a save does not drop them.
+        const hidden = {};
+        Object.entries(ov).forEach(([c, v]) => { if (v != null && c !== 'EUR' && !extra.includes(c)) hidden[c] = v; });
+        return { roleId: String(r.id), label: r.label, code: r.code, defaults, texts, stored, hidden, initial: { ...texts } };
+      });
     },
 
     async saveClientRatecard() {
@@ -527,29 +534,32 @@ window.__cfgApp = Vue.createApp({
 
       const state = this.rc;
       state.saving = true;
+      state.reloadable = false;
       try {
-        const saved = await Api.ratecards.updateEntries(state.id, { version: state.version, entries: built.entries });
-        // A refused save (409) throws above: the rows stay dirty and the server's message is shown.
-        state.version = saved.version;
-        // What was saved is the new reference for "unsaved changes" and for the amounts' stored value.
-        state.rows.forEach(row => {
-          row.initial = { ...row.texts };
-          Object.keys(row.texts).forEach(code => {
-            const v = window.readMoneyInput(row.texts[code], code, this.currencies, { stored: row.stored[code] });
-            row.stored[code] = typeof v === 'number' ? v : null;
-          });
-        });
+        const res = await window.apiSave('PATCH', '/ratecards/' + state.id + '/entries', { version: state.version, entries: built.entries });
+        if (res.kind !== 'ok') {
+          // A refused save: the rows stay dirty and the server's message is shown.
+          state.msg = res.message;
+          state.msgKind = 'error';
+          state.reloadable = res.kind === 'conflict' || res.kind === 'unknown';
+          return;
+        }
+        // The server's card is the new reference for "unsaved changes" and for the amounts' stored value.
+        state.version = res.data.version;
+        state.rows = this.ratecardRows(res.data, state.roles);
         state.msg = 'Rates saved successfully.';
         state.msgKind = 'success';
         const seq = ++state.msgSeq;
         setTimeout(() => { if (state.msgSeq === seq && state.msgKind === 'success') state.msg = null; }, 3000);
         this.refreshRatecards();
-      } catch (e) {
-        state.msg = e.message || 'Failed to save.';
-        state.msgKind = 'error';
       } finally {
         state.saving = false;
       }
+    },
+    // Reload after a conflict or a lost answer: the client's card is read again, the edits discarded.
+    reloadClientRatecard() {
+      if (this.rc.saving) return;
+      return this.openClientRatecard(this.rc.client);
     },
   },
 }).component('ph-icon', window.PhIcon).mount('#app');

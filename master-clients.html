@@ -543,7 +543,7 @@
                 <td class="rc-col-client">
                   <div class="rc-input-wrap" :class="{ 'is-custom': r.cells.EUR.kind === 'custom' }">
                     <span class="rc-sym">{{ eurSymbol }}</span>
-                    <input type="text" inputmode="decimal" v-model="r.row.texts.EUR" :placeholder="cellPlaceholder(r.cells.EUR, 'EUR')"
+                    <input type="text" inputmode="decimal" v-model="r.row.texts.EUR" :readonly="rc.saving" :placeholder="cellPlaceholder(r.cells.EUR, 'EUR')"
                            @focus="onRcFocus(r.row, 'EUR')" @blur="onRcBlur(r.row, 'EUR')">
                   </div>
                   <div class="rc-cap" :class="'is-' + r.cells.EUR.kind">{{ cellCaption(r.cells.EUR, 'EUR') }}</div>
@@ -551,7 +551,7 @@
                 <td v-for="cu in rcExtraCurrencies" :key="cu.code" class="rc-col-cur">
                   <div class="rc-input-wrap" :class="{ 'is-custom': r.cells[cu.code].kind === 'custom' }">
                     <span class="rc-sym">{{ cu.symbol }}</span>
-                    <input type="text" inputmode="decimal" v-model="r.row.texts[cu.code]" :placeholder="cellPlaceholder(r.cells[cu.code], cu.code)"
+                    <input type="text" inputmode="decimal" v-model="r.row.texts[cu.code]" :readonly="rc.saving" :placeholder="cellPlaceholder(r.cells[cu.code], cu.code)"
                            @focus="onRcFocus(r.row, cu.code)" @blur="onRcBlur(r.row, cu.code)">
                   </div>
                   <div class="rc-cap" :class="'is-' + r.cells[cu.code].kind">{{ cellCaption(r.cells[cu.code], cu.code) }}</div>
@@ -588,7 +588,7 @@
             </div>
             <div class="rc-input-wrap" :class="{ 'is-custom': r.cells[rcPhoneCurrency].kind === 'custom', 'is-missing': r.cells[rcPhoneCurrency].kind === 'missing' }">
               <span class="rc-sym">{{ rcPhoneSymbol }}</span>
-              <input type="text" inputmode="decimal" v-model="r.row.texts[rcPhoneCurrency]" :placeholder="cellPlaceholder(r.cells[rcPhoneCurrency], rcPhoneCurrency)"
+              <input type="text" inputmode="decimal" v-model="r.row.texts[rcPhoneCurrency]" :readonly="rc.saving" :placeholder="cellPlaceholder(r.cells[rcPhoneCurrency], rcPhoneCurrency)"
                      @focus="onRcFocus(r.row, rcPhoneCurrency)" @blur="onRcBlur(r.row, rcPhoneCurrency)">
             </div>
           </div>
@@ -601,6 +601,7 @@
       <span class="rc-status-phone">{{ rcDirtyCount > 0 ? rcDirtyCount + ' unsaved' : rcCustomRowCount + ' role' + (rcCustomRowCount === 1 ? '' : 's') + ' customized' }}</span>
       <span class="rc-status">{{ rcDirtyCount > 0 ? rcDirtyCount + ' unsaved change' + (rcDirtyCount === 1 ? '' : 's') : 'All rates saved' }}</span>
       <span v-if="rc.msg" class="rc-msg" :class="rc.msgKind === 'success' ? 'is-ok' : 'is-error'">{{ rc.msg }}</span>
+      <button v-if="rc.reloadable" type="button" class="btn btn-outline-secondary btn-sm" :disabled="rc.saving" @click="reloadClientRatecard">Reload</button>
       <span class="cg-spacer"></span>
       <button type="button" class="btn btn-outline-secondary btn-sm rc-discard" :disabled="rcDirtyCount === 0 || rc.saving" @click="discardRc">Discard</button>
       <button type="button" class="btn btn-primary btn-sm" :disabled="rc.loading || !!rc.loadError || rc.saving" @click="saveClientRatecard">Save rates</button>
@@ -684,17 +685,18 @@
 
 <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 <script defer src="https://unpkg.com/vue@3.5.45/dist/vue.global.prod.js" integrity="sha384-K2FjvpG1y48yCE+7CBPhnKc16ShPmT3dlNwvoA3dhjV18+L5ugI0P8PWPvdjm/Fa" crossorigin="anonymous"></script>
-<script defer src="js/api.js?v=15"></script>
+<script defer src="js/api.js?v=16"></script>
 <script defer src="js/core.js?v=16"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script type="module" src="js/lib/notification-url.js?v=1"></script>
 <script type="module" src="js/lib/money.js?v=6"></script>
 <script type="module" src="js/lib/master-clients.js?v=1"></script>
+<script type="module" src="js/lib/save.js?v=1"></script>
 <script defer src="js/notifications.js?v=6"></script>
 <script type="module" src="js/lib/icons.js?v=7"></script>
 <script type="module" src="js/lib/md-subnav.js?v=7"></script>
 <script defer src="js/nav.js?v=24"></script>
 
-<script type="module" src="js/pages/master-clients.js?v=1"></script>
+<script type="module" src="js/pages/master-clients.js?v=2"></script>
 </body>
 </html>

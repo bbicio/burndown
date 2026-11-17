@@ -76,7 +76,8 @@ async function apiFetch(path, options = {}) {
       });
     } catch (err) {
       clearTimeout(timer);
-      if (err.name === 'AbortError') throw new Error('Request timed out');
+      if (err.name === 'AbortError') throw Object.assign(new Error('Request timed out'), { timeout: true });
+      err.network = true;
       throw err;
     }
     clearTimeout(timer);
@@ -86,13 +87,20 @@ async function apiFetch(path, options = {}) {
       throw new Error('Unauthorized');
     }
     const text = await res.text();
-    const data = text ? JSON.parse(text) : null;
+    let data = null;
+    let nonJson = false;
+    try { data = text ? JSON.parse(text) : null; } catch { nonJson = true; }
+    // A body that is not JSON (a proxy's HTML page) is never handed back as data.
+    if (nonJson) {
+      throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status, data: null, nonJson: true });
+    }
     if (!res.ok) {
       const err = new Error((data && data.error) || `HTTP ${res.status}`);
       // Full parsed error body, for the rare caller that needs more than the message
       // string (e.g. a structured list) — additive only, existing callers reading
       // just err.message are unaffected.
       err.data = data;
+      err.status = res.status;
       throw err;
     }
     return data;
@@ -140,16 +148,11 @@ const Api = {
   programs: {
     list:   ()              => apiFetch('/programs'),
     create: (id, name)      => apiFetch('/programs',      { method: 'POST',   body: JSON.stringify({ id, name }) }),
-    update: (id, name)      => apiFetch(`/programs/${id}`, { method: 'PATCH',  body: JSON.stringify({ name }) }),
-    delete: (id)            => apiFetch(`/programs/${id}`, { method: 'DELETE' }),
     share:  (id, userId, permission) => apiFetch(`/programs/${id}/share`, { method: 'POST', body: JSON.stringify({ userId, permission }) }),
   },
 
   roles: {
     list:   ()              => apiFetch('/roles'),
-    create: (d)             => apiFetch('/roles',         { method: 'POST',   body: JSON.stringify(d) }),
-    update: (id, d)         => apiFetch(`/roles/${id}`,   { method: 'PATCH',  body: JSON.stringify(d) }),
-    delete: (id)            => apiFetch(`/roles/${id}`,   { method: 'DELETE' }),
   },
 
   projects: {
@@ -196,7 +199,6 @@ const Api = {
       linkedProjects: {
         list:   (cgId, vId)           => apiFetch(`/cost-grids/${cgId}/versions/${vId}/linked-projects`),
         add:    (cgId, vId, d)        => apiFetch(`/cost-grids/${cgId}/versions/${vId}/linked-projects`, { method: 'POST', body: JSON.stringify(d) }),
-        remove: (cgId, vId, projId)   => apiFetch(`/cost-grids/${cgId}/versions/${vId}/linked-projects/${projId}`, { method: 'DELETE' }),
       },
       tags: {
         list:    (cgId, vId)           => apiFetch(`/cost-grids/${cgId}/versions/${vId}/tags`),
@@ -226,10 +228,6 @@ const Api = {
   ratecards: {
     list:         ()               => apiFetch('/ratecards'),
     get:          (id)             => apiFetch(`/ratecards/${id}`),
-    create:       (name, clientId) => apiFetch('/ratecards', { method: 'POST', body: JSON.stringify({ name, clientId: clientId || null }) }),
-    rename:       (id, name)       => apiFetch(`/ratecards/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
-    updateEntries: (id, entries)   => apiFetch(`/ratecards/${id}/entries`, { method: 'PATCH', body: JSON.stringify(entries) }),
-    delete:       (id)             => apiFetch(`/ratecards/${id}`, { method: 'DELETE' }),
   },
 
   pipelineYears: {

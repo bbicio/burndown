@@ -11,6 +11,7 @@ What lives in `api/src/services/`, and where each one is documented. `CLAUDE.md`
 | `planning-data.js` | [docs/api/planning-model.md](planning-model.md) |
 | `topic-extraction.js` | [docs/api/profile-engine.md](profile-engine.md) (where `extractForCode` and the peek-before-claim flow are; `docs/api/topics.md` routes here too) |
 | `users.js` | [docs/api/users.md](users.md) (`anonymizeUser`) and this file (below) |
+| `versioned-write.js`, `saved-entities.js` | this file (below); the routes that use them in [docs/api/config.md](config.md) |
 
 ## email.js
 
@@ -23,6 +24,12 @@ The module also exports an `APP_URL` constant (2026-09) used for building the li
 ## jwt.js
 
 Token signing/verification behind the `pdash_token` cookie. The middleware that consumes it is `api/src/middleware/auth.js` (see `CLAUDE.md`). `cookieSecure()` is `true` unless `NODE_ENV` is exactly `development`, read on every call; `cookieOptions(opts)` adds `httpOnly` and that flag, and every set and clear of `pdash_token`, `pdash_challenge` and `pdash_device` (`routes/auth.js`) goes through it (2026-11-16, security cycle 6, S-07). Tests: `api/src/services/jwt.test.js`.
+
+## versioned-write.js and saved-entities.js (2026-11-17, save-contract cycle 1)
+
+`versionedWrite(poolOrClient, { type, id, expectedVersion, userId, action, write })` → `{ entity, version }`. With a pool it opens the transaction (`withTransaction`); with a client (an object with `release`) it runs inside the caller's and never sends `BEGIN`/`COMMIT`. For an update it locks the row (`SELECT version … FOR NO KEY UPDATE`, so inserts referencing it do not wait; `FOR UPDATE` for a delete), throws `NotFoundError` for no row and `StaleError` when `expectedVersion` is not an integer equal to the stored one, runs `write(client)`, adds 1 to `version`, and writes the snapshot to `change_log`. A `delete` takes the snapshot before `write` and logs the stored version + 1; a `create` (no `id`) logs version 0 for the id `write` returns, or nothing when `write` returns `{ id, created: false }`. Any error rolls the whole write back. `userId` is always `req.user.id`. `respondSaveError(res, err)` answers a `StaleError` with `409 { error, code: 'STALE', version }` and a `NotFoundError` with `404`, and returns whether it did.
+
+`saved-entities.js` holds one entry per type — `table`, `staleMessage`, `notFoundMessage`, `snapshot(client, id)` — for `role` and `ratecard`; the table name never comes from the request. `ratecardSnapshot` is also `GET /ratecards/:id`'s query. `change_log` has no route. Tests: `versioned-write.test.js`; the rule that every write of a registered table goes through it: `scripts/save-contract-guard.test.js`.
 
 ## The other services, in one line each
 

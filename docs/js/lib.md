@@ -352,3 +352,19 @@ Pure helpers for `attribute-lists.html`, bridged to `window`: `itemCounts(items,
 ## terms-html.js (2026-11-16, security cycle 7, U-01)
 
 `safeTermsHtml(html)`, bridged to `window`: `window.DOMPurify.sanitize(html, CONFIG)` with `ALLOWED_TAGS` limited to text formatting, lists, links and simple tables, `ALLOWED_ATTR: ['href']`, and `ALLOWED_URI_REGEXP` admitting an app path (not `//`), `https:`, `http:` and `mailto:`; without a usable `window.DOMPurify` it returns the text escaped (`& < > "`); a non-string gives `''`. Used by `terms.html` and `privacy-notice.html` ([docs/pages/terms.md](../pages/terms.md)). DOMPurify is a root `devDependency` for the tests only. Tests: `js/lib/terms-html.test.js`, `js/lib/terms-html-guard.test.js`.
+
+## save.js (2026-11-17, save-contract cycle 1)
+
+`apiSave(method, path, body)`, bridged to `window`: writes through `window.apiFetch` (read at call time) and never rejects. It answers one outcome:
+
+| `kind` | When | Fields |
+|---|---|---|
+| `ok` | a 2xx JSON answer, or an empty body (`data: null`) | `data` |
+| `conflict` | `409` with `code: 'STALE'` | `message`, `version` |
+| `rule` | an HTTP error whose `code` ends in `_RULE` | `code`, `message` |
+| `error` | any other 4xx, JSON or not; a 401 (the redirect is already under way) | `status`, `message` |
+| `unknown` | timeout, network error, any 5xx (the write may have committed), a 2xx that is not JSON | `message`: "The server's answer was lost — the change may have been saved. Reload to check." |
+
+`message` is the server's `error`, else `HTTP <status>`. A `409` without `STALE` (a duplicate role code) is an `error`, not a `conflict`.
+
+`js/api.js`'s `apiFetch` tags what it throws: `status` and `data` on every HTTP error, `nonJson: true` (with `data: null` and `HTTP <status>`) for a body that is not JSON — a 2xx included, which is no longer handed back as data —, `timeout: true` on `Request timed out`, `network: true` on a rethrown fetch error. Overlay, 401 redirect and timeout are unchanged. Tests: `js/lib/save.test.js`, `js/lib/save-overlay-trigger.test.js`; the rule that `js/` writes only through `apiSave`: `scripts/save-contract-guard.test.js`.

@@ -18,10 +18,30 @@ This file holds the full implementation narrative for `api/src/routes/config.js`
 
 ## Ratecard entries (2026-10-30, currency cycle 3)
 
-`PATCH /ratecards/:id/entries` replaces the whole set in one transaction: entries whose `roleId` is not in the body are deleted, the others are upserted. An empty array clears every entry. `hourlyRate` is `number | null`; `null` means no client EUR rate, the agency default (`roles.hourly_rate`) applies. Each entry goes through `ratecardEntryError` (see [lib.md](lib.md)) before any write; an entry with neither a rate nor a currency override, a missing or malformed `roleId`, an unknown role or a malformed rate card id is refused with `400`, an unknown rate card with `404`. The transaction locks the rate card row (`FOR UPDATE`), so two concurrent replacements run one after the other.
+`PATCH /ratecards/:id/entries` replaces the whole set in one transaction: entries whose `roleId` is not in the body are deleted, the others are upserted. An empty array clears every entry. `hourlyRate` is `number | null`; `null` means no client EUR rate, the agency default (`roles.hourly_rate`) applies. Each entry goes through `ratecardEntryError` (see [lib.md](lib.md)) before any write; an entry with neither a rate nor a currency override, a missing or malformed `roleId`, an unknown role or a malformed rate card id is refused with `400`, an unknown rate card with `404`. The transaction locks the rate card row (`FOR NO KEY UPDATE` since 2026-11-17), so two concurrent replacements run one after the other.
 
 ## Ratecard version (2026-11-11, backlog cycle 2, migration `035`)
 
-The body is `{ version, entries }`. Under the row lock the route compares `version` with `ratecards.version`: a different value, or a bare array body (a page cached before this cycle), answers `409 { code: 'RATECARD_STALE' }` and writes nothing; a non-integer `version` or a role repeated in `entries` answers `400`. Entries whose role no longer exists are dropped before the write, which is one `INSERT … SELECT … FROM unnest(…) ON CONFLICT … DO UPDATE`. The version is incremented in the same transaction and returned as `{ ok: true, version }`. `master-clients.html` keeps the version from the GET (or the POST) and shows the 409 message in the modal.
+The body is `{ version, entries }`. Since the save contract (below) the version check is `versionedWrite`'s: a different, missing or non-integer `version`, or a bare array body (a page cached before 2026-11-11), answers `409 STALE` and writes nothing; a role repeated in `entries` answers `400`. Entries whose role no longer exists are dropped before the write, which is one `INSERT … SELECT … FROM unnest(…) ON CONFLICT … DO UPDATE`.
 
 `POST /ratecards` requires `clientId`; it locks the client row (`FOR NO KEY UPDATE`) and returns the client's existing card with its `entries` (200) instead of creating a second one. `POST /ratecards/clone` was removed.
+
+## Save contract: roles and rate cards (2026-11-17, save-contract cycle 1, migration `037`)
+
+Every write route of roles and rate cards goes through `versionedWrite` ([services.md](services.md)), stays `requireAdmin` and runs its money checks before the write. A body without the current integer `version` answers `409 { error, code: 'STALE', version }` — "This role was changed by someone else since you opened it." / "This rate card was changed by someone else since you opened it." — and an unknown id `404`. Each success leaves one `change_log` row per entity it changed (`entity_type` `role` or `ratecard`, the session's user).
+
+| Route | Body | Answer | `change_log` action |
+|---|---|---|---|
+| `GET /roles` | — | rows with `version` | — |
+| `POST /roles` | `{ label, code, team?, hourlyRate?, rateOverrides? }` | `201` the role | `create`, version 0 |
+| `PATCH /roles/:id` | fields to change + `version`; an absent field is left as it is | the role | `update` |
+| `DELETE /roles/:id` | `{ version }` | `{ ok: true }` | `delete`, stored version + 1, snapshot before |
+| `GET /ratecards/:id` | — | `id, name, client_id, version, entries[]` | — |
+| `POST /ratecards` | `{ name, clientId }` | `201` the card, or `200` the client's existing card | `create` (none for an existing card) |
+| `PATCH /ratecards/:id` | `{ name, version }` | the card | `update` |
+| `PATCH /ratecards/:id/entries` | `{ version, entries }` | the whole card | `update-entries` |
+| `DELETE /ratecards/:id` | `{ version }` | `{ ok: true }` | `delete` |
+
+A duplicate role code stays `409 'Role code already exists'` without `code: 'STALE'`; the refusals found inside the write (role used in cost grids or by a team resource, card used in cost grids) stay `400`.
+
+Deleting a role locks first the rate cards holding it (in id order), then the role — the order the entries `PATCH` takes through its FK — and after the `CASCADE` gives each of those cards a new version and a `role-deleted` row, in the same transaction. Tests: `test-api.js` `SC-01..SC-14`, `SV-33..SV-35`, `SV-49`.

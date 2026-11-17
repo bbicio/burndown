@@ -78,6 +78,25 @@ async function makeTestRole(tag) {
   return { id: r.data?.id, label, code };
 }
 
+// The stored version of the role or rate card a path names (/api/roles/<id>, /api/ratecards/<id>[/…]),
+// null when the row is gone. Every write of those entities carries the version it started from.
+async function versionOf(path, cookie = adminCookie) {
+  const role = path.match(/^\/api\/roles\/([^/]+)$/);
+  if (role) {
+    const rows = (await api('GET', '/api/roles', null, cookie)).data || [];
+    return rows.find(r => r.id === role[1])?.version ?? null;
+  }
+  const card = path.match(/^\/api\/ratecards\/([^/]+)/);
+  if (card) {
+    const r = await api('GET', `/api/ratecards/${card[1]}`, null, cookie);
+    return r.status === 200 ? r.data?.version ?? null : null;
+  }
+  return null;
+}
+async function withVersion(path, body) {
+  return { ...(body || {}), version: await versionOf(path) };
+}
+
 // A version's currency must be active (EUR always is): the suite activates USD and CHF once and
 // keeps their live rates here; NOK stays inactive and is the suite's inactive currency.
 const testRates = {};
@@ -184,7 +203,9 @@ async function runCleanup() {
   if (!cleanupQueue.length) return;
   section('Cleanup');
   for (const { method, path } of [...cleanupQueue].reverse()) {
-    const r = await api(method, path, null, sysadminCookie || adminCookie);
+    const cookie = sysadminCookie || adminCookie;
+    const versioned = method === 'DELETE' && /^\/api\/(roles|ratecards)\/[^/]+$/.test(path);
+    const r = await api(method, path, versioned ? { version: await versionOf(path, cookie) } : null, cookie);
     const success = [200, 204, 404].includes(r.status);
     process.stdout.write(`  ${success ? green('✓') : red('✗')} ${method} ${path} → ${r.status}\n`);
   }
@@ -1087,7 +1108,7 @@ async function testRoles() {
   // PATCH a role with rateOverrides — use first available role
   const role = r1.data[0];
   const testOverrides = { USD: 200, GBP: 180 };
-  const r2 = await api('PATCH', `/api/roles/${role.id}`, { rateOverrides: testOverrides }, adminCookie);
+  const r2 = await api('PATCH', `/api/roles/${role.id}`, await withVersion(`/api/roles/${role.id}`, { rateOverrides: testOverrides }), adminCookie);
   ok(r2.status === 200, 'RL-01 PATCH /roles/:id with rateOverrides → 200');
 
   // Verify GET returns the saved overrides
@@ -1101,7 +1122,143 @@ async function testRoles() {
 
   // Restore original overrides (clean up — set back to original or empty)
   const origOverrides = role.rate_overrides || {};
-  await api('PATCH', `/api/roles/${role.id}`, { rateOverrides: origOverrides }, adminCookie);
+  await api('PATCH', `/api/roles/${role.id}`, await withVersion(`/api/roles/${role.id}`, { rateOverrides: origOverrides }), adminCookie);
+}
+
+// ── Save contract (roles and rate cards) ──────────────────────────────────────
+
+async function testSaveContract() {
+  section('Save contract — roles and rate cards');
+  const adminId = (await api('GET', '/api/auth/me', null, adminCookie)).data?.id;
+  const tag = String(Date.now());
+  const logRows = async (type, id) =>
+    (await sql('SELECT version, action, user_id, snapshot FROM change_log WHERE entity_type = $1 AND entity_id = $2 ORDER BY id', [type, String(id)])) || [];
+  const lastRow = async (type, id) => (await logRows(type, id)).slice(-1)[0];
+  const isStale = r => r.status === 409 && r.data?.code === 'STALE';
+
+  const role = await makeTestRole('SC' + tag);
+  const other = await makeTestRole('SCO' + tag);
+  if (!ok(!!role.id && !!other.id, 'SC setup: two roles')) return;
+
+  const roles = (await api('GET', '/api/roles', null, adminCookie)).data || [];
+  ok(roles.length > 0 && roles.every(r => Number.isInteger(r.version)), 'SC-01 GET /roles → every row has an integer version');
+
+  const rp = `/api/roles/${role.id}`;
+  const labelA = `__test_sc_A_${tag}__`;
+  const labelB = `__test_sc_B_${tag}__`;
+  const readRole = async id => ((await api('GET', '/api/roles', null, adminCookie)).data || []).find(r => r.id === id);
+  const a = await api('PATCH', rp, { label: labelA, code: role.code, version: 0 }, adminCookie);
+  const b = await api('PATCH', rp, { label: labelB, code: role.code, version: 0 }, adminCookie);
+  ok(a.status === 200 && a.data?.version === 1 && a.data?.label === labelA,
+    `SC-02 first PATCH from version 0 → 200 with version 1 (got ${a.status}, ${JSON.stringify(a.data)})`);
+  ok(isStale(b) && b.data?.version === 1 && (await readRole(role.id))?.label === labelA,
+    `SC-02 second PATCH from version 0 → 409 STALE version 1, the role keeps the first label (got ${b.status}, ${JSON.stringify(b.data)})`);
+
+  const c = await api('PATCH', rp, { label: labelB }, adminCookie);
+  ok(isStale(c) && (await readRole(role.id))?.label === labelA, `SC-03 PATCH without version → 409 STALE, role unchanged (got ${c.status})`);
+
+  const rows4 = await logRows('role', role.id);
+  const upd = rows4.filter(r => r.action === 'update');
+  ok(rows4.length === 2 && rows4[0].action === 'create' && rows4[0].version === 0
+      && upd.length === 1 && upd[0].version === 1 && upd[0].snapshot?.label === labelA && upd[0].snapshot?.version === 1
+      && upd[0].user_id === adminId && rows4[0].user_id === adminId,
+    `SC-04 change_log: create/0 and one update/1 with the full snapshot and the admin's id (got ${JSON.stringify(rows4.map(r => [r.action, r.version, r.user_id]))})`);
+
+  const n5 = rows4.length;
+  const e = await api('PATCH', rp, { hourlyRate: -1, version: 1 }, adminCookie);
+  ok(e.status === 400 && e.data?.code === 'MONEY_RULE' && (await logRows('role', role.id)).length === n5,
+    `SC-05 PATCH hourlyRate -1 → 400 MONEY_RULE, no new change_log row (got ${e.status})`);
+
+  const d = await api('PATCH', rp, { code: other.code, version: 1 }, adminCookie);
+  ok(d.status === 409 && d.data?.code !== 'STALE' && (await logRows('role', role.id)).length === n5,
+    `SC-06 PATCH with another role's code → 409 without code STALE, no new row (got ${d.status}, ${JSON.stringify(d.data)})`);
+
+  const s14 = await api('PATCH', rp, { label: labelA, version: 1, userId: '00000000-0000-4000-8000-000000000001' }, adminCookie);
+  ok(s14.status === 200 && (await lastRow('role', role.id))?.user_id === adminId,
+    `SC-14 a userId in the body is ignored: the row carries the session's user (got ${s14.status})`);
+
+  // Rate card: create, entries, rename, delete
+  const scClient = await api('POST', '/api/clients', { name: `__test_sc_client_${tag}__` }, adminCookie);
+  if (scClient.data?.id) later('DELETE', `/api/clients/${scClient.data.id}`);
+  const card = await api('POST', '/api/ratecards', { name: `__test_sc_rc_${tag}__`, clientId: scClient.data?.id }, adminCookie);
+  const cardId = card.data?.id;
+  if (cardId) later('DELETE', `/api/ratecards/${cardId}`);
+  if (!ok(card.status === 201 && !!cardId, `SC setup: rate card (got ${card.status})`)) return;
+  const cr = await logRows('ratecard', cardId);
+  ok(cr.length === 1 && cr[0].action === 'create' && cr[0].version === 0 && cr[0].user_id === adminId,
+    `SC-01 POST /ratecards → one create/0 row (got ${JSON.stringify(cr.map(r => [r.action, r.version]))})`);
+  ok(Number.isInteger((await api('GET', `/api/ratecards/${cardId}`, null, adminCookie)).data?.version), 'SC-01 GET /ratecards/:id has version');
+
+  const s7 = await api('PATCH', `/api/ratecards/${cardId}/entries`, { version: 0, entries: [{ roleId: role.id, hourlyRate: 50 }] }, adminCookie);
+  const r7 = await lastRow('ratecard', cardId);
+  const pairs = list => JSON.stringify((list || []).map(x => [x.roleId, Number(x.hourlyRate)]));
+  ok(s7.status === 200 && s7.data?.version === 1 && Array.isArray(s7.data?.entries) && s7.data.entries.length === 1
+      && r7?.action === 'update-entries' && r7?.version === 1 && pairs(r7?.snapshot?.entries) === pairs(s7.data.entries),
+    `SC-07 entries PATCH → the card with entries and version; an update-entries row with the same entries (got ${s7.status}, ${r7?.action})`);
+
+  const s8 = await api('PATCH', `/api/ratecards/${cardId}`, { name: `__test_sc_rc2_${tag}__`, version: 1 }, adminCookie);
+  const r8 = await lastRow('ratecard', cardId);
+  ok(s8.status === 200 && s8.data?.version === 2 && s8.data?.name === `__test_sc_rc2_${tag}__` && r8?.action === 'update' && r8?.version === 2,
+    `SC-08 rename with { name, version } → 200, update row (got ${s8.status}, ${r8?.action})`);
+
+  const delClient = await api('POST', '/api/clients', { name: `__test_sc_client_del_${tag}__` }, adminCookie);
+  if (delClient.data?.id) later('DELETE', `/api/clients/${delClient.data.id}`);
+  const delCard = await api('POST', '/api/ratecards', { name: `__test_sc_rc_del_${tag}__`, clientId: delClient.data?.id }, adminCookie);
+  if (delCard.data?.id) {
+    later('DELETE', `/api/ratecards/${delCard.data.id}`);
+    const x1 = await api('DELETE', `/api/ratecards/${delCard.data.id}`, null, adminCookie);
+    const x2 = await api('DELETE', `/api/ratecards/${delCard.data.id}`, { version: 0 }, adminCookie);
+    const rx = await lastRow('ratecard', delCard.data.id);
+    ok(isStale(x1) && x2.status === 200 && rx?.action === 'delete' && rx?.version === 1 && rx?.snapshot?.id === delCard.data.id,
+      `SC-08 rate card DELETE: without version → 409 STALE; with it → 200 and a delete row (got ${x1.status}, ${x2.status}, ${rx?.action})`);
+  } else fail(`SC-08 delete setup failed (got ${delCard.status})`);
+
+  // Role delete
+  const op = `/api/roles/${other.id}`;
+  const s9a = await api('DELETE', op, null, adminCookie);
+  const s9b = await api('DELETE', op, { version: 0 }, adminCookie);
+  const r9 = await lastRow('role', other.id);
+  ok(isStale(s9a) && s9b.status === 200 && r9?.action === 'delete' && r9?.version === 1 && r9?.snapshot?.code === other.code,
+    `SC-09 role DELETE: without version → 409 STALE; with it → 200, delete row at stored + 1 with the snapshot before (got ${s9a.status}, ${s9b.status}, ${r9?.action}/${r9?.version})`);
+
+  const cardBefore = (await api('GET', `/api/ratecards/${cardId}`, null, adminCookie)).data?.version;
+  const s10 = await api('DELETE', rp, await withVersion(rp), adminCookie);
+  const r10 = await lastRow('ratecard', cardId);
+  const cardAfter = (await api('GET', `/api/ratecards/${cardId}`, null, adminCookie)).data;
+  ok(s10.status === 200 && cardAfter?.version === cardBefore + 1 && r10?.action === 'role-deleted'
+      && !(r10?.snapshot?.entries || []).some(x => x.roleId === role.id),
+    `SC-10 deleting a role on a card → card version +1, a role-deleted row without that role (got ${s10.status}, ${cardBefore}→${cardAfter?.version}, ${r10?.action})`);
+
+  const x = await makeTestRole('SCX' + tag);
+  if (x.id) {
+    const put = await api('PATCH', `/api/ratecards/${cardId}/entries`, { version: cardAfter.version, entries: [{ roleId: x.id, hourlyRate: 40 }] }, adminCookie);
+    const [del, patch] = await Promise.all([
+      api('DELETE', `/api/roles/${x.id}`, { version: 0 }, adminCookie),
+      api('PATCH', `/api/ratecards/${cardId}/entries`, { version: put.data?.version, entries: [{ roleId: x.id, hourlyRate: 60 }] }, adminCookie),
+    ]);
+    const fin = (await api('GET', `/api/ratecards/${cardId}`, null, adminCookie)).data;
+    ok(put.status === 200 && del.status !== 500 && patch.status !== 500
+        && (!(fin?.entries || []).some(y => y.roleId === x.id) || isStale(patch)),
+      `SC-11 role DELETE and entries PATCH in parallel → no 500; the card ends without the role or the PATCH is STALE (got ${del.status}, ${patch.status})`);
+  } else fail('SC-11 setup failed');
+
+  const fk = await sql("SELECT confdeltype FROM pg_constraint WHERE conrelid = 'change_log'::regclass AND contype = 'f'");
+  ok(Array.isArray(fk) && fk.length === 1 && fk[0].confdeltype === 'n', `SC-12 change_log.user_id is ON DELETE SET NULL (got ${JSON.stringify(fk)})`);
+
+  const { cookie: plain } = await getPlainUser();
+  const z = '00000000-0000-4000-8000-000000000000';
+  for (const [m, p, body] of [
+    ['POST', '/api/roles', { label: '__sc_plain__', code: 'SCPLAIN' + tag }],
+    ['PATCH', `/api/roles/${z}`, { label: 'x', version: 0 }],
+    ['DELETE', `/api/roles/${z}`, { version: 0 }],
+    ['POST', '/api/ratecards', { name: '__sc_plain__', clientId: scClient.data?.id }],
+    ['PATCH', `/api/ratecards/${cardId}`, { name: 'x', version: 0 }],
+    ['PATCH', `/api/ratecards/${cardId}/entries`, { version: 0, entries: [] }],
+    ['DELETE', `/api/ratecards/${cardId}`, { version: 0 }],
+  ]) {
+    const r = await api(m, p, body, plain);
+    ok(r.status === 403, `SC-13 a plain user ${m} ${p} → 403 (got ${r.status})`);
+  }
 }
 
 // ── Ratecards ─────────────────────────────────────────────────────────────────
@@ -1347,17 +1504,18 @@ async function testServerValidation() {
     const svEntries = async () => (await api('GET', `/api/ratecards/${svRcId}`, null, adminCookie)).data?.entries || [];
     const svPatch = body => api('PATCH', `/api/ratecards/${svRcId}/entries`, body, adminCookie);
     const s33 = await svPatch([{ roleId: svRole1.id, hourlyRate: 10 }]);
-    ok(s33.status === 409 && s33.data?.code === 'RATECARD_STALE' && (await svEntries()).length === 0,
-      `SV-33 entries PATCH with a bare array → 409 RATECARD_STALE, entries unchanged (got ${s33.status})`);
+    ok(s33.status === 409 && s33.data?.code === 'STALE' && (await svEntries()).length === 0,
+      `SV-33 entries PATCH with a bare array → 409 STALE, entries unchanged (got ${s33.status})`);
     const s34 = await svPatch({ version: 0, entries: [{ roleId: svRole1.id, hourlyRate: 10 }] });
-    ok(s34.status === 200 && s34.data?.version === 1, `SV-34 version 0 on a fresh card → 200 { version: 1 } (got ${s34.status}, ${JSON.stringify(s34.data)})`);
+    ok(s34.status === 200 && s34.data?.version === 1 && Array.isArray(s34.data?.entries),
+      `SV-34 version 0 on a fresh card → 200 with the card at version 1 (got ${s34.status}, ${JSON.stringify(s34.data)})`);
     const afterS34 = JSON.stringify(await svEntries());
     const s35 = await svPatch({ version: 0, entries: [{ roleId: svRole2.id, hourlyRate: 20 }] });
-    ok(s35.status === 409 && s35.data?.code === 'RATECARD_STALE' && JSON.stringify(await svEntries()) === afterS34,
+    ok(s35.status === 409 && s35.data?.code === 'STALE' && JSON.stringify(await svEntries()) === afterS34,
       `SV-35 version 0 again → 409, entries as after SV-34 (got ${s35.status})`);
     const s36 = await svPatch({ version: 1, entries: [{ roleId: svRole1.id, hourlyRate: 10 }, { roleId: svRole1.id, hourlyRate: 11 }] });
     ok(s36.status === 400 && JSON.stringify(await svEntries()) === afterS34, `SV-36 duplicate roleId → 400, entries unchanged (got ${s36.status})`);
-    await api('DELETE', `/api/roles/${svRole2.id}`, null, adminCookie);
+    await api('DELETE', `/api/roles/${svRole2.id}`, await withVersion(`/api/roles/${svRole2.id}`), adminCookie);
     const s37 = await svPatch({ version: 1, entries: [{ roleId: svRole1.id, hourlyRate: 12 }, { roleId: svRole2.id, hourlyRate: 20 }] });
     const s37e = await svEntries();
     ok(s37.status === 200 && s37e.length === 1 && String(s37e[0].roleId) === String(svRole1.id),
@@ -1442,9 +1600,9 @@ async function testServerValidation() {
       const all = (await api('GET', '/api/ratecards', null, adminCookie)).data || [];
       ok(all.filter(r => r.client_id === rcC.data.id).length === 1, 'SV-48 GET ratecards shows one card for that client');
       const bv = await api('PATCH', `/api/ratecards/${a.data?.id}/entries`, { version: '3', entries: [] }, adminCookie);
-      ok(bv.status === 400 && bv.data?.error === 'version must be an integer', `SV-49 entries PATCH with version '3' → 400 (got ${bv.status})`);
+      ok(bv.status === 409 && bv.data?.code === 'STALE', `SV-49 entries PATCH with version '3' → 409 STALE (got ${bv.status})`);
       const bv2 = await api('PATCH', `/api/ratecards/${a.data?.id}/entries`, { entries: [] }, adminCookie);
-      ok(bv2.status === 400, `SV-49 entries PATCH without a version → 400 (got ${bv2.status})`);
+      ok(bv2.status === 409 && bv2.data?.code === 'STALE', `SV-49 entries PATCH without a version → 409 STALE (got ${bv2.status})`);
     }
   }
 
@@ -1919,8 +2077,8 @@ async function testMoneyRules() {
     `MR-10 role create with hourlyRate -1 / rateOverrides USD 'x' → MONEY_RULE, no role created (got ${r10a.status}, ${r10b.status})`);
 
   if (r9Id) {
-    const r11a = await api('PATCH', `/api/roles/${r9Id}`, { hourlyRate: '100' }, adminCookie);
-    const r11b = await api('PATCH', `/api/roles/${r9Id}`, { rateOverrides: [1] }, adminCookie);
+    const r11a = await api('PATCH', `/api/roles/${r9Id}`, await withVersion(`/api/roles/${r9Id}`, { hourlyRate: '100' }), adminCookie);
+    const r11b = await api('PATCH', `/api/roles/${r9Id}`, await withVersion(`/api/roles/${r9Id}`, { rateOverrides: [1] }), adminCookie);
     const after = await readRole(r9Id);
     ok(isMoneyRefusal(r11a) && isMoneyRefusal(r11b) && Number(after?.hourly_rate) === 0 && after?.rate_overrides?.USD === 120,
       `MR-11 role PATCH hourlyRate "100" / rateOverrides [1] → MONEY_RULE, role unchanged (got ${r11a.status}, ${r11b.status})`);
@@ -2718,18 +2876,18 @@ async function testResourcesAndAttributeLists() {
     // TM-15: renaming the role propagates (the link is by id, not by string)
     const newLabel = `__renamed_${tsR}__`;
     const newCode = `TESTROLE${tsR}C`;
-    await api('PATCH', `/api/roles/${roleB.id}`, { label: newLabel, code: newCode }, adminCookie);
+    await api('PATCH', `/api/roles/${roleB.id}`, await withVersion(`/api/roles/${roleB.id}`, { label: newLabel, code: newCode }), adminCookie);
     const rowAfter = ((await api('GET', '/api/resources', null, adminCookie)).data || []).find(r => r.id === resourceId);
     ok(rowAfter?.role_label === newLabel && rowAfter?.role_code === newCode,
       'TM-15 renaming a role\'s label/code shows on the resource with no other action');
 
     // TM-16: a role assigned to a resource cannot be deleted (400 with a clear message, not a 500)
-    const rDelBlocked = await api('DELETE', `/api/roles/${roleB.id}`, null, adminCookie);
+    const rDelBlocked = await api('DELETE', `/api/roles/${roleB.id}`, await withVersion(`/api/roles/${roleB.id}`), adminCookie);
     ok(rDelBlocked.status === 400 && /team resource/i.test(rDelBlocked.data?.error || ''),
       'TM-16 DELETE a role assigned to a team resource → 400 with a clear message');
     const rMoveOff = await api('PATCH', `/api/resources/${resourceId}`, { roleId: roleA.id }, adminCookie);
     ok(rMoveOff.status === 200, 'TM-16 setup: resource moved off the role');
-    ok((await api('DELETE', `/api/roles/${roleB.id}`, null, adminCookie)).status === 200,
+    ok((await api('DELETE', `/api/roles/${roleB.id}`, await withVersion(`/api/roles/${roleB.id}`), adminCookie)).status === 200,
       'TM-16 the role can be deleted once no resource uses it');
   }
 
@@ -5633,6 +5791,7 @@ async function main() {
     await testClientGroups();
     await testRoles();
     await testRatecards();
+    await testSaveContract();
     await testServerValidation();
     await testPots();
     await testCostGridBudgets();

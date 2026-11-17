@@ -376,6 +376,7 @@
 
     <div class="mdr-dr-body">
       <div v-if="rf.error" class="alert alert-danger alert-sm mb-0" role="alert">{{ rf.error }}</div>
+      <div v-if="rf.reloadable"><button type="button" class="btn btn-outline-secondary btn-sm" :disabled="rf.loading" @click="reloadRole">Reload</button></div>
 
       <label class="mdr-field">
         <span class="mdr-field-label">Label</span>
@@ -463,6 +464,7 @@
       <div class="modal-body pt-1">
         <p class="mdr-del-body mb-0">The role is removed from the agency rate card. Its custom rates in client rate cards are deleted too. A role used in a cost grid or assigned to a team resource can't be deleted.</p>
         <div v-if="del.error" class="alert alert-danger alert-sm mt-3 mb-0" role="alert">{{ del.error }}</div>
+        <button v-if="del.reloadable" type="button" class="btn btn-outline-secondary btn-sm mt-2" :disabled="del.loading" @click="reloadAfterDelete">Reload</button>
       </div>
       <div class="modal-footer border-0 pt-2">
         <button type="button" class="btn btn-link text-decoration-none mdr-cancel" data-bs-dismiss="modal" :disabled="del.loading">Cancel</button>
@@ -483,7 +485,7 @@
 
 <script defer src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-C6RzsynM9kWDrMNeT87bh95OGNyZPhcTNXj1NW7RuBCsyN/o0jlpcV8Qyq46cDfL" crossorigin="anonymous"></script>
 <script defer src="https://unpkg.com/vue@3.5.45/dist/vue.global.prod.js" integrity="sha384-K2FjvpG1y48yCE+7CBPhnKc16ShPmT3dlNwvoA3dhjV18+L5ugI0P8PWPvdjm/Fa" crossorigin="anonymous"></script>
-<script defer src="js/api.js?v=15"></script>
+<script defer src="js/api.js?v=16"></script>
 <script defer src="js/core.js?v=16"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script type="module" src="js/lib/notification-url.js?v=1"></script>
@@ -492,8 +494,9 @@
 <script type="module" src="js/lib/icons.js?v=7"></script>
 <script type="module" src="js/lib/md-subnav.js?v=7"></script>
 <script type="module" src="js/lib/master-roles.js?v=1"></script>
+<script type="module" src="js/lib/save.js?v=1"></script>
 <script defer src="js/nav.js?v=24"></script>
 
-<script type="module" src="js/pages/master-roles.js?v=1"></script>
+<script type="module" src="js/pages/master-roles.js?v=2"></script>
 </body>
 </html>
