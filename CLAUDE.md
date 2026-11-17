@@ -154,7 +154,7 @@ js/lib/                  — pure functions extracted for unit testing (vitest +
                             Two of them have their own cross-cutting sections below: money.js ("Money formatting
                             and parsing") and project-rules.js ("Project currency lock"). One, test-cases-parse.js
                             is the exception to the "bridge" rule — its consumers (help.html,
-                            js/lib/handbook.js) are modules, so it has no `window.` bridge.
+                            js/lib/handbook.js) are modules, so it has no `window.` bridge. save.js: see "Save contract".
 api/src/routes/          — Express routes (auth, users, config, cost-grids, projects, timesheets,
                             reporting, exports, notifications, pipeline-years, client-groups, pots, reset,
                             app-settings, currencies, attribute-lists, resources, planning, planning-assistant).
@@ -182,7 +182,8 @@ api/src/lib/              — pure functions extracted for unit testing (node:te
                             and history: [docs/api/lib.md](docs/api/lib.md). project-rules.js + version-lock.js have
                             their own section below ("Project currency lock").
 api/src/services/        — email (nodemailer) and jwt, plus resource-matching, profile-engine/worker, llm,
-                            planning-assistant, planning-data, topic-extraction and users. Index and detail:
+                            planning-assistant, planning-data, topic-extraction, users, and versioned-write +
+                            saved-entities ("Save contract"). Index and detail:
                             [docs/api/services.md](docs/api/services.md).
 api/src/middleware/auth.js — `requireAuth` (JWT cookie → `req.user`; re-reads status, role and
                             `password_changed_at` from the DB on every request — `api/src/lib/session.js`),
@@ -226,6 +227,8 @@ scripts/cdn-integrity-guard.test.js — fails when a CDN library lacks an exact 
                             tags and lazy loaders through `scripts/lib/cdn-urls.mjs`. Limits: own header.
 scripts/security-headers-guard.test.js — fails when `nginx.conf` loses a security header, a `location` overrides
                             them, or a page loads from an origin the CSP refuses. [docs/ops/security-headers.md](docs/ops/security-headers.md).
+scripts/save-contract-guard.test.js — fails when a write bypasses versionedWrite/apiSave outside its exempt lists,
+                            or an `Api.*` write method has no caller. Limits: own header.
 scripts/shoot.mjs        — renders pages of the running app with headless Chrome, one PNG per width, for comparing a
                             redesign against its design boards. **Reading the PNGs back is part of visual
                             verification — "the page can't be rendered here" is not a valid reason to skip it.**
@@ -274,7 +277,7 @@ Every page that calls `initNav` wraps navigation and content as `<div id="app-sh
 In-memory module-level variables are the UI cache; the API is the source of truth. **localStorage is not used for server data** — it holds only `PDash_summary` (portfolio summary selection), `PDash_browserNotifDisabled` (the browser-notification opt-out), `PDash_sidebarCollapsed` (the sidebar open/collapsed state, see "Page shell"), `PDash_cgCompactHeader` (the cost-grid editor's compact header) and `PDash_portfolioLayout` (the portfolio overview's Card/List choice, see [docs/pages/portfolio.md](docs/pages/portfolio.md)) and `PDash_pipelineYear` (the pipeline year selected on `pipeline.html`, see [docs/pages/pipeline.md](docs/pages/pipeline.md)), plus one `PDash_cgSections:<cgId>` key per proposal (the editor's collapsed cards, see [docs/pages/costgrid.md](docs/pages/costgrid.md)), plus `pdash_test_state_v1` (the Test cases view of `help.html`, see [docs/pages/help.md](docs/pages/help.md); outside `cleanLegacyStorage()`'s `PDash` prefix), all genuinely client-side. `js/core.js`'s `cleanLegacyStorage()` IIFE wipes any other `PDash*` key on every page load — **any new localStorage key must be added to its `keep` Set or it will be silently deleted on the very next navigation**.
 
 - **On page load**: call `cgSyncFromApi()` / `loadConfigFromApi()` / `refreshTimesheetDataFromApi()` to populate in-memory state from the API. Each page load starts fresh — no stale cross-session data.
-- **On user action**: update in-memory state immediately (instant UI), then fire an async API call in the background (fire-and-forget).
+- **On user action**: a file migrated to the save contract follows "Save contract" below; only the files in `scripts/save-contract-guard.test.js`'s exempt lists still update in-memory state first and fire the API call in the background (fire-and-forget).
 - **`loadConfig()` and `persistConfig()` are no-ops**. `config.projects` is populated exclusively by `loadConfigFromApi()`.
 
 Key sync functions in `api-sync.js`:
@@ -398,6 +401,16 @@ One implementation, `js/lib/dates.js` (server twin `api/src/lib/dates.js`). Rule
 - **An existing invalid version or project period is tolerated** until its dates change; task dates are checked on every structure or task-list save.
 
 Full detail: [docs/js/lib.md](docs/js/lib.md), [docs/api/lib.md](docs/api/lib.md) (`dates.js`).
+
+### Save contract
+
+Rules to keep (exempt files: the lists of `scripts/save-contract-guard.test.js`):
+- **Every route that writes a registered entity goes through `versionedWrite`** (`api/src/services/versioned-write.js`): one transaction, the version the client started from, a `change_log` snapshot; a stale or missing version answers `409 { error, code: 'STALE', version }`.
+- **No file under `js/` writes with `fetch`, `apiFetch` or a write method of `Api.*`**: it writes with `apiSave` (`js/lib/save.js`).
+- **An `Api.*` method left without a caller is deleted.**
+- **A `409 STALE` is shown with a Reload action**; after a success the page adopts the server's answer, not its own inputs.
+
+Full detail: [docs/api/services.md](docs/api/services.md), [docs/js/lib.md](docs/js/lib.md) (`save.js`).
 
 ### Passwords
 
