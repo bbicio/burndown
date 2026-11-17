@@ -67,7 +67,7 @@ A dev-only test toolchain exists for the frontend: root `package.json` + vitest 
 MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/app" -v /app/node_modules -w /app node:22 sh -c 'npm ci --no-audit --no-fund >/dev/null 2>&1 && npm test'
 ```
 
-The backend has its own, separate unit-test toolchain: Node's built-in `node:test` runner, scoped to `api/src/**/*.test.js` via `api/package.json`'s `"test"` script (`node --test src/**/*.test.js`, run from inside `api/`). This is independent from the frontend's `vitest` config — `vitest.config.js`'s `include` is `['js/**/*.test.js', 'scripts/**/*.test.js']`, so it never picks up `api/` files, and the backend runner never touches `js/`. A new test under `scripts/` therefore needs no config change. Files that `require()` Express/DB modules (e.g. `api/src/routes/timesheets.test.js`, which imports `./timesheets`) need `api`'s `node_modules` present — run `npm ci` once in `api/`, in a worktree too. Pure `api/src/lib/*.test.js` files have no such dependency and run anywhere.
+The backend has its own, separate unit-test toolchain: Node's built-in `node:test` runner, scoped to `api/src/**/*.test.js` via `api/package.json`'s `"test"` script (`node --test src/**/*.test.js`, run from inside `api/`). This is independent from the frontend's `vitest` config — `vitest.config.js`'s `include` is `['js/**/*.test.js', 'scripts/**/*.test.js']`, so it never picks up `api/` files, and the backend runner never touches `js/`. A new test under `scripts/` therefore needs no config change. Its setup file, `scripts/lib/page-source.setup.mjs`, makes a test's `readFileSync` of a root page return the page with its `js/pages/` scripts inline; `rawReadFileSync` reads it as served. Files that `require()` Express/DB modules (e.g. `api/src/routes/timesheets.test.js`, which imports `./timesheets`) need `api`'s `node_modules` present — run `npm ci` once in `api/`, in a worktree too. Pure `api/src/lib/*.test.js` files have no such dependency and run anywhere.
 
 Still no linter on the frontend or backend.
 
@@ -146,6 +146,8 @@ js/*.js (the rest)       — the other shared classic scripts loaded as globals 
                             share-list-component.js, combo-select.js, clients.js, roles.js, programs.js, ratecards.js,
                             upload.js, tags.js, portfolio.js. Detail:
                             [docs/js/shared-libs.md](docs/js/shared-libs.md).
+js/pages/                — each page's own script (`<page>.js`, `<page>-overrides.js`), out of its HTML for the CSP;
+                            the `<head>` snippet is js/sidebar-state.js. [docs/ops/security-headers.md](docs/ops/security-headers.md).
 js/lib/                  — pure functions extracted for unit testing (vitest + jsdom), each an ES module
                             (`export function ...`) with a `window.<name> = <name>` bridge for classic-script
                             callers. The module-by-module index and history: [docs/js/lib.md](docs/js/lib.md).
@@ -263,7 +265,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 ### Page shell
 
-Every page that calls `initNav` wraps navigation and content as `<div id="app-shell"><div id="nav-container"></div><div id="app-main">…existing Vue root(s)…</div></div>`, with all `<script>` tags after the shell. It is hand-written in each page, **outside** every Vue mount point (roots and `v-cloak` unchanged). `css/style.css` defines `:root { --sidebar-w: 0px; }` and `#app-main { margin-left: var(--sidebar-w); }` — a media query sets `--sidebar-w` (240px open, 68px rail, 0 below 1024px), see [docs/js/nav.md](docs/js/nav.md) → "Current state". `#app-shell`/`#app-main` must never get `overflow`, `transform`, `filter`, `contain`, `will-change` or `position` (it would break the descendants' `fixed`/`sticky` panels); `js/lib/nav-shell-guard.test.js` pins this, the structure of every page that calls `initNav` and the `?v=` agreement of `style.css`/`core.js`/`nav.js`/`notifications.js`. **A new authenticated page must use this wrapper**, a `.ph` page head, and load `js/lib/icons.js` before `nav.js` (`js/lib/page-head-guard.test.js`). Each page's `<head>` carries the same inline, inert snippet that reads `localStorage['PDash_sidebarCollapsed']` (`'1'` = collapsed) and sets `data-sidebar="collapsed"` on `<html>` before first paint; the key is in `core.js`'s `keep` Set. Detail: [docs/js/nav.md](docs/js/nav.md).
+Every page that calls `initNav` wraps navigation and content as `<div id="app-shell"><div id="nav-container"></div><div id="app-main">…existing Vue root(s)…</div></div>`, with all `<script>` tags after the shell. It is hand-written in each page, **outside** every Vue mount point (roots and `v-cloak` unchanged). `css/style.css` defines `:root { --sidebar-w: 0px; }` and `#app-main { margin-left: var(--sidebar-w); }` — a media query sets `--sidebar-w` (240px open, 68px rail, 0 below 1024px), see [docs/js/nav.md](docs/js/nav.md) → "Current state". `#app-shell`/`#app-main` must never get `overflow`, `transform`, `filter`, `contain`, `will-change` or `position` (it would break the descendants' `fixed`/`sticky` panels); `js/lib/nav-shell-guard.test.js` pins this, the structure of every page that calls `initNav` and the `?v=` agreement of `style.css`/`core.js`/`nav.js`/`notifications.js`. **A new authenticated page must use this wrapper**, a `.ph` page head, and load `js/lib/icons.js` before `nav.js` (`js/lib/page-head-guard.test.js`). Each page's `<head>` loads `js/sidebar-state.js` as a blocking classic script (no `defer`) that reads `localStorage['PDash_sidebarCollapsed']` (`'1'` = collapsed) and sets `data-sidebar="collapsed"` on `<html>` before first paint; the key is in `core.js`'s `keep` Set. Detail: [docs/js/nav.md](docs/js/nav.md).
 
 ### Data strategy (in-memory cache)
 
@@ -297,7 +299,7 @@ Pipeline stage is stored on `costGridVersion.pipeline`. These locations must sta
 - `css/tokens.css` — `--pipeline-{stage}-bg` / `--pipeline-{stage}-color` for all 5 stages
 - `js/core.js` `pipelineBadge()` — uses `var(--pipeline-*-color)`
 - `js/costgrid.js` switch block — uses `var(--pipeline-*-color)`
-- `pipeline.html`'s inline `PB_STAGE_STYLE` const — uses `var(--pipeline-*-bg/color)`
+- `js/pages/pipeline.js`'s `PB_STAGE_STYLE` const — uses `var(--pipeline-*-bg/color)`
 - `js/core.js` `headerBadge('stage', …)` — the page head's light pill, `var(--pipeline-*-bg/color)`; `costgrid.html`'s `headerStageDotColor` computed — `var(--pipeline-*-color)`
 
 Valid stages: `SIP`, `Expected`, `Anticipated`, `Committed`, `Canceled`.
@@ -310,13 +312,13 @@ Do not confuse pipeline **stage** (`SIP`/`Expected`/.../`Canceled`, this section
 
 Files under `js/lib/` are native ES modules (`export function ...`), loaded via `<script type="module" src="js/lib/...">`, with a `window.<name> = <name>` bridge line per export for classic-script callers.
 
-**All classic `<script src="...">` tags on every Vue page — both CDN libraries (Vue, Bootstrap, Chart.js, etc.) and this project's own `js/*.js` files — carry `defer`**. Per the HTML spec, `defer`'d classic scripts and `type="module"` scripts (without `async`) share **one ordered execution queue**, ordered by document position, all running after HTML parsing completes but before `DOMContentLoaded` fires.
+**All classic `<script src="...">` tags on every Vue page — both CDN libraries (Vue, Bootstrap, Chart.js, etc.) and this project's own `js/*.js` files — carry `defer`**, except `js/sidebar-state.js` in `<head>` and the classic page scripts `js/pages/{pipeline,costgrid,planning}.js`, which run at their position in the document. Per the HTML spec, `defer`'d classic scripts and `type="module"` scripts (without `async`) share **one ordered execution queue**, ordered by document position, all running after HTML parsing completes but before `DOMContentLoaded` fires.
 
 Each page's trailing `Vue.createApp({...}).mount(...)` script is `type="module"` too (module scripts join the same queue), **except** `pipeline.html`, `costgrid.html`, and `planning.html`, whose entire `Vue.createApp`/`.mount()` call already lives inside a `document.addEventListener('DOMContentLoaded', () => {...})` wrapper.
 
-**Rule:** any inline `<script>` on a page that is left as a plain classic script (no `defer`, no `type="module"`) executes **immediately at parse time — before every deferred/module script on the page**, regardless of where it sits in the document relative to those tags. **Any page-local override of a `js/*.js` global must be a `<script type="module">` that assigns `window.functionName = function (...) {...}`** — not a bare `function functionName()` declaration (module top-level declarations never become `window` properties), and not a bare classic inline `<script>`.
+**Rule:** no page carries an inline `<script>` or an `on…=` attribute — the CSP refuses both (`scripts/security-headers-guard.test.js`); a page's code goes in `js/pages/<page>.js`. A classic script without `defer` executes **immediately at parse time — before every deferred/module script on the page**, regardless of where it sits in the document relative to those tags. **Any page-local override of a `js/*.js` global must be a `type="module"` script (`js/pages/<page>-overrides.js`) that assigns `window.functionName = function (...) {...}`** — not a bare `function functionName()` declaration (module top-level declarations never become `window` properties), and not a classic script without `defer`.
 
-A bridged `window.*` global from `js/lib/` may only be read from inside an event handler or a function invoked after `DOMContentLoaded` — never at the top level of a still-classic, non-deferred inline script's parse-time execution.
+A bridged `window.*` global from `js/lib/` may only be read from inside an event handler or a function invoked after `DOMContentLoaded` — never at the top level of a classic script without `defer`.
 
 If a future `js/lib/` module needs another `js/lib/` module's function, use a native ES `import` between them (resolved independently of `<script>` tag order in the HTML), not the `window` bridge.
 

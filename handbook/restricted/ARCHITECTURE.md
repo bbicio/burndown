@@ -1246,6 +1246,8 @@ burndown/
     cg-controls.js        ← three custom Vue controls, loaded by costgrid.html, project-config.html, portfolio.html and planning.html; pure helpers in js/lib/cg-controls-calc.js. Detail: docs/js/cg-controls.md
     portfolio.js          ← two exports still reachable, both consumed by planning.html. Detail: docs/js/shared-libs.md
     lib/                  ← pure functions for unit testing (vitest + jsdom), ES modules, most with a `window.<name>` bridge for classic-script callers. Module index: docs/js/lib.md
+    pages/                ← each page's own script, moved out of its HTML so the CSP needs no 'unsafe-inline'; same tag type and position as the inline block. Detail: docs/ops/security-headers.md
+    sidebar-state.js      ← the blocking <head> script that applies the collapsed sidebar before first paint. Detail: docs/js/nav.md
     shares.js, share-list-component.js, combo-select.js, clients.js, roles.js, programs.js, ratecards.js, upload.js, tags.js
                           ← the other shared classic scripts loaded as globals by the Vue pages. Detail: docs/js/shared-libs.md
   index.html              ← redirect → pipeline.html

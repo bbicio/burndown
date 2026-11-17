@@ -24,3 +24,7 @@ The bell moved into the sidebar's bottom block (top bar on screens < 1024px) and
 ## Notification url rule (2026-11-15, security cycle 1, S-01)
 
 A notification's `url` reaches a link or a navigation only through `safeNotifUrl(url)`: it calls `window.notificationUrl(url, window.location.origin)` (`js/lib/notification-url.js`, read at call time) and answers `null` when the module is not loaded. `renderNotifItem` builds `data-url` and the `<a href>` from that value, so a row without a valid url (an old row already in the database, or a live SSE one) has neither; the panel click re-checks `el.dataset.url` and the desktop popup checks `n.url` before `window.location.href` is assigned. `js/lib/notification-url-guard.test.js` pins this. Spec: `docs/superpowers/specs/2026-11-15-security-c1-notification-url-design.md`.
+
+## The panel link under the CSP (2026-11-17, security cycle 8)
+
+`script-src` has no `'unsafe-inline'`, so the "Open →" link carries no `onclick`. The item's click listener returns at once when the click lands inside an `<a>`: the link navigates by itself and the item is not marked read, as the old `event.stopPropagation()` did. Items added live by `prependNotification` have no item listener. `js/lib/notifications-ui.test.js` pins both the markup and the click.
