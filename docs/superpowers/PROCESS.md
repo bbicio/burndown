@@ -204,6 +204,18 @@ Il Gate 1 di `/finish-cycle` apre con un passo 0 che rilegge le righe `*.md` agg
 - **I 10 minuti sono un tetto, non una stima.** Il controllo 1 non ha un limite superiore nella dimensione del diff, e il Gate 1 non si ferma per un umano: al decimo minuto il passo si interrompe, dichiara cosa è rimasto non controllato, e prosegue. Il resto è lavoro del Gate 3, dove sarebbe stato comunque.
 - **È un esperimento, e si decide su numeri registrati, non su una formula.** Il report porta una riga in prosa: quanto è costato al Gate 1 e alle riesecuzioni del Gate 3, cosa ha intercettato in ciascuno dei due, e quanti dei finding del round 1 erano meccanici. **Dopo tre cicli si guardano e si decide**, e in assenza di evidenza che il passo previene difetti **si rimuove, non si raffina**: un pre-check che non previene finding è un secondo revisore più lento. Niente criterio aritmetico: delle due soglie proposte, una non era misurabile e l'altra era soddisfatta proprio dal caso in cui il passo non serve.
 
+### 6.4e Revisione di sicurezza e audit delle dipendenze, decisi dai path
+
+`/finish-cycle` esegue `/security-review` e `npm audit` solo quando il diff tocca una superficie di sicurezza. Lo decide `node scripts/security-scope.mjs`, mai un giudizio su "di cosa parla il ciclo".
+- **La regola vive nel codice, non qui.** La lista delle superfici è `scripts/security-scope.test.js`; né questo documento né `finish-cycle.md` la ripetono.
+- **Un fallimento vale `review`.** Il verso è opposto a §6.4c, il principio è lo stesso: uno script rotto non toglie un controllo.
+- **Fuori dal percorso critico.** `/security-review` parte in background accanto a `/code-review`, all'apertura del Gate 2, con i vincoli di §6.4b; i suoi finding entrano nel round 1 del Gate 3 e da lì sono finding come gli altri. Gira una volta per ciclo: i round successivi passano dal `/code-review` scoped.
+- **Le dipendenze al Gate 1**, quando il diff cambia un manifest.
+- **Il report dichiara** se la revisione è girata, perché e con quanti finding.
+- **A monte**, Brief e Spec dichiarano la loro superficie di sicurezza (§6b, "Header della Spec").
+
+Come `/finish-cycle` lo applica: Gate 1 step 1b, Gate 2 step 0, Gate 3 e il report del Gate 5 di `.claude/commands/finish-cycle.md`.
+
 ### 6.5 Brief e processo fuori dal ciclo
 - Il Brief (e l'eventuale handoff di design) è pronto e committato **prima** di aprire il ciclo. Se arriva un brief nuovo che sostituisce quello in discussione, si riparte da `/brainstorming`, senza riconciliare i ragionamenti precedenti.
 - Una modifica al processo emersa a metà ciclo si annota (in memoria o nel report) e si applica dopo `/finish-cycle`, con un commit `docs:` dedicato: non si discute durante l'esecuzione.
@@ -296,7 +308,7 @@ L'unico corpo alternativo, quando non ce ne sono, è la sentinella `Nessuna.` �
 
 La pretende `scripts/decision-ledger-guard.test.js`; la legge il Gate 2 di `/finish-cycle`, che ne fa una lista a spunta: le voci già provate da un run automatico arrivano spuntate, le altre con le istruzioni per verificarle (`.claude/commands/finish-cycle.md`, "Acceptance checklist").
 
-**Header della Spec (dal 2026-10-14).** Ogni Spec porta nell'header la riga `**Brief started:** YYYY-MM-DD HH:MM`, oppure `**Brief started:** unknown`: l'ora di inizio di `/feature-brief`, o di `/brainstorming` quando il ciclo non ha Brief. La legge `scripts/cycle-times.mjs`; la pretende `scripts/decision-ledger-guard.test.js`.
+**Header della Spec (dal 2026-10-14).** Ogni Spec porta nell'header la riga `**Brief started:** YYYY-MM-DD HH:MM`, oppure `**Brief started:** unknown`: l'ora di inizio di `/feature-brief`, o di `/brainstorming` quando il ciclo non ha Brief. La legge `scripts/cycle-times.mjs`; la pretende `scripts/decision-ledger-guard.test.js`. Dal 2026-11-17 l'header porta anche `**Security surface:** yes — <superficie>` oppure `**Security surface:** no`, la stessa riga del Brief; con `yes` la Spec ha almeno un criterio di accettazione su quella superficie. La pretende lo stesso guard.
 
 ---
 
