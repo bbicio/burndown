@@ -4,6 +4,15 @@ const crypto = require('crypto');
 const bcrypt = require('bcryptjs');
 const { loadCommonPasswords, pwnedCount, hashNewPassword } = require('./passwords');
 
+// scripts/run-tests.sh runs this file inside an api container started with PASSWORD_BREACH_CHECK=off:
+// the breach-check cases need it unset (the test that sets it restores this state).
+const BREACH_ENV = process.env.PASSWORD_BREACH_CHECK;
+delete process.env.PASSWORD_BREACH_CHECK;
+test.after(() => {
+  if (BREACH_ENV === undefined) delete process.env.PASSWORD_BREACH_CHECK;
+  else process.env.PASSWORD_BREACH_CHECK = BREACH_ENV;
+});
+
 const PW = 'correct-horse-battery';
 const SHA = crypto.createHash('sha1').update(PW).digest('hex').toUpperCase();
 const PREFIX = SHA.slice(0, 5);
@@ -101,7 +110,6 @@ test('breachCheck: false does not call HIBP', async () => {
 });
 
 test('PASSWORD_BREACH_CHECK=off does not call HIBP', async () => {
-  const before = process.env.PASSWORD_BREACH_CHECK;
   process.env.PASSWORD_BREACH_CHECK = 'off';
   try {
     const { fetchImpl, calls } = stub('');
@@ -109,8 +117,7 @@ test('PASSWORD_BREACH_CHECK=off does not call HIBP', async () => {
     assert.ok(r.hash);
     assert.equal(calls.length, 0);
   } finally {
-    if (before === undefined) delete process.env.PASSWORD_BREACH_CHECK;
-    else process.env.PASSWORD_BREACH_CHECK = before;
+    delete process.env.PASSWORD_BREACH_CHECK;
   }
 });
 
