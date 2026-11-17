@@ -76,7 +76,8 @@ async function apiFetch(path, options = {}) {
       });
     } catch (err) {
       clearTimeout(timer);
-      if (err.name === 'AbortError') throw new Error('Request timed out');
+      if (err.name === 'AbortError') throw Object.assign(new Error('Request timed out'), { timeout: true });
+      err.network = true;
       throw err;
     }
     clearTimeout(timer);
@@ -86,13 +87,20 @@ async function apiFetch(path, options = {}) {
       throw new Error('Unauthorized');
     }
     const text = await res.text();
-    const data = text ? JSON.parse(text) : null;
+    let data = null;
+    let nonJson = false;
+    try { data = text ? JSON.parse(text) : null; } catch { nonJson = true; }
+    // A body that is not JSON (a proxy's HTML page) is never handed back as data.
+    if (nonJson) {
+      throw Object.assign(new Error(`HTTP ${res.status}`), { status: res.status, data: null, nonJson: true });
+    }
     if (!res.ok) {
       const err = new Error((data && data.error) || `HTTP ${res.status}`);
       // Full parsed error body, for the rare caller that needs more than the message
       // string (e.g. a structured list) — additive only, existing callers reading
       // just err.message are unaffected.
       err.data = data;
+      err.status = res.status;
       throw err;
     }
     return data;
