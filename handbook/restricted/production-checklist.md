@@ -21,6 +21,7 @@ Things to verify the first time the app runs outside a development machine, and 
 - [ ] **Pages run under the CSP.** On the public address, DevTools Console open, load `/login.html` and a signed-in page after a hard reload: no `script-src` refusal (a `connect-src` refusal of a `.map` file is expected). Failure: a layer in front of nginx injects a script, or the page's scripts are blocked and it stays blank.
 - [ ] **Only site files are served.** Signed in, `/.env`, `/backups/` and `/CLAUDE.md` answer 404 (`scripts/nginx-serve.test.js` pins the rule). Failure: the browser downloads the file.
 - [ ] **Restricted documents are admin-only.** Signed in as a plain user, `/handbook/restricted/TEST_CASES.md` answers 403; as an admin it answers 200; signed out it redirects to `/login.html`. Failure: a user reads the architecture, the test cases or this checklist.
+- [ ] **The API container reaches `api.pwnedpasswords.com` over HTTPS.** Activation, reset and password change check a new password against Have I Been Pwned (only a 5-character hash prefix leaves) and accept it when the service cannot be reached. Check after the smoke test: `docker logs pdash-api 2>&1 | grep "breach check unavailable"`. Failure: any line — outbound HTTPS is blocked or a proxy is needed, and breached passwords are not being refused.
 - [ ] **`/api/auth/*` is not cached** by a CDN or proxy. Failure: a user sees another user's profile, or a stale sign-in state.
 
 ## Mail

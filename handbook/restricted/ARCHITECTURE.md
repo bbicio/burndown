@@ -134,6 +134,7 @@ sequenceDiagram
   API-->>Browser: email, firstName, lastName (410 if invalid or expired)
   User->>Browser: password and confirmation
   Browser->>API: POST /api/auth/activate
+  API->>API: password rule + breach check (services/passwords.js)
   API->>DB: status active, token cleared
   API-->>Browser: ok
   Browser->>User: redirect to the tool
@@ -199,6 +200,7 @@ sequenceDiagram
   API-->>Browser: valid (410 if invalid or expired)
   User->>Browser: new password and confirmation
   Browser->>API: POST /api/auth/reset-password
+  API->>API: password rule + breach check (services/passwords.js)
   API->>DB: password updated, token cleared
   API-->>Browser: ok
   Browser->>User: redirect to login
@@ -216,6 +218,7 @@ sequenceDiagram
   participant DB
   User->>Browser: currentPassword, newPassword, newPasswordConfirm
   Browser->>API: POST /api/auth/change-password
+  API->>API: password rule + breach check (services/passwords.js)
   API->>DB: password updated
   API-->>Browser: ok and a new JWT cookie
 ```
@@ -891,11 +894,11 @@ flowchart LR
 | POST | /api/auth/invite | admin | Invite new user; `201 { id, emailSent }` — a refused email keeps the pending user and answers `emailSent: false` |
 | POST | /api/auth/:id/resend-invite | admin | Resend activation email to a pending user with a fresh 48h token; a refused email → `502 SEND_FAILED` |
 | GET | /api/auth/invite/:token | — | Validate invite token |
-| POST | /api/auth/activate | — | Set password, activate account |
+| POST | /api/auth/activate | — | Set password, activate account; a refused password is `400 PASSWORD_RULE` |
 | POST | /api/auth/forgot-password | — | Request password reset; always `200 {ok:true}` (refused email, unknown address, non-string body, throttled by address or IP, or a reset issued under 2 minutes ago included); see `docs/api/lib.md` (`auth-tokens.js`) |
 | GET | /api/auth/reset-password/:token | — | Validate reset token |
-| POST | /api/auth/reset-password | — | Set new password |
-| POST | /api/auth/change-password | ✅ | Change password (authenticated); writes `password_changed_at`. A wrong current password is `400 { error, field: 'currentPassword' }`, not 401 (the client would treat it as an expired session) |
+| POST | /api/auth/reset-password | — | Set new password; a refused password is `400 PASSWORD_RULE` |
+| POST | /api/auth/change-password | ✅ | Change password (authenticated); writes `password_changed_at`. A wrong current password is `400 { error, field: 'currentPassword' }`, not 401 (the client would treat it as an expired session); a refused new password is `400 PASSWORD_RULE` |
 | POST | /api/auth/rectification-request | ✅ | `{ message }` (1–2000 characters after trim): records a `rectification_requests` row and notifies every other active admin/sysadmin (in-app + email), the request and its notifications in one transaction; `201 { ok: true }`. 5 per user per hour (`429 { code: 'RATE_LIMITED', retryIn }`); no other active admin/sysadmin → `409 { code: 'NO_RECIPIENT' }`, nothing recorded. The user's own details are not editable by the user |
 | POST | /api/auth/accept-terms | ✅ | Record current T&C version acceptance (writes `terms_version` + `terms_accepted_at`) |
 
@@ -1218,7 +1221,7 @@ burndown/
       lib/                ← pure functions for unit testing (node:test), mirroring the frontend's js/lib/. Detail: docs/api/lib.md
       middleware/         ← auth guard: requireAuth, requireAdmin, requireSysAdmin (see §3.1), liveRole(userId), sessionRowError(claims)
       db/                 ← PostgreSQL pool client, migrations/
-      services/           ← email, jwt, resource-matching, profile-engine/worker, llm, planning-assistant, planning-data, topic-extraction. Index: docs/api/services.md
+      services/           ← email, jwt, passwords, resource-matching, profile-engine/worker, llm, planning-assistant, planning-data, topic-extraction. Index: docs/api/services.md
       create-admin.js     ← CLI bootstrap: create/reset admin user (always role='admin')
       promote-sysadmin.js ← CLI: promote an existing user to role='sysadmin'
     Dockerfile
