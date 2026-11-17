@@ -8,9 +8,9 @@
  * Environment (set in docker-compose.yml):
  *   API_URL             default: http://api:3000
  *   TEST_ADMIN_EMAIL       default: test-admin@pdash.local
- *   TEST_ADMIN_PASSWORD    default: TestAdmin123!
+ *   TEST_ADMIN_PASSWORD    default: Quiet-Harbor-Lantern-42
  *   TEST_SYSADMIN_EMAIL    default: test-sysadmin@pdash.local
- *   TEST_SYSADMIN_PASSWORD default: TestSysAdmin123!
+ *   TEST_SYSADMIN_PASSWORD default: Silver-Orchard-Compass-87
  */
 'use strict';
 
@@ -18,13 +18,13 @@ const http = require('http');
 const sha256 = t => require('crypto').createHash('sha256').update(t).digest('hex');
 const BASE = process.env.API_URL             || 'http://api:3000';
 const EMAIL = process.env.TEST_ADMIN_EMAIL    || 'test-admin@pdash.local';
-const PASS  = process.env.TEST_ADMIN_PASSWORD || 'TestAdmin123!';
+const PASS  = process.env.TEST_ADMIN_PASSWORD || 'Quiet-Harbor-Lantern-42';
 
 // Sysadmin test account — bootstrapped separately (docker-compose.yml's `test`
 // service runs create-admin.js + promote-sysadmin.js for this email). Used
 // only for the admin/reset/* endpoints, which are sysadmin-exclusive.
 const SYSADMIN_EMAIL = process.env.TEST_SYSADMIN_EMAIL    || 'test-sysadmin@pdash.local';
-const SYSADMIN_PASS  = process.env.TEST_SYSADMIN_PASSWORD || 'TestSysAdmin123!';
+const SYSADMIN_PASS  = process.env.TEST_SYSADMIN_PASSWORD || 'Silver-Orchard-Compass-87';
 
 // Far-future years unlikely to clash with real data
 const TEST_YEAR   = 2099;
@@ -242,7 +242,7 @@ async function testAuth() {
 
 // ── Two-step login ────────────────────────────────────────────────────────────
 
-const TS_PASS = 'TsPass123!';
+const TS_PASS = 'Velvet-Meadow-58';
 
 // A throw-away active user with a known password (cleanup disables it).
 async function makeTsUser(tag) {
@@ -486,7 +486,7 @@ async function testTwoStepRevocation() {
   if (b) {
     const tok = `__test_ts_reset_${Date.now()}__`;
     await sql(`UPDATE users SET reset_token_hash = $2, reset_expires = NOW() + interval '1 hour' WHERE id = $1`, [b.id, sha256(tok)]);
-    const r = await api('POST', '/api/auth/reset-password', { token: tok, password: 'ResetPass123!', passwordConfirm: 'ResetPass123!' });
+    const r = await api('POST', '/api/auth/reset-password', { token: tok, password: 'Copper-Willow-Night-19', passwordConfirm: 'Copper-Willow-Night-19' });
     ok(r.status === 200, `TS-21 reset-password → 200 (got ${r.status})`);
     await expectWiped('TS-21', b.id);
   }
@@ -5358,7 +5358,7 @@ async function testAuthTokens() {
   if (!process.env.MAILPIT_URL) { fail('MAILPIT_URL unset — the stack does not send mail to Mailpit'); return; }
   if (!adminCookie) { ok(false, 'AT-setup admin account unavailable'); return; }
   await mailpit('DELETE', '/api/v1/messages');
-  const PASS = 'Abcdefg1!';
+  const PASS = 'Amber-Canyon-Ledger-9';
   const stamp = Date.now();
   const col = async (id, c) => (await sql(`SELECT ${c} AS v FROM users WHERE id = $1`, [id]))?.[0]?.v;
   const ACTIVATE = 'activate.html';
@@ -5497,6 +5497,70 @@ async function testAuthTokens() {
     `AT-05 invite_token_hash and reset_token_hash each have a unique index (got ${idx.map(i => i.indexname).join(', ') || 'none'})`);
 }
 
+// ── Password policy ─────────────────────────────────────────────────────────────
+
+async function testPasswordPolicy() {
+  section('Password policy');
+  const stamp = Date.now();
+  const isRule = r => r.status === 400 && r.data?.code === 'PASSWORD_RULE';
+  const banned = ['mario', 'rossi', 'test', 'step', 'pdash'];
+  const common = require('fs').readFileSync('/app/src/lib/data/common-passwords.txt', 'utf8').split(/\r?\n/)
+    .find(l => l && !l.startsWith('#') && new Set([...l]).size >= 4 && !banned.some(b => l.includes(b)));
+  if (!common) { fail('PP-setup no usable entry in common-passwords.txt'); return; }
+  const GOOD = 'k7wq9vzm2pqx';   // 12 characters, no upper case, no symbol
+  const refused = ctxCase => [
+    ['11 characters', 'k7#wq9vz!m2'],
+    ['name or email', ctxCase],
+    ['common password', common],
+    ['65 characters', GOOD.repeat(6).slice(0, 65)],
+  ];
+
+  // PP-01: activate, with the context read from the invited user's row.
+  const tok = `__pp_invite_${stamp}__`;
+  const invited = await sql(
+    `INSERT INTO users (email, first_name, last_name, role, status, invite_token_hash, invite_expires)
+     VALUES ($1, 'Mario', 'Rossi', 'user', 'pending', $2, NOW() + interval '1 hour') RETURNING id`,
+    [`__pp_mario.rossi_${stamp}@pdash.local`, sha256(tok)]);
+  if (invited) {
+    later('DELETE', `/api/users/${invited[0].id}`);
+    for (const [label, pw] of refused('Rossi-k7#wq9vz')) {
+      const r = await api('POST', '/api/auth/activate', { token: tok, password: pw, passwordConfirm: pw });
+      ok(isRule(r), `PP-01 activate, ${label} → 400 PASSWORD_RULE (got ${r.status} ${r.data?.code})`);
+    }
+    const r = await api('POST', '/api/auth/activate', { token: tok, password: GOOD, passwordConfirm: GOOD });
+    ok(r.status === 200, `PP-01 activate, 12 conforming characters → 200 (got ${r.status})`);
+  }
+
+  // PP-02: reset-password, on a user named Two Step.
+  const u = await makeTsUser('pp');
+  if (!u) return;
+  const rtok = `__pp_reset_${stamp}__`;
+  await sql(`UPDATE users SET reset_token_hash = $2, reset_expires = NOW() + interval '1 hour' WHERE id = $1`, [u.id, sha256(rtok)]);
+  for (const [label, pw] of refused('Step-k7#wq9vzq')) {
+    const r = await api('POST', '/api/auth/reset-password', { token: rtok, password: pw, passwordConfirm: pw });
+    ok(isRule(r), `PP-02 reset-password, ${label} → 400 PASSWORD_RULE (got ${r.status} ${r.data?.code})`);
+  }
+  const rs = await api('POST', '/api/auth/reset-password', { token: rtok, password: GOOD, passwordConfirm: GOOD });
+  ok(rs.status === 200, `PP-02 reset-password, 12 conforming characters → 200 (got ${rs.status})`);
+
+  // PP-03: change-password, same user. A 200 reissues the session cookie: carry it on.
+  let session = await loginWithCode(u.email, GOOD);
+  if (!session) { fail('PP-03 login with the reset password failed'); return; }
+  const CP = '/api/auth/change-password';
+  for (const [label, pw] of refused('Step-k7#wq9vzq')) {
+    const r = await api('POST', CP, { currentPassword: GOOD, newPassword: pw, newPasswordConfirm: pw }, session);
+    ok(isRule(r), `PP-03 change-password, ${label} → 400 PASSWORD_RULE (got ${r.status} ${r.data?.code})`);
+  }
+  const NEXT = 'm2pqxk7wq9vz';
+  const cp = await api('POST', CP, { currentPassword: GOOD, newPassword: NEXT, newPasswordConfirm: NEXT }, session);
+  ok(cp.status === 200, `PP-03 change-password, 12 conforming characters → 200 (got ${cp.status})`);
+  session = extractCookie(cp.headers) || session;
+
+  // PP-04: a non-string new password is a 400, not a bcrypt crash.
+  const num = await api('POST', CP, { currentPassword: NEXT, newPassword: 123456789012345, newPasswordConfirm: 123456789012345 }, session);
+  ok(num.status === 400, `PP-04 change-password, numeric newPassword → 400 (got ${num.status})`);
+}
+
 // ── Notification url rule (S-01) ────────────────────────────────────────────────
 
 async function testNotificationUrl() {
@@ -5605,6 +5669,7 @@ async function main() {
     await testPlanningAssistant();
     await testMailFailures();
     await testAuthTokens();
+    await testPasswordPolicy();
     await testNotificationUrl();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
