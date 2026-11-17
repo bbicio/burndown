@@ -296,7 +296,7 @@ L'unico corpo alternativo, quando non ce ne sono, è la sentinella `Nessuna.` �
 
 La pretende `scripts/decision-ledger-guard.test.js`; la legge il Gate 2 di `/finish-cycle`, che ne fa una lista a spunta: le voci già provate da un run automatico arrivano spuntate, le altre con le istruzioni per verificarle (`.claude/commands/finish-cycle.md`, "Acceptance checklist").
 
-**Header della Spec (dal 2026-10-14).** Ogni Spec porta nell'header la riga `**Brief started:** YYYY-MM-DD HH:MM`, oppure `**Brief started:** unknown`: l'ora di inizio di `/feature-brief`, o di `/brainstorming` quando il ciclo non ha Brief. La legge `scripts/cycle-times.mjs`; la pretende `scripts/decision-ledger-guard.test.js`.
+**Header della Spec (dal 2026-10-14).** Ogni Spec porta nell'header la riga `**Brief started:** YYYY-MM-DD HH:MM`, oppure `**Brief started:** unknown`: l'ora di inizio di `/feature-brief`, o di `/brainstorming` quando il ciclo non ha Brief. La legge `scripts/cycle-times.mjs`; la pretende `scripts/decision-ledger-guard.test.js`. Dal 2026-11-17 l'header porta anche `**Security surface:** yes — <superficie>` oppure `**Security surface:** no`, la stessa riga del Brief; con `yes` la Spec ha almeno un criterio di accettazione su quella superficie. La pretende lo stesso guard.
 
 ---
 

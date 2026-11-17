@@ -71,6 +71,12 @@
 // handled as for the ledger (liveLines). Not checked: the content, whether an
 // entry is verifiable, whether the list is complete, and briefs.
 //
+// FIFTH RULE (2026-11-17): every spec dated from SECURITY_CUTOFF carries a
+// `**Security surface:**` line, `no` or `yes — <surface>` (PROCESS.md 6b). Not
+// checked: whether the answer is right, whether a `yes` has a criterion that
+// covers it, and briefs. SECURITY_EXEMPT is closed: it holds the one spec that
+// shares the cutoff date and predates the rule.
+//
 // THE EXEMPT LIST BELOW IS CLOSED. The four files in it carry this cycle's
 // own date but predate the rule. The cutoff cannot simply be moved one day
 // forward, because that would exempt this cycle's own spec and plan -- the two
@@ -184,6 +190,23 @@ function briefInScope(relPath) {
 function checkBriefStarted(markdown) {
   return markdown.replace(/\r\n/g, '\n').split('\n')
     .some((l) => /^\*\*Brief started:\*\* (\d{4}-\d{2}-\d{2} \d{2}:\d{2}|unknown)\s*$/.test(l));
+}
+
+// Fifth rule, specs only: the header declares the cycle's security surface.
+// From its own cutoff, with its own closed exemption.
+const SECURITY_CUTOFF = '2026-11-17';
+const SECURITY_EXEMPT = new Set([
+  'docs/superpowers/specs/2026-11-17-password-policy-design.md',
+]);
+
+function securityInScope(relPath) {
+  return !SECURITY_EXEMPT.has(relPath) && briefInScope(relPath)
+    && relPath.slice(relPath.lastIndexOf('/') + 1) >= SECURITY_CUTOFF;
+}
+
+function checkSecuritySurface(markdown) {
+  return markdown.replace(/\r\n/g, '\n').split('\n')
+    .some((l) => /^\*\*Security surface:\*\* (no|yes — \S.*)\s*$/.test(l));
 }
 
 // Third rule, plans only: the header carries the two lines /finish-cycle's
@@ -462,6 +485,41 @@ describe('live specs: Brief started', () => {
       .map((name) => `${dir}/${name}`)
       .filter((rel) => briefInScope(rel) && !checkBriefStarted(readFileSync(join(ROOT, rel), 'utf8')));
     expect(failures, `these specs have no "**Brief started:** YYYY-MM-DD HH:MM" (or "unknown")
+      line (PROCESS.md 6b, Il ledger):\n  ${failures.join('\n  ')}`).toEqual([]);
+  });
+});
+
+describe('checkSecuritySurface', () => {
+  it('accepts no and yes with a surface, CRLF tolerated', () => {
+    expect(checkSecuritySurface('# S\n**Security surface:** no\n')).toBe(true);
+    expect(checkSecuritySurface('# S\r\n**Security surface:** yes — route, input\r\n')).toBe(true);
+  });
+
+  it('rejects another value, a yes without a surface and a missing line', () => {
+    expect(checkSecuritySurface('**Security surface:** maybe\n')).toBe(false);
+    expect(checkSecuritySurface('**Security surface:** yes\n')).toBe(false);
+    expect(checkSecuritySurface('**Security surface:** yes — \n')).toBe(false);
+    expect(checkSecuritySurface('# S\n**Date:** 2026-11-17\n')).toBe(false);
+  });
+});
+
+describe('securityInScope', () => {
+  it('covers specs dated from its cutoff, minus its closed exemption, never briefs', () => {
+    expect(securityInScope('docs/superpowers/specs/2026-11-17-security-process-design.md')).toBe(true);
+    expect(securityInScope('docs/superpowers/specs/2026-11-17-password-policy-design.md')).toBe(false);
+    expect(securityInScope('docs/superpowers/specs/2026-11-16-security-c8-csp-script-src-design.md')).toBe(false);
+    expect(securityInScope(`docs/superpowers/specs/${SECURITY_CUTOFF}-x-brief.md`)).toBe(false);
+    expect(securityInScope(`docs/superpowers/plans/${SECURITY_CUTOFF}-x.md`)).toBe(false);
+  });
+});
+
+describe('live specs: Security surface', () => {
+  it('every in-scope spec carries a Security surface line', () => {
+    const dir = 'docs/superpowers/specs';
+    const failures = readdirSync(join(ROOT, dir))
+      .map((name) => `${dir}/${name}`)
+      .filter((rel) => securityInScope(rel) && !checkSecuritySurface(readFileSync(join(ROOT, rel), 'utf8')));
+    expect(failures, `these specs have no "**Security surface:** no" (or "yes — <surface>")
       line (PROCESS.md 6b, Il ledger):\n  ${failures.join('\n  ')}`).toEqual([]);
   });
 });

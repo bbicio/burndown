@@ -55,13 +55,13 @@ If the answer is a third kind of request (e.g., a fix driven by an audit report'
 
 - **Current behavior** (Scenario 2): grounded in code just read, with citations. If the code doesn't answer a question the Brief needs, ask the user rather than guessing.
 - **Expected behavior**: if the raw request doesn't specify enough to fill this in, ask targeted clarifying questions. Do not write plausible-sounding behavior the user never stated.
-- **Constraints**: technical, process, or product constraints relevant to this change. Ask if none are apparent from context.
+- **Constraints**: technical, process, or product constraints relevant to this change. Ask if none are apparent from context. Always carries the line `**Security surface:** yes — <input | route | permissions | rendering of user data | dependencies>` or `**Security surface:** no`: does the cycle add or change any of those? Decide it from the code you read; ask the user when the code does not settle it.
 - **Acceptance criteria**: concrete and independently verifiable — each one should be checkable as done/not-done without further interpretation.
 - **Explicitly excluded scope**: propose candidates based on what's adjacent to the request but not asked for — then get explicit user confirmation before treating any of them as final. Proposing is yours to do; deciding is not.
 
 ## Output
 
-Fixed sections, operational tone, no narrative or filler prose. Section set depends on scenario (Step 2). End with any open questions intended for `/brainstorming` to resolve — the Brief surfaces them, it doesn't resolve them. Then the Next step line (below).
+Fixed sections, operational tone, no narrative or filler prose. Section set depends on scenario (Step 2). The `**Security surface:**` line appears even when the answer is `no`. End with any open questions intended for `/brainstorming` to resolve — the Brief surfaces them, it doesn't resolve them. Then the Next step line (below).
 
 ## Next step
 
