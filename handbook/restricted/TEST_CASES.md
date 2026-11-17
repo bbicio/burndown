@@ -51,6 +51,7 @@
 | A-36 | A password with the user's name or email is refused (2026-11-17) | On activate, reset and My profile → Password, set a password that contains the email's local part, the first name or the last name (a token of 4 characters or more) | `400 PASSWORD_RULE` "Don't use your name or email in your password." (`PP-01..PP-03`); activate (email, first name) and My profile (email, first and last name) show the reason before submitting, reset only after | ✓ |
 | A-37 | A common password is refused (2026-11-17) | Set a password taken from `api/src/lib/data/common-passwords.txt` on the three forms | `400 PASSWORD_RULE` "This password is too common. Choose a different one." (`PP-01..PP-03`) | ✓ |
 | A-38 | A breached password is refused (2026-11-17) | On the branch stack, with the breach check on, set a password of 12 characters or more known to Have I Been Pwned and absent from the local list (`grep -x` on the file) | "This password has appeared in a data breach. Choose a different one."; with HIBP unreachable the password is accepted and `docker logs` shows one `breach check unavailable` line, without the password | |
+| A-39 | Wrong current passwords are limited on a password change (2026-11-17) | On My profile → Password, submit a wrong current password eleven times in a row from one browser | The first ten answer "Current password is incorrect" under the field; the eleventh answers "Too many attempts"; a right current password does not count, and attempts from another network address are counted apart (`api/src/routes/auth.test.js`) | |
 
 ---
 
