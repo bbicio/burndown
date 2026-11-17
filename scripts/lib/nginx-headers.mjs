@@ -80,7 +80,7 @@ export function cspSourceProblems(csp) {
     if (['data:', 'blob:', 'filesystem:'].includes(s.toLowerCase())) out.push(`script-src: scheme source ${s}`);
     if (s.toLowerCase() === "'unsafe-inline'") out.push(`script-src: ${s}`);
     const url = hostSource(s);
-    if (url && url.pathname === '/') out.push(`script-src: ${s} admits every file of its host, name the file`);
+    if (url && url.pathname.endsWith('/')) out.push(`script-src: ${s} admits every file below ${url.pathname}, name the file`);
   }
   for (const d of SHADOWING) if (csp.has(d)) out.push(`${d}: not read by the guard, would override its parent directive`);
   return out;

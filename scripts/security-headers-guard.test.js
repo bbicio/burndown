@@ -193,6 +193,13 @@ describe('cspSourceMatches', () => {
   });
 });
 
+describe('inlineScripts', () => {
+  it('reads a script tag past a > inside a quoted attribute', () => {
+    expect(inlineScripts('<script data-x=">" src="js/a.js?v=1"></script>')).toEqual([]);
+    expect(inlineScripts('<script data-x=">">code()</script>')).toEqual(['code()']);
+  });
+});
+
 describe('handlerAttributes', () => {
   it('reads an inline handler attribute', () => {
     expect(handlerAttributes('<button onclick="x()">a</button>')).toEqual(['onclick']);
@@ -202,6 +209,10 @@ describe('handlerAttributes', () => {
     expect(handlerAttributes('<img/onerror="f()">')).toEqual(['onerror']);
     expect(handlerAttributes('<svg/onload=f()>')).toEqual(['onload']);
     expect(handlerAttributes('<img src="a.png"/onerror="f()">')).toEqual(['onerror']);
+  });
+  it('does not read /on… inside an unquoted value as a handler', () => {
+    expect(handlerAttributes('<a href=/docs/onboarding=1>')).toEqual([]);
+    expect(handlerAttributes('<img src=a/onload=x.png>')).toEqual([]);
   });
   it('ignores Vue bindings, script bodies, comments and look-alike attributes', () => {
     expect(handlerAttributes('<button @click="x">a</button>')).toEqual([]);
@@ -221,7 +232,8 @@ describe('cspSourceProblems', () => {
     expect(problems("script-src 'self' 'unsafe-inline'; style-src 'self'")).toHaveLength(1);
   });
   it('rejects an external script-src source without a path, or with path /', () => {
-    for (const s of ['https://cdn.example', 'https://cdn.example/', 'cdn.example', 'cdn.example/', 'cdn.example:443']) {
+    for (const s of ['https://cdn.example', 'https://cdn.example/', 'cdn.example', 'cdn.example/', 'cdn.example:443',
+      'https://cdn.example/npm/', 'cdn.example/npm/x@1.0.0/']) {
       expect(problems(`script-src 'self' ${s}; style-src 'self'`), s).toHaveLength(1);
     }
   });
@@ -383,10 +395,14 @@ describe('root pages as served (no inline script, no handler attribute)', () => 
 
 describe('HTML built by js/**/*.js', () => {
   // A tag written in a string (template literal, innerHTML) with an on* attribute: the CSP refuses it.
-  const HANDLER_IN_TAG = /<[a-zA-Z][^<>]*?[\s/]on[a-z]+\s*=/gi;
+  const HANDLER_IN_TAG = /<[a-zA-Z](?:"[^"]*"|'[^']*'|[^<>"'])*?[\s/]on[a-z]+\s*=/gi;
   it('reads a handler in a tag built in a string, not a property assignment', () => {
     expect('`<a href="${u}" onclick="x()">`'.match(HANDLER_IN_TAG)).toHaveLength(1);
     expect("el.onclick = () => {}; const onLoad = '<b>';".match(HANDLER_IN_TAG)).toBeNull();
+  });
+  it('reads past a > inside a quoted attribute value', () => {
+    expect('`<button data-x="${a > b ? 1 : 0}" onclick="go()">`'.match(HANDLER_IN_TAG)).toHaveLength(1);
+    expect('`<a title=\'x > y\' onclick=go()>`'.match(HANDLER_IN_TAG)).toHaveLength(1);
   });
   it('carries no on* attribute', () => {
     const hits = scopeFiles(ROOT).filter((f) => f.endsWith('.js'))
