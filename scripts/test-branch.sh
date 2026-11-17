@@ -235,8 +235,8 @@ up() {
     fi
     $COMPOSE up -d --build api nginx adminer
     wait_healthy "$API_CONTAINER"
-    echo "Bootstrapping test admin user (test-branch@pdash.local / TestBranch123!)..."
-    docker exec "$API_CONTAINER" node /app/src/create-admin.js test-branch@pdash.local TestBranch123! Test Branch
+    echo "Bootstrapping test admin user (test-branch@pdash.local / Amber-River-Signal-73)..."
+    docker exec "$API_CONTAINER" node /app/src/create-admin.js test-branch@pdash.local Amber-River-Signal-73 Test Branch
     echo "NOTE: fresh database — no pre-existing data, only the bootstrapped admin above."
   fi
 
