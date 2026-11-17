@@ -104,7 +104,9 @@
           <div>
             <label class="mp-label" for="mpPwNew">New password</label>
             <input id="mpPwNew" v-model="pw.next" type="password" class="form-control" autocomplete="new-password"
-                   placeholder="At least 8 characters" aria-describedby="mpPwHint" @input="pw.done = false">
+                   :placeholder="placeholder" :class="{ 'is-invalid': pwState.ruleError }"
+                   :aria-invalid="pwState.ruleError ? 'true' : null"
+                   :aria-describedby="pwState.ruleError ? 'mpPwRule' : 'mpPwHint'" @input="pw.done = false">
           </div>
           <div>
             <label class="mp-label" for="mpPwConfirm">Confirm new password</label>
@@ -115,7 +117,8 @@
           </div>
           <div>
             <div class="mp-strength" :data-level="strength" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-            <p class="mp-hint" id="mpPwHint">At least 8 characters. Longer, with numbers and capitals, is stronger.</p>
+            <div v-if="pwState.ruleError" id="mpPwRule" class="mp-field-error" role="alert">{{ pwState.ruleError }}</div>
+            <p v-else class="mp-hint" id="mpPwHint">{{ hint }}</p>
           </div>
         </div>
       </div>
@@ -267,8 +270,9 @@
 <script type="module" src="js/lib/icons.js?v=7"></script>
 <script type="module" src="js/lib/dates.js?v=7"></script>
 <script type="module" src="js/lib/md-subnav.js?v=7"></script>
-<script type="module" src="js/lib/profile-ui.js?v=5"></script>
+<script type="module" src="js/lib/password-policy.js?v=1"></script>
+<script type="module" src="js/lib/profile-ui.js?v=6"></script>
 <script defer src="js/nav.js?v=24"></script>
-<script type="module" src="js/pages/profile.js?v=1"></script>
+<script type="module" src="js/pages/profile.js?v=2"></script>
 </body>
 </html>

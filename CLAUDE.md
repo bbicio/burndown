@@ -397,6 +397,14 @@ One implementation, `js/lib/dates.js` (server twin `api/src/lib/dates.js`). Rule
 
 Full detail: [docs/js/lib.md](docs/js/lib.md), [docs/api/lib.md](docs/api/lib.md) (`dates.js`).
 
+### Passwords
+
+- **The rule lives in `api/src/lib/password-policy.js`** and its browser twin `js/lib/password-policy.js`, kept in parity by `js/lib/password-policy.test.js`.
+- **Every hash of a password goes through `hashNewPassword`** (`api/src/services/passwords.js`); a refusal is `400 { error, code: 'PASSWORD_RULE' }`.
+- **No page rewrites the rule**: placeholder, hint, strength and errors come from the twin.
+
+`scripts/password-policy-guard.test.js` pins the last two. Full detail: [docs/api/lib.md](docs/api/lib.md), [docs/api/services.md](docs/api/services.md), [docs/js/lib.md](docs/js/lib.md) (`password-policy.js`).
+
 ### Project currency lock
 
 A project generated from a proposal keeps the proposal's currency and neither side can change it afterwards; creating a project without a proposal, deleting a project and unlinking it from a proposal are inhibited. Everything is enforced on the **API** for everyone except a sysadmin (live DB role via `liveRole`), with `400 { error, code: 'PROJECT_RULE' }`, and mirrored in the UI. Rules to keep:

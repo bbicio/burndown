@@ -63,6 +63,7 @@ services:
       ANTHROPIC_BASE_URL: http://test:4010
       SMTP_HOST: mailpit
       SMTP_PORT: "1025"
+      PASSWORD_BREACH_CHECK: "off"
     depends_on:
       mailpit:
         condition: service_started

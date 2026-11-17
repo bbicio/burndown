@@ -323,7 +323,11 @@ Server twin: `docs/api/lib.md`'s `dates.js`. Tests: `dates.test.js`, `dates-guar
 
 ## profile-ui.js (2026-11, My profile page)
 
-`PROFILE_SECTIONS`, `sectionFromHash(hash)` (a known `#id`, else `details`), `passwordStrength(pw)` (0 empty, 1 under 8 characters, then 1 plus one point each for ≥ 12 characters, digits with letters, mixed case, a non-alphanumeric character, clamped to 2–4; a hint, the rule stays the server's minimum of 8), `passwordFormState({ current, next, confirm })` → `{ mismatch, canSubmit }`, `maskInitials(user)` (`?` without a name), `deviceExpiry(expiresAt, now)` → `{ soon, text }` (`expires in {n} days` under 10 days, else `expires {formatDayText}`; imports `./dates.js?v=4`). `PROFILE_SECTIONS` also holds `two-step` and `devices`. Bridged onto `window`; loaded by `profile.html`. Tests: `profile-ui.test.js`.
+`PROFILE_SECTIONS`, `sectionFromHash(hash)` (a known `#id`, else `details`), `passwordFormState({ current, next, confirm }, context)` → `{ mismatch, ruleError, canSubmit }` (`ruleError` from `password-policy.js`'s `passwordError`, `''` while `next` is empty; 2026-11-17 the page's own `passwordStrength` was removed — the meter reads the twin's), `maskInitials(user)` (`?` without a name), `deviceExpiry(expiresAt, now)` → `{ soon, text }` (`expires in {n} days` under 10 days, else `expires {formatDayText}`; imports `./dates.js?v=4`). `PROFILE_SECTIONS` also holds `two-step` and `devices`. Bridged onto `window`; loaded by `profile.html`. Tests: `profile-ui.test.js`.
+
+## password-policy.js (2026-11-17, password policy cycle)
+
+Browser twin of `api/src/lib/password-policy.js` ([docs/api/lib.md](../api/lib.md)): the same constants, `contextTokens(context)` and `passwordError(password, context)` with the server's checks except the common-password list and the breach check — immediate feedback only, the server decides. Also `passwordStrength(password)` (0 empty, 1 while `passwordError` refuses it, then a level that grows with the length), `STRENGTH_LABELS`, `PASSWORD_HINT` and `PASSWORD_PLACEHOLDER`, the texts every new-password field shows. Bridged onto `window` (the minimum as `PASSWORD_MIN_LENGTH`); loaded by `activate.html`, `reset-password.html` and `profile.html`, and imported by `profile-ui.js`. Tests: `password-policy.test.js` (parity with the server module), `scripts/password-policy-guard.test.js`.
 
 ## otp.js (2026-11-10, two-step login)
 

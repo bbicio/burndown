@@ -35,7 +35,12 @@
       lastChanged() { return day(this.user?.password_changed_at); },
       termsAccepted() { return day(this.user?.terms_accepted_at); },
       strength() { return passwordStrength(this.pw.next); },
-      pwState() { return passwordFormState(this.pw); },
+      pwState() {
+        return passwordFormState(this.pw,
+          { email: this.user?.email, firstName: this.user?.first_name, lastName: this.user?.last_name });
+      },
+      hint() { return PASSWORD_HINT; },
+      placeholder() { return PASSWORD_PLACEHOLDER; },
       // One row per method: a v-for, so another method is one more entry.
       twoStepMethods() {
         const ts = this.user?.two_step;

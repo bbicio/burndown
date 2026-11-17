@@ -26,6 +26,7 @@ Token signing/verification behind the `pdash_token` cookie. The middleware that 
 
 ## The other services, in one line each
 
+- `passwords.js` (2026-11-17) — the one place that hashes a new password (`scripts/password-policy-guard.test.js`): `hashNewPassword(password, context, { breachCheck })` → `{ hash }` or `{ error }` runs `lib/password-policy.js` with the common list (`loadCommonPasswords()`, read once), then `pwnedCount` against the Have I Been Pwned range API (only the first 5 hex characters of the SHA-1 leave, `Add-Padding: true`, a timeout), then bcrypt. HIBP is fail-open: a timeout, network error or non-200 logs `[passwords] breach check unavailable: <reason>` and the password is accepted. `breachCheck: false` (`create-admin.js`) or `PASSWORD_BREACH_CHECK=off` (the `run-tests.sh` stack) skips it. The three password routes answer a refusal with `400 { error, code: 'PASSWORD_RULE' }`. Tests: `passwords.test.js`; `test-api.js` `PP-01..PP-04`.
 - `resource-matching.js` (2026-09, Cycle 3b) — `refreshUnmatched(codes | null)`, the DB half of actuals-owner-name matching; the rules themselves live in `api/src/lib/match-resource.js`.
 - `profile-engine.js` / `profile-worker.js` (Cycle 3c) — the profile queue plus per-code processing, and the 60 s self-scheduling worker started from `api/src/index.js`.
 - `llm.js` (2026-09-30) — one `chat({ system, messages, tools })` interface over the Anthropic Messages API.

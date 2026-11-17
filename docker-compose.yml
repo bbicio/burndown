@@ -69,9 +69,9 @@ services:
       API_URL: http://api:3000
       JWT_SECRET: ${JWT_SECRET}   # two-step-code.js hashes the code with it
       TEST_ADMIN_EMAIL: ${TEST_ADMIN_EMAIL:-test-admin@pdash.local}
-      TEST_ADMIN_PASSWORD: ${TEST_ADMIN_PASSWORD:-TestAdmin123!}
+      TEST_ADMIN_PASSWORD: ${TEST_ADMIN_PASSWORD:-Quiet-Harbor-Lantern-42}
       TEST_SYSADMIN_EMAIL: ${TEST_SYSADMIN_EMAIL:-test-sysadmin@pdash.local}
-      TEST_SYSADMIN_PASSWORD: ${TEST_SYSADMIN_PASSWORD:-TestSysAdmin123!}
+      TEST_SYSADMIN_PASSWORD: ${TEST_SYSADMIN_PASSWORD:-Silver-Orchard-Compass-87}
     volumes:
       - ./api/src:/app/src        # for create-admin.js
       - ./test-api.js:/app/test-api.js

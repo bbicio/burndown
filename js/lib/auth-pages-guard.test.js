@@ -121,7 +121,7 @@ describe('migrated auth pages', () => {
       it('links Bootstrap, tokens.css then auth.css', () => {
         const bs = t.indexOf('bootstrap@5.3.2/dist/css/bootstrap.min.css');
         const tok = t.indexOf('css/tokens.css?v=14');
-        const auth = t.indexOf('css/auth.css?v=2');
+        const auth = t.indexOf('css/auth.css?v=3');
         expect(bs).toBeGreaterThanOrEqual(0);
         expect(tok).toBeGreaterThan(bs);
         expect(auth).toBeGreaterThan(tok);
@@ -180,9 +180,10 @@ describe('migrated auth pages', () => {
           expect(tag[0]).toContain('aria-hidden="true"');
         }
       });
-      it('keeps checkStrength() unchanged', () => {
-        expect(t).toContain('if (p.length >= 12) score++;');
-        expect(t).toContain('/[0-9!@#$%^&*]/');
+      it('reads the strength and its labels from js/lib/password-policy.js', () => {
+        expect(t).toContain('strength() { return passwordStrength(this.password); }');
+        expect(t).toContain('STRENGTH_LABELS[this.strength]');
+        expect(t).not.toContain('checkStrength');
       });
     });
   }

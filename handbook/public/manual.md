@@ -26,12 +26,12 @@ The first time you sign in, and again each time an administrator publishes a new
 
 ### Activating your account and resetting a password
 
-The invitation email carries a link, valid for 48 hours, where you choose your password. If you forget it, use **Forgot password?** on the sign-in page: the same message appears whether or not the address has an account, and if it does, a reset link valid for 2 hours arrives by email. If you ask again within 2 minutes, no second email is sent and the first link stays valid. A password needs at least 8 characters.
+The invitation email carries a link, valid for 48 hours, where you choose your password. If you forget it, use **Forgot password?** on the sign-in page: the same message appears whether or not the address has an account, and if it does, a reset link valid for 2 hours arrives by email. If you ask again within 2 minutes, no second email is sent and the first link stays valid. A password needs at least 12 characters and must not contain your name or email, or be a common password or one that has appeared in a data breach.
 
 <details>
 <summary>Details</summary>
 
-- On the activation and reset pages a strength indicator (Weak, Fair, Good, Strong) fills as you type. It is only a hint: the button is enabled as soon as the password has 8 characters and the confirmation matches.
+- On the activation, reset and profile pages a strength indicator (Too weak, Fair, Good, Strong) fills as you type and grows with the length: a longer passphrase is stronger. A password that is too short, too long or repetitive, or that contains your name or email, is explained under the indicator as you type (when you submit instead: your last name on the activation page, your name and email on the reset page); a common or breached password is refused when you submit. The button is enabled when the rule is met and the confirmation matches.
 - If an invitation expired or was lost, ask an administrator to resend it.
 
 </details>

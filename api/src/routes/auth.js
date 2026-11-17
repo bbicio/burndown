@@ -14,6 +14,7 @@ const { createLimiter } = require('../lib/rate-limit');
 const { sessionClaims } = require('../lib/session');
 const { RESET_TTL_MS, isStr, emailKey, resetCooldownBounds } = require('../lib/auth-tokens');
 const twoStep = require('../services/two-step');
+const { hashNewPassword } = require('../services/passwords');
 
 const router = express.Router();
 
@@ -32,6 +33,10 @@ const rectificationLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 5 })
 // forgot-password: every request that names an address counts, whether or not the address exists.
 const forgotIpLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
 const forgotEmailLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 5 });
+// change-password: wrong current passwords only, per user and address, as for login (reserved, refunded once
+// right). The address is part of the key so that a stolen session cookie used elsewhere cannot lock the
+// user out of the one in-session action that ends that session.
+const changePasswordLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
 
 const CHALLENGE_COOKIE = 'pdash_challenge';
 const DEVICE_COOKIE = 'pdash_device';
@@ -471,15 +476,16 @@ router.post('/activate', async (req, res, next) => {
     }
     // A passwordConfirm that is not the same string, one of another type included, never equals a string password.
     if (password !== passwordConfirm) return res.status(400).json({ error: 'Passwords do not match' });
-    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
     const { rows } = await query(
-      `SELECT id FROM users WHERE invite_token_hash = $1 AND invite_expires > NOW() AND status = 'pending'`,
+      `SELECT id, email, first_name, last_name FROM users WHERE invite_token_hash = $1 AND invite_expires > NOW() AND status = 'pending'`,
       [T.hashToken(token)]
     );
     if (!rows[0]) return res.status(410).json({ error: 'Invalid or expired invite link' });
 
-    const hash = await bcrypt.hash(password, 12);
+    const { email, first_name, last_name } = rows[0];
+    const { hash, error } = await hashNewPassword(password, { email, firstName: first_name, lastName: last_name });
+    if (error) return res.status(400).json({ error, code: 'PASSWORD_RULE' });
     await query(
       `UPDATE users SET password_hash = $1, password_changed_at = NOW(), status = 'active', invite_token_hash = NULL, invite_expires = NULL WHERE id = $2`,
       [hash, rows[0].id]
@@ -551,15 +557,16 @@ router.post('/reset-password', async (req, res, next) => {
       return res.status(400).json({ error: 'token and password required' });
     }
     if (password !== passwordConfirm) return res.status(400).json({ error: 'Passwords do not match' });
-    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
     const { rows } = await query(
-      `SELECT id FROM users WHERE reset_token_hash = $1 AND reset_expires > NOW()`,
+      `SELECT id, email, first_name, last_name FROM users WHERE reset_token_hash = $1 AND reset_expires > NOW()`,
       [T.hashToken(token)]
     );
     if (!rows[0]) return res.status(410).json({ error: 'Invalid or expired reset link' });
 
-    const hash = await bcrypt.hash(password, 12);
+    const { email, first_name, last_name } = rows[0];
+    const { hash, error } = await hashNewPassword(password, { email, firstName: first_name, lastName: last_name });
+    if (error) return res.status(400).json({ error, code: 'PASSWORD_RULE' });
     await query(
       `UPDATE users SET password_hash = $1, password_changed_at = NOW(), reset_token_hash = NULL, reset_expires = NULL WHERE id = $2`,
       [hash, rows[0].id]
@@ -571,18 +578,30 @@ router.post('/reset-password', async (req, res, next) => {
 
 // POST /api/auth/change-password
 router.post('/change-password', requireAuth, async (req, res, next) => {
+  let refundSlot = () => {};
+  let judged = false;
   try {
     const { currentPassword, newPassword, newPasswordConfirm } = req.body;
-    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'All fields required' });
+    if (!isStr(currentPassword) || !isStr(newPassword) || !currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'All fields required' });
+    }
     if (newPassword !== newPasswordConfirm) return res.status(400).json({ error: 'Passwords do not match' });
-    if (newPassword.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
-    const { rows } = await query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    const key = `${req.user.id}|${req.ip}`;
+    const slot = changePasswordLimiter.hit(key);
+    refundSlot = () => { if (slot.allowed) changePasswordLimiter.refund(key, Date.now(), slot.window); };
+    if (!slot.allowed) return rateLimited(res, slot.retryInMs);
+
+    const { rows } = await query('SELECT password_hash, email, first_name, last_name FROM users WHERE id = $1', [req.user.id]);
     const valid = await bcrypt.compare(currentPassword, rows[0].password_hash);
+    judged = true;
     // 400, not 401: the shared client treats a 401 as an expired session and redirects to login.
     if (!valid) return res.status(400).json({ error: 'Current password is incorrect', field: 'currentPassword' });
+    refundSlot();
 
-    const hash = await bcrypt.hash(newPassword, 12);
+    const { email, first_name, last_name } = rows[0];
+    const { hash, error } = await hashNewPassword(newPassword, { email, firstName: first_name, lastName: last_name });
+    if (error) return res.status(400).json({ error, code: 'PASSWORD_RULE' });
     const { rows: [changed] } = await query(
       'UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2 RETURNING password_changed_at, email',
       [hash, req.user.id]);
@@ -595,7 +614,10 @@ router.post('/change-password', requireAuth, async (req, res, next) => {
       id: req.user.id, role: req.user.role, email: changed.email, password_changed_at: changed.password_changed_at,
     }));
     res.json({ ok: true });
-  } catch (err) { next(err); }
+  } catch (err) {
+    if (!judged) refundSlot();
+    next(err);
+  }
 });
 
 module.exports = router;

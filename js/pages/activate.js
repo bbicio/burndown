@@ -7,20 +7,23 @@
           user: { firstName: '', email: '' },
           password: '',
           confirm: '',
-          strength: 0,
           loading: false,
           error: null,
           year: new Date().getFullYear(),
         };
       },
       computed: {
+        ruleError() {
+          return this.password ? (passwordError(this.password, { email: this.user.email, firstName: this.user.firstName })?.message || '') : '';
+        },
         canSubmit() {
-          return this.password.length >= 8 && this.password === this.confirm;
+          return !this.ruleError && !!this.password && this.password === this.confirm;
         },
+        strength() { return passwordStrength(this.password); },
         strengthClass() { return 'strength-' + this.strength; },
-        strengthLabel() {
-          return ['','Weak','Fair','Good','Strong'][this.strength] || '';
-        },
+        strengthLabel() { return STRENGTH_LABELS[this.strength] || ''; },
+        placeholder() { return PASSWORD_PLACEHOLDER; },
+        hint() { return PASSWORD_HINT; },
       },
       async created() {
         this.token = new URLSearchParams(window.location.search).get('token');
@@ -36,16 +39,6 @@
         }
       },
       methods: {
-        checkStrength() {
-          const p = this.password;
-          let score = 0;
-          if (p.length >= 8)  score++;
-          if (p.length >= 12) score++;
-          if (/[A-Z]/.test(p) && /[a-z]/.test(p)) score++;
-          if (/[0-9!@#$%^&*]/.test(p)) score++;
-          this.strength = Math.min(4, Math.max(0, score));
-        },
-
         async activate() {
           if (!this.canSubmit) return;
           this.loading = true;
