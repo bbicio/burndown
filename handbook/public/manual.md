@@ -551,7 +551,7 @@ Each client's **Rate card** holds the rate for each role: the agency default, sh
 
 - Rates are typed in the convention of their own currency, for example 1.234,50 in euros or 1,234.50 in dollars. Text that is not an amount refuses the save.
 - A caption under each field says where the rate in force comes from. A switch limits the list to customised roles and a save bar shows the number of unsaved changes, with **Discard**.
-- If someone else saved the same rate card meanwhile, the save is refused and your edits stay on screen: reopen the card to see the current rates.
+- If someone else saved the same rate card meanwhile, the save is refused with "This rate card was changed by someone else since you opened it." and your edits stay on screen; **Reload** shows the current rates and discards your edits. The rate fields cannot be edited while a save is running.
 - Programs are not managed here. They are created from the project configuration form or when a project is generated from an offer, and their ID cannot be changed afterwards.
 
 </details>
@@ -573,7 +573,7 @@ A POT is the total revenue target for a client, a client group or one of two gen
 
 ### Roles and rates
 
-Each role has a label, a code that must match the role code in the timesheet file, a team (the part of the code before the dash, used to filter Planning) and a default hourly rate in euros. For each active currency there is an optional default rate; left blank, PDash converts the euro rate at the current exchange rate. The list is grouped by team, with a search and a **Missing rates** switch to find roles with no euro rate.
+Each role has a label, a code that must match the role code in the timesheet file, a team (the part of the code before the dash, used to filter Planning) and a default hourly rate in euros. For each active currency there is an optional default rate; left blank, PDash converts the euro rate at the current exchange rate. The list is grouped by team, with a search and a **Missing rates** switch to find roles with no euro rate. If someone else changed or deleted the role after you opened it, the save is refused with a message and a **Reload** button, which shows the current values and discards your edits (or tells you the role no longer exists).
 
 ### Currencies
 
