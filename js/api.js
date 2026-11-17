@@ -148,8 +148,6 @@ const Api = {
   programs: {
     list:   ()              => apiFetch('/programs'),
     create: (id, name)      => apiFetch('/programs',      { method: 'POST',   body: JSON.stringify({ id, name }) }),
-    update: (id, name)      => apiFetch(`/programs/${id}`, { method: 'PATCH',  body: JSON.stringify({ name }) }),
-    delete: (id)            => apiFetch(`/programs/${id}`, { method: 'DELETE' }),
     share:  (id, userId, permission) => apiFetch(`/programs/${id}/share`, { method: 'POST', body: JSON.stringify({ userId, permission }) }),
   },
 
@@ -201,7 +199,6 @@ const Api = {
       linkedProjects: {
         list:   (cgId, vId)           => apiFetch(`/cost-grids/${cgId}/versions/${vId}/linked-projects`),
         add:    (cgId, vId, d)        => apiFetch(`/cost-grids/${cgId}/versions/${vId}/linked-projects`, { method: 'POST', body: JSON.stringify(d) }),
-        remove: (cgId, vId, projId)   => apiFetch(`/cost-grids/${cgId}/versions/${vId}/linked-projects/${projId}`, { method: 'DELETE' }),
       },
       tags: {
         list:    (cgId, vId)           => apiFetch(`/cost-grids/${cgId}/versions/${vId}/tags`),
