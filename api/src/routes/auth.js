@@ -14,6 +14,7 @@ const { createLimiter } = require('../lib/rate-limit');
 const { sessionClaims } = require('../lib/session');
 const { RESET_TTL_MS, isStr, emailKey, resetCooldownBounds } = require('../lib/auth-tokens');
 const twoStep = require('../services/two-step');
+const { hashNewPassword } = require('../services/passwords');
 
 const router = express.Router();
 
@@ -471,15 +472,16 @@ router.post('/activate', async (req, res, next) => {
     }
     // A passwordConfirm that is not the same string, one of another type included, never equals a string password.
     if (password !== passwordConfirm) return res.status(400).json({ error: 'Passwords do not match' });
-    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
     const { rows } = await query(
-      `SELECT id FROM users WHERE invite_token_hash = $1 AND invite_expires > NOW() AND status = 'pending'`,
+      `SELECT id, email, first_name, last_name FROM users WHERE invite_token_hash = $1 AND invite_expires > NOW() AND status = 'pending'`,
       [T.hashToken(token)]
     );
     if (!rows[0]) return res.status(410).json({ error: 'Invalid or expired invite link' });
 
-    const hash = await bcrypt.hash(password, 12);
+    const { email, first_name, last_name } = rows[0];
+    const { hash, error } = await hashNewPassword(password, { email, firstName: first_name, lastName: last_name });
+    if (error) return res.status(400).json({ error, code: 'PASSWORD_RULE' });
     await query(
       `UPDATE users SET password_hash = $1, password_changed_at = NOW(), status = 'active', invite_token_hash = NULL, invite_expires = NULL WHERE id = $2`,
       [hash, rows[0].id]
@@ -551,15 +553,16 @@ router.post('/reset-password', async (req, res, next) => {
       return res.status(400).json({ error: 'token and password required' });
     }
     if (password !== passwordConfirm) return res.status(400).json({ error: 'Passwords do not match' });
-    if (password.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
     const { rows } = await query(
-      `SELECT id FROM users WHERE reset_token_hash = $1 AND reset_expires > NOW()`,
+      `SELECT id, email, first_name, last_name FROM users WHERE reset_token_hash = $1 AND reset_expires > NOW()`,
       [T.hashToken(token)]
     );
     if (!rows[0]) return res.status(410).json({ error: 'Invalid or expired reset link' });
 
-    const hash = await bcrypt.hash(password, 12);
+    const { email, first_name, last_name } = rows[0];
+    const { hash, error } = await hashNewPassword(password, { email, firstName: first_name, lastName: last_name });
+    if (error) return res.status(400).json({ error, code: 'PASSWORD_RULE' });
     await query(
       `UPDATE users SET password_hash = $1, password_changed_at = NOW(), reset_token_hash = NULL, reset_expires = NULL WHERE id = $2`,
       [hash, rows[0].id]
@@ -573,16 +576,19 @@ router.post('/reset-password', async (req, res, next) => {
 router.post('/change-password', requireAuth, async (req, res, next) => {
   try {
     const { currentPassword, newPassword, newPasswordConfirm } = req.body;
-    if (!currentPassword || !newPassword) return res.status(400).json({ error: 'All fields required' });
+    if (!isStr(currentPassword) || !isStr(newPassword) || !currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'All fields required' });
+    }
     if (newPassword !== newPasswordConfirm) return res.status(400).json({ error: 'Passwords do not match' });
-    if (newPassword.length < 8) return res.status(400).json({ error: 'Password must be at least 8 characters' });
 
-    const { rows } = await query('SELECT password_hash FROM users WHERE id = $1', [req.user.id]);
+    const { rows } = await query('SELECT password_hash, email, first_name, last_name FROM users WHERE id = $1', [req.user.id]);
     const valid = await bcrypt.compare(currentPassword, rows[0].password_hash);
     // 400, not 401: the shared client treats a 401 as an expired session and redirects to login.
     if (!valid) return res.status(400).json({ error: 'Current password is incorrect', field: 'currentPassword' });
 
-    const hash = await bcrypt.hash(newPassword, 12);
+    const { email, first_name, last_name } = rows[0];
+    const { hash, error } = await hashNewPassword(newPassword, { email, firstName: first_name, lastName: last_name });
+    if (error) return res.status(400).json({ error, code: 'PASSWORD_RULE' });
     const { rows: [changed] } = await query(
       'UPDATE users SET password_hash = $1, password_changed_at = NOW() WHERE id = $2 RETURNING password_changed_at, email',
       [hash, req.user.id]);

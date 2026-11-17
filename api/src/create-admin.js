@@ -48,15 +48,20 @@ if (!email || !password) {
 
 // ── Main ─────────────────────────────────────────────────────────────────────
 const { Pool } = require('pg');
-const bcrypt   = require('bcryptjs');
+const { hashNewPassword } = require('./services/passwords');
 const { revokeTwoStepState } = require('./services/two-step');
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 (async () => {
   try {
-    const hash = await bcrypt.hash(password, 12);
     const normalized = email.toLowerCase().trim();
+    // The rule without the breach check: an operator tool, also run by the offline `test` profile.
+    const { hash, error } = await hashNewPassword(password, { email: normalized, firstName, lastName }, { breachCheck: false });
+    if (error) {
+      console.error('Password refused: ' + error);
+      process.exit(1);
+    }
 
     const existing = await pool.query(
       'SELECT id, email, role, status FROM users WHERE email = $1',
