@@ -51,7 +51,9 @@ describe('master-roles panel', () => {
   it('saves through apiSave with the version it opened with, and offers Reload on a conflict or a lost answer', () => {
     const save = between('async saveRole()', 'async deleteRole');
     expect(save).toContain("window.apiSave('PATCH', '/roles/' + form.id, { label, code, hourlyRate: rate, rateOverrides, version: form.version })");
-    expect(save).toContain("form.reloadable = res.kind === 'conflict' || res.kind === 'unknown';");
+    // a role deleted elsewhere (404) takes the same Reload path, which ends on "This role no longer exists."
+    expect(save).toContain("form.reloadable = res.kind === 'conflict' || res.kind === 'unknown' || res.status === 404;");
+    expect(between('async confirmDelete()', 'hideDeleteDialog(del) {')).toContain("del.reloadable = res.kind === 'conflict' || res.kind === 'unknown' || res.status === 404;");
     expect(html).toContain('@click="reloadRole">Reload</button>');
     expect(html).toContain('@click="reloadAfterDelete">Reload</button>');
     expect(between('async reloadRole()', 'async saveRole()')).toContain("'This role no longer exists.'");

@@ -301,7 +301,7 @@ window.__cfgApp = Vue.createApp({
           : await window.apiSave('POST', '/roles', { label, code, hourlyRate: rate, rateOverrides });
         if (res.kind !== 'ok') {
           form.error = res.kind === 'conflict' ? ROLE_CONFLICT : res.message;
-          form.reloadable = res.kind === 'conflict' || res.kind === 'unknown';
+          form.reloadable = res.kind === 'conflict' || res.kind === 'unknown' || res.status === 404;
           if (this.rf === form) this.$nextTick(() => this.$refs.rfLabel?.focus());
           return;
         }
@@ -348,7 +348,7 @@ window.__cfgApp = Vue.createApp({
         if (res.kind !== 'ok') {
           del.error = res.message;
           del.blocked = res.kind === 'error' && res.status === 400 && /^Cannot delete role /.test(res.message);
-          del.reloadable = res.kind === 'conflict' || res.kind === 'unknown';
+          del.reloadable = res.kind === 'conflict' || res.kind === 'unknown' || res.status === 404;
           // the clicked Delete is now disabled: keep focus (and Esc) inside the dialog
           if (this.del === del) this.$nextTick(() => document.querySelector('#roleDeleteModal .mdr-cancel')?.focus());
           return;
