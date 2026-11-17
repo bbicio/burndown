@@ -207,14 +207,14 @@ Il Gate 1 di `/finish-cycle` apre con un passo 0 che rilegge le righe `*.md` agg
 ### 6.4e Revisione di sicurezza e audit delle dipendenze, decisi dai path
 
 `/finish-cycle` esegue `/security-review` e `npm audit` solo quando il diff tocca una superficie di sicurezza. Lo decide `node scripts/security-scope.mjs`, mai un giudizio su "di cosa parla il ciclo".
-- **La regola vive nel codice, non qui.** La lista delle superfici è `scripts/security-scope.test.js`; nessun documento la ripete.
+- **La regola vive nel codice, non qui.** La lista delle superfici è `scripts/security-scope.test.js`; né questo documento né `finish-cycle.md` la ripetono.
 - **Un fallimento vale `review`.** Il verso è opposto a §6.4c, il principio è lo stesso: uno script rotto non toglie un controllo.
 - **Fuori dal percorso critico.** `/security-review` parte in background accanto a `/code-review`, all'apertura del Gate 2, con i vincoli di §6.4b; i suoi finding entrano nel round 1 del Gate 3 e da lì sono finding come gli altri. Gira una volta per ciclo: i round successivi passano dal `/code-review` scoped.
 - **Le dipendenze al Gate 1**, quando il diff cambia un manifest.
 - **Il report dichiara** se la revisione è girata, perché e con quanti finding.
 - **A monte**, Brief e Spec dichiarano la loro superficie di sicurezza (§6b, "Header della Spec").
 
-Come `/finish-cycle` lo applica: Gate 1 step 1b, Gate 2 step 0 e Gate 3 di `.claude/commands/finish-cycle.md`.
+Come `/finish-cycle` lo applica: Gate 1 step 1b, Gate 2 step 0, Gate 3 e il report del Gate 5 di `.claude/commands/finish-cycle.md`.
 
 ### 6.5 Brief e processo fuori dal ciclo
 - Il Brief (e l'eventuale handoff di design) è pronto e committato **prima** di aprire il ciclo. Se arriva un brief nuovo che sostituisce quello in discussione, si riparte da `/brainstorming`, senza riconciliare i ragionamenti precedenti.
