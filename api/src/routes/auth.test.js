@@ -65,14 +65,14 @@ test('an error after the request was committed keeps its slot: a retry cannot du
 const changeHandler = router.stack.find(l => l.route && l.route.path === '/change-password').route.stack.at(-1).handle;
 
 // One change-password request: the status it answered with, or 500 when it handed an error to next.
-async function change(userId, currentPassword) {
+async function change(userId, currentPassword, ip = '10.0.0.1') {
   let status = 200;
   const res = {
     status(code) { status = code; return res; }, json() { return res; },
     cookie() { return res; }, clearCookie() { return res; },
   };
   const next = 'k7wq9vzm2pqx';
-  await changeHandler({ user: { id: userId, role: 'user' }, body: { currentPassword, newPassword: next, newPasswordConfirm: next } },
+  await changeHandler({ ip, user: { id: userId, role: 'user' }, body: { currentPassword, newPassword: next, newPasswordConfirm: next } },
     res, () => { status = 500; });
   return status;
 }
@@ -88,4 +88,10 @@ test('a right current password gives its slot back', async () => {
   for (let i = 0; i < 10; i++) statuses.push(await change('cp2', CURRENT));
   statuses.push(await change('cp2', 'wrong-guess'));
   assert.deepEqual(statuses, [...Array(10).fill(200), 400]);
+});
+
+test('wrong guesses from another address do not lock the user out', async () => {
+  for (let i = 0; i < 10; i++) await change('cp3', 'wrong-guess', '203.0.113.9');
+  assert.equal(await change('cp3', 'wrong-guess', '203.0.113.9'), 429);
+  assert.equal(await change('cp3', CURRENT, '10.0.0.1'), 200);
 });

@@ -898,7 +898,7 @@ flowchart LR
 | POST | /api/auth/forgot-password | — | Request password reset; always `200 {ok:true}` (refused email, unknown address, non-string body, throttled by address or IP, or a reset issued under 2 minutes ago included); see `docs/api/lib.md` (`auth-tokens.js`) |
 | GET | /api/auth/reset-password/:token | — | Validate reset token |
 | POST | /api/auth/reset-password | — | Set new password; a refused password is `400 PASSWORD_RULE` |
-| POST | /api/auth/change-password | ✅ | Change password (authenticated); writes `password_changed_at`. A wrong current password is `400 { error, field: 'currentPassword' }`, not 401 (the client would treat it as an expired session); a refused new password is `400 PASSWORD_RULE`; repeated wrong current passwords for one user are `429 RATE_LIMITED` |
+| POST | /api/auth/change-password | ✅ | Change password (authenticated); writes `password_changed_at`. A wrong current password is `400 { error, field: 'currentPassword' }`, not 401 (the client would treat it as an expired session); a refused new password is `400 PASSWORD_RULE`; repeated wrong current passwords for one user from one address are `429 RATE_LIMITED` |
 | POST | /api/auth/rectification-request | ✅ | `{ message }` (1–2000 characters after trim): records a `rectification_requests` row and notifies every other active admin/sysadmin (in-app + email), the request and its notifications in one transaction; `201 { ok: true }`. 5 per user per hour (`429 { code: 'RATE_LIMITED', retryIn }`); no other active admin/sysadmin → `409 { code: 'NO_RECIPIENT' }`, nothing recorded. The user's own details are not editable by the user |
 | POST | /api/auth/accept-terms | ✅ | Record current T&C version acceptance (writes `terms_version` + `terms_accepted_at`) |
 

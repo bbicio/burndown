@@ -33,7 +33,9 @@ const rectificationLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 5 })
 // forgot-password: every request that names an address counts, whether or not the address exists.
 const forgotIpLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 20 });
 const forgotEmailLimiter = createLimiter({ windowMs: 60 * 60 * 1000, max: 5 });
-// change-password: wrong current passwords only, per user, as for login (reserved, refunded once right).
+// change-password: wrong current passwords only, per user and address, as for login (reserved, refunded once
+// right). The address is part of the key so that a stolen session cookie used elsewhere cannot lock the
+// user out of the one in-session action that ends that session.
 const changePasswordLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: 10 });
 
 const CHALLENGE_COOKIE = 'pdash_challenge';
@@ -585,7 +587,7 @@ router.post('/change-password', requireAuth, async (req, res, next) => {
     }
     if (newPassword !== newPasswordConfirm) return res.status(400).json({ error: 'Passwords do not match' });
 
-    const key = req.user.id;
+    const key = `${req.user.id}|${req.ip}`;
     const slot = changePasswordLimiter.hit(key);
     refundSlot = () => { if (slot.allowed) changePasswordLimiter.refund(key, Date.now(), slot.window); };
     if (!slot.allowed) return rateLimited(res, slot.retryInMs);
