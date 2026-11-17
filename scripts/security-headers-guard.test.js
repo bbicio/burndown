@@ -20,19 +20,33 @@
 //     `data:`/`blob:`/`filesystem:` in script-src, and no
 //     script-src-elem/-attr or style-src-elem/-attr directive (a browser would
 //     apply it instead of the directive this test reads) --
-//     cspSourceProblems in scripts/lib/nginx-headers.mjs. The rest of the CSP
-//     string is not pinned: a new origin for a new page is added without
-//     rewriting this test.
+//     cspSourceProblems in scripts/lib/nginx-headers.mjs;
+//   * script-src has no 'unsafe-inline' and no external source without a path
+//     (or with path `/`): each CDN file is named by its exact URL, so a script
+//     injected from another package of the same CDN is refused (cycle 8,
+//     B-497) -- also cspSourceProblems;
+//   * every script-src source with a path admits a script the pages load: a
+//     file dropped from the pages is dropped from the CSP too.
+//     The rest of the CSP string is not pinned: a new file for a new page is
+//     added without rewriting this test.
 // In the root *.html pages and js/**/*.js (tests excluded), every external
-// <script src> has its origin in script-src, every <link rel="stylesheet"> in
-// style-src, every <link rel="icon"> and <img src> in img-src; any other
-// <link> to an external origin fails until it is classified here. "External"
-// is read as a browser reads it (spaces trimmed, `\` as `/`, `https:host`), and
-// a plain `http:` or protocol-relative `//` URL always fails: a `https://` CSP
-// source does not admit it from an http page. A CDN URL outside a tag (a lazy
-// loader) must have its origin in script-src. In handbook/**/*.md (rendered by
-// help.html), every external inline, reference-style or <img> image has its
-// origin in img-src.
+// <script src> is admitted by a source of script-src, every <link
+// rel="stylesheet"> by style-src, every <link rel="icon"> and <img src> by
+// img-src (cspSourceMatches: a path source admits its own file, a `/`-ended
+// one what is below it, a host the whole origin); any other <link> to an
+// external origin fails until it is classified here. "External" is read as a
+// browser reads it (spaces trimmed, `\` as `/`, `https:host`), and a plain
+// `http:` or protocol-relative `//` URL always fails: a `https://` CSP source
+// does not admit it from an http page. A CDN URL outside a tag (a lazy loader)
+// must be admitted by script-src. In handbook/**/*.md (rendered by help.html),
+// every external inline, reference-style or <img> image has its origin in
+// img-src.
+// The root *.html pages as they are on disk (rawReadFileSync, not the
+// rebuilt text of scripts/lib/page-source.setup.mjs) contain no inline
+// JavaScript <script> and no `on<name>=` attribute (handlerAttributes in
+// scripts/lib/js-code.mjs): their code lives in js/pages/*.js, served from
+// 'self'. The HTML js/**/*.js writes in strings carries no `on<name>=`
+// attribute either.
 //
 // WHAT IS DELIBERATELY NOT CHECKED -- named limits, not gaps:
 //   * `if` and `include` in nginx.conf: neither exists today, and the readers
@@ -42,7 +56,11 @@
 //     does not see them.
 //   * Lazy loaders are seen only on a host in CDN_HOSTS
 //     (scripts/lib/cdn-urls.mjs), and are assumed to load scripts; the only one
-//     today (Mermaid in help.html) is a <script>.
+//     today (Mermaid in js/pages/help.js) is a <script>.
+//   * In js/**/*.js an on* attribute is seen only inside a tag written whole
+//     in one string (`<a ... onclick=`): a tag assembled from pieces, or an
+//     attribute set by setAttribute('onclick', ...), is not. The CSP refuses
+//     both at runtime anyway.
 //   * Whether the browser actually accepts the policy: the branch-stack
 //     measure of the cycle that changes it covers that.
 import { describe, it, expect } from 'vitest';
@@ -50,7 +68,9 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { externalOrigin, externalResources, markdownImages, scanCdnUrls, scopeFiles } from './lib/cdn-urls.mjs';
 import { locationBlocks, serverLevel } from './lib/nginx-locations.mjs';
-import { addHeaders, cspSourceProblems, parseCsp } from './lib/nginx-headers.mjs';
+import { addHeaders, cspSourceMatches, cspSourceProblems, parseCsp } from './lib/nginx-headers.mjs';
+import { handlerAttributes, inlineScripts } from './lib/js-code.mjs';
+import { rawReadFileSync } from './lib/page-source.setup.mjs';
 
 const ROOT = process.cwd();
 const CSP_HEADER = 'Content-Security-Policy';
@@ -141,10 +161,84 @@ describe('externalOrigin (malformed)', () => {
   });
 });
 
+describe('cspSourceMatches', () => {
+  const M = 'https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js';
+  it('a file source accepts that exact file, query and fragment ignored', () => {
+    expect(cspSourceMatches(M, `${M}?v=1`)).toBe(true);
+    expect(cspSourceMatches(M, `${M}#x`)).toBe(true);
+  });
+  it('a file source refuses another file of the same host', () => {
+    expect(cspSourceMatches(M, 'https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js')).toBe(false);
+    expect(cspSourceMatches(M, 'https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js/x')).toBe(false);
+  });
+  it('a source ending with / accepts the files below it', () => {
+    expect(cspSourceMatches('https://cdn.jsdelivr.net/npm/x@1.0.0/', 'https://cdn.jsdelivr.net/npm/x@1.0.0/a.js')).toBe(true);
+    expect(cspSourceMatches('https://cdn.jsdelivr.net/npm/x@1.0.0/', 'https://cdn.jsdelivr.net/npm/x@1.0.1/a.js')).toBe(false);
+  });
+  it('a source without a path, or with path /, accepts the whole origin', () => {
+    expect(cspSourceMatches('https://cdn.jsdelivr.net', 'https://cdn.jsdelivr.net/npm/anything@1.0.0/a.js')).toBe(true);
+    expect(cspSourceMatches('https://cdn.jsdelivr.net/', 'https://cdn.jsdelivr.net/a.js')).toBe(true);
+  });
+  it('another origin never matches', () => {
+    expect(cspSourceMatches(M, M.replace('cdn.jsdelivr.net', 'evil.example'))).toBe(false);
+    expect(cspSourceMatches('https://cdn.jsdelivr.net', 'https://cdn.jsdelivr.net.evil.example/a.js')).toBe(false);
+  });
+  it('a source without a scheme matches like its https form', () => {
+    expect(cspSourceMatches('cdn.jsdelivr.net', M)).toBe(true);
+    expect(cspSourceMatches('cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js', M)).toBe(true);
+    expect(cspSourceMatches('cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js', 'https://cdn.jsdelivr.net/npm/x@1.0.0/x.js')).toBe(false);
+  });
+  it("keywords do not accept an external URL", () => {
+    for (const k of ["'self'", "'unsafe-eval'", "'unsafe-inline'", "'none'"]) expect(cspSourceMatches(k, M), k).toBe(false);
+  });
+});
+
+describe('inlineScripts', () => {
+  it('reads a script tag past a > inside a quoted attribute', () => {
+    expect(inlineScripts('<script data-x=">" src="js/a.js?v=1"></script>')).toEqual([]);
+    expect(inlineScripts('<script data-x=">">code()</script>')).toEqual(['code()']);
+  });
+});
+
+describe('handlerAttributes', () => {
+  it('reads an inline handler attribute', () => {
+    expect(handlerAttributes('<button onclick="x()">a</button>')).toEqual(['onclick']);
+    expect(handlerAttributes('<body\n  class="a" OnLoad=\'f()\'>')).toEqual(['onload']);
+  });
+  it('reads a handler separated by / as browsers do', () => {
+    expect(handlerAttributes('<img/onerror="f()">')).toEqual(['onerror']);
+    expect(handlerAttributes('<svg/onload=f()>')).toEqual(['onload']);
+    expect(handlerAttributes('<img src="a.png"/onerror="f()">')).toEqual(['onerror']);
+    expect(handlerAttributes('<img src=a.png /onerror=x>')).toEqual(['onerror']);
+    expect(handlerAttributes('<input disabled/onclick=x>')).toEqual(['onclick']);
+    expect(handlerAttributes('<svg/x/onload=f()>')).toEqual(['onload']);
+  });
+  it('does not read /on… inside an unquoted value as a handler', () => {
+    expect(handlerAttributes('<a href=/docs/onboarding=1>')).toEqual([]);
+    expect(handlerAttributes('<img src=a/onload=x.png>')).toEqual([]);
+  });
+  it('ignores Vue bindings, script bodies, comments and look-alike attributes', () => {
+    expect(handlerAttributes('<button @click="x">a</button>')).toEqual([]);
+    expect(handlerAttributes('<button v-on:click="x">a</button>')).toEqual([]);
+    expect(handlerAttributes('<script>a.onclick=f; b = "<p onclick=x>"</script>')).toEqual([]);
+    expect(handlerAttributes('<!-- <button onclick="x()"> -->')).toEqual([]);
+    expect(handlerAttributes('<div data-onclick="x" title="a onclick=b">')).toEqual([]);
+  });
+});
+
 describe('cspSourceProblems', () => {
   const problems = (v) => cspSourceProblems(parseCsp(v));
   it('accepts the shape of the real policy', () => {
-    expect(problems("script-src 'self' 'unsafe-inline' https://cdn.example; style-src 'self' https://cdn.example")).toEqual([]);
+    expect(problems("script-src 'self' 'unsafe-eval' https://cdn.example/npm/a@1.0.0/a.min.js; style-src 'self' https://cdn.example")).toEqual([]);
+  });
+  it("rejects 'unsafe-inline' in script-src", () => {
+    expect(problems("script-src 'self' 'unsafe-inline'; style-src 'self'")).toHaveLength(1);
+  });
+  it('rejects an external script-src source without a path, or with path /', () => {
+    for (const s of ['https://cdn.example', 'https://cdn.example/', 'cdn.example', 'cdn.example/', 'cdn.example:443',
+      'https://cdn.example/npm/', 'cdn.example/npm/x@1.0.0/']) {
+      expect(problems(`script-src 'self' ${s}; style-src 'self'`), s).toHaveLength(1);
+    }
   });
   it('rejects any wildcard in script-src or style-src', () => {
     for (const s of ['*', 'https:', 'http:', 'https://*', '*.example.com', 'https://*.example.com']) {
@@ -254,9 +348,9 @@ describe('nginx.conf security headers', () => {
       const DIRECTIVE = { script: 'script-src', stylesheet: 'style-src', icon: 'img-src', image: 'img-src' };
       const missing = [];
       const check = (file, url, d) => {
-        const { origin, error } = externalOrigin(url);
+        const { error } = externalOrigin(url);
         if (error) missing.push(`${file}: ${url} -- ${error}`);
-        else if (!(csp.get(d) ?? []).includes(origin)) missing.push(`${file}: ${url} -- origin not in ${d}`);
+        else if (!(csp.get(d) ?? []).some((s) => cspSourceMatches(s, url))) missing.push(`${file}: ${url} -- not admitted by ${d}`);
       };
       for (const file of scopeFiles(ROOT)) {
         const src = readFileSync(join(ROOT, file), 'utf8');
@@ -274,5 +368,48 @@ describe('nginx.conf security headers', () => {
       }
       expect(missing).toEqual([]);
     });
+    it('every script-src source with a path admits a script the pages load', () => {
+      const urls = scopeFiles(ROOT).flatMap((file) => {
+        const src = readFileSync(join(ROOT, file), 'utf8');
+        return [
+          ...externalResources(src).filter((r) => r.kind === 'script').map((r) => r.url),
+          ...scanCdnUrls(src, { html: file.endsWith('.html') }).filter((f) => !f.inTag).map((f) => f.url),
+        ];
+      });
+      const unused = (csp.get('script-src') ?? [])
+        .filter((s) => !s.startsWith("'") && !s.endsWith(':') && /^(?:https?:\/\/)?[^/]+\/./i.test(s))
+        .filter((s) => !urls.some((u) => cspSourceMatches(s, u)));
+      expect(unused).toEqual([]);
+    });
+  });
+});
+
+describe('root pages as served (no inline script, no handler attribute)', () => {
+  const pages = readdirSync(ROOT).filter((n) => n.endsWith('.html'));
+  it('reads the pages from disk', () => {
+    expect(pages.length).toBeGreaterThan(0);
+  });
+  it.each(pages)('%s', (page) => {
+    const raw = rawReadFileSync(join(ROOT, page), 'utf8');
+    expect(inlineScripts(raw), 'inline <script>').toEqual([]);
+    expect(handlerAttributes(raw), 'on* attribute').toEqual([]);
+  });
+});
+
+describe('HTML built by js/**/*.js', () => {
+  // A tag written in a string (template literal, innerHTML) with an on* attribute: the CSP refuses it.
+  const HANDLER_IN_TAG = /<[a-zA-Z](?:"[^"]*"|'[^']*'|[^<>"'])*?[\s/]on[a-z]+\s*=/gi;
+  it('reads a handler in a tag built in a string, not a property assignment', () => {
+    expect('`<a href="${u}" onclick="x()">`'.match(HANDLER_IN_TAG)).toHaveLength(1);
+    expect("el.onclick = () => {}; const onLoad = '<b>';".match(HANDLER_IN_TAG)).toBeNull();
+  });
+  it('reads past a > inside a quoted attribute value', () => {
+    expect('`<button data-x="${a > b ? 1 : 0}" onclick="go()">`'.match(HANDLER_IN_TAG)).toHaveLength(1);
+    expect('`<a title=\'x > y\' onclick=go()>`'.match(HANDLER_IN_TAG)).toHaveLength(1);
+  });
+  it('carries no on* attribute', () => {
+    const hits = scopeFiles(ROOT).filter((f) => f.endsWith('.js'))
+      .flatMap((f) => (readFileSync(join(ROOT, f), 'utf8').match(HANDLER_IN_TAG) ?? []).map((m) => `${f}: ${m}`));
+    expect(hits).toEqual([]);
   });
 });

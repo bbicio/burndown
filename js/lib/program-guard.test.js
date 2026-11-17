@@ -12,7 +12,7 @@ describe('program.html shell', () => {
     expect(html).not.toMatch(/#app-(shell|main)\s*\{[^}]*(overflow|position|transform|filter|contain|will-change)/);
   });
   it('carries the sidebar head snippet and v-cloak', () => {
-    expect(html).toContain("localStorage.getItem('PDash_sidebarCollapsed')");
+    expect(html).toContain('<script src="js/sidebar-state.js?v=1"></script>');
     expect(html).toMatch(/id="app"[^>]*v-cloak/);
   });
   it('activates the Portfolio menu entry and the three-level breadcrumb', () => {

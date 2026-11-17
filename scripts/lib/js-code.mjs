@@ -87,12 +87,30 @@ const JS_TYPE = /^(?:|module|text\/javascript|application\/javascript|text\/ecma
 // a script body is just text.
 export function inlineScripts(html) {
   const out = [];
-  for (const m of html.matchAll(/<!--[\s\S]*?-->|<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)) {
+  for (const m of html.matchAll(/<!--[\s\S]*?-->|<script\b((?:"[^"]*"|'[^']*'|[^'">])*)>([\s\S]*?)<\/script\s*>/gi)) {
     if (m[2] === undefined) continue; // a comment
     const attrs = m[1];
     if (/(?<![\w-])src\s*=/i.test(attrs)) continue;
     const type = /(?<![\w-])type\s*=\s*["']?([^"'\s>]*)/i.exec(attrs)?.[1] ?? '';
     if (JS_TYPE.test(type)) out.push(m[2]);
+  }
+  return out;
+}
+
+// The inline event-handler attributes (`on<name>=`, lower case) of a page's tags, in document
+// order, separated from what precedes them by space or `/` as a browser reads them; a value, quoted
+// or not, is read as one piece, so `/on` inside an unquoted value is part of the value. Comments and
+// the bodies of <script> elements are skipped; a quoted attribute value is
+// read as one piece, so `title="a onclick=b"` is not a handler. Vue's `@click`/`v-on:` are not.
+export function handlerAttributes(html) {
+  const out = [];
+  const TAG = /<!--[\s\S]*?-->|<script\b(?:"[^"]*"|'[^']*'|[^'">])*>[\s\S]*?<\/script\s*>|<[a-zA-Z](?:"[^"]*"|'[^']*'|[^'">])*>/gi;
+  for (const [tag] of html.matchAll(TAG)) {
+    if (tag.startsWith('<!--')) continue;
+    const open = /^<[^\s/>]*((?:"[^"]*"|'[^']*'|[^'">])*)>/.exec(tag)[1];
+    for (const m of open.matchAll(/"[^"]*"|'[^']*'|=\s*[^\s"'>][^\s>]*|(?<=[\s/])(on[a-z]+)\s*=/gi)) {
+      if (m[1]) out.push(m[1].toLowerCase());
+    }
   }
   return out;
 }

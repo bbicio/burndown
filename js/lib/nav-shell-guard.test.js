@@ -2,10 +2,11 @@
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-export const SNIPPET =
-  "<script>try{if(localStorage.getItem('PDash_sidebarCollapsed')==='1')document.documentElement.setAttribute('data-sidebar','collapsed')}catch(e){}</script>";
+export const SNIPPET = '<script src="js/sidebar-state.js?v=1"></script>';
+const BODY =
+  "try{if(localStorage.getItem('PDash_sidebarCollapsed')==='1')document.documentElement.setAttribute('data-sidebar','collapsed')}catch(e){}";
 
-const code = SNIPPET.replace(/^<script>/, '').replace(/<\/script>$/, '');
+const code = readFileSync(join(process.cwd(), 'js/sidebar-state.js'), 'utf8');
 const run = () => new Function(code)();
 
 afterEach(() => {
@@ -15,6 +16,10 @@ afterEach(() => {
 });
 
 describe('sidebar-state head snippet', () => {
+  it('js/sidebar-state.js is the former inline snippet body', () => {
+    expect(code.trim()).toBe(BODY);
+  });
+
   it("sets data-sidebar=collapsed when the key is '1'", () => {
     localStorage.setItem('PDash_sidebarCollapsed', '1');
     run();
@@ -94,7 +99,7 @@ describe('?v= references of the files edited in B1 and B2', () => {
     expect(p).toContain('css/style.css?v=38');
     expect(p).toContain('js/core.js?v=16');
     expect(p).toContain('js/nav.js?v=24');
-    expect(p).toContain('js/notifications.js?v=5');
+    expect(p).toContain('js/notifications.js?v=6');
     expect(p).toContain('css/tokens.css?v=14');
   });
 });

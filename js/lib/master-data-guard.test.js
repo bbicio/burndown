@@ -170,9 +170,9 @@ describe.each(PAGES)('Master Data page: $file', ({ file, active, section, api, m
 
 describe('config.html is only a redirect to the Clients page', () => {
   const html = read('config.html');
-  it('redirects (meta refresh + script) to /master-clients.html', () => {
+  it('redirects (meta refresh only, no script) to /master-clients.html', () => {
     expect(html).toContain('http-equiv="refresh" content="0; url=/master-clients.html"');
-    expect(html).toContain("location.replace('/master-clients.html')");
+    expect(html).not.toMatch(/<script\b/i);
   });
   it('runs no Vue and has no shell', () => {
     expect(html).not.toMatch(/vue/i);
@@ -182,9 +182,9 @@ describe('config.html is only a redirect to the Clients page', () => {
 
 describe('master-client-groups.html is only a redirect to the By group view', () => {
   const html = read('master-client-groups.html');
-  it('redirects (meta refresh + script) to /master-clients.html?view=group', () => {
+  it('redirects (meta refresh only, no script) to /master-clients.html?view=group', () => {
     expect(html).toContain('http-equiv="refresh" content="0; url=/master-clients.html?view=group"');
-    expect(html).toContain("location.replace('/master-clients.html?view=group')");
+    expect(html).not.toMatch(/<script\b/i);
     expect(html).toContain('Go to Clients &amp; groups');
   });
   it('runs no Vue and has no shell', () => {
@@ -509,4 +509,18 @@ describe('Pipelines & POTs responsive styles', () => {
   it('phasing keeps its name column sticky', () => {
     expect(style).toMatch(/\.mdp-ph-table \.mdp-ph-name \{[^}]*position: sticky/);
   });
+});
+
+// nav.js calls esc() only after DOMContentLoaded; core.js, deferred before it, defines esc().
+// These pages used to inline an esc() shim for nav.js, which core.js always replaced first.
+describe('nav.js gets esc() from core.js, with no shim', () => {
+  it.each(['admin', 'master-clients', 'master-currencies', 'master-pipelines', 'master-roles', 'timesheets'])(
+    '%s.html loads core.js before nav.js and no esc shim', name => {
+      const html = read(name + '.html');
+      expect(html).not.toContain('esc-shim.js');
+      expect(html).not.toMatch(/function esc\(/);
+      const core = html.indexOf('<script defer src="js/core.js?v=');
+      expect(core).toBeGreaterThan(-1);
+      expect(core).toBeLessThan(html.indexOf('<script defer src="js/nav.js?v='));
+    });
 });
