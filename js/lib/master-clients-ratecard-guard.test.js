@@ -32,15 +32,21 @@ describe('master-clients rate card sub-view', () => {
   it('openClientRatecard does not hard-code empty entries for a created card', () => {
     const body = method('openClientRatecard');
     expect(body).not.toMatch(/entries:\s*\[\]\s*\}/);
-    expect(body).toMatch(/entries:\s*rc\.entries\s*\?\?\s*\[\]/);
+    // the create answer is the server's card, entries included (an existing card keeps its own)
+    expect(body).toContain('rc = res.data;');
   });
   it('has no hand-written zero rule and keeps zero through keepZero', () => {
     expect(html).not.toMatch(/===\s*0\s*\?\s*'0'/);
     expect(html).toContain('keepZero: true');
   });
   it('passes the stored amount to readMoneyInput in save, focus and blur', () => {
-    for (const name of ['saveClientRatecard', 'onRcFocus', 'onRcBlur']) {
-      const start = html.indexOf(`    ${name === 'saveClientRatecard' ? 'async ' : ''}${name}(`);
+    // the save reads the amounts in the pure payload builder; after it the stored values come from the server
+    expect(method('saveClientRatecard')).toContain('window.buildRatecardEntries(this.rc.rows, this.currencies)');
+    const lib = readFileSync(join(__dirname, 'master-clients.js'), 'utf8');
+    const build = lib.slice(lib.indexOf('export function buildRatecardEntries('));
+    expect(build.slice(0, build.indexOf('\n}'))).toContain('stored: row.stored[code]');
+    for (const name of ['onRcFocus', 'onRcBlur']) {
+      const start = html.indexOf(`    ${name}(`);
       expect(start).toBeGreaterThan(-1);
       expect(html.slice(start, html.indexOf('\n    },', start))).toContain('stored: row.stored[code]');
     }
@@ -58,28 +64,38 @@ describe('master-clients rate card sub-view', () => {
   it('saves through the pure payload builder and the full-replacement endpoint', () => {
     const body = method('saveClientRatecard');
     expect(body).toContain('buildRatecardEntries(');
-    expect(body).toContain('Api.ratecards.updateEntries(');
+    expect(body).toContain("window.apiSave('PATCH', '/ratecards/' + state.id + '/entries', ");
   });
   // The entries PATCH is refused (409) when the card changed since the modal opened: the version
   // travels with it, and the refresh of the "saved" state must sit after the call so a refusal skips it.
   it('sends the card version with the entries and keeps the one the server returns', () => {
     const body = method('saveClientRatecard');
-    expect(body).toMatch(/Api\.ratecards\.updateEntries\([^)]*version:/);
-    expect(body).toMatch(/state\.version\s*=\s*\w+\.version/);
+    expect(body).toContain("'/entries', { version: state.version, entries: built.entries })");
+    expect(body).toContain('state.version = res.data.version;');
     expect(method('openClientRatecard')).toMatch(/state\.version\s*=\s*rc\.version/);
   });
-  it('refreshes row.initial/row.stored only after the awaited save, inside the try', () => {
+  // The saved state (row.initial, row.stored) is rebuilt from the server's card, only after an ok
+  // answer: a refusal returns first and leaves the rows dirty.
+  it('rebuilds the rows from the server card only after an ok save', () => {
     const body = method('saveClientRatecard');
-    const tryAt = body.indexOf('try {');
-    const callAt = body.indexOf('await Api.ratecards.updateEntries');
-    const initialAt = body.indexOf('row.initial =');
-    const storedAt = body.indexOf('row.stored[code] =');
-    const catchAt = body.indexOf('} catch');
-    expect(tryAt).toBeGreaterThan(-1);
-    expect(callAt).toBeGreaterThan(tryAt);
-    expect(initialAt).toBeGreaterThan(callAt);
-    expect(storedAt).toBeGreaterThan(callAt);
-    expect(catchAt).toBeGreaterThan(storedAt);
+    const callAt = body.indexOf("await window.apiSave('PATCH'");
+    const refusalAt = body.indexOf("if (res.kind !== 'ok') {");
+    const returnAt = body.indexOf('return;', refusalAt);
+    const rowsAt = body.indexOf('state.rows = this.ratecardRows(res.data, state.roles);');
+    expect(callAt).toBeGreaterThan(-1);
+    expect(refusalAt).toBeGreaterThan(callAt);
+    expect(returnAt).toBeGreaterThan(refusalAt);
+    expect(rowsAt).toBeGreaterThan(returnAt);
+    expect(body).not.toContain('row.initial =');
+    const start = html.indexOf('    ratecardRows(rc, roles) {');
+    expect(start).toBeGreaterThan(-1);
+    const rows = html.slice(start, html.indexOf('\n    },', start));
+    expect(rows).toContain('initial: { ...texts }');
+    expect(rows).toContain('const stored = { EUR: eur == null ? null : Number(eur) };');
+  });
+  it('offers Reload on a conflict or a lost answer', () => {
+    expect(method('saveClientRatecard')).toContain("state.reloadable = res.kind === 'conflict' || res.kind === 'unknown';");
+    expect(html).toContain('@click="reloadClientRatecard">Reload</button>');
   });
   it('is a routed sub-view, not a modal', () => {
     expect(html).not.toContain('clientRcModal');

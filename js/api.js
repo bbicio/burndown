@@ -155,9 +155,6 @@ const Api = {
 
   roles: {
     list:   ()              => apiFetch('/roles'),
-    create: (d)             => apiFetch('/roles',         { method: 'POST',   body: JSON.stringify(d) }),
-    update: (id, d)         => apiFetch(`/roles/${id}`,   { method: 'PATCH',  body: JSON.stringify(d) }),
-    delete: (id)            => apiFetch(`/roles/${id}`,   { method: 'DELETE' }),
   },
 
   projects: {
@@ -234,10 +231,6 @@ const Api = {
   ratecards: {
     list:         ()               => apiFetch('/ratecards'),
     get:          (id)             => apiFetch(`/ratecards/${id}`),
-    create:       (name, clientId) => apiFetch('/ratecards', { method: 'POST', body: JSON.stringify({ name, clientId: clientId || null }) }),
-    rename:       (id, name)       => apiFetch(`/ratecards/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
-    updateEntries: (id, entries)   => apiFetch(`/ratecards/${id}/entries`, { method: 'PATCH', body: JSON.stringify(entries) }),
-    delete:       (id)             => apiFetch(`/ratecards/${id}`, { method: 'DELETE' }),
   },
 
   pipelineYears: {

@@ -601,6 +601,7 @@
       <span class="rc-status-phone">{{ rcDirtyCount > 0 ? rcDirtyCount + ' unsaved' : rcCustomRowCount + ' role' + (rcCustomRowCount === 1 ? '' : 's') + ' customized' }}</span>
       <span class="rc-status">{{ rcDirtyCount > 0 ? rcDirtyCount + ' unsaved change' + (rcDirtyCount === 1 ? '' : 's') : 'All rates saved' }}</span>
       <span v-if="rc.msg" class="rc-msg" :class="rc.msgKind === 'success' ? 'is-ok' : 'is-error'">{{ rc.msg }}</span>
+      <button v-if="rc.reloadable" type="button" class="btn btn-outline-secondary btn-sm" :disabled="rc.saving" @click="reloadClientRatecard">Reload</button>
       <span class="cg-spacer"></span>
       <button type="button" class="btn btn-outline-secondary btn-sm rc-discard" :disabled="rcDirtyCount === 0 || rc.saving" @click="discardRc">Discard</button>
       <button type="button" class="btn btn-primary btn-sm" :disabled="rc.loading || !!rc.loadError || rc.saving" @click="saveClientRatecard">Save rates</button>
@@ -690,11 +691,12 @@
 <script type="module" src="js/lib/notification-url.js?v=1"></script>
 <script type="module" src="js/lib/money.js?v=6"></script>
 <script type="module" src="js/lib/master-clients.js?v=1"></script>
+<script type="module" src="js/lib/save.js?v=1"></script>
 <script defer src="js/notifications.js?v=6"></script>
 <script type="module" src="js/lib/icons.js?v=7"></script>
 <script type="module" src="js/lib/md-subnav.js?v=7"></script>
 <script defer src="js/nav.js?v=24"></script>
 
-<script type="module" src="js/pages/master-clients.js?v=1"></script>
+<script type="module" src="js/pages/master-clients.js?v=2"></script>
 </body>
 </html>
