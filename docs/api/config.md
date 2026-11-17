@@ -28,7 +28,7 @@ The body is `{ version, entries }`. Since the save contract (below) the version 
 
 ## Save contract: roles and rate cards (2026-11-17, save-contract cycle 1, migration `037`)
 
-Every write route of roles and rate cards goes through `versionedWrite` ([services.md](services.md)), stays `requireAdmin` and runs its money checks before the write. A body without the current integer `version` answers `409 { error, code: 'STALE', version }` — "This role was changed by someone else since you opened it." / "This rate card was changed by someone else since you opened it." — and an unknown id `404`. Each success leaves one `change_log` row (`entity_type` `role` or `ratecard`, the session's user).
+Every write route of roles and rate cards goes through `versionedWrite` ([services.md](services.md)), stays `requireAdmin` and runs its money checks before the write. A body without the current integer `version` answers `409 { error, code: 'STALE', version }` — "This role was changed by someone else since you opened it." / "This rate card was changed by someone else since you opened it." — and an unknown id `404`. Each success leaves one `change_log` row per entity it changed (`entity_type` `role` or `ratecard`, the session's user).
 
 | Route | Body | Answer | `change_log` action |
 |---|---|---|---|
