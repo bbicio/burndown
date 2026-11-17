@@ -44,7 +44,17 @@ describe('master-roles panel', () => {
     expect(save).toContain("if (!this.rf.roleCode.trim()) { this.rf.error = 'Role code is required.'; return; }");
     const after = save.slice(save.indexOf('const form = this.rf;'));
     expect(after).not.toMatch(/this.rf.(id|show|error|loading)\b/);
-    expect(save).toContain('const saved = code.toUpperCase();');
+    // the saved row (code included) is the server's answer, not the form's inputs
+    expect(save).toContain('const row = this.fromApi(res.data);');
+    expect(save).toContain('window.extractTeam(row.code)');
+  });
+  it('saves through apiSave with the version it opened with, and offers Reload on a conflict or a lost answer', () => {
+    const save = between('async saveRole()', 'async deleteRole');
+    expect(save).toContain("window.apiSave('PATCH', '/roles/' + form.id, { label, code, hourlyRate: rate, rateOverrides, version: form.version })");
+    expect(save).toContain("form.reloadable = res.kind === 'conflict' || res.kind === 'unknown';");
+    expect(html).toContain('@click="reloadRole">Reload</button>');
+    expect(html).toContain('@click="reloadAfterDelete">Reload</button>');
+    expect(between('async reloadRole()', 'async saveRole()')).toContain("'This role no longer exists.'");
   });
   it('sends an untouched code back as stored, ignores the double-click second click, locks fields while saving', () => {
     expect(between('openRoleForm(role) {', 'closePanel({')).toContain('origCode, origTeam: team, origRole: roleCode,');
@@ -83,12 +93,13 @@ describe('master-roles delete dialog', () => {
   it('sends one request and keeps a refusal inside the dialog', () => {
     const body = between('async confirmDelete()', '\n    },\n  },\n})');
     expect(body).toMatch(/^async confirmDelete\(\) \{\s*if \(this\.del\.loading/);
-    expect(body).toContain('del.error = e.message');
+    expect(body).toContain("window.apiSave('DELETE', '/roles/' + role.id, { version: role.version })");
+    expect(body).toContain('del.error = res.message');
     expect(body).not.toContain('globalError');
     expect(body).toContain('const del = this.del, role = del.role;');
     expect(body).toContain('this.roles.filter(r => r.id !== role.id)');
     // only the rule refusal blocks a retry
-    expect(body).toContain("del.blocked = /^Cannot delete role /.test(");
+    expect(body).toContain("del.blocked = res.kind === 'error' && res.status === 400 && /^Cannot delete role /.test(res.message);");
     expect(html).toContain(':disabled="del.loading || del.blocked"');
   });
   it('cannot be dismissed while its delete runs', () => {
@@ -103,9 +114,10 @@ describe('master-roles delete dialog', () => {
   });
   it('still closes on success: loading ends before hide()', () => {
     const body = between('async confirmDelete()', '\n    },\n  },\n})');
-    const ok = body.slice(body.indexOf('await Api.roles.delete('), body.indexOf('} catch (e) {'));
+    const ok = body.slice(body.indexOf('this.roles = this.roles.filter('), body.indexOf('hideDeleteDialog(del) {'));
     expect(ok.indexOf('del.loading = false')).toBeGreaterThan(-1);
-    expect(ok.indexOf('del.loading = false')).toBeLessThan(ok.indexOf('.hide()'));
+    expect(ok.indexOf('del.loading = false')).toBeLessThan(ok.indexOf('this.hideDeleteDialog(del)'));
+    expect(between('hideDeleteDialog(del) {', 'async reloadAfterDelete()')).toContain('.hide()');
   });
 });
 

@@ -376,6 +376,7 @@
 
     <div class="mdr-dr-body">
       <div v-if="rf.error" class="alert alert-danger alert-sm mb-0" role="alert">{{ rf.error }}</div>
+      <div v-if="rf.reloadable"><button type="button" class="btn btn-outline-secondary btn-sm" :disabled="rf.loading" @click="reloadRole">Reload</button></div>
 
       <label class="mdr-field">
         <span class="mdr-field-label">Label</span>
@@ -463,6 +464,7 @@
       <div class="modal-body pt-1">
         <p class="mdr-del-body mb-0">The role is removed from the agency rate card. Its custom rates in client rate cards are deleted too. A role used in a cost grid or assigned to a team resource can't be deleted.</p>
         <div v-if="del.error" class="alert alert-danger alert-sm mt-3 mb-0" role="alert">{{ del.error }}</div>
+        <button v-if="del.reloadable" type="button" class="btn btn-outline-secondary btn-sm mt-2" :disabled="del.loading" @click="reloadAfterDelete">Reload</button>
       </div>
       <div class="modal-footer border-0 pt-2">
         <button type="button" class="btn btn-link text-decoration-none mdr-cancel" data-bs-dismiss="modal" :disabled="del.loading">Cancel</button>
@@ -492,8 +494,9 @@
 <script type="module" src="js/lib/icons.js?v=7"></script>
 <script type="module" src="js/lib/md-subnav.js?v=7"></script>
 <script type="module" src="js/lib/master-roles.js?v=1"></script>
+<script type="module" src="js/lib/save.js?v=1"></script>
 <script defer src="js/nav.js?v=24"></script>
 
-<script type="module" src="js/pages/master-roles.js?v=1"></script>
+<script type="module" src="js/pages/master-roles.js?v=2"></script>
 </body>
 </html>
