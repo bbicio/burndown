@@ -10,6 +10,8 @@ For the development workflow (new feature / evolution / audit-fix), see [docs/su
 
 **Process override — execution worktree:** create a plan's execution worktree as `PROCESS.md` §6.1b says, not with the native `EnterWorktree` tool that `superpowers:using-git-worktrees` prefers.
 
+**Process override — final review and fix pass:** for `superpowers:executing-plans` and `superpowers:subagent-driven-development`, the whole-branch final review is the one `PROCESS.md` §6.4 describes, and after its fix pass only the test files covering the touched files run — the full suite is Gate 1's (`PROCESS.md` §6.2).
+
 **Infrastructure safety — Docker commands against the main stack (`pdash-db`/`pdash-api`/`pdash-nginx`/`pdash-adminer`, project `burndown`):** never delegate a plan task or subagent dispatch that runs `docker compose` (`up`/`down`/`restart`/etc.) directly against the main stack without all three of the following.
 1. **No `-v`/`--volumes` against the main stack, ever, ideally not even flagged as "not needed."** Any dispatch prompt that instructs an agent to run `docker compose down`/`up`/`restart` against the main project must explicitly forbid `-v`/`--volumes` in that same instruction, and must tell the agent to stop and escalate rather than trying a more aggressive command if the plain command doesn't behave as expected.
 2. **Snapshot before touching it.** Before any agent-run Docker-lifecycle operation on the main stack as part of a verification or test step, take an explicit `pg_dump` backup first (see "Database backup & full recreation" below) — do not rely on an incidental leftover dump from an unrelated prior cycle.
