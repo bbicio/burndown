@@ -209,6 +209,9 @@ describe('handlerAttributes', () => {
     expect(handlerAttributes('<img/onerror="f()">')).toEqual(['onerror']);
     expect(handlerAttributes('<svg/onload=f()>')).toEqual(['onload']);
     expect(handlerAttributes('<img src="a.png"/onerror="f()">')).toEqual(['onerror']);
+    expect(handlerAttributes('<img src=a.png /onerror=x>')).toEqual(['onerror']);
+    expect(handlerAttributes('<input disabled/onclick=x>')).toEqual(['onclick']);
+    expect(handlerAttributes('<svg/x/onload=f()>')).toEqual(['onload']);
   });
   it('does not read /on… inside an unquoted value as a handler', () => {
     expect(handlerAttributes('<a href=/docs/onboarding=1>')).toEqual([]);
