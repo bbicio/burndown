@@ -180,9 +180,10 @@ describe('migrated auth pages', () => {
           expect(tag[0]).toContain('aria-hidden="true"');
         }
       });
-      it('keeps checkStrength() unchanged', () => {
-        expect(t).toContain('if (p.length >= 12) score++;');
-        expect(t).toContain('/[0-9!@#$%^&*]/');
+      it('reads the strength and its labels from js/lib/password-policy.js', () => {
+        expect(t).toContain('strength() { return passwordStrength(this.password); }');
+        expect(t).toContain('STRENGTH_LABELS[this.strength]');
+        expect(t).not.toContain('checkStrength');
       });
     });
   }

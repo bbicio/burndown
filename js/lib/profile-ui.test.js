@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { PROFILE_SECTIONS, sectionFromHash, passwordStrength, passwordFormState, maskInitials, deviceExpiry } from './profile-ui.js';
+import { PROFILE_SECTIONS, sectionFromHash, passwordFormState, maskInitials, deviceExpiry } from './profile-ui.js';
 
 describe('sectionFromHash', () => {
   it('maps a known hash to its section', () => {
@@ -34,33 +34,28 @@ describe('deviceExpiry', () => {
   });
 });
 
-describe('passwordStrength', () => {
-  it('scores empty, short, 8 letters only and a long mixed password', () => {
-    expect(passwordStrength('')).toBe(0);
-    expect(passwordStrength('abc')).toBe(1);
-    expect(passwordStrength('abcdefgh')).toBe(2);
-    expect(passwordStrength('Abcdefgh1234!')).toBe(4);
-  });
-  it('stays at 1 under 8 characters, however varied', () => {
-    expect(passwordStrength('Ab1!')).toBe(1);
-  });
-  it('adds a point per criterion from 8 characters up', () => {
-    expect(passwordStrength('abcdefg1')).toBe(2);
-    expect(passwordStrength('Abcdefg1')).toBe(3);
-  });
-});
-
 describe('passwordFormState', () => {
   it('flags a mismatching confirmation and blocks submit', () => {
-    expect(passwordFormState({ current: 'a', next: 'abcdefgh', confirm: 'abcdefgx' })).toEqual({ mismatch: true, canSubmit: false });
+    expect(passwordFormState({ current: 'a', next: 'k7wq9vzm2pqx', confirm: 'k7wq9vzm2pqy' }))
+      .toEqual({ mismatch: true, ruleError: '', canSubmit: false });
   });
-  it('allows submit when the three fields are filled and coherent', () => {
-    expect(passwordFormState({ current: 'a', next: 'abcdefgh', confirm: 'abcdefgh' })).toEqual({ mismatch: false, canSubmit: true });
+  it('allows submit when the three fields are filled, coherent and the rule is met', () => {
+    expect(passwordFormState({ current: 'a', next: 'k7wq9vzm2pqx', confirm: 'k7wq9vzm2pqx' }))
+      .toEqual({ mismatch: false, ruleError: '', canSubmit: true });
   });
-  it('blocks a new password under 8 characters, an empty field, and says no mismatch while confirm is empty', () => {
-    expect(passwordFormState({ current: 'a', next: 'abcdefg', confirm: 'abcdefg' }).canSubmit).toBe(false);
-    expect(passwordFormState({ current: '', next: 'abcdefgh', confirm: 'abcdefgh' }).canSubmit).toBe(false);
-    expect(passwordFormState({ current: 'a', next: 'abcdefgh', confirm: '' })).toEqual({ mismatch: false, canSubmit: false });
+  it('blocks a new password the rule refuses, and says why', () => {
+    expect(passwordFormState({ current: 'a', next: 'abcdefgh', confirm: 'abcdefgh' }))
+      .toEqual({ mismatch: false, ruleError: 'Use at least 12 characters.', canSubmit: false });
+  });
+  it('blocks a new password that contains the user name', () => {
+    const st = passwordFormState({ current: 'a', next: 'Rossi-k7#wq9vz', confirm: 'Rossi-k7#wq9vz' }, { lastName: 'Rossi' });
+    expect(st.canSubmit).toBe(false);
+    expect(st.ruleError).toBe("Don't use your name or email in your password.");
+  });
+  it('says nothing while the new password is empty, and blocks an empty field', () => {
+    expect(passwordFormState({ current: 'a', next: '', confirm: '' })).toEqual({ mismatch: false, ruleError: '', canSubmit: false });
+    expect(passwordFormState({ current: '', next: 'k7wq9vzm2pqx', confirm: 'k7wq9vzm2pqx' }).canSubmit).toBe(false);
+    expect(passwordFormState({ current: 'a', next: 'k7wq9vzm2pqx', confirm: '' })).toEqual({ mismatch: false, ruleError: '', canSubmit: false });
   });
 });
 
