@@ -30,7 +30,77 @@ async function roleSnapshot(client, id) {
   return rows[0] || null;
 }
 
+// The phases of a version, same shape as GET /api/cost-grids/:id/versions/:vId/structure.
+async function structureOf(client, vId) {
+  const toInputDate = d => d && d.length === 8 ? `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}` : (d || '');
+  const phases = await client.query('SELECT * FROM phases WHERE version_id = $1 ORDER BY sort_order', [vId]);
+  const result = [];
+  for (const ph of phases.rows) {
+    const tasks = await client.query('SELECT * FROM tasks WHERE phase_id = $1 ORDER BY sort_order', [ph.id]);
+    const tasksWithRoles = [];
+    for (const tk of tasks.rows) {
+      const roles = await client.query(
+        `SELECT tr.id, tr.role_id, ro.label, ro.code, ro.hourly_rate, tr.days, tr.rate_override, tr.months, tr.rate_is_custom
+         FROM task_roles tr JOIN roles ro ON ro.id = tr.role_id WHERE tr.task_id = $1`,
+        [tk.id]
+      );
+      tasksWithRoles.push({
+        id:          tk.id,
+        title:       tk.title,
+        description: tk.description || '',
+        start_date:  toInputDate(tk.start_date),
+        end_date:    toInputDate(tk.end_date),
+        ptc:         parseFloat(tk.ptc) || 0,
+        sort_order:  tk.sort_order,
+        roles:       roles.rows,
+      });
+    }
+    result.push({ ...ph, tasks: tasksWithRoles });
+  }
+  return result;
+}
+
+// The header columns of GET /api/cost-grids/:id/versions, plus the structure. Null when missing.
+async function costGridVersionSnapshot(client, vId) {
+  const { rows } = await client.query(
+    `SELECT id, cost_grid_id, label, pipeline, pipeline_year, start_date, end_date, currency, currency_rate,
+            note, locked, ratecard_id, client_id, project_name, version
+     FROM cost_grid_versions WHERE id = $1`, [vId]
+  );
+  if (!rows[0]) return null;
+  return { ...rows[0], structure: { phases: await structureOf(client, vId) } };
+}
+
+async function costGridSnapshot(client, id) {
+  const { rows } = await client.query('SELECT id, name, owner_id, version FROM cost_grids WHERE id = $1', [id]);
+  return rows[0] || null;
+}
+
+// The project row; cycle 3 widens it to the project's sections.
+async function projectSnapshot(client, id) {
+  const { rows } = await client.query('SELECT * FROM projects WHERE id = $1', [id]);
+  return rows[0] || null;
+}
+
 const entities = {
+  cost_grid: {
+    table: 'cost_grids',
+    staleMessage: 'This proposal was changed by someone else since you opened it.',
+    notFoundMessage: 'Cost grid not found',
+    snapshot: costGridSnapshot,
+  },
+  cost_grid_version: {
+    table: 'cost_grid_versions',
+    staleMessage: 'This version was changed by someone else since you opened it.',
+    notFoundMessage: 'Version not found',
+    snapshot: costGridVersionSnapshot,
+  },
+  project: {
+    table: 'projects',
+    staleMessage: 'This project was changed by someone else since you opened it.',
+    notFoundMessage: 'Project not found',
+    snapshot: projectSnapshot,
+  },
   role: {
     table: 'roles',
     staleMessage: 'This role was changed by someone else since you opened it.',
@@ -45,4 +115,4 @@ const entities = {
   },
 };
 
-module.exports = { entities, ratecardSnapshot };
+module.exports = { entities, ratecardSnapshot, structureOf };

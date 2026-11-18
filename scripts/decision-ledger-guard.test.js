@@ -815,5 +815,5 @@ describe('live plans: Docs lines', () => {
     expect(failures, `these plan tasks have no "**Docs:**" line -- list the documents the task updates in
       the same commit, or write "**Docs:** none — <reason>" (CLAUDE.md, "Process override — docs in the tasks"):\n  ${failures.join('\n  ')}`)
       .toEqual([]);
-  });
+  }, 60000);  // docsScope runs git once per plan: slow under the full suite on this host
 });

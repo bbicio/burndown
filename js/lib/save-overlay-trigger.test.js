@@ -195,15 +195,15 @@ describe('save overlay trigger', () => {
     expect(fetchMock.mock.calls[0][1].background).toBeUndefined();
     pending[0].resolve(okRes()); await p;
   });
-  it('Api.costGrids.versions.update(..., { background: true }) does not show the overlay', async () => {
-    const p = api.Api.costGrids.versions.update('c', 'v', {}, { background: true });
+  it('Api.costGrids.versions.tags.replace(..., { background: true }) does not show the overlay', async () => {
+    const p = api.Api.costGrids.versions.tags.replace('c', 'v', [], { background: true });
     await vi.advanceTimersByTimeAsync(1000);
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(0);
     expect(fetchMock.mock.calls[0][1].background).toBeUndefined();
     pending[0].resolve(okRes()); await p;
   });
   it('the same wrapper without opts does show it', async () => {
-    const p = api.Api.costGrids.update('c', {});
+    const p = api.Api.costGrids.versions.tags.replace('c', 'v', []);
     await vi.advanceTimersByTimeAsync(400);
     expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
     pending[0].resolve(okRes()); await p;

@@ -694,17 +694,45 @@ function renderCgPhasing() {
 
 // ── SAVE ──────────────────────────────────────────────────────────────────────
 
-// strict = true: the returned promise rejects when the save fails (default: log and resolve).
-// Resolves to true only when every write reached the server.
-// The ids of the versions whose currency was just changed ("Change currency?" confirmation). An id is read
-// and removed by that version's next save, so only that save re-syncs the role rates to the rate the server
-// applied; a save whose PATCH did not go through adds it back.
+// The one switch of the autosave. Off: an edit only refreshes the save state, and the draft reaches the
+// server through Save (save contract cycle 2). On: cgScheduleAutoSave saves 2 s after the last edit.
+const CG_AUTOSAVE_ENABLED = false;
+
+// The ids of the versions whose currency was just changed ("Change currency?" confirmation). The flag stays
+// until a Save of that version succeeds; that Save re-syncs the role rates to the rate the server applied.
 const _cgCurrencyChangePending = new Set();
 function cgMarkCurrencyChange() { _cgCurrencyChangePending.add(_cgActiveVersionId); }
 
-// The PATCH answered with a different currency_rate: the editor adopts the rate the server applied
+// The open draft's base (cgSavableState, js/lib/cg-draft.js): the draft as opened, or as adopted after a
+// successful Save. The editor's save state: saved | dirty | saving | failed, with the failure's message and
+// whether Reload is offered (a conflict, or an answer that was lost).
+let _cgBase = null;
+let _cgSaving = false;
+const cgSaveState = { status: 'saved', message: '', reloadable: false };
+
+function cgSetSaveState(next) {
+  Object.assign(cgSaveState, { message: '', reloadable: false }, next);
+  if (_cgVueApp && typeof _cgVueApp.onSaveState === 'function') _cgVueApp.onSaveState({ ...cgSaveState });
+}
+
+// saved or dirty from the draft against its base; a Save in flight or a failed one stays shown until the next Save.
+function cgRefreshSaveState() {
+  if (_cgSaving || cgSaveState.status === 'failed') return;
+  cgSetSaveState({ status: cgIsDraftDirty() ? 'dirty' : 'saved' });
+}
+
+function cgCaptureBase() {
+  _cgBase = _cgDraft ? window.cgSavableState(_cgDraft) : null;
+  cgSetSaveState({ status: 'saved' });
+}
+
+function cgIsDraftDirty() {
+  return !!(_cgDraft && _cgBase && window.cgIsDirty(_cgBase, _cgDraft));
+}
+
+// The PUT answered with a different currency_rate: the editor adopts the rate the server applied
 // (Spec currency-f3 §8), unless the answer is for a currency the version no longer has. Role rates are
-// re-synced only after a currency change, and the re-synced roles are returned so the same save sends them.
+// re-synced only after a currency change; the draft then differs from its base, so the next Save sends them.
 function cgAdoptServerRate(cgId, versionId, rate, afterCurrencyChange, currency, roles) {
   const cg = cgLoad(cgId);
   const ver = cg?.versions.find(v => v.versionId === versionId);
@@ -726,67 +754,68 @@ function cgAdoptServerRate(cgId, versionId, rate, afterCurrencyChange, currency,
   return synced;
 }
 
-function cgAutoSave(strict = false, { background = !strict } = {}) {
-  if (!_cgActiveCgId || !_cgActiveVersionId || !_cgDraft) return Promise.resolve(false);
-  const cgId = _cgActiveCgId, verId = _cgActiveVersionId;
-  const afterCurrencyChange = _cgCurrencyChangePending.delete(verId);
-  cgSyncHeaderFromForm();
-  const cg = cgLoad(_cgActiveCgId);
-  if (!cg) return Promise.resolve(false);
-  const idx = cg.versions.findIndex(v => v.versionId === _cgActiveVersionId);
-  if (idx >= 0) cg.versions[idx] = _cgDraft;
-  cgSave(cg);
-  if (typeof _cgUpsertVersionToApi !== 'undefined') {
-    let patched = false;
-    const keepFlag = () => { if (afterCurrencyChange && !patched) _cgCurrencyChangePending.add(verId); };
-    return _cgUpsertVersionToApi(cgId, verId, {
-      strict: !!strict,
-      background,
-      onPatched: () => { patched = true; },
-      onServerRate: (rate, currency, roles) => cgAdoptServerRate(cgId, verId, rate, afterCurrencyChange, currency, roles),
-    })
-      .then(ok => { if (ok !== true) keepFlag(); return ok === true; })
-      .catch(e => { keepFlag(); console.warn('[sync] cgAutoSave:', e.message); if (strict) throw e; return false; });
-  }
-  return Promise.resolve(false);
+// The Save of the open version (_cgSaveVersion, js/api-sync.js); resolves to its outcome, never rejects.
+function cgAutoSave() {
+  if (!_cgActiveCgId || !_cgActiveVersionId || !_cgDraft) return Promise.resolve({ kind: 'none' });
+  return _cgSaveVersion(_cgActiveCgId, _cgActiveVersionId);
 }
 
 let _cgAutoSaveTimer = null;
+// Called by every edit handler. With the autosave off it only refreshes the save state.
 function cgScheduleAutoSave() {
+  if (!CG_AUTOSAVE_ENABLED) { cgRefreshSaveState(); return; }
   clearTimeout(_cgAutoSaveTimer);
   _cgAutoSaveTimer = setTimeout(() => {
-    // The toast says "saved", so it appears only when every write reached the server.
-    cgAutoSave().then(ok => {
-      if (!ok) return;
+    // The toast says "saved", so it appears only when the Save went through.
+    cgAutoSave().then(out => {
+      if (out.kind !== 'ok') return;
       const toastEl = document.getElementById('cgAutoSaveToast');
       if (toastEl) bootstrap.Toast.getOrCreateInstance(toastEl).show();
     });
   }, 2000);
 }
 
+// The Save button. A click while a Save is in flight is ignored.
 async function cgSaveVersion() {
-  const btn = document.getElementById('btnCgSave');
-  if (btn && btn.disabled) return; // already in flight -- ignore a fast repeat click
-  if (btn) btn.disabled = true;
-  // Swap only the label's text node: the button also holds a Vue-rendered icon.
-  const label = btn ? [...btn.childNodes].reverse().find(n => n.nodeType === Node.TEXT_NODE && n.nodeValue.trim()) : null;
-  // The original label is remembered once, so a click during "✓ Saved" does not record it as the label.
-  if (label && btn.dataset.label === undefined) btn.dataset.label = label.nodeValue;
-  const ok = await cgAutoSave(false, { background: false }); // never rejects -- errors are caught and logged internally
-  if (btn) {
-    btn.disabled = false;
-    if (label) {
-      clearTimeout(btn._cgSavedTimer);
-      label.nodeValue = ok ? '✓ Saved' : '⚠ Not saved';
-      btn._cgSavedTimer = setTimeout(() => { label.nodeValue = btn.dataset.label; }, 1500);
-    }
+  if (_cgSaving) return { kind: 'none' };
+  clearTimeout(_cgAutoSaveTimer);
+  return cgAutoSave();
+}
+
+// showConfirm with its two buttons relabelled for one question; the labels are put back when it closes.
+function cgAsk(message, okLabel, cancelLabel, onConfirm, onCancel, title = 'Unsaved changes') {
+  const modalEl = document.getElementById('confirmModal');
+  const ok = document.getElementById('confirmModalOk');
+  const cancel = document.getElementById('confirmModalCancel');
+  if (modalEl && ok && cancel) {
+    const before = [ok.textContent, cancel.textContent];
+    ok.textContent = okLabel;
+    cancel.textContent = cancelLabel;
+    modalEl.addEventListener('hidden.bs.modal', () => {
+      document.getElementById('confirmModalOk').textContent = before[0];
+      document.getElementById('confirmModalCancel').textContent = before[1];
+    }, { once: true });
   }
+  showConfirm(message, onConfirm, onCancel, title);
+}
+
+// Generate project, Publish, "+ New version" and Clone of the open version start from the saved version: with
+// unsaved changes they ask "Save first?". Save and continue runs `proceed` only when the Save went through;
+// Cancel, or a Save that did not, runs `abort` (the save state shows why).
+function cgConfirmSaveFirst(proceed, abort) {
+  if (!cgIsDraftDirty()) { proceed(); return; }
+  cgAsk('You have unsaved changes. Save them first?', 'Save and continue', 'Cancel', async () => {
+    const out = await cgSaveVersion();
+    if (out.kind === 'ok') proceed();
+    else if (abort) abort();
+  }, () => { if (abort) abort(); });
 }
 
 // ── PUBLISH DRAFT ─────────────────────────────────────────────────────────────
 
 async function cgPublishDraft() {
   if (!_cgActiveCgId || !_cgActiveVersionId) return;
+  if (cgIsDraftDirty()) { cgConfirmSaveFirst(() => cgPublishDraft()); return; }
   const cg = cgLoad(_cgActiveCgId);
   const ver = cg?.versions.find(v => v.versionId === _cgActiveVersionId);
   if (!ver || ver.pipeline !== 'Draft') return;
@@ -799,7 +828,6 @@ async function cgPublishDraft() {
   showConfirm(
     `Publish "${ver.versionLabel}" to SIP?${otherWarn}\n\nThis version will become visible to your team and cannot be set back to Draft.`,
     async () => {
-      await cgAutoSave(false, { background: false });
       try {
         // Delete all other Draft versions from the DB first
         for (const other of otherDrafts) {
@@ -819,6 +847,7 @@ async function cgPublishDraft() {
           cgSave(cgFresh);
         }
         if (_cgDraft) { _cgDraft.pipeline = 'SIP'; _cgDraft.pipelineYear = updated.pipeline_year || null; }
+        cgCaptureBase(); // the draft is what the server now holds: the reload asks nothing
         window.location.reload();
       } catch (e) {
         showConfirm('Failed to publish: ' + e.message, null, null, '⚠️ Publish failed');
@@ -845,6 +874,7 @@ function cgNextVersionLabel(versions) {
 
 async function cgCreateNewVersionDirect() {
   if (_cgNewVersionInFlight) return; // already in flight -- ignore a fast repeat click
+  if (cgIsDraftDirty()) { cgConfirmSaveFirst(() => cgCreateNewVersionDirect()); return; }
   _cgNewVersionInFlight = true;
 
   const cgId = _cgActiveCgId;
@@ -855,16 +885,6 @@ async function cgCreateNewVersionDirect() {
     const cg = cgLoad(cgId);
     if (!cg) return;
     const label = cgNextVersionLabel(cg.versions);
-
-    // The copy is made by the server from the saved state, so flush the editor's pending changes first.
-    // Strict: a failed flush aborts here instead of silently copying the last saved (older) state.
-    clearTimeout(_cgAutoSaveTimer);
-    try {
-      await cgAutoSave(true);
-    } catch(e) {
-      showInfo('Could not save your latest changes, so no new version was created: ' + e.message);
-      return;
-    }
 
     // One atomic server-side copy (header, phases, tasks, roles/rates, tags): on failure nothing is
     // created, so there is no half-built version to clean up -- just show the error.
@@ -887,6 +907,7 @@ async function cgCreateNewVersionDirect() {
     newVer.pipeline       = 'Draft';
     newVer.pipelineYear   = src.pipeline === 'Draft' ? (src.pipelineYear ?? null) : null; // as POST …/duplicate
     newVer.linkedProjects = [];
+    newVer.version        = 0;
     newVer.phases         = [];
     delete newVer.linkedProjectId;
     cg.versions.push(newVer);
@@ -932,16 +953,18 @@ async function cgCreateNewGrid(year) {
     // Create on the API first to get server-assigned IDs.
     // POST /api/cost-grids ignores any client-provided id, so we must use the
     // UUID from the response — otherwise version creates fail with a FK violation.
-    let cgId, verId;
+    let cgId, verId, version;
     try {
       const newCg  = await Api.costGrids.create({ name });
       cgId = newCg.id;
       const newVer = await Api.costGrids.versions.create(cgId, Number.isInteger(year) ? { label: 'v1', pipelineYear: year } : { label: 'v1' });
       verId = newVer.id;
-      await Api.costGrids.versions.saveStructure(cgId, verId, {
-        phases: [{ phaseName: 'Phase 1', tasks: [] }],
-        roles:  [],
-      }).catch(() => {});
+      const saved = await window.apiSave('PUT', `/cost-grids/${cgId}/versions/${verId}`, {
+        version: newVer.version ?? 0,
+        structure: { phases: [{ phaseName: 'Phase 1', tasks: [] }], roles: [] },
+      });
+      if (saved.kind !== 'ok') throw Object.assign(new Error(saved.message), { data: { code: saved.code } });
+      version = saved.data.version;
     } catch (e) {
       await cgDiscardNewGrid(cgId);
       showInfo('Could not create the proposal: ' + e.message, 'Error');
@@ -958,6 +981,7 @@ async function cgCreateNewGrid(year) {
         status:         'draft',
         pipeline:       'Draft',
         pipelineYear:   Number.isInteger(year) ? year : null,
+        version,
         linkedProjects: [],
         projectName:    name,
         startDate:      '',
@@ -992,25 +1016,14 @@ let _cgCloneInFlight = false;
 async function cgCloneGrid(srcCgId, srcVerId, year) {
   if (_cgCloneInFlight) return null; // already in flight -- ignore a fast repeat click (null: not a failure)
   if (!srcCgId || !srcVerId) return false;
+  // A clone of the open version copies what is saved: unsaved changes ask "Save first?" (false when not run).
+  // A viewer has nothing to save: the clone copies the saved version straight away.
+  if (_cgActiveCgId === srcCgId && _cgActiveVersionId === srcVerId && cgLoad(srcCgId)?.myPermission !== 'viewer' && cgIsDraftDirty()) {
+    return new Promise(resolve => cgConfirmSaveFirst(() => resolve(cgCloneGrid(srcCgId, srcVerId, year)), () => resolve(false)));
+  }
   _cgCloneInFlight = true;
 
   try {
-    // Flush a pending autosave of the open source version first, so the clone carries the
-    // latest edits — but only when the user can actually save it: a viewer has no edit
-    // permission on the source grid, so the flush's PATCH/POST calls would 403 and abort
-    // the whole clone (a regression found in review — a viewer's clone worked before this
-    // flush existed, since there was nothing to save on their behalf).
-    const srcCanEdit = cgLoad(srcCgId)?.myPermission !== 'viewer';
-    if (srcCanEdit && _cgActiveCgId === srcCgId && _cgActiveVersionId === srcVerId) {
-      clearTimeout(_cgAutoSaveTimer);
-      try {
-        await cgAutoSave(true);
-      } catch (e) {
-        showInfo('Could not clone the proposal: ' + e.message, 'Error');
-        return false;
-      }
-    }
-
     // Load full structure from API if not already in memory
     if (typeof cgLoadStructureFromApi === 'function') {
       const srcStructureLoaded = await cgLoadStructureFromApi(srcCgId, srcVerId);
@@ -1050,10 +1063,11 @@ async function cgCloneGrid(srcCgId, srcVerId, year) {
 
       // 2. Copy phase/task/role structure — strip taskId/phaseId so the backend mints fresh UUIDs
       //    instead of reusing the source version's (still-live) ones (see stripCloneTaskIds above).
-      await Api.costGrids.versions.saveStructure(cgId, verId, {
-        phases: stripCloneTaskIds(srcVer.phases || []),
-        roles:  srcVer.roles  || [],
+      const saved = await window.apiSave('PUT', `/cost-grids/${cgId}/versions/${verId}`, {
+        version: newVer.version ?? 0,
+        structure: { phases: stripCloneTaskIds(srcVer.phases || []), roles: srcVer.roles || [] },
       });
+      if (saved.kind !== 'ok') throw Object.assign(new Error(saved.message), { data: { code: saved.code } });
     } catch (e) {
       await cgDiscardNewGrid(cgId);
       // The server refuses a version in a currency that is no longer active (CURRENCY_RULE).
@@ -1124,6 +1138,7 @@ async function cgCloneGrid(srcCgId, srcVerId, year) {
 // ── GENERATE PROJECT ──────────────────────────────────────────────────────────
 
 function cgGenerateProject() {
+  if (cgIsDraftDirty()) { cgConfirmSaveFirst(() => cgGenerateProject()); return; }
   cgSyncHeaderFromForm();
   const v = _cgDraft;
   if (!v.projectName) { showInfo('Enter a project name before generating.'); return; }
@@ -1439,8 +1454,6 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
     renderCgVersionTabs(cg);
   }
 
-  cgAutoSave();
-
   renderCgEditor();
 
   if (!pushedOk) {
@@ -1476,7 +1489,6 @@ function cgDeleteLinkedProject(projectId) {
   const removeLink = () => {
     _cgDraft.linkedProjects = (_cgDraft.linkedProjects || []).filter(l => l.projectId !== projectId);
     if (_cgDraft.linkedProjects.length === 0) _cgDraft.status = 'draft';
-    cgAutoSave();
     const cg = cgLoad(_cgActiveCgId);
     if (cg) renderCgVersionTabs(cg);
     renderCgEditor();
@@ -1709,41 +1721,6 @@ function cgExportAll() {
   URL.revokeObjectURL(url);
 }
 
-function cgImportAll() {
-  const input = document.createElement('input');
-  input.type   = 'file';
-  input.accept = '.json';
-  input.onchange = e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      try {
-        const data = JSON.parse(ev.target.result);
-        if (!data.index || !data.grids) throw new Error('Invalid format');
-        showConfirm(
-          `Import ${data.grids.length} Cost Grid(s)? This will replace all existing Cost Grids.`,
-          () => {
-            cgSaveIndex(data.index);
-            data.grids.forEach(cg => {
-              cgSave(cg);
-              if (typeof _cgUpsertVersionToApi !== 'undefined') {
-                cg.versions.forEach(v =>
-                  _cgUpsertVersionToApi(cg.id, v.versionId)
-                    .catch(e => console.warn('[sync] import:', e.message))
-                );
-              }
-            });
-            if (typeof renderPipelineBoard === 'function') renderPipelineBoard();
-          },
-          null, '⬆ Import Cost Grid'
-        );
-      } catch(err) { alert('JSON file error: ' + err.message); }
-    };
-    reader.readAsText(file);
-  };
-  input.click();
-}
 
 // ── UTILS ─────────────────────────────────────────────────────────────────────
 

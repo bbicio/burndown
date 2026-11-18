@@ -102,6 +102,26 @@ export function callSpans(source, callee, kinds = charKinds(source)) {
   return spans;
 }
 
+// [start, end] of the body of each `function <name>(…) { … }` declaration: from its opening brace
+// to the matching closing one, braces in strings and comments skipped.
+export function functionBodies(source, name, kinds = charKinds(source)) {
+  const out = [];
+  for (const [a, paramsEnd] of callSpans(source, name, kinds)) {
+    if (!/\bfunction\s*$/.test(source.slice(Math.max(0, a - 20), a))) continue;
+    let j = paramsEnd;
+    while (j < source.length && !(kinds[j] === 'c' && source[j] === '{')) j++;
+    const open = j;
+    let depth = 0;
+    for (; j < source.length; j++) {
+      if (kinds[j] !== 'c') continue;
+      if (source[j] === '{') depth++;
+      else if (source[j] === '}' && --depth === 0) break;
+    }
+    if (open < source.length) out.push([open, j]);
+  }
+  return out;
+}
+
 // [{ table, index, inside }] for each INSERT INTO / UPDATE / DELETE FROM on one of `tables` written
 // in a string or template literal; `inside` is true within the arguments of a versionedWrite( call.
 export function serverWrites(source, tables) {

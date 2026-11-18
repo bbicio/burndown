@@ -52,6 +52,9 @@ test('refresh-rate reads the currency and writes the rate under the version lock
   const src = readFileSync(path.join(__dirname, '../routes/cost-grids.js'), 'utf8');
   const start = src.indexOf("'/:id/versions/:vId/refresh-rate'");
   const block = src.slice(start, src.indexOf('router.', start));
-  assert.match(block, /withVersionLock\(/);
-  assert.ok(block.indexOf('withVersionLock(') < block.indexOf('SELECT currency FROM cost_grid_versions'));
+  // The row lock (versionedWrite) first, then the version lock, then the read: the Save's lock order.
+  assert.match(block, /versionedWrite\(/);
+  assert.match(block, /lockVersion\(client/);
+  assert.ok(block.indexOf('versionedWrite(') < block.indexOf('lockVersion(client'));
+  assert.ok(block.indexOf('lockVersion(client') < block.indexOf('SELECT currency FROM cost_grid_versions'));
 });

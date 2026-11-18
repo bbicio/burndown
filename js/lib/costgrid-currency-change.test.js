@@ -17,7 +17,7 @@ function buildMethod() {
     esc: s => String(s),
     cgPreviewRateChange: () => [{ roleLabel: 'PM', currentRate: 150, newRate: 142.5, isCustom: false }],
     cgSyncRoleRatesToBaseline: sync,
-    cgAutoSave: autosave,
+    cgScheduleAutoSave: autosave,
     cgMarkCurrencyChange: mark,
   };
   const names = Object.keys(stubs);
@@ -63,7 +63,7 @@ describe('costgrid onCurrencyChange (currency change modal)', () => {
     expect(hidden).toBe(1);
   });
 
-  it('cancelling puts the previous currency back and does not save', () => {
+  it('cancelling puts the previous currency back and records no edit', () => {
     const ctx = makeCtx();
     buildMethod().call(ctx);
     document.getElementById('cgCurrencyChangeModalCancel').onclick();
@@ -93,7 +93,7 @@ describe('costgrid onCurrencyChange (currency change modal)', () => {
     expect(seen).toEqual([0.95]);
   });
 
-  it('confirm marks the currency change right before saving (B-213)', () => {
+  it('confirm marks the currency change right before recording the edit (B-213)', () => {
     buildMethod().call(makeCtx());
     document.getElementById('cgCurrencyChangeModalConfirm').onclick();
     expect(mark).toHaveBeenCalledTimes(1);

@@ -283,7 +283,7 @@ Every page that calls `initNav` wraps navigation and content as `<div id="app-sh
 In-memory module-level variables are the UI cache; the API is the source of truth. **localStorage is not used for server data** — it holds only `PDash_summary` (portfolio summary selection), `PDash_browserNotifDisabled` (the browser-notification opt-out), `PDash_sidebarCollapsed` (the sidebar open/collapsed state, see "Page shell"), `PDash_cgCompactHeader` (the cost-grid editor's compact header) and `PDash_portfolioLayout` (the portfolio overview's Card/List choice, see [docs/pages/portfolio.md](docs/pages/portfolio.md)) and `PDash_pipelineYear` (the pipeline year selected on `pipeline.html`, see [docs/pages/pipeline.md](docs/pages/pipeline.md)), plus one `PDash_cgSections:<cgId>` key per proposal (the editor's collapsed cards, see [docs/pages/costgrid.md](docs/pages/costgrid.md)), plus `pdash_test_state_v1` (the Test cases view of `help.html`, see [docs/pages/help.md](docs/pages/help.md); outside `cleanLegacyStorage()`'s `PDash` prefix), all genuinely client-side. `js/core.js`'s `cleanLegacyStorage()` IIFE wipes any other `PDash*` key on every page load — **any new localStorage key must be added to its `keep` Set or it will be silently deleted on the very next navigation**.
 
 - **On page load**: call `cgSyncFromApi()` / `loadConfigFromApi()` / `refreshTimesheetDataFromApi()` to populate in-memory state from the API. Each page load starts fresh — no stale cross-session data.
-- **On user action**: a file migrated to the save contract follows "Save contract" below; only the files in `scripts/save-contract-guard.test.js`'s exempt lists still update in-memory state first and fire the API call in the background (fire-and-forget).
+- **On user action**: a file migrated to the save contract follows "Save contract" below; only the writes in `scripts/save-contract-guard.test.js`'s exempt lists (whole files, or `file: write` entries) still update in-memory state first and fire the API call in the background (fire-and-forget).
 - **`loadConfig()` and `persistConfig()` are no-ops**. `config.projects` is populated exclusively by `loadConfigFromApi()`.
 
 Key sync functions in `api-sync.js`:
@@ -295,13 +295,13 @@ Key sync functions in `api-sync.js`:
 | `loadConfigFromApi()` | Loads all projects from API into `config.projects` |
 | `loadPipelineBudgetsFromApi()` | Loads pre-computed budget totals indexed by versionId into `_pbBudgets` |
 | `refreshTimesheetDataFromApi()` | Loads timesheet rows from API into `timesheetData` + `_timesheetProjectData` |
-| `_cgUpsertVersionToApi(cgId, verId)` | Write-through: pushes cost grid version to API |
+| `_cgSaveVersion(cgId, verId)` | The cost grid editor's Save: one versioned `PUT` of the changed header and structure, see "Save contract" |
 | `_pushProjectToApi(project)` | Pushes project (all sub-resources) to API; returns `false` only if the core upsert failed; no production caller left |
 | `_pushProjectToApiDetailed(project)` | Same push, returns `{ ok, failed: [{part, error}] }` and never throws; used by `project-config.html`'s `onSave` so a failed save is not reported as success. Empty sections are pushed too; `{ skipEmpty: true }` (opt-in, used only by `js/costgrid.js`'s two callers) skips empty sections so a stale in-memory copy cannot wipe them; `_pushProjectToApi(project, opts)` forwards it |
 
 **Cost grid store** (`_cgStore` Map in `costgrid.js`). `cgLoad/cgSave/cgGetIndex` operate on this Map. Deep-clones on read and write to avoid accidental in-place mutation.
 
-**Rate consistency**: `PUT /api/cost-grids/:id/versions/:vId/structure` always snapshots all role rates as `rate_override` in `task_roles`, regardless of whether the role is custom or ratecard-priced. This ensures the `/budgets` SQL (`COALESCE(tr.rate_override, r.hourly_rate, 0)`) always uses the correct rate. When `cgLoadStructureFromApi` reads structure back, it refreshes `ver.roles` from DB only when all roles have `rate_override` set; otherwise it preserves client-side ratecard rates already in memory.
+**Rate consistency**: the Save route (`PUT /api/cost-grids/:id/versions/:vId`) with a `structure` always snapshots all role rates as `rate_override` in `task_roles`, regardless of whether the role is custom or ratecard-priced. This ensures the `/budgets` SQL (`COALESCE(tr.rate_override, r.hourly_rate, 0)`) always uses the correct rate. When `cgLoadStructureFromApi` reads structure back, it refreshes `ver.roles` from DB only when all roles have `rate_override` set; otherwise it preserves client-side ratecard rates already in memory.
 
 ### Pipeline stage: single source of truth
 
@@ -315,7 +315,7 @@ Pipeline stage is stored on `costGridVersion.pipeline`. These locations must sta
 
 Valid stages: `SIP`, `Expected`, `Anticipated`, `Committed`, `Canceled`.
 
-Kept in sync on `config.projects[].pipeline` (a separate field from `costGridVersion.pipeline`) by `cgPropagatePipelineToProjects()` (`js/costgrid.js`), which runs on every change of the cost grid editor's Pipeline `<select>` and updates every project in `linkedProjects` — the only path that ever changes a version's pipeline stage. `getProjectPipeline(projectId)` (`js/core.js`) resolves the authoritative value for a given project: the linked cost grid version's `pipeline` if `costGridRef` is set, else `config.projects[].pipeline` directly. `planning.html`'s Resource Planning view deliberately reads `config.projects[].pipeline` directly rather than via `getProjectPipeline()` — this is safe because of the propagation above, not despite it.
+`projects.pipeline` (a separate field from `costGridVersion.pipeline`) is written by the server: the cost grid Save (`PUT /api/cost-grids/:id/versions/:vId`) that changes the stage writes it on every linked project in the same transaction (`propagateStage`, `api/src/services/cost-grid-save.js`), and so does `publish` (`SIP`). `getProjectPipeline(projectId)` (`js/core.js`) resolves the authoritative value for a given project: the linked cost grid version's `pipeline` if `costGridRef` is set, else `config.projects[].pipeline` directly.
 
 Do not confuse pipeline **stage** (`SIP`/`Expected`/.../`Canceled`, this section) with project **status** (`Not started yet`/`Started`/`Started At Risk`/`Put on hold`/`Completed` — a separate field, whose allowed values per pipeline stage are defined by `js/lib/status-rules.js`'s `getStatusRule()`).
 
@@ -403,18 +403,19 @@ One implementation, `js/lib/dates.js` (server twin `api/src/lib/dates.js`). Rule
 - **Every route that writes a version, project or task period uses `periodError`/`periodChangeError`** and refuses with `400 { error, code: 'DATE_RULE' }`; the timesheet upload checks each date with `toIso` and refuses the whole file with the row number; `js/api-sync.js` must not retry a `DATE_RULE` refusal as a `POST`.
 - **Every editable date field is a `<cg-date-picker>`**, never a native date/month input or a numeric placeholder; its text (`Dec 1, 2025`, `Dec 2025`) comes only from `js/lib/dates.js` (`js/lib/dates-guard.test.js`).
 - **Every date field that has a twin passes `min`/`max`**, and a picker reads typed text only through `parseDateInput`.
-- **Every write of a proposal or project task date is checked with `taskPeriodError` against the parent period, and a period change with `taskDatesError`** — or, when the period travels with the tasks (structure `PUT`, `PUT /api/projects/:id/tasks`), with `taskDatesError` against the new period — both refused with `400 { error, code: 'DATE_RULE' }`; the task and period pickers take their `min`/`max` from `taskDateBounds`/`periodBounds`.
+- **Every write of a proposal or project task date is checked with `taskPeriodError` against the parent period, and a period change with `taskDatesError`** — or, when the period travels with the tasks (the cost grid Save, `PUT /api/projects/:id/tasks`), with `taskDatesError` against the new period — both refused with `400 { error, code: 'DATE_RULE' }`; the task and period pickers take their `min`/`max` from `taskDateBounds`/`periodBounds`.
 - **An existing invalid version or project period is tolerated** until its dates change; task dates are checked on every structure or task-list save.
 
 Full detail: [docs/js/lib.md](docs/js/lib.md), [docs/api/lib.md](docs/api/lib.md) (`dates.js`).
 
 ### Save contract
 
-Rules to keep (exempt files: the lists of `scripts/save-contract-guard.test.js`):
+Rules to keep (exempt files and writes: the lists of `scripts/save-contract-guard.test.js`):
 - **Every route that writes a registered entity goes through `versionedWrite`** (`api/src/services/versioned-write.js`): one transaction, the version the client started from, a `change_log` snapshot; a stale or missing version answers `409 { error, code: 'STALE', version }`.
 - **No file under `js/` writes with `fetch`, `apiFetch` or a write method of `Api.*`**: it writes with `apiSave` (`js/lib/save.js`).
 - **An `Api.*` method left without a caller is deleted.**
 - **A `409 STALE` is shown with a Reload action**; after a success the page adopts the server's answer, not its own inputs.
+- **The cost grid editor saves only with Save** (`PUT /api/cost-grids/:id/versions/:vId`, `_cgSaveVersion`): it says whether the draft is saved, asks before leaving unsaved changes and offers to save first before the actions that start from the saved version; `CG_AUTOSAVE_ENABLED` in `js/costgrid.js` is the one switch of the autosave. Detail: [docs/pages/costgrid.md](docs/pages/costgrid.md).
 
 Full detail: [docs/api/services.md](docs/api/services.md), [docs/js/lib.md](docs/js/lib.md) (`save.js`).
 

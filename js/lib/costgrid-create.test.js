@@ -12,7 +12,7 @@ function build() {
   shownInfo = [];
   opened = [];
   const stubs = {
-    Api: { costGrids: { create: api.create, delete: api.delete, versions: { create: api.versionsCreate, saveStructure: api.saveStructure } } },
+    Api: { costGrids: { create: api.create, delete: api.delete, versions: { create: api.versionsCreate } } },
     cgNewPhId: () => 'ph1',
     cgGetIndex: () => [],
     cgSaveIndex: () => {},
@@ -22,8 +22,8 @@ function build() {
     _cgCreateInFlight: false,
   };
   const names = Object.keys(stubs);
-  return new Function(...names, `${extractBlock(js, 'async function cgDiscardNewGrid(')}; ${extractBlock(js, 'async function cgCreateNewGrid(')}; return cgCreateNewGrid;`)(
-    ...names.map(n => stubs[n]));
+  return new Function(...names, 'window', `${extractBlock(js, 'async function cgDiscardNewGrid(')}; ${extractBlock(js, 'async function cgCreateNewGrid(')}; return cgCreateNewGrid;`)(
+    ...names.map(n => stubs[n]), { apiSave: api.save });
 }
 
 describe('cgCreateNewGrid — outcome', () => {
@@ -31,7 +31,7 @@ describe('cgCreateNewGrid — outcome', () => {
     api = {
       create: vi.fn(async () => ({ id: 'newCg' })),
       versionsCreate: vi.fn(async () => ({ id: 'newVer' })),
-      saveStructure: vi.fn(async () => {}),
+      save: vi.fn(async () => ({ kind: 'ok', data: { version: 1 } })),
       delete: vi.fn(async () => {}),
     };
   });

@@ -47,6 +47,8 @@ Vue.createApp({
       ptcFocusedTask: null, ptcRaw: '', ptcInvalid: false, ptcSnapshot: null, hoursEditing: null, addToProjectSel: '',
       addToProjectModal: { projId: '', projName: '', taskNames: [], taskIds: [] },
       backSaving: false, headerBadge: window.headerBadge,
+      // The Save state (cgSaveState, js/costgrid.js), handed over by onSaveState; `leaving` silences beforeunload.
+      saveState: { status: 'saved', message: '', reloadable: false }, leaving: false,
       proposalBusy: false, // true while cloneProposal is in flight (2026-10-07)
       editingVersionLabel: false, versionLabelBeforeEdit: '', // Task 2, 2026-10-07: inline version-label rename
       shareSummary: { count: 0, initials: [], myRole: '' }, // Task 2, 2026-10-07: Sharing card closed-state summary
@@ -66,6 +68,13 @@ Vue.createApp({
     };
   },
   computed: {
+    saveStateText() {
+      const s = this.saveState;
+      if (s.status === 'dirty') return 'Unsaved changes';
+      if (s.status === 'saving') return 'Saving…';
+      if (s.status === 'failed') return 'Not saved: ' + s.message;
+      return 'All changes saved';
+    },
     isAdminUser() { return ['admin', 'sysadmin'].includes(this.myRole); },
     roleModalTeams() {
       const teams = [...new Set(this.roleAllRoles.map(r => r.code.indexOf(' - ') > 0 ? r.code.slice(0, r.code.indexOf(' - ')).trim() : '—'))].sort();
@@ -507,7 +516,7 @@ Vue.createApp({
       // `this.draft` and `_cgDraft` are kept as the SAME object reference (see openVersion) —
       // every kept-unchanged global mutates _cgDraft's fields in place, which Vue's v-model
       // reads/writes go through too. Re-cloning `this.draft` here would silently break that
-      // invariant (cgAutoSave() would then keep saving a stale snapshot of the FIRST clone
+      // invariant (the Save would then keep saving a stale snapshot of the FIRST clone
       // forever, since it reads `_cgDraft` directly, not `this.draft`). What raw external
       // mutation *doesn't* get automatically is a re-render trigger (Vue's reactivity fires
       // only on writes that go through its own proxy) — $forceUpdate() supplies that without
@@ -528,7 +537,13 @@ Vue.createApp({
         resolvedVerId = cgRec.versions[0]?.versionId;
         if (!resolvedVerId) { this.loadError = 'Version not found.'; this.loading = false; return; }
       }
-      await cgLoadStructureFromApi(cgId, resolvedVerId);
+      // A structure that did not load is never opened: its empty phases would become the base, and a Save would
+      // then replace the stored structure with them.
+      if (!await cgLoadStructureFromApi(cgId, resolvedVerId)) {
+        this.loadError = 'This version could not be loaded. Reload the page to try again.';
+        this.loading = false;
+        return;
+      }
       cgRec = cgLoad(cgId);
       const version = cgRec.versions.find(v => v.versionId === resolvedVerId);
       if (!version) { this.loadError = 'Version not found.'; this.loading = false; return; }
@@ -560,7 +575,7 @@ Vue.createApp({
       // `this.draft` is assigned the SAME object as `_cgDraft` — not a clone of it — and this
       // is the ONLY place that reference is ever swapped (see Global Constraint 9). Every
       // subsequent Vue v-model edit and every kept-unchanged global's in-place mutation of
-      // `_cgDraft.foo = ...` both land on this one object, so cgAutoSave() (which reads
+      // `_cgDraft.foo = ...` both land on this one object, so the Save (which reads
       // `_cgDraft` directly) always sees the current edited state.
       this.draft = _cgDraft;
       this.prevCurrency = this.draft.currency || 'EUR';
@@ -577,6 +592,9 @@ Vue.createApp({
       }
 
       await cgUpdateActiveRatecardMap(); // loads the ratecard maps only — saved rates are not re-priced
+      // The base the Save compares to: the draft as opened, the never-saved role rates already priced, so
+      // opening a version never shows it as unsaved.
+      cgCaptureBase();
       this.ratecardMap = { ..._cgActiveRatecardMap };
       this.ratecardOverrides = { ..._cgActiveRatecardOverrides };
       this.isClientRatecard = _cgIsClientRatecard;
@@ -657,18 +675,37 @@ Vue.createApp({
     },
     async switchVersion(verId) {
       if (verId === this.verId) return;
-      cgAutoSave();
+      if (cgIsDraftDirty()) {
+        cgAsk('You have unsaved changes. Leave without saving?', 'Leave', 'Stay', () => this.openVersion(this.cgId, verId));
+        return;
+      }
       await this.openVersion(this.cgId, verId);
     },
     async goBack() {
-      cgAutoSave();
-      this.backSaving = true;
-      await new Promise(r => setTimeout(r, 500));
-      window.location.href = '/pipeline.html';
+      const leave = () => { this.leaving = true; window.location.href = '/pipeline.html'; };
+      if (cgIsDraftDirty()) { cgAsk('You have unsaved changes. Leave without saving?', 'Leave', 'Stay', leave); return; }
+      leave();
+    },
+    onSaveState(state) { this.saveState = state; },
+    // Every keystroke (v-model writes the draft first): the state and Save's enabled state follow the typing,
+    // not the blur.
+    onAnyInput() { if (this.draft) cgRefreshSaveState(); },
+    // Sidebar links, closing or reloading the tab: the browser's own question, only with unsaved changes.
+    onBeforeUnload(e) {
+      if (this.leaving || !cgIsDraftDirty()) return;
+      e.preventDefault();
+      e.returnValue = '';
+    },
+    reloadVersion() {
+      cgAsk('Discard your unsaved changes and reload this version?', 'Reload', 'Cancel', async () => {
+        _cgCurrencyChangePending.delete(this.verId);
+        await cgSyncFromApi();
+        await this.openVersion(this.cgId, this.verId);
+      }, null, 'Reload this version');
     },
     onHeaderFieldChange() {
       // @change fires on blur, so trimming here cannot rewrite an input the user is still
-      // typing into — unlike cgAutoSave(), whose 2 s debounce is also kicked by unrelated
+      // typing into — unlike the autosave, whose 2 s debounce (when CG_AUTOSAVE_ENABLED) is also kicked by unrelated
       // controls (hours, PTC, task fields) and used to eat a just-typed trailing space.
       if (this.draft) {
         this.draft.projectName = (this.draft.projectName || '').trim();
@@ -742,10 +779,10 @@ Vue.createApp({
       return this.versionTagRows.filter(r => r.list_id === listId && r.status !== 'active');
     },
     onPipelineChange() {
-      cgPropagatePipelineToProjects();
+      // The stage reaches the linked projects with the Save (server side, and in memory on its success).
       const cgFresh = cgLoad(this.cgId);
       if (cgFresh) this.cg = cgFresh;
-      cgAutoSave();
+      cgScheduleAutoSave();
     },
     async onClientChange() {
       await this.refreshRatecards();
@@ -790,7 +827,11 @@ Vue.createApp({
       cgConfirmDeleteVersion(this.cgId, this.verId, v.versionLabel, () => { window.location.href = 'pipeline.html'; });
     },
     publishDraft() { cgPublishDraft(); },
-    openLinkedProject(projId) { cgAutoSave(); showDashboardView(projId); },
+    openLinkedProject(projId) {
+      const leave = () => { this.leaving = true; showDashboardView(projId); };
+      if (cgIsDraftDirty()) { cgAsk('You have unsaved changes. Leave without saving?', 'Leave', 'Stay', leave); return; }
+      leave();
+    },
     exportXls() { cgExportXls(); },
     generateProject() { if (this.isReadOnly) return; cgGenerateProject(); },
     moneyInput(amount) { return window.formatMoneyInput(amount, this.draft?.currency || 'EUR', window.__currencies); },
@@ -1095,7 +1136,7 @@ Vue.createApp({
         cgSyncRoleRatesToBaseline(true);
         this.prevCurrency = newCurrency;
         this.$forceUpdate();
-        cgAutoSave();
+        cgScheduleAutoSave();
         return;
       }
 
@@ -1168,8 +1209,8 @@ Vue.createApp({
         cgSyncRoleRatesToBaseline(true); // mutates _cgDraft.roles[].rate in place — this.draft IS _cgDraft; reads the rate just set
         this.prevCurrency = newCurrency;
         this.$forceUpdate();
-        cgMarkCurrencyChange(); // the save below re-syncs the rates if the server applied another rate
-        cgAutoSave();
+        cgMarkCurrencyChange(); // the next Save re-syncs the rates if the server applied another rate
+        cgScheduleAutoSave();
       };
       modalEl.addEventListener('hidden.bs.modal', () => {
         if (this.draft.currency !== prevCurrency && this.prevCurrency === prevCurrency) {
@@ -1212,6 +1253,8 @@ Vue.createApp({
     if (!targetVerId) { this.loadError = 'Cost grid not found or access denied.'; this.loading = false; return; }
 
     _cgVueApp = this; // wire the bridge — Global Constraint 7
+    window.addEventListener('beforeunload', e => this.onBeforeUnload(e));
+    document.addEventListener('input', () => this.onAnyInput());
 
     document.addEventListener('hidden.bs.modal', e => {
       if (e.target && e.target.id === 'shareModal') { this.shareListRefreshTick++; this.loadShareSummary(); }
