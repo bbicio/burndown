@@ -85,3 +85,44 @@ describe('the command line', () => {
     expect(EVENTS).toEqual(['preflight', 'gate1', 'gate2', 'gate3', 'gate4', 'merged', 'gate5', 'report']);
   });
 });
+
+describe('the command line, arguments and log reuse', () => {
+  const repoWithBranch = (branch) => {
+    const d = tmp('cycle-report-args-');
+    git(d, 'init', '-q', '-b', 'main');
+    git(d, 'config', 'user.name', 'T');
+    git(d, 'config', 'user.email', 't@example.invalid');
+    writeFileSync(join(d, 'a.txt'), 'a');
+    git(d, 'add', '-A');
+    git(d, 'commit', '-q', '-m', 'init');
+    if (branch) git(d, 'checkout', '-q', '-b', branch);
+    return d;
+  };
+  const logOf = (d, b) => readFileSync(join(d, '.superpowers', 'cycle-log', `${sanitize(b)}.log`), 'utf8').trim().split('\n').map((l) => l.split(' ')[1]);
+
+  it('refuses a --branch with no value or a flag as its value', () => {
+    const d = repoWithBranch('feat');
+    expect(cli(d, 'mark', 'gate1', '--branch').stderr).toMatch(/--branch needs a branch name/);
+    expect(cli(d, 'mark', 'gate1', '--branch', '--x').status).not.toBe(0);
+  });
+
+  it('takes the event from the first argument that is not a flag', () => {
+    const d = repoWithBranch('feat');
+    expect(cli(d, 'mark', '--branch', 'feat', 'gate1').status).toBe(0);
+    expect(logOf(d, 'feat')).toEqual(['gate1']);
+  });
+
+  it('refuses to mark on main without --branch', () => {
+    const d = repoWithBranch(null);
+    const r = cli(d, 'mark', 'gate5');
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/pass --branch/);
+  });
+
+  it('a preflight on a log that already reached merged starts a new log', () => {
+    const d = repoWithBranch('feat');
+    for (const e of ['preflight', 'gate1', 'merged']) expect(cli(d, 'mark', e).status).toBe(0);
+    expect(cli(d, 'mark', 'preflight').status).toBe(0);
+    expect(logOf(d, 'feat')).toEqual(['preflight']);
+  });
+});

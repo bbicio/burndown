@@ -5,11 +5,11 @@
 - `node scripts/cycle-report.mjs mark <event> [--branch <name>]` appends the current time of one event to the branch's log. `/finish-cycle` runs it at pre-flight, on entering each gate, at the merge, and when the report is written.
 - `node scripts/cycle-report.mjs render [--branch <name>]` prints the report's `**Execution started:**`, `**Merged at:**` and `**Gate durations:**` lines, then one line per commit of the branch for "What was done". `/finish-cycle` Gate 5 starts the report from it.
 
-The branch defaults to the current one.
+The branch defaults to the current one; on `main` or a detached HEAD the command refuses and asks for `--branch`, and `--branch` with no name is refused too.
 
 ## Events
 
-`preflight`, `gate1`, `gate2`, `gate3`, `gate4`, `merged`, `gate5`, `report`. Another word is refused with a non-zero exit. A second `mark` of the same event is ignored: a re-entry into a gate is not a new entry.
+`preflight`, `gate1`, `gate2`, `gate3`, `gate4`, `merged`, `gate5`, `report`. Another word is refused with a non-zero exit. A second `mark` of the same event is ignored: a re-entry into a gate is not a new entry. A `preflight` on a log that already holds `merged` or `report` starts a new log: the branch name is being reused for a new cycle.
 
 ## The log
 

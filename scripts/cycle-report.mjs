@@ -13,7 +13,7 @@
 // Spec: docs/superpowers/specs/2026-11-18-process-speed-2-design.md
 
 import { execFileSync } from 'node:child_process';
-import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -82,16 +82,32 @@ export function branchCommits(root, branch) {
   return git(root, 'log', '--reverse', '--format=%h %s', `${hit[0]}^1..${hit[0]}^2`).split('\n').filter(Boolean);
 }
 
+const fail = (msg) => { process.stderr.write(`${msg}\n`); return 2; };
+
 function main(argv) {
   const [cmd, ...rest] = argv;
   const bi = rest.indexOf('--branch');
-  const branch = bi >= 0 ? rest[bi + 1] : git(process.cwd(), 'branch', '--show-current');
+  let branch;
+  if (bi >= 0) {
+    branch = rest[bi + 1];
+    if (!branch || branch.startsWith('-')) return fail('--branch needs a branch name');
+  } else {
+    branch = git(process.cwd(), 'branch', '--show-current');
+    // From Gate 4's merge on the checkout is main: an unflagged mark would land in main's log.
+    if (!branch || branch === 'main') return fail(`on ${branch || 'a detached HEAD'}: pass --branch <name>`);
+  }
+  const args = rest.filter((a, i) => !(bi >= 0 && (i === bi || i === bi + 1)));
   const root = mainRoot(process.cwd());
   const file = logPath(root, branch);
   if (cmd === 'mark') {
-    const event = rest[0];
-    if (!EVENTS.includes(event)) { process.stderr.write(`unknown event: ${event}\n`); return 2; }
-    const have = existsSync(file) ? parseLog(readFileSync(file, 'utf8')) : new Map();
+    const event = args.find((a) => !a.startsWith('-'));
+    if (!EVENTS.includes(event)) return fail(`unknown event: ${event}`);
+    let have = existsSync(file) ? parseLog(readFileSync(file, 'utf8')) : new Map();
+    // A preflight on a log that already reached the merge or the report is a new cycle on a reused name.
+    if (event === 'preflight' && (have.has('merged') || have.has('report'))) {
+      rmSync(file);
+      have = new Map();
+    }
     if (have.has(event)) return 0;
     mkdirSync(dirname(file), { recursive: true });
     appendFileSync(file, `${new Date().toISOString()} ${event}\n`);
