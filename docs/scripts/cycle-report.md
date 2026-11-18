@@ -13,7 +13,7 @@ The branch defaults to the current one.
 
 ## The log
 
-`<main checkout>/.superpowers/cycle-log/<branch, with / as ->.log`, one `<ISO time> <event>` per line. A linked worktree writes into its main checkout's log, so the log outlives the worktree that `/finish-cycle` Gate 4 removes. `.superpowers/` is gitignored; the log is never committed. The Gate 2 draft of the report's judgement sections sits next to it, as `<branch>.draft.md`.
+`<main checkout>/.superpowers/cycle-log/<branch, with / as ->.log`, one `<ISO time> <event>` per line. A linked worktree writes into its main checkout's log, so the log outlives the worktree that `/finish-cycle` Gate 4 removes. `.superpowers/` is gitignored; the log is never committed. The Gate 2 draft of the report's judgement sections sits next to it, with the same name and the extension `.draft.md`.
 
 ## What it prints and what it does not
 
