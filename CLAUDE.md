@@ -237,6 +237,7 @@ scripts/security-headers-guard.test.js — fails when `nginx.conf` loses a secur
                             them, or a page loads from an origin the CSP refuses. [docs/ops/security-headers.md](docs/ops/security-headers.md).
 scripts/save-contract-guard.test.js — fails when a write bypasses versionedWrite/apiSave outside its exempt lists,
                             or an `Api.*` write method has no caller. Limits: own header.
+scripts/test-api-ids-guard.test.js — fails when two test functions of `test-api.js` use the same case id. Limits: own header.
 scripts/shoot.mjs        — renders pages of the running app with headless Chrome, one PNG per width, for comparing a
                             redesign against its design boards. **Reading the PNGs back is part of visual
                             verification — "the page can't be rendered here" is not a valid reason to skip it.**
