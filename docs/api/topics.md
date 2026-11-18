@@ -7,7 +7,7 @@ A **topic** is a specific competence ("Medical writing", "Data visualization"), 
 ## Data
 
 - `topics (id, name, name_normalized UNIQUE, status approved|proposed|rejected, merged_into, created_by/updated_by, created_at/updated_at)`. No physical delete: "delete" is `rejected` (kept so the agent is told not to propose it again). `merged_into` non-null means the topic was absorbed; it always points to a final (non-merged) topic.
-- `description_topic_state (project_id, task_key, text_hash, extracted_at, last_error)`, PK `(project_id, task_key)`. `task_key = ''` is the project description; otherwise the normalised task name (trim, collapse spaces, lowercase = the actuals task key). Keyed by name, not task id, because `PUT /api/projects/:id/tasks` deletes and re-inserts every task on each save.
+- `description_topic_state (project_id, task_key, text_hash, extracted_at, last_error)`, PK `(project_id, task_key)`. `task_key = ''` is the project description; otherwise the normalised task name (trim, collapse spaces, lowercase = the actuals task key). Keyed by name, not task id, because the project Save (`PUT /api/projects/:id` with `tasks`) deletes and re-inserts every task.
 - `description_topic_links (project_id, task_key, topic_id)`: which topics a description produced. Cascade on project delete; merge moves links to the target.
 - `app_settings.topic_extraction_enabled` (default `'true'`; anything but `'false'` counts as enabled).
 - `resources.profile.topics` = `[{ topicId, projectCodes }]` (ids and project codes only).
