@@ -430,3 +430,11 @@ Guards: `js/lib/costgrid-rate-input-guard.test.js`. Manual cases: `TEST_CASES.md
 ## Role baselines use the version's rate (2026-11-01, currency cycle 4, B-183)
 
 Spec `docs/superpowers/specs/2026-11-01-currency-c4-b183-version-rate-baselines-design.md`. `roleBaseline`, the role selector's badge (`roleModalRoleRow`) and `cgSyncRoleRatesToBaseline` convert with `draft.currencyRate`; the live rate is read only on a currency change (the preview and `onCurrencyChange`), and `onCurrencyChange` sets `draft.currencyRate` before syncing. Function detail: [docs/js/costgrid.md](../js/costgrid.md).
+
+## Generate and Add tasks: one request each (2026-11-18, save-contract cycle 3)
+
+Spec `docs/superpowers/specs/2026-11-18-save-c3-project-program-writes-design.md`.
+- **Generate project** is one request, `POST /api/cost-grids/:id/versions/:vId/projects`: one transaction under the version lock creates the project with the version's currency and stage, its owner share, tasks, PTC, the link and the version's tags, and answers `201` with the project snapshot. It needs edit permission on the proposal; a refused rule (`PROJECT_RULE`, `DATE_RULE`, `MONEY_RULE`) leaves no project and no link.
+- **Add tasks** is one request, `POST …/versions/:vId/projects/:projectId/tasks` with the new tasks only: it needs edit permission on the proposal and on the project, appends the tasks checked against the project's stored period, adds their ids and names to the link (creating the row when missing) and writes nothing else of the project.
+- **The link only grows.** `POST …/linked-projects` merges the task ids and names with what is stored instead of replacing them.
+- Server detail: `api/src/services/project-save.js` (`applyCreate`, `applyTasks`, `upsertLink`), [docs/api/services.md](../api/services.md). Tests: `test-api.js` `GP-*`, `ATK-*`, `LK-01`.

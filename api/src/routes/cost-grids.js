@@ -22,6 +22,11 @@ const { versionRate, CURRENCY_RULE_CODE } = require('../lib/version-rate');
 const { versionedWrite, respondSaveError } = require('../services/versioned-write');
 const { structureOf } = require('../services/saved-entities');
 const { HEADER_FIELDS, ruleError, applyHeader, applyStructure, propagateStage } = require('../services/cost-grid-save');
+const { applyCreate, applyTasks, upsertLink } = require('../services/project-save');
+const { withTransaction } = require('../db/transaction');
+const { NotFoundError } = require('../services/versioned-write');
+const { enqueueProjectsQuiet } = require('../services/profile-engine');
+const { canEditProject } = require('./projects');
 
 let _pushToUser;
 let _createNotification;
@@ -633,34 +638,35 @@ router.get('/:id/versions/:vId/linked-projects', requireAuth, async (req, res, n
   } catch (err) { next(err); }
 });
 
+// Adds task ids/names to the version↔project link (the union with what is stored, never a replacement), as an
+// unchecked project update under the version lock (see lib/version-lock.js).
 router.post('/:id/versions/:vId/linked-projects', requireAuth, async (req, res, next) => {
   try {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { projectId, taskIds, taskNames } = req.body;
+    const { projectId, taskIds, taskNames } = req.body || {};
+    if (!isUuid(projectId)) return res.status(404).json({ error: 'Project not found' });
     const role = await liveRole(req.user.id);
-    // The currency check and the insert run under the version lock (see lib/version-lock.js).
-    const out = await withVersionLock(req.params.vId, async client => {
-      const proj = await client.query('SELECT name, currency FROM projects WHERE id = $1', [projectId]);
-      if (!proj.rows[0]) return { status: 404, error: 'Project not found' };
-      const ver = await client.query('SELECT currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+    await withTransaction(pool, async client => {
+      await lockVersion(client, req.params.vId);
+      const proj = (await client.query('SELECT currency FROM projects WHERE id = $1', [projectId])).rows[0];
+      if (!proj) throw new NotFoundError('project');
+      const ver = (await client.query('SELECT currency FROM cost_grid_versions WHERE id = $1', [req.params.vId])).rows[0];
       // versionScope already answers 404 for a version that is not in this grid; this only keeps the handler safe on its own.
-      if (!ver.rows[0]) return { status: 404, error: 'Version not found' };
-      const linkErr = rules.linkCurrencyError({ role, projectCurrency: proj.rows[0].currency, versionCurrency: ver.rows[0].currency });
-      if (linkErr) return { rule: linkErr };
-      await client.query(
-        `INSERT INTO cg_version_projects (cost_grid_version_id, project_id, project_name, task_ids, task_names_direct)
-         VALUES ($1, $2, $3, $4, $5) ON CONFLICT (cost_grid_version_id, project_id)
-         DO UPDATE SET task_ids = EXCLUDED.task_ids, task_names_direct = EXCLUDED.task_names_direct`,
-        [req.params.vId, projectId, proj.rows[0].name, JSON.stringify(taskIds || []), JSON.stringify(taskNames || [])]
-      );
-      return { ok: true };
+      if (!ver) throw ruleError('Version not found', undefined, 404);
+      const linkErr = rules.linkCurrencyError({ role, projectCurrency: proj.currency, versionCurrency: ver.currency });
+      if (linkErr) throw ruleError(linkErr, rules.RULE_CODE);
+      await versionedWrite(client, {
+        type: 'project', id: projectId, unchecked: true, action: 'update', userId: req.user.id,
+        write: c => upsertLink(c, req.params.vId, projectId, taskIds, taskNames),
+      });
     });
-    if (out.rule) return refuse(res, out.rule);
-    if (out.status) return res.status(out.status).json({ error: out.error });
     res.status(201).json({ ok: true });
-  } catch (err) { next(err); }
+  } catch (err) {
+    if (respondWriteError(res, err)) return;
+    next(err);
+  }
 });
 
 router.delete('/:id/versions/:vId/linked-projects/:projectId', requireAuth, async (req, res, next) => {
@@ -670,15 +676,99 @@ router.delete('/:id/versions/:vId/linked-projects/:projectId', requireAuth, asyn
     }
     const unlinkErr = rules.linkRemovalError({ role: await liveRole(req.user.id) });
     if (unlinkErr) return refuse(res, unlinkErr);
-    await query(
-      'DELETE FROM cg_version_projects WHERE cost_grid_version_id = $1 AND project_id = $2',
-      [req.params.vId, req.params.projectId]
-    );
+    if (isUuid(req.params.projectId)) {
+      try {
+        await versionedWrite(pool, {
+          type: 'project', id: req.params.projectId, unchecked: true, action: 'update', userId: req.user.id,
+          write: c => c.query('DELETE FROM cg_version_projects WHERE cost_grid_version_id = $1 AND project_id = $2',
+            [req.params.vId, req.params.projectId]),
+        });
+      } catch (err) {
+        // A project already gone has no link left: answered as before.
+        if (!(err instanceof NotFoundError)) throw err;
+      }
+    }
     res.json({ ok: true });
   } catch (err) { next(err); }
 });
 
-// ── SHARING ───────────────────────────────────────────────────────────────────
+// ── PROJECTS FROM A VERSION ───────────────────────────────────────────────────
+
+// POST /api/cost-grids/:id/versions/:vId/projects — Generate: { name, code, programId, clientId, startDate, endDate,
+// description, tasks, ptc, taskIds, taskNames } → 201 with the project snapshot. One transaction under the version
+// lock creates the project (currency and stage of the version), its owner share, tasks, ptc, the link and the
+// version's tags; a refused rule leaves no project and no link.
+router.post('/:id/versions/:vId/projects', requireAuth, async (req, res, next) => {
+  try {
+    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const role = await liveRole(req.user.id);
+    const vId = req.params.vId;
+    const out = await withTransaction(pool, async client => {
+      await lockVersion(client, vId);
+      const version = (await client.query('SELECT id, currency, pipeline FROM cost_grid_versions WHERE id = $1', [vId])).rows[0];
+      if (!version) throw ruleError('Version not found', undefined, 404);
+      return versionedWrite(client, {
+        type: 'project', action: 'create', userId: req.user.id,
+        write: c => applyCreate(c, { body: req.body, version, userId: req.user.id, role }),
+      });
+    });
+    if (out.entity?.code) await enqueueProjectsQuiet([out.entity.code]);
+    res.status(201).json(out.entity);
+  } catch (err) {
+    if (respondWriteError(res, err)) return;
+    next(err);
+  }
+});
+
+// POST /api/cost-grids/:id/versions/:vId/projects/:projectId/tasks — Add tasks: { tasks, taskIds, taskNames } →
+// the project snapshot. Appends the tasks (checked against the stored period, in the project's currency) and adds
+// the ids/names to the link, creating it when missing; nothing else of the project is written. Unchecked: the
+// project copy in the cost grid is old by construction, and an append under the row lock overwrites nothing.
+router.post('/:id/versions/:vId/projects/:projectId/tasks', requireAuth, async (req, res, next) => {
+  try {
+    const { vId, projectId } = req.params;
+    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (!isUuid(projectId)) return res.status(404).json({ error: 'Project not found' });
+    const { rows: [found] } = await query('SELECT 1 FROM projects WHERE id = $1', [projectId]);
+    if (!found) return res.status(404).json({ error: 'Project not found' });
+    if (!await canEditProject(req.user.id, req.user.role, projectId)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const { tasks, taskIds, taskNames } = req.body || {};
+    const role = await liveRole(req.user.id);
+    let descriptionsChanged = false;
+    const out = await withTransaction(pool, async client => {
+      await lockVersion(client, vId);
+      return versionedWrite(client, {
+        type: 'project', id: projectId, unchecked: true, action: 'update', userId: req.user.id,
+        write: async c => {
+          const p = (await c.query('SELECT currency, start_date, end_date FROM projects WHERE id = $1', [projectId])).rows[0];
+          const linked = (await c.query(
+            'SELECT 1 FROM cg_version_projects WHERE cost_grid_version_id = $1 AND project_id = $2', [vId, projectId])).rows[0];
+          if (!linked) {
+            const ver = (await c.query('SELECT currency FROM cost_grid_versions WHERE id = $1', [vId])).rows[0];
+            const linkErr = rules.linkCurrencyError({ role, projectCurrency: p.currency, versionCurrency: ver?.currency });
+            if (linkErr) throw ruleError(linkErr, rules.RULE_CODE);
+          }
+          const period = { start: p.start_date, end: p.end_date };
+          ({ descriptionsChanged } = await applyTasks(c, projectId, tasks, { currency: p.currency, period, storedPeriod: period, append: true }));
+          await upsertLink(c, vId, projectId, taskIds, taskNames);
+        },
+      });
+    });
+    if (descriptionsChanged && out.entity?.code) await enqueueProjectsQuiet([out.entity.code]);
+    res.json(out.entity);
+  } catch (err) {
+    if (respondWriteError(res, err)) return;
+    next(err);
+  }
+});
+
+// ── SHARING
 
 router.get('/:id/shares', requireAuth, async (req, res, next) => {
   try {

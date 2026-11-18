@@ -5214,6 +5214,120 @@ async function testPeriodWithTasks() {
   ok(await pPeriod() === '|', 'PS-10 the project period is empty');
 }
 
+// ── Save contract — Generate and Add tasks (cycle 3) ──────────────────────────
+
+// GP-01..05, ATK-01..05, LK-01: POST …/versions/:vId/projects (Generate) and …/projects/:projectId/tasks (Add tasks),
+// each one transaction with its link; POST …/linked-projects merges the task lists.
+async function testGenerateAndAddTasks() {
+  section('Save contract — Generate and Add tasks');
+  const logRows = async id =>
+    (await sql('SELECT version, action FROM change_log WHERE entity_type = $1 AND entity_id = $2 ORDER BY id', ['project', String(id)])) || [];
+  const isCode = (r, code) => r.status === 400 && r.data?.code === code;
+  const tag = String(Date.now());
+  const g = await api('POST', '/api/cost-grids', { name: `__test_gp_cg_${tag}__` }, adminCookie);
+  const cgId = g.data?.id;
+  if (cgId) later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+  const vId = cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'gp' }, adminCookie)).data?.id : null;
+  if (!ok(!!(cgId && vId), 'GP-setup proposal and version created')) return;
+  const vBase = `/api/cost-grids/${cgId}/versions/${vId}`;
+  const rLists = await api('GET', '/api/attribute-lists', null, adminCookie);
+  const market = (rLists.data || []).find(l => l.slug === 'market');
+  const itemId = market ? (await api('POST', `/api/attribute-lists/${market.id}/items`, { label: `__test_gp_item_${tag}__` }, adminCookie)).data?.id : null;
+  if (itemId) await api('PUT', `${vBase}/tags`, { itemIds: [itemId] }, adminCookie);
+  const list = async () => (await api('GET', '/api/projects', null, adminCookie)).data || [];
+  const read = async id => (await list()).find(p => p.id === id);
+  const links = async () => (await api('GET', `${vBase}/linked-projects`, null, adminCookie)).data || [];
+  const linkOf = async id => (await links()).find(l => l.project_id === id);
+  const task = (name, start = '20260110', end = '20260120', rate = 100) =>
+    ({ name, startDate: start, endDate: end, resources: [{ role: 'DEV', soldHours: 2, hourlyRate: rate }] });
+  const generate = (body, cookie = adminCookie) => api('POST', `${vBase}/projects`, {
+    startDate: '202601', endDate: '202612', description: '', ptc: [], taskIds: [], taskNames: [], ...body,
+  }, cookie);
+  const track = r => { if (r.data?.id) later('DELETE', `/api/projects/${r.data.id}`); return r; };
+
+  // GP-01: a valid Generate
+  const g1 = track(await generate({ name: `__test_gp_${tag}__`, tasks: [task('A')], ptc: [{ title: 'A', note: '', amount: 5, month: '202601' }],
+    taskIds: ['tA'], taskNames: ['A'] }));
+  const p1 = g1.data?.id;
+  ok(g1.status === 201 && !!p1 && g1.data?.currency === 'EUR' && g1.data?.tasks?.length === 1 && g1.data?.ptc?.length === 1,
+    `GP-01 Generate → 201 with the version currency, tasks and ptc (got ${g1.status} ${g1.data?.error || ''})`);
+  const l1 = p1 ? await linkOf(p1) : null;
+  ok(JSON.stringify(l1?.task_ids) === '["tA"]', `GP-01 the link carries the task ids (got ${JSON.stringify(l1?.task_ids)})`);
+  if (itemId && p1) {
+    const tags = (await api('GET', `/api/projects/${p1}/tags`, null, adminCookie)).data || [];
+    ok(tags.some(t => t.item_id === itemId), 'GP-01 the project got the version\'s tags');
+  }
+  if (p1) ok((await logRows(p1)).map(r => r.action)[0] === 'create', 'GP-01 a project/create row');
+
+  // GP-02: a task outside the period — no project, no link
+  const g2 = track(await generate({ name: `__test_gp_out_${tag}__`, tasks: [task('Out', '20270110', '20270120')], taskIds: ['tOut'], taskNames: ['Out'] }));
+  ok(isCode(g2, 'DATE_RULE'), `GP-02 Generate with a task outside the period → 400 DATE_RULE (got ${g2.status})`);
+  ok(!(await list()).some(p => p.name === `__test_gp_out_${tag}__`) && (await links()).length === 1,
+    'GP-02 no project and no link left behind');
+
+  // GP-03: a user without permission on the grid
+  const plain = await getPlainUser();
+  if (plain.cookie) {
+    const g3 = track(await generate({ name: `__test_gp_plain_${tag}__`, tasks: [] }, plain.cookie));
+    ok(g3.status === 403, `GP-03 Generate without permission on the grid → 403 (got ${g3.status})`);
+  } else ok(false, 'GP-03 plain user unavailable');
+
+  // GP-04: the currency comes from the version, not the body
+  const g4 = track(await generate({ name: `__test_gp_chf_${tag}__`, currency: 'CHF', tasks: [] }));
+  ok(g4.status === 201 && g4.data?.currency === 'EUR', `GP-04 a body currency is ignored → EUR (got ${g4.status} ${g4.data?.currency})`);
+
+  // GP-05: a rate with too many decimals
+  const g5 = track(await generate({ name: `__test_gp_money_${tag}__`, tasks: [task('M', '20260110', '20260120', 10.123)] }));
+  ok(isCode(g5, 'MONEY_RULE') && !(await list()).some(p => p.name === `__test_gp_money_${tag}__`),
+    `GP-05 a rate with too many decimals → 400 MONEY_RULE, no project (got ${g5.status})`);
+
+  if (!p1) return;
+  const addTasks = (id, body, cookie = adminCookie) => api('POST', `${vBase}/projects/${id}/tasks`, body, cookie);
+
+  // ATK-01: Add tasks after a project Save keeps the Save's name and status; the link is the union
+  const before = await read(p1);
+  const s1 = await api('PUT', `/api/projects/${p1}`, { version: before.version, header: { name: `__test_gp_${tag}_renamed__`, status: 'Started' } }, adminCookie);
+  const a1 = await addTasks(p1, { tasks: [task('B', '20260210', '20260220')], taskIds: ['tB'], taskNames: ['B'] });
+  const after1 = await read(p1);
+  ok(s1.status === 200 && a1.status === 200 && after1.name === `__test_gp_${tag}_renamed__` && after1.status === 'Started'
+    && after1.tasks.map(t => t.name).join(',') === 'A,B',
+    `ATK-01 Add tasks keeps the saved name and status and appends the task (got ${s1.status}, ${a1.status}, ${after1.name}, ${after1.tasks.map(t => t.name)})`);
+  ok(JSON.stringify((await linkOf(p1))?.task_ids) === '["tA","tB"]', 'ATK-01 the link holds the union of the task ids');
+
+  // ATK-05: one project/update row, version +1
+  ok(after1.version === before.version + 2 && (await logRows(p1)).slice(-1)[0]?.action === 'update',
+    `ATK-05 Add tasks bumps the version and logs an update (got ${before.version} → ${after1.version})`);
+
+  // ATK-02: a task outside the stored period — nothing added
+  const a2 = await addTasks(p1, { tasks: [task('Late', '20270110', '20270120')], taskIds: ['tLate'], taskNames: ['Late'] });
+  ok(isCode(a2, 'DATE_RULE') && (await read(p1)).tasks.length === 2 && JSON.stringify((await linkOf(p1))?.task_ids) === '["tA","tB"]',
+    `ATK-02 a task outside the period → DATE_RULE, no task and no id added (got ${a2.status})`);
+
+  // ATK-03: grid editor without permission on the project
+  if (plain.id && plain.cookie) {
+    await api('POST', `/api/cost-grids/${cgId}/shares`, { userId: plain.id, permission: 'editor' }, adminCookie);
+    const a3 = await addTasks(p1, { tasks: [task('C')], taskIds: ['tC'], taskNames: ['C'] }, plain.cookie);
+    ok(a3.status === 403, `ATK-03 Add tasks without permission on the project → 403 (got ${a3.status})`);
+  }
+
+  // ATK-04: a project linked only through cg_version_id gets its link row
+  const bare = track(await api('POST', '/api/projects', { name: `__test_gp_bare_${tag}__`, cgVersionId: vId, currency: 'EUR', startDate: '202601', endDate: '202612' }, adminCookie));
+  if (bare.data?.id) {
+    const a4 = await addTasks(bare.data.id, { tasks: [task('D')], taskIds: ['tD'], taskNames: ['D'] });
+    ok(a4.status === 200 && JSON.stringify((await linkOf(bare.data.id))?.task_ids) === '["tD"]',
+      `ATK-04 Add tasks on a project without a link row creates it (got ${a4.status} ${a4.data?.error || ''})`);
+  } else ok(false, 'ATK-04 setup project unavailable');
+
+  // LK-01: POST linked-projects merges the lists
+  const l2 = track(await generate({ name: `__test_gp_lk_${tag}__`, tasks: [] }));
+  if (l2.data?.id) {
+    await api('POST', `${vBase}/linked-projects`, { projectId: l2.data.id, taskIds: ['x1'], taskNames: ['X1'] }, adminCookie);
+    await api('POST', `${vBase}/linked-projects`, { projectId: l2.data.id, taskIds: ['x2'], taskNames: ['X2'] }, adminCookie);
+    const lk = await linkOf(l2.data.id);
+    ok(JSON.stringify(lk?.task_ids) === '["x1","x2"]', `LK-01 two linked-projects POSTs merge the task ids (got ${JSON.stringify(lk?.task_ids)})`);
+  }
+}
+
 // ── Save contract — project Save (cycle 3) ────────────────────────────────────
 
 // PSV-01..10: PUT /api/projects/:id { version, header?, tasks?, phasing?, ptc?, planning?, groups? } in one versioned transaction.
@@ -6182,6 +6296,7 @@ async function main() {
     await testSaveContract();
     await testCostGridSave();
     await testProjectSave();
+    await testGenerateAndAddTasks();
     await testServerValidation();
     await testPots();
     await testCostGridBudgets();

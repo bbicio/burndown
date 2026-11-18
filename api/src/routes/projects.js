@@ -462,3 +462,5 @@ router.put('/:id/tags', requireAuth, async (req, res, next) => {
 });
 
 module.exports = router;
+// The edit permission on a project, also checked by Add tasks (routes/cost-grids.js).
+module.exports.canEditProject = canEdit;

@@ -4,7 +4,7 @@
 const rules = require('../lib/project-rules');
 const { isUuid, taskListError } = require('../lib/input-rules');
 const { isValidSoldHours } = require('../lib/sold-hours');
-const { DATE_RULE, periodChangeError, periodChanged, taskDatesError, mergePeriod, periodColumn, monthKeysError, toYmd } = require('../lib/dates');
+const { DATE_RULE, periodError, periodChangeError, periodChanged, taskDatesError, mergePeriod, periodColumn, monthKeysError, toYmd } = require('../lib/dates');
 const { amountError, ptcRowsError, phasingError, MONEY_RULE_CODE, MAX_DECIMAL_10_2 } = require('../lib/money-rules');
 const { descriptionsSignature } = require('../lib/topic-extract');
 const { ruleError } = require('./cost-grid-save');
@@ -225,6 +225,72 @@ async function applyProjectSave(client, id, body, { role }) {
   return { enqueue: codes.length > 0, seedFromVersionId, codes };
 }
 
+// Adds task ids and names to the version↔project link, creating it when missing: the union with what is stored,
+// in order and without duplicates. Nothing is ever removed here.
+async function upsertLink(client, versionId, projectId, taskIds, taskNames) {
+  const row = (await client.query(
+    'SELECT task_ids, task_names_direct FROM cg_version_projects WHERE cost_grid_version_id = $1 AND project_id = $2 FOR UPDATE',
+    [versionId, projectId]
+  )).rows[0];
+  const union = (stored, added) => {
+    const out = [];
+    for (const x of [...(Array.isArray(stored) ? stored : []), ...(Array.isArray(added) ? added : [])]) {
+      if (!out.includes(x)) out.push(x);
+    }
+    return out;
+  };
+  const name = (await client.query('SELECT name FROM projects WHERE id = $1', [projectId])).rows[0]?.name ?? null;
+  await client.query(
+    `INSERT INTO cg_version_projects (cost_grid_version_id, project_id, project_name, task_ids, task_names_direct)
+     VALUES ($1, $2, $3, $4, $5) ON CONFLICT (cost_grid_version_id, project_id)
+     DO UPDATE SET task_ids = EXCLUDED.task_ids, task_names_direct = EXCLUDED.task_names_direct`,
+    [versionId, projectId, name, JSON.stringify(union(row?.task_ids, taskIds)), JSON.stringify(union(row?.task_names_direct, taskNames))]
+  );
+  return { created: !row };
+}
+
+// Generate (POST /api/cost-grids/:id/versions/:vId/projects) inside versionedWrite(create): the project with the
+// currency and the stage of `version` (never the body's), its owner share, tasks, ptc, the link and the version's
+// tags. The caller holds the version lock. Returns { id }.
+async function applyCreate(client, { body, version, userId, role }) {
+  const b = isObj(body) ? body : {};
+  const createErr = rules.projectCreateError({ role, versionId: version.id });
+  if (createErr) throw ruleError(createErr, rules.RULE_CODE);
+  const linkErr = rules.linkCurrencyError({ role, projectCurrency: version.currency, versionCurrency: version.currency });
+  if (linkErr) throw ruleError(linkErr, rules.RULE_CODE);
+  const name = typeof b.name === 'string' ? b.name.trim() : '';
+  if (!name) throw ruleError('name is required');
+  const periodErr = periodError(b.startDate, b.endDate, { kind: 'month', label: 'project' });
+  if (periodErr) throw ruleError(periodErr, DATE_RULE);
+  const tasks = b.tasks === undefined ? [] : b.tasks;
+  const ptc = b.ptc === undefined ? [] : b.ptc;
+  const clientId = typeof b.clientId === 'string' && isUuid(b.clientId) ? b.clientId : null;
+  const currency = version.currency || 'EUR';
+
+  const id = (await client.query(
+    `INSERT INTO projects (code, name, program_id, client_id, start_date, end_date, currency, pipeline, status, cg_version_id, owner_id, description)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULL, $9, $10, $11) RETURNING id`,
+    [typeof b.code === 'string' ? (b.code.trim() || null) : null, name, b.programId || null, clientId,
+     periodColumn(b.startDate), periodColumn(b.endDate), currency, version.pipeline || null, version.id, userId,
+     String(b.description ?? '')]
+  )).rows[0].id;
+  await client.query(
+    `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
+     VALUES ('project', $1, $2, 'owner', $2)`, [id, userId]
+  );
+  const period = mergePeriod({ start: b.startDate, end: b.endDate }, {});
+  await applyTasks(client, id, tasks, { currency, period, storedPeriod: period });
+  await applySections(client, id, { ptc }, { currency, period, stored: {} });
+  await upsertLink(client, version.id, id, b.taskIds, b.taskNames);
+  await client.query(
+    `INSERT INTO project_tags (project_id, item_id)
+     SELECT $1::uuid, cvt.item_id FROM cost_grid_version_tags cvt WHERE cvt.version_id = $2::uuid
+     ON CONFLICT DO NOTHING`, [id, version.id]
+  );
+  return { id };
+}
+
 module.exports = {
-  PROJECT_HEADER_FIELDS, projectSaveBodyError, applyProjectSave, applyTasks, applySections, respondWriteError,
+  PROJECT_HEADER_FIELDS, projectSaveBodyError, applyProjectSave, applyTasks, applySections, applyCreate, upsertLink,
+  respondWriteError,
 };
