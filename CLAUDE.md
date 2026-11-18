@@ -12,6 +12,8 @@ For the development workflow (new feature / evolution / audit-fix), see [docs/su
 
 **Process override — docs in the tasks:** for `superpowers:writing-plans`, every task of a plan carries a `**Docs:**` line listing the documents that describe what the task changes (`CLAUDE.md`, `docs/`, `handbook/restricted/ARCHITECTURE.md`, `PRD.md`/`docs/prd/`, `handbook/public/manual.md`, `handbook/restricted/TEST_CASES.md`), or `none — <reason>`; the task updates them in the same commit. `scripts/decision-ledger-guard.test.js` pins the line.
 
+**Process override — removed symbols:** a plan task that removes or renames a function, route or `Api.*` method lists in its **Files** every test file that uses it, found with `grep -rln '<name>' js/lib scripts api/src test-api.js`.
+
 **Process override — final review and fix pass:** for `superpowers:executing-plans` and `superpowers:subagent-driven-development`, the whole-branch final review is the one `PROCESS.md` §6.4 describes — launched in the background at the last task's commit, with no fix pass by the executor: `/finish-cycle` starts at once and its Gate 3 handles the findings as round 1.
 
 **Infrastructure safety — Docker commands against the main stack (`pdash-db`/`pdash-api`/`pdash-nginx`/`pdash-adminer`, project `burndown`):** never delegate a plan task or subagent dispatch that runs `docker compose` (`up`/`down`/`restart`/etc.) directly against the main stack without all three of the following.
