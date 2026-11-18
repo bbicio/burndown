@@ -1,10 +1,14 @@
-// Route test for PATCH /api/projects/:id with a fake DB: pins which statements run, and in which order,
-// for a period that changes and for one that does not (B-483, B-484, B-486). No database, no network.
+// Route test for PUT /api/projects/:id (the project Save) with a fake DB: pins the order of the answers before
+// the transaction and the order of the locks inside it (the version lock before the project row lock).
+// No database, no network.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
 const ID = '11111111-1111-4111-8111-111111111111';
-const state = { read: null, locked: null, fresh: null, tasks: [], log: [] };
+const VER = '22222222-2222-4222-8222-222222222222';
+const STORED = { name: 'P', code: null, description: '', start_date: '202604', end_date: '202612', currency: 'EUR',
+  cg_version_id: null, phasing: {}, ptc: [], planning: {} };
+const state = { exists: true, canEdit: true, version: 3, log: [] };
 
 function stub(rel, exports) {
   const file = require.resolve(rel);
@@ -13,20 +17,24 @@ function stub(rel, exports) {
 
 const fakeClient = {
   async query(sql, params) {
-    state.log.push({ sql: sql.trim(), params, via: 'client' });
-    if (/FOR UPDATE/.test(sql)) return { rows: state.locked ? [state.locked] : [] };
-    if (/FROM project_tasks/.test(sql)) return { rows: state.tasks };
-    if (/^\s*UPDATE projects/.test(sql)) return { rows: [{ id: ID, name: 'P' }] };
+    const s = sql.trim();
+    state.log.push(s);
+    if (/FOR NO KEY UPDATE/.test(s)) return { rows: state.exists ? [{ version: state.version }] : [] };
+    if (/^SELECT name, code, description, start_date/.test(s)) return { rows: [STORED] };
+    if (/FROM cost_grid_versions WHERE id/.test(s)) return { rows: [{ currency: 'EUR' }] };
+    if (/^SELECT name, code, description FROM projects/.test(s)) return { rows: [{ name: 'Q', code: null, description: '' }] };
+    if (/RETURNING version/.test(s)) return { rows: [{ version: state.version + 1 }] };
+    if (/FROM projects p/.test(s)) return { rows: [{ id: ID, name: 'Q', version: state.version + 1 }] };
     return { rows: [] };
   },
   release() {},
 };
 stub('../db/client', {
-  async query(sql, params) {
-    state.log.push({ sql: sql.trim(), params, via: 'query' });
-    if (/cg_version_id FROM projects WHERE id/.test(sql)) return { rows: state.read ? [state.read] : [] };
-    if (/^SELECT id, name FROM projects WHERE id/.test(sql)) return { rows: state.fresh ? [state.fresh] : [] };
-    if (/^\s*UPDATE projects/.test(sql)) return { rows: [{ id: ID, name: 'P' }] };
+  async query(sql) {
+    const s = sql.trim();
+    state.log.push(s);
+    if (/^SELECT 1 FROM projects WHERE id/.test(s)) return { rows: state.exists ? [{ '?column?': 1 }] : [] };
+    if (/permission IN \('owner','editor'\)/.test(s)) return { rows: state.canEdit ? [{}] : [] };
     return { rows: [] };
   },
   pool: { async connect() { return fakeClient; } },
@@ -36,109 +44,58 @@ stub('../services/email', { sendShareNotification: async () => {}, sendShareRevo
 stub('../services/profile-engine', { enqueueProjectsQuiet: async () => {} });
 
 const router = require('./projects');
-const layer = router.stack.find(l => l.route && l.route.path === '/:id' && l.route.methods.patch);
+const layer = router.stack.find(l => l.route && l.route.path === '/:id' && l.route.methods.put);
 const handler = layer.route.stack[layer.route.stack.length - 1].handle;
 
-const STORED = { id: ID, name: 'P', start_date: '202604 ', end_date: '202612 ', currency: 'EUR', cg_version_id: null };
-
-async function patch(body, { read = STORED, locked = STORED, fresh } = {}) {
-  state.read = read;
-  state.locked = locked;
-  // The row as a second read sees it: by default the same as the first.
-  state.fresh = fresh !== undefined ? fresh : (read ? { id: read.id, name: read.name } : null);
-  state.log = [];
+async function put(body, { id = ID, role = 'admin', exists = true, canEdit = true } = {}) {
+  Object.assign(state, { exists, canEdit, log: [] });
   const res = {
     statusCode: 200, body: undefined,
     status(c) { this.statusCode = c; return this; },
     json(b) { this.body = b; return this; },
   };
   let error = null;
-  await handler({ user: { id: 'u', role: 'admin' }, params: { id: ID }, body }, res, e => { error = e; });
+  await handler({ user: { id: 'u', role }, params: { id }, body }, res, e => { error = e; });
   if (error) throw error;
   return res;
 }
 
-const sqlOf = () => state.log.map(l => l.sql);
-const updates = () => state.log.filter(l => /^UPDATE projects/.test(l.sql));
-
-test('a changed period takes the row lock before the UPDATE', async () => {
-  const res = await patch({ endDate: '202611' });
-  assert.equal(res.statusCode, 200);
-  const s = sqlOf();
-  const begin = s.indexOf('BEGIN');
-  const lock = s.findIndex(q => /FOR UPDATE/.test(q));
-  const upd = s.findIndex(q => /^UPDATE projects/.test(q));
-  const commit = s.indexOf('COMMIT');
-  assert.ok(begin >= 0 && begin < lock && lock < upd && upd < commit, s.join(' | '));
-  assert.match(s[upd], /end_date/);
-});
-
-test('an unchanged period opens no transaction and writes no period column', async () => {
-  const res = await patch({ name: 'Q', startDate: '202604', endDate: '202612' });
-  assert.equal(res.statusCode, 200);
-  assert.ok(!sqlOf().includes('BEGIN'));
-  assert.equal(updates().length, 1);
-  assert.match(updates()[0].sql, /name = /);
-  assert.doesNotMatch(updates()[0].sql, /start_date|end_date/);
-});
-
-test('a body of only unchanged dates answers 200 with id and name', async () => {
-  const res = await patch({ startDate: '202604', endDate: '202612' });
-  assert.equal(res.statusCode, 200);
-  assert.deepEqual(res.body, { id: ID, name: 'P' });
-  assert.equal(updates().length, 0);
-});
-
-test('a body of only unchanged dates answers with the name as a second read sees it', async () => {
-  const res = await patch({ startDate: '202604', endDate: '202612' }, { fresh: { id: ID, name: 'Renamed meanwhile' } });
-  assert.deepEqual(res.body, { id: ID, name: 'Renamed meanwhile' });
-});
-
-test('a body of only unchanged dates answers 404 when the project is gone by the second read', async () => {
-  const res = await patch({ startDate: '202604', endDate: '202612' }, { fresh: null });
-  assert.equal(res.statusCode, 404);
-});
-
-test('a missing project answers 404 for a body of dates', async () => {
-  const res = await patch({ startDate: '202604' }, { read: null, locked: null });
-  assert.equal(res.statusCode, 404);
-});
-
-test('a cleared period is a change', async () => {
-  const res = await patch({ startDate: '', endDate: '' });
-  assert.equal(res.statusCode, 200);
-  assert.ok(sqlOf().includes('BEGIN') && sqlOf().some(q => /FOR UPDATE/.test(q)));
-  const u = updates()[0];
-  assert.match(u.sql, /start_date = \$1, end_date = \$2/);
-  assert.deepEqual(u.params.slice(0, 2), [null, null]);
-});
-
-test('a malformed changed period is refused under the lock', async () => {
-  const res = await patch({ endDate: '2026-11' });
+test('a non-UUID id answers 400 before any read', async () => {
+  const res = await put({ version: 3, header: { name: 'Q' } }, { id: 'not-a-uuid' });
   assert.equal(res.statusCode, 400);
-  assert.equal(res.body.code, 'DATE_RULE');
-  assert.ok(sqlOf().includes('BEGIN') && sqlOf().includes('ROLLBACK'));
-  assert.equal(updates().length, 0);
+  assert.equal(state.log.length, 0);
 });
 
-test('a body without any field still answers Nothing to update', async () => {
-  const res = await patch({});
+test('a missing project answers 404 before the permission check', async () => {
+  const res = await put({ version: 3, header: { name: 'Q' } }, { role: 'user', exists: false, canEdit: false });
+  assert.equal(res.statusCode, 404);
+  assert.equal(res.body.error, 'Project not found');
+});
+
+test('no edit permission answers 403 before the body is read', async () => {
+  const res = await put({ version: 3, header: { bogus: 1 } }, { role: 'user', canEdit: false });
+  assert.equal(res.statusCode, 403);
+});
+
+test('an unknown header field answers 400 without a transaction', async () => {
+  const res = await put({ version: 3, header: { linkedProjects: [] } });
   assert.equal(res.statusCode, 400);
-  assert.equal(res.body.error, 'Nothing to update');
+  assert.equal(res.body.error, 'Unknown field: linkedProjects');
+  assert.ok(!state.log.includes('BEGIN'));
 });
 
-test('a period the unlocked read showed as unchanged is not checked under the lock when only the link takes it', async () => {
-  const VER = '22222222-2222-4222-8222-222222222222';
-  // The form re-sends 202604-202610, which the unlocked read still shows; another session has since widened it.
-  const read = { ...STORED, end_date: '202610 ', cg_version_id: VER };
-  const locked = { ...STORED, end_date: '202612 ', cg_version_id: VER };
-  state.tasks = [{ name: 'Nov', start_date: '20261105', end_date: '20261110' }];
-  try {
-    const res = await patch({ cgVersionId: VER, startDate: '202604', endDate: '202610' }, { read, locked });
-    assert.equal(res.statusCode, 200, JSON.stringify(res.body));
-    assert.equal(updates().length, 1);
-    assert.doesNotMatch(updates()[0].sql, /start_date|end_date/);
-  } finally {
-    state.tasks = [];
-  }
+test('a new link takes the version lock before the project row lock', async () => {
+  const res = await put({ version: 3, header: { cgVersionId: VER } });
+  assert.equal(res.statusCode, 200, JSON.stringify(res.body));
+  const s = state.log;
+  const adv = s.findIndex(q => /pg_advisory_xact_lock/.test(q));
+  const row = s.findIndex(q => /FOR NO KEY UPDATE/.test(q));
+  assert.ok(s.indexOf('BEGIN') < adv && adv < row && row < s.indexOf('COMMIT'), s.join(' | '));
+});
+
+test('a stale version answers 409 STALE and rolls back', async () => {
+  const res = await put({ version: 2, header: { name: 'Q' } });
+  assert.equal(res.statusCode, 409);
+  assert.equal(res.body.code, 'STALE');
+  assert.ok(state.log.includes('ROLLBACK') && !state.log.includes('COMMIT'));
 });
