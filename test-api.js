@@ -5178,7 +5178,7 @@ async function testPeriodWithTasks() {
 
   // ── project side: PUT /api/projects/:id/tasks carries the project period ──
   const pBase = `/api/projects/${pId}`;
-  const pPut = (tasks, period) => api('PUT', `${pBase}/tasks`, period === undefined ? tasks : { tasks, period }, adminCookie);
+  const pPut = (tasks, period) => saveProjectLegacy('PUT', `${pBase}/tasks`, period === undefined ? tasks : { tasks, period }, adminCookie);
   const pTitles = async () => ((await api('GET', `${pBase}/tasks`, null, adminCookie)).data || []).map(t => t.name).sort().join(',');
   const pPeriod = async () => {
     const p = ((await api('GET', '/api/projects', null, adminCookie)).data || []).find(x => x.id === pId);
