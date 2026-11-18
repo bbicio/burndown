@@ -5,7 +5,8 @@
 //     with apiSave. js/api.js and js/lib/save.js are the two layers that do the writing.
 //   * Save steps (SAVE_STEPS): a write in the body of a listed function counts as inside, and every call
 //     of that function must sit inside a versionedWrite( call.
-//   * Lists: SERVER_EXEMPT ('file: table') and CLIENT_EXEMPT (files) hold what is not migrated yet;
+//   * Lists: SERVER_EXEMPT ('file: table') and CLIENT_EXEMPT (files, or 'file: write' entries naming each
+//     write that stays, its Api.* path) hold what is not migrated yet;
 //     an entry with no violation left fails (the lists only shrink), and RETIRED holds what left them
 //     and may never come back. A write method of Api.* with no caller in js/ fails too.
 //
@@ -39,16 +40,33 @@ const SERVER_EXEMPT = new Set([
 ]);
 
 const CLIENT_EXEMPT = new Set([
-  'js/api-sync.js',
+  // Save contract cycle 2 moved the cost grid editor's Save to apiSave; these writes stay (cycle 3: projects and
+  // links; cycle 4: tags; the lifecycle of a proposal is out of scope).
+  'js/api-sync.js: projects.create',
+  'js/api-sync.js: projects.delete',
+  'js/api-sync.js: projects.groups',
+  'js/api-sync.js: projects.phasing',
+  'js/api-sync.js: projects.planning',
+  'js/api-sync.js: projects.ptc',
+  'js/api-sync.js: projects.saveTasks',
+  'js/api-sync.js: projects.update',
   'js/clients.js',
-  'js/costgrid.js',
+  'js/costgrid.js: costGrids.create',
+  'js/costgrid.js: costGrids.delete',
+  'js/costgrid.js: costGrids.versions.create',
+  'js/costgrid.js: costGrids.versions.delete',
+  'js/costgrid.js: costGrids.versions.duplicate',
+  'js/costgrid.js: costGrids.versions.linkedProjects.add',
+  'js/costgrid.js: costGrids.versions.publish',
   'js/nav.js',
   'js/notifications.js',
   'js/pages/_db-reset.js',
   'js/pages/_terms-editor.js',
   'js/pages/activate.js',
   'js/pages/admin.js',
-  'js/pages/costgrid.js',
+  'js/pages/costgrid.js: costGrids.reassignOwner',
+  'js/pages/costgrid.js: costGrids.versions.tags.replace',
+  'js/pages/costgrid.js: programs.create',
   'js/pages/login.js',
   'js/pages/master-clients.js',
   'js/pages/master-currencies.js',
@@ -73,6 +91,10 @@ const RETIRED = [
   'api/src/routes/config.js: ratecard_entries',
   'api/src/routes/cost-grids.js: cost_grid_versions',
   'api/src/routes/cost-grids.js: cost_grids',
+  'js/api-sync.js: costGrids.update',
+  'js/api-sync.js: costGrids.versions.update',
+  'js/api-sync.js: costGrids.versions.saveStructure',
+  'js/costgrid.js: costGrids.versions.saveStructure',
 ];
 
 const CLIENT_LAYERS = new Set(['js/api.js', 'js/lib/save.js']);
@@ -109,18 +131,34 @@ function checkContract({ server, client, apiJs, serverExempt, clientExempt, reti
       }
     }
   }
-  const clientWriting = new Set();
+  // file → the names of its writes: the Api.* path, or 'fetch POST' / 'apiFetch PUT' for a raw call.
+  const clientWriting = new Map();
   const called = new Set();
   for (const [file, src] of Object.entries(client)) {
     for (const use of apiUses(src)) reachedMethods(use, writeMethods).forEach(m => called.add(m));
     if (CLIENT_LAYERS.has(file)) continue;
-    if (clientWrites(src, writeMethods).length) clientWriting.add(file);
+    const names = clientWrites(src, writeMethods).map(w => (w.kind === 'api' ? w.name : `${w.kind} ${w.name}`));
+    if (names.length) clientWriting.set(file, new Set(names));
   }
+  // A file is exempt whole ('file') or write by write ('file: name'); with per-write entries, each write
+  // that has none is a violation of its own.
+  const perWrite = f => [...clientExempt].some(e => e.startsWith(`${f}: `));
+  const clientViolations = [];
+  for (const [f, names] of clientWriting) {
+    if (clientExempt.has(f)) continue;
+    if (!perWrite(f)) { clientViolations.push(f); continue; }
+    for (const n of names) if (!clientExempt.has(`${f}: ${n}`)) clientViolations.push(`${f}: ${n}`);
+  }
+  const clientStale = [...clientExempt].filter(e => {
+    const i = e.indexOf(': ');
+    if (i < 0) return !clientWriting.has(e);
+    return !clientWriting.get(e.slice(0, i))?.has(e.slice(i + 2));
+  });
   return {
     serverViolations: [...serverOutside].filter(k => !serverExempt.has(k)).sort(),
-    clientViolations: [...clientWriting].filter(f => !clientExempt.has(f)).sort(),
+    clientViolations: clientViolations.sort(),
     retiredBack: retired.filter(r => serverExempt.has(r) || clientExempt.has(r)),
-    staleExempt: [...[...serverExempt].filter(k => !serverOutside.has(k)), ...[...clientExempt].filter(f => !clientWriting.has(f))],
+    staleExempt: [...[...serverExempt].filter(k => !serverOutside.has(k)), ...clientStale],
     orphanMethods: [...writeMethods].filter(m => !called.has(m)).sort(),
   };
 }
@@ -252,6 +290,27 @@ describe('save-contract rules on synthetic sources', () => {
       'api/src/routes/x.js': "await applyX(client);",
     } });
     expect(outside.serverViolations).toEqual(['api/src/routes/x.js: applyX() outside versionedWrite(']);
+  });
+  describe('per-write exemptions', () => {
+    const apiJs2 = "const Api = {\n  g: {\n    publish: (id) => apiFetch('/g', { method: 'POST' }),\n    remove:  (id) => apiFetch('/g', { method: 'DELETE' }),\n  },\n};\n";
+    const src = 'Api.g.publish(1); Api.g.remove(2);';
+    const per = extra => ({
+      server: {}, apiJs: apiJs2, retired: [], serverExempt: new Set(),
+      client: { 'js/api.js': apiJs2, 'js/costgrid.js': src },
+      clientExempt: new Set(['js/costgrid.js: g.publish', ...extra]),
+    });
+    it('a write outside a per-write exemption fails', () => {
+      expect(checkContract(per([])).clientViolations).toEqual(['js/costgrid.js: g.remove']);
+      expect(checkContract(per(['js/costgrid.js: g.remove'])).clientViolations).toEqual([]);
+    });
+    it('a per-write exemption with no violation left fails', () => {
+      const r = checkContract(per(['js/costgrid.js: g.remove', 'js/costgrid.js: g.gone']));
+      expect(r.staleExempt).toEqual(['js/costgrid.js: g.gone']);
+    });
+    it('a RETIRED per-write entry put back fails', () => {
+      const r = checkContract({ ...per(['js/costgrid.js: g.remove']), retired: ['js/costgrid.js: g.publish'] });
+      expect(r.retiredBack).toEqual(['js/costgrid.js: g.publish']);
+    });
   });
   it('fails on an Api write method with no caller', () => {
     const r = checkContract({ ...base, client: { 'js/api.js': apiJs, 'js/pages/a.js': "fetch('/x', { method: 'PUT' })" } });

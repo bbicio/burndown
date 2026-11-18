@@ -283,7 +283,7 @@ Every page that calls `initNav` wraps navigation and content as `<div id="app-sh
 In-memory module-level variables are the UI cache; the API is the source of truth. **localStorage is not used for server data** — it holds only `PDash_summary` (portfolio summary selection), `PDash_browserNotifDisabled` (the browser-notification opt-out), `PDash_sidebarCollapsed` (the sidebar open/collapsed state, see "Page shell"), `PDash_cgCompactHeader` (the cost-grid editor's compact header) and `PDash_portfolioLayout` (the portfolio overview's Card/List choice, see [docs/pages/portfolio.md](docs/pages/portfolio.md)) and `PDash_pipelineYear` (the pipeline year selected on `pipeline.html`, see [docs/pages/pipeline.md](docs/pages/pipeline.md)), plus one `PDash_cgSections:<cgId>` key per proposal (the editor's collapsed cards, see [docs/pages/costgrid.md](docs/pages/costgrid.md)), plus `pdash_test_state_v1` (the Test cases view of `help.html`, see [docs/pages/help.md](docs/pages/help.md); outside `cleanLegacyStorage()`'s `PDash` prefix), all genuinely client-side. `js/core.js`'s `cleanLegacyStorage()` IIFE wipes any other `PDash*` key on every page load — **any new localStorage key must be added to its `keep` Set or it will be silently deleted on the very next navigation**.
 
 - **On page load**: call `cgSyncFromApi()` / `loadConfigFromApi()` / `refreshTimesheetDataFromApi()` to populate in-memory state from the API. Each page load starts fresh — no stale cross-session data.
-- **On user action**: a file migrated to the save contract follows "Save contract" below; only the files in `scripts/save-contract-guard.test.js`'s exempt lists still update in-memory state first and fire the API call in the background (fire-and-forget).
+- **On user action**: a file migrated to the save contract follows "Save contract" below; only the writes in `scripts/save-contract-guard.test.js`'s exempt lists (whole files, or `file: write` entries) still update in-memory state first and fire the API call in the background (fire-and-forget).
 - **`loadConfig()` and `persistConfig()` are no-ops**. `config.projects` is populated exclusively by `loadConfigFromApi()`.
 
 Key sync functions in `api-sync.js`:
@@ -410,11 +410,12 @@ Full detail: [docs/js/lib.md](docs/js/lib.md), [docs/api/lib.md](docs/api/lib.md
 
 ### Save contract
 
-Rules to keep (exempt files: the lists of `scripts/save-contract-guard.test.js`):
+Rules to keep (exempt files and writes: the lists of `scripts/save-contract-guard.test.js`):
 - **Every route that writes a registered entity goes through `versionedWrite`** (`api/src/services/versioned-write.js`): one transaction, the version the client started from, a `change_log` snapshot; a stale or missing version answers `409 { error, code: 'STALE', version }`.
 - **No file under `js/` writes with `fetch`, `apiFetch` or a write method of `Api.*`**: it writes with `apiSave` (`js/lib/save.js`).
 - **An `Api.*` method left without a caller is deleted.**
 - **A `409 STALE` is shown with a Reload action**; after a success the page adopts the server's answer, not its own inputs.
+- **The cost grid editor saves only with Save** (`PUT /api/cost-grids/:id/versions/:vId`, `_cgSaveVersion`): it says whether the draft is saved, asks before leaving unsaved changes and offers to save first before the actions that start from the saved version; `CG_AUTOSAVE_ENABLED` in `js/costgrid.js` is the one switch of the autosave. Detail: [docs/pages/costgrid.md](docs/pages/costgrid.md).
 
 Full detail: [docs/api/services.md](docs/api/services.md), [docs/js/lib.md](docs/js/lib.md) (`save.js`).
 
