@@ -1298,7 +1298,8 @@ burndown/
   .env.example
   .gitattributes          ← pins *.sh to LF line endings regardless of local core.autocrlf
   package.json            ← dev-only vitest + jsdom test toolchain for js/lib/ (never bundled, never served)
-  vitest.config.js
+  vitest.config.js        ← default suite; excludes scripts/site-export/
+  vitest.site-export.config.js ← `npm run test:site-export`: only scripts/site-export/, run by /finish-cycle Gate 1 when the branch touches the export tool
   scripts/
     test-branch.sh        ← isolated Docker Compose stack (up/down/status) for the current branch. Detail: docs/scripts/test-branch.md
     run-tests.sh          ← ephemeral isolated stack for the backend unit tests and the integration-test profile; Gate 1's test command. Detail: docs/scripts/run-tests.md
@@ -1308,7 +1309,8 @@ burndown/
     architecture-guard.test.js ← fails when §5/§6 of this file drift from the code (routes, tables, added columns); its own header names what it deliberately does not check
     claude-md-guard.test.js ← fails when CLAUDE.md regrows past its ceiling or a live docs/ or .claude/ pointer names a section it no longer has; its own header names what it deliberately does not check
     doc-paths-guard.test.js ← fails when a live document cites a repo file path that does not exist and is not in its GONE allowlist; its own header names what it deliberately does not check
-    decision-ledger-guard.test.js ← fails when a Spec or Plan dated 2026-10-12 or later lacks a valid "## Decisioni aperte" section, or a Spec dated 2026-10-14 or later lacks a "**Brief started:**" line (PROCESS.md §6b), or a Plan dated 2026-10-14 or later lacks a "**Branch:**" line or exactly one valid "**Risk class:**" line (PROCESS.md §6.1b), or a Spec dated 2026-10-24 or later — or a Plan from that date whose "**Spec:**" line names no Spec the rule covers — lacks a valid "## Criteri di accettazione" section (PROCESS.md §6b), or a Spec dated 2026-11-17 or later lacks a valid "**Security surface:**" line (PROCESS.md §6b); its own header names what it deliberately does not check
+    decision-ledger-guard.test.js ← fails when a Spec or Plan dated 2026-10-12 or later lacks a valid "## Decisioni aperte" section, or a Spec dated 2026-10-14 or later lacks a "**Brief started:**" line (PROCESS.md §6b), or a Plan dated 2026-10-14 or later lacks a "**Branch:**" line or exactly one valid "**Risk class:**" line (PROCESS.md §6.1b), or a Spec dated 2026-10-24 or later — or a Plan from that date whose "**Spec:**" line names no Spec the rule covers — lacks a valid "## Criteri di accettazione" section (PROCESS.md §6b), or a Spec dated 2026-11-17 or later lacks a valid "**Security surface:**" line (PROCESS.md §6b), or a Plan added after docs/superpowers/plans/2026-11-18-process-speed-2.md has a task without a "**Docs:**" line (CLAUDE.md, "Process override — docs in the tasks"); its own header names what it deliberately does not check
+    cycle-report.mjs      ← `mark <event>` logs /finish-cycle's gate times in a gitignored per-branch log; `render` prints the report's mechanical lines. Detail: docs/scripts/cycle-report.md
     cycle-times.mjs       ← run by hand: prints each closed cycle's timeline (Brief, Spec, Plan, execution, merge, the commit that added the report) from git; usage and matching rules in its own header
     gate5-scope.mjs       ← classifies Gate 5's uncommitted diff (docs-only, docs-and-script-tests, other) for /finish-cycle's test subset and pre-authorised push; pinned by scripts/gate5-scope.test.js, which also guards that no js test outside the subset reads a .md file
     lib/live-docs.mjs     ← the document walk and citation matcher shared by claude-md-guard and doc-paths-guard, so the scanned scope has one definition
