@@ -3,6 +3,8 @@
 //     api/src/services sits inside the arguments of a versionedWrite( call.
 //   * Client: no file under js/ writes with fetch(, apiFetch( or a write method of Api.*; it writes
 //     with apiSave. js/api.js and js/lib/save.js are the two layers that do the writing.
+//   * Save steps (SAVE_STEPS): a write in the body of a listed function counts as inside, and every call
+//     of that function must sit inside a versionedWrite( call.
 //   * Lists: SERVER_EXEMPT ('file: table') and CLIENT_EXEMPT (files) hold what is not migrated yet;
 //     an entry with no violation left fails (the lists only shrink), and RETIRED holds what left them
 //     and may never come back. A write method of Api.* with no caller in js/ fails too.
@@ -16,16 +18,19 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
-import { serverWrites, apiWriteMethods, clientWrites, callSpans, apiUses, reachedMethods } from './lib/save-contract-scan.mjs';
+import { serverWrites, apiWriteMethods, clientWrites, callSpans, functionBodies, apiUses, reachedMethods } from './lib/save-contract-scan.mjs';
 
 const ROOT = join(__dirname, '..');
 
-const REGISTERED_TABLES = ['roles', 'ratecards', 'ratecard_entries', 'programs', 'projects', 'cost_grids', 'cost_grid_versions'];
+const REGISTERED_TABLES = ['roles', 'ratecards', 'ratecard_entries', 'programs', 'projects', 'cost_grids', 'cost_grid_versions',
+  'phases', 'tasks', 'task_roles'];
+
+// Save steps: functions whose writes count as inside versionedWrite(, because every call of them, in any
+// server file, must sit inside the arguments of a versionedWrite( call.
+const SAVE_STEPS = { 'api/src/services/cost-grid-save.js': ['applyHeader', 'applyStructure'] };
 
 const SERVER_EXEMPT = new Set([
   'api/src/routes/config.js: programs',
-  'api/src/routes/cost-grids.js: cost_grid_versions',
-  'api/src/routes/cost-grids.js: cost_grids',
   'api/src/routes/projects.js: projects',
   'api/src/routes/reset.js: cost_grids',
   'api/src/routes/reset.js: programs',
@@ -66,6 +71,8 @@ const RETIRED = [
   'api/src/routes/config.js: roles',
   'api/src/routes/config.js: ratecards',
   'api/src/routes/config.js: ratecard_entries',
+  'api/src/routes/cost-grids.js: cost_grid_versions',
+  'api/src/routes/cost-grids.js: cost_grids',
 ];
 
 const CLIENT_LAYERS = new Set(['js/api.js', 'js/lib/save.js']);
@@ -84,12 +91,23 @@ const rel = f => relative(ROOT, f).split('\\').join('/');
 const sourcesOf = dirs => Object.fromEntries(dirs.flatMap(d => walk(join(ROOT, d))).map(f => [rel(f), readFileSync(f, 'utf8')]));
 
 // The five rules over { path: source } maps; each answers the entries at fault.
-function checkContract({ server, client, apiJs, serverExempt, clientExempt, retired }) {
+function checkContract({ server, client, apiJs, serverExempt, clientExempt, retired, steps = SAVE_STEPS }) {
   const writeMethods = apiWriteMethods(apiJs);
   const serverOutside = new Set();
+  const stepNames = Object.values(steps).flat();
   for (const [file, src] of Object.entries(server)) {
     if (SERVER_EXCLUDED.has(file)) continue;
-    for (const w of serverWrites(src, REGISTERED_TABLES)) if (!w.inside) serverOutside.add(`${file}: ${w.table}`);
+    const bodies = (steps[file] || []).flatMap(name => functionBodies(src, name));
+    for (const w of serverWrites(src, REGISTERED_TABLES)) {
+      if (!w.inside && !bodies.some(([a, b]) => w.index > a && w.index < b)) serverOutside.add(`${file}: ${w.table}`);
+    }
+    const spans = callSpans(src, 'versionedWrite');
+    for (const name of stepNames) {
+      for (const [a] of callSpans(src, name)) {
+        if (/\bfunction\s*$/.test(src.slice(Math.max(0, a - 20), a))) continue;
+        if (!spans.some(([x, y]) => a > x && a < y)) serverOutside.add(`${file}: ${name}() outside versionedWrite(`);
+      }
+    }
   }
   const clientWriting = new Set();
   const called = new Set();
@@ -177,6 +195,11 @@ describe('save-contract scanner', () => {
     expect(reachedMethods(passed, methods).sort()).toEqual(['g.remove', 'g.shares.add']);
     expect(clientWrites('moveClient({ id }, Api.g);', methods).map(w => w.name)).toEqual(['g']);
   });
+  it('functionBodies spans a declaration\'s body, nested and quoted braces included, and skips calls', () => {
+    const src = "applyX(a);\nasync function applyX(c) {\n  if (c) { q('}'); }\n}\nconst z = 1;";
+    const bodies = functionBodies(src, 'applyX');
+    expect(bodies).toEqual([[src.indexOf('{'), src.lastIndexOf('}')]]);
+  });
   it('a parenthesis inside a string or a comment does not close the call', () => {
     const src = "versionedWrite(pool, { note: ')', /* ) */ write: c => c.query('UPDATE roles SET a = 1') });";
     expect(callSpans(src, 'versionedWrite')).toEqual([[0, src.length - 1]]);
@@ -215,6 +238,20 @@ describe('save-contract rules on synthetic sources', () => {
   it('fails on a list entry with no violation left', () => {
     const r = checkContract({ ...base, clientExempt: new Set(['js/pages/a.js', 'js/pages/clean.js']), serverExempt: new Set(['api/src/routes/x.js: roles']) });
     expect(r.staleExempt.sort()).toEqual(['api/src/routes/x.js: roles', 'js/pages/clean.js']);
+  });
+  it('a save step\'s write counts as inside, and a call of a step outside versionedWrite( fails', () => {
+    const steps = { 'api/src/services/s.js': ['applyX'] };
+    const stepSrc = "async function applyX(client) {\n  await client.query('UPDATE roles SET a = 1');\n}\nfunction other() { query('UPDATE roles SET b = 1'); }\n";
+    const inside = checkContract({ ...base, steps, server: {
+      'api/src/services/s.js': stepSrc,
+      'api/src/routes/x.js': "versionedWrite(pool, { write: async c => { await applyX(c); } });",
+    } });
+    expect(inside.serverViolations).toEqual(['api/src/services/s.js: roles']);
+    const outside = checkContract({ ...base, steps, server: {
+      'api/src/services/s.js': "async function applyX(client) {\n  await client.query('UPDATE roles SET a = 1');\n}\n",
+      'api/src/routes/x.js': "await applyX(client);",
+    } });
+    expect(outside.serverViolations).toEqual(['api/src/routes/x.js: applyX() outside versionedWrite(']);
   });
   it('fails on an Api write method with no caller', () => {
     const r = checkContract({ ...base, client: { 'js/api.js': apiJs, 'js/pages/a.js': "fetch('/x', { method: 'PUT' })" } });

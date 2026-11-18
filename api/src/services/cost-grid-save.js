@@ -13,10 +13,10 @@ const { versionedWrite } = require('./versioned-write');
 
 const HEADER_FIELDS = ['label', 'pipeline', 'startDate', 'endDate', 'currency', 'note', 'ratecardId', 'clientId', 'projectName'];
 
-// A refusal answered with 400 { error, code }.
-function ruleError(message, code) {
+// A refusal answered with `status` (400 by default) and { error, code }.
+function ruleError(message, code, status = 400) {
   const err = new Error(message);
-  err.status = 400;
+  err.status = status;
   err.code = code;
   err.isRule = true;
   return err;

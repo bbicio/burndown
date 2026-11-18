@@ -6,6 +6,13 @@ const { withVersionLock, lockVersion } = require('../lib/version-lock');
 
 // A refusal by the project rules: 400 with a code, so a client can tell it from other errors.
 const refuse = (res, error) => res.status(400).json({ error, code: rules.RULE_CODE });
+// Answers a refusal thrown inside a versionedWrite: STALE/404 (respondSaveError) or a ruleError; true when it did.
+function respondWriteError(res, err) {
+  if (respondSaveError(res, err)) return true;
+  if (!err.isRule) return false;
+  res.status(err.status).json(err.code ? { error: err.message, code: err.code } : { error: err.message });
+  return true;
+}
 const { sendShareNotification, sendOwnerReassignedEmail, appLink } = require('../services/email');
 const { DATE_RULE, periodError } = require('../lib/dates');
 const { isAdminRole } = require('../lib/is-admin');
@@ -243,20 +250,25 @@ router.post('/', requireAuth, async (req, res, next) => {
     const { name } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
 
-    const { rows } = await query(
-      `INSERT INTO cost_grids (name, owner_id) VALUES ($1, $2)
-       RETURNING id, name, owner_id, created_at`,
-      [name.trim(), req.user.id]
-    );
-
-    // Register owner in resource_shares
-    await query(
-      `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
-       VALUES ('cost_grid', $1, $2, 'owner', $2)`,
-      [rows[0].id, req.user.id]
-    );
-
-    res.status(201).json(rows[0]);
+    let row;
+    await versionedWrite(pool, {
+      type: 'cost_grid', userId: req.user.id, action: 'create',
+      write: async client => {
+        ({ rows: [row] } = await client.query(
+          `INSERT INTO cost_grids (name, owner_id) VALUES ($1, $2)
+           RETURNING id, name, owner_id, created_at, version`,
+          [name.trim(), req.user.id]
+        ));
+        // Register owner in resource_shares
+        await client.query(
+          `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
+           VALUES ('cost_grid', $1, $2, 'owner', $2)`,
+          [row.id, req.user.id]
+        );
+        return row.id;
+      },
+    });
+    res.status(201).json(row);
   } catch (err) { next(err); }
 });
 
@@ -330,9 +342,15 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
     }
     const delErr = rules.versionRemovalError({ role: await liveRole(req.user.id), hasProjects: await gridHasProjects(req.params.id) });
     if (delErr) return refuse(res, delErr);
-    await query('DELETE FROM cost_grids WHERE id = $1', [req.params.id]);
+    await versionedWrite(pool, {
+      type: 'cost_grid', id: req.params.id, unchecked: true, userId: req.user.id, action: 'delete',
+      write: client => client.query('DELETE FROM cost_grids WHERE id = $1', [req.params.id]),
+    });
     res.json({ ok: true });
-  } catch (err) { next(err); }
+  } catch (err) {
+    if (respondWriteError(res, err)) return;
+    next(err);
+  }
 });
 
 // ── VERSIONS ──────────────────────────────────────────────────────────────────
@@ -406,13 +424,20 @@ router.post('/:id/versions', requireAuth, async (req, res, next) => {
 
     // New versions always start as Draft (published via the /publish endpoint). The Draft carries the pipeline
     // year it was created for, so publishing keeps it; with none, publishing uses the current year.
-    const { rows } = await query(
-      `INSERT INTO cost_grid_versions (cost_grid_id, label, pipeline, start_date, end_date, currency, currency_rate, note, ratecard_id, client_id, project_name, pipeline_year)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
-      [req.params.id, label.trim(), 'Draft', startDate || null, endDate || null,
-       resolvedCurrency, resolvedRate, note || null, ratecardId || null, clientId || null, projectName || '', parsedYear.year]
-    );
-    res.status(201).json(rows[0]);
+    let row;
+    await versionedWrite(pool, {
+      type: 'cost_grid_version', userId: req.user.id, action: 'create',
+      write: async client => {
+        ({ rows: [row] } = await client.query(
+          `INSERT INTO cost_grid_versions (cost_grid_id, label, pipeline, start_date, end_date, currency, currency_rate, note, ratecard_id, client_id, project_name, pipeline_year)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING *`,
+          [req.params.id, label.trim(), 'Draft', startDate || null, endDate || null,
+           resolvedCurrency, resolvedRate, note || null, ratecardId || null, clientId || null, projectName || '', parsedYear.year]
+        ));
+        return row.id;
+      },
+    });
+    res.status(201).json(row);
   } catch (err) { next(err); }
 });
 
@@ -456,8 +481,7 @@ router.put('/:id/versions/:vId', requireAuth, async (req, res, next) => {
     }
     res.json(out.entity);
   } catch (err) {
-    if (respondSaveError(res, err)) return;
-    if (err.isRule) return res.status(400).json({ error: err.message, code: err.code });
+    if (respondWriteError(res, err)) return;
     next(err);
   }
 });
@@ -479,9 +503,15 @@ router.delete('/:id/versions/:vId', requireAuth, async (req, res, next) => {
     const delErr = rules.versionRemovalError({ role: await liveRole(req.user.id), hasProjects: await versionHasProjects(req.params.vId) });
     if (delErr) return refuse(res, delErr);
 
-    await query('DELETE FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
+    await versionedWrite(pool, {
+      type: 'cost_grid_version', id: req.params.vId, unchecked: true, userId: req.user.id, action: 'delete',
+      write: client => client.query('DELETE FROM cost_grid_versions WHERE id = $1', [req.params.vId]),
+    });
     res.json({ ok: true });
-  } catch (err) { next(err); }
+  } catch (err) {
+    if (respondWriteError(res, err)) return;
+    next(err);
+  }
 });
 
 // POST /api/cost-grids/:id/versions/:vId/duplicate
@@ -501,54 +531,50 @@ router.post('/:id/versions/:vId/duplicate', requireAuth, async (req, res, next) 
     if (versionErr) return res.status(400).json({ error: versionErr, code: rules.VERSION_RULE_CODE });
 
     // One transaction: any failure rolls everything back, so no half-copied version is ever left behind.
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      // Full copy of the header, always a Draft: unlocked, no links to generated projects. The pipeline year is
-      // inherited only from a Draft source (the year it was created for); a published source leaves it empty.
-      const newV = await client.query(
-        `INSERT INTO cost_grid_versions
-           (cost_grid_id, label, pipeline, start_date, end_date, currency, currency_rate, note, ratecard_id, client_id, project_name, pipeline_year)
-         VALUES ($1, $2, 'Draft', $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
-        [s.cost_grid_id, label, s.start_date, s.end_date, s.currency, s.currency_rate, s.note, s.ratecard_id, s.client_id, s.project_name,
-         s.pipeline === 'Draft' ? s.pipeline_year : null]
-      );
-      const newVId = newV.rows[0].id;
-
-      // Phases → tasks → task_roles (fresh ids everywhere)
-      const phases = await client.query('SELECT * FROM phases WHERE version_id = $1 ORDER BY sort_order', [req.params.vId]);
-      for (const ph of phases.rows) {
-        const newPh = await client.query(
-          'INSERT INTO phases (version_id, title, sort_order) VALUES ($1, $2, $3) RETURNING id',
-          [newVId, ph.title, ph.sort_order]
+    const out = await versionedWrite(pool, {
+      type: 'cost_grid_version', userId: req.user.id, action: 'create',
+      write: async client => {
+        // Full copy of the header, always a Draft: unlocked, no links to generated projects. The pipeline year is
+        // inherited only from a Draft source (the year it was created for); a published source leaves it empty.
+        const newV = await client.query(
+          `INSERT INTO cost_grid_versions
+             (cost_grid_id, label, pipeline, start_date, end_date, currency, currency_rate, note, ratecard_id, client_id, project_name, pipeline_year)
+           VALUES ($1, $2, 'Draft', $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+          [s.cost_grid_id, label, s.start_date, s.end_date, s.currency, s.currency_rate, s.note, s.ratecard_id, s.client_id, s.project_name,
+           s.pipeline === 'Draft' ? s.pipeline_year : null]
         );
-        const tasks = await client.query('SELECT * FROM tasks WHERE phase_id = $1 ORDER BY sort_order', [ph.id]);
-        for (const tk of tasks.rows) {
-          const newTk = await client.query(
-            'INSERT INTO tasks (phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
-            [newPh.rows[0].id, tk.title, tk.description || '', tk.start_date || '', tk.end_date || '', tk.ptc, tk.sort_order]
-          );
-          await client.query(
-            `INSERT INTO task_roles (task_id, role_id, days, rate_override, months, rate_is_custom)
-             SELECT $1, role_id, days, rate_override, months, rate_is_custom FROM task_roles WHERE task_id = $2`,
-            [newTk.rows[0].id, tk.id]
-          );
-        }
-      }
+        const newVId = newV.rows[0].id;
 
-      await client.query(
-        `INSERT INTO cost_grid_version_tags (version_id, item_id)
-         SELECT $1, item_id FROM cost_grid_version_tags WHERE version_id = $2`,
-        [newVId, req.params.vId]
-      );
-      await client.query('COMMIT');
-      res.status(201).json({ id: newVId });
-    } catch (err) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw err;
-    } finally {
-      client.release();
-    }
+        // Phases → tasks → task_roles (fresh ids everywhere)
+        const phases = await client.query('SELECT * FROM phases WHERE version_id = $1 ORDER BY sort_order', [req.params.vId]);
+        for (const ph of phases.rows) {
+          const newPh = await client.query(
+            'INSERT INTO phases (version_id, title, sort_order) VALUES ($1, $2, $3) RETURNING id',
+            [newVId, ph.title, ph.sort_order]
+          );
+          const tasks = await client.query('SELECT * FROM tasks WHERE phase_id = $1 ORDER BY sort_order', [ph.id]);
+          for (const tk of tasks.rows) {
+            const newTk = await client.query(
+              'INSERT INTO tasks (phase_id, title, description, start_date, end_date, ptc, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id',
+              [newPh.rows[0].id, tk.title, tk.description || '', tk.start_date || '', tk.end_date || '', tk.ptc, tk.sort_order]
+            );
+            await client.query(
+              `INSERT INTO task_roles (task_id, role_id, days, rate_override, months, rate_is_custom)
+               SELECT $1, role_id, days, rate_override, months, rate_is_custom FROM task_roles WHERE task_id = $2`,
+              [newTk.rows[0].id, tk.id]
+            );
+          }
+        }
+
+        await client.query(
+          `INSERT INTO cost_grid_version_tags (version_id, item_id)
+           SELECT $1, item_id FROM cost_grid_version_tags WHERE version_id = $2`,
+          [newVId, req.params.vId]
+        );
+        return newVId;
+      },
+    });
+    res.status(201).json({ id: out.entity.id });
   } catch (err) { next(err); }
 });
 
@@ -558,22 +584,25 @@ router.post('/:id/versions/:vId/publish', requireAuth, async (req, res, next) =>
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { rows } = await query(
-      'SELECT pipeline FROM cost_grid_versions WHERE id = $1 AND cost_grid_id = $2',
-      [req.params.vId, req.params.id]
-    );
-    if (!rows[0]) return res.status(404).json({ error: 'Version not found' });
-    if (rows[0].pipeline !== 'Draft') {
-      return res.status(400).json({ error: 'Only Draft versions can be published' });
-    }
     const currentYear = new Date().getFullYear();
-    const { rows: updated } = await query(
-      `UPDATE cost_grid_versions SET pipeline = 'SIP', pipeline_year = COALESCE(pipeline_year, $1) WHERE id = $2 RETURNING *`,
-      [currentYear, req.params.vId]
-    );
+    const out = await versionedWrite(pool, {
+      type: 'cost_grid_version', id: req.params.vId, unchecked: true, userId: req.user.id, action: 'update',
+      write: async client => {
+        const { pipeline } = (await client.query('SELECT pipeline FROM cost_grid_versions WHERE id = $1', [req.params.vId])).rows[0];
+        if (pipeline !== 'Draft') throw ruleError('Only Draft versions can be published');
+        await client.query(
+          `UPDATE cost_grid_versions SET pipeline = 'SIP', pipeline_year = COALESCE(pipeline_year, $1) WHERE id = $2`,
+          [currentYear, req.params.vId]
+        );
+        await propagateStage(client, req.params.vId, 'SIP', req.user.id);
+      },
+    });
     notifyAdminsPipelineChange(req.params.id, req.params.vId, 'Draft', 'SIP');
-    res.json(updated[0]);
-  } catch (err) { next(err); }
+    res.json(out.entity);
+  } catch (err) {
+    if (respondWriteError(res, err)) return;
+    next(err);
+  }
 });
 
 // ── STRUCTURE ─────────────────────────────────────────────────────────────────
@@ -763,59 +792,52 @@ router.patch('/:id/reassign-owner', requireAuth, async (req, res, next) => {
   const { ownerId } = req.body;
   if (!ownerId) return res.status(400).json({ error: 'ownerId is required' });
 
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
+    let cg, user, linked;
+    await versionedWrite(pool, {
+      type: 'cost_grid', id: cgId, unchecked: true, userId: req.user.id, action: 'update',
+      write: async client => {
+        cg = await client.query('SELECT id, name FROM cost_grids WHERE id = $1', [cgId]);
+        user = await client.query(
+          `SELECT id, email, first_name, last_name FROM users WHERE id = $1 AND status = 'active'`,
+          [ownerId]
+        );
+        if (user.rows.length === 0) throw ruleError('Active user not found', undefined, 404);
 
-    const cg = await client.query('SELECT id, name FROM cost_grids WHERE id = $1', [cgId]);
-    if (cg.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Cost grid not found' });
-    }
+        await client.query('UPDATE cost_grids SET owner_id = $1 WHERE id = $2', [ownerId, cgId]);
 
-    const user = await client.query(
-      `SELECT id, email, first_name, last_name FROM users WHERE id = $1 AND status = 'active'`,
-      [ownerId]
-    );
-    if (user.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Active user not found' });
-    }
+        await client.query(
+          `DELETE FROM resource_shares WHERE resource_type = 'cost_grid' AND resource_id = $1 AND permission = 'owner' AND user_id != $2`,
+          [cgId, ownerId]
+        );
+        await client.query(
+          `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
+           VALUES ('cost_grid', $1, $2, 'owner', $3)
+           ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE SET permission = 'owner', shared_by = $3`,
+          [cgId, ownerId, req.user.id]
+        );
 
-    await client.query('UPDATE cost_grids SET owner_id = $1 WHERE id = $2', [ownerId, cgId]);
-
-    await client.query(
-      `DELETE FROM resource_shares WHERE resource_type = 'cost_grid' AND resource_id = $1 AND permission = 'owner' AND user_id != $2`,
-      [cgId, ownerId]
-    );
-    await client.query(
-      `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
-       VALUES ('cost_grid', $1, $2, 'owner', $3)
-       ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE SET permission = 'owner', shared_by = $3`,
-      [cgId, ownerId, req.user.id]
-    );
-
-    // Every project linked to ANY version of this cost grid — not just the version currently
-    // open in the editor — gets an 'editor' grant for the new owner.
-    const linked = await client.query(
-      `SELECT DISTINCT cvp.project_id, p.name AS project_name
-       FROM cg_version_projects cvp
-       JOIN cost_grid_versions cgv ON cgv.id = cvp.cost_grid_version_id
-       JOIN projects p ON p.id = cvp.project_id
-       WHERE cgv.cost_grid_id = $1`,
-      [cgId]
-    );
-    for (const row of linked.rows) {
-      await client.query(
-        `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
-         VALUES ('project', $1, $2, 'editor', $3)
-         ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE
-         SET permission = 'editor', shared_by = $3 WHERE resource_shares.permission != 'owner'`,
-        [row.project_id, ownerId, req.user.id]
-      );
-    }
-
-    await client.query('COMMIT');
+        // Every project linked to ANY version of this cost grid — not just the version currently
+        // open in the editor — gets an 'editor' grant for the new owner.
+        linked = await client.query(
+          `SELECT DISTINCT cvp.project_id, p.name AS project_name
+           FROM cg_version_projects cvp
+           JOIN cost_grid_versions cgv ON cgv.id = cvp.cost_grid_version_id
+           JOIN projects p ON p.id = cvp.project_id
+           WHERE cgv.cost_grid_id = $1`,
+          [cgId]
+        );
+        for (const row of linked.rows) {
+          await client.query(
+            `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
+             VALUES ('project', $1, $2, 'editor', $3)
+             ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE
+             SET permission = 'editor', shared_by = $3 WHERE resource_shares.permission != 'owner'`,
+            [row.project_id, ownerId, req.user.id]
+          );
+        }
+      },
+    });
 
     const reassigner = await query('SELECT first_name, last_name FROM users WHERE id = $1', [req.user.id]);
     const reassignerName = `${reassigner.rows[0].first_name} ${reassigner.rows[0].last_name}`;
@@ -839,10 +861,8 @@ router.patch('/:id/reassign-owner', requireAuth, async (req, res, next) => {
 
     res.json({ ok: true, cgName: cg.rows[0].name, newOwner: `${user.rows[0].first_name} ${user.rows[0].last_name}` });
   } catch (err) {
-    await client.query('ROLLBACK').catch(() => {});
+    if (respondWriteError(res, err)) return;
     next(err);
-  } finally {
-    client.release();
   }
 });
 
@@ -854,21 +874,26 @@ router.post('/:id/versions/:vId/refresh-rate', requireAuth, async (req, res, nex
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    // Under the version lock, so a concurrent currency PATCH cannot land between the read and the write.
-    const out = await withVersionLock(req.params.vId, async client => {
-      const q = client.query.bind(client);
-      const { rows: ver } = await q('SELECT currency FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
-      if (!ver[0]) return { notFound: true };
-      const currency = ver[0].currency;
-      const rate = versionRate(currency, await currencyRow(currency, q));
-      if (rate.error) return { rateErr: rate.error };
-      await q('UPDATE cost_grid_versions SET currency_rate = $1 WHERE id = $2', [rate.rate, req.params.vId]);
-      return { currency, rate: rate.rate };
+    // Under the row lock and then the version lock (the Save's order), so a concurrent currency change
+    // cannot land between the read and the write.
+    let currency, rate;
+    await versionedWrite(pool, {
+      type: 'cost_grid_version', id: req.params.vId, unchecked: true, userId: req.user.id, action: 'update',
+      write: async client => {
+        await lockVersion(client, req.params.vId);
+        const q = client.query.bind(client);
+        ({ currency } = (await q('SELECT currency FROM cost_grid_versions WHERE id = $1', [req.params.vId])).rows[0]);
+        const r = versionRate(currency, await currencyRow(currency, q));
+        if (r.error) throw ruleError(r.error, CURRENCY_RULE_CODE);
+        rate = r.rate;
+        await q('UPDATE cost_grid_versions SET currency_rate = $1 WHERE id = $2', [rate, req.params.vId]);
+      },
     });
-    if (out.notFound) return res.status(404).json({ error: 'Version not found' });
-    if (out.rateErr) return res.status(400).json({ error: out.rateErr, code: CURRENCY_RULE_CODE });
-    res.json({ currency: out.currency, currency_rate: out.rate });
-  } catch (err) { next(err); }
+    res.json({ currency, currency_rate: rate });
+  } catch (err) {
+    if (respondWriteError(res, err)) return;
+    next(err);
+  }
 });
 
 // ── TAGS ──────────────────────────────────────────────────────────────────────

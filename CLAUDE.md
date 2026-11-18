@@ -315,7 +315,7 @@ Pipeline stage is stored on `costGridVersion.pipeline`. These locations must sta
 
 Valid stages: `SIP`, `Expected`, `Anticipated`, `Committed`, `Canceled`.
 
-`projects.pipeline` (a separate field from `costGridVersion.pipeline`) is written by the server: the cost grid Save (`PUT /api/cost-grids/:id/versions/:vId`) that changes the stage writes it on every linked project in the same transaction (`propagateStage`, `api/src/services/cost-grid-save.js`). `getProjectPipeline(projectId)` (`js/core.js`) resolves the authoritative value for a given project: the linked cost grid version's `pipeline` if `costGridRef` is set, else `config.projects[].pipeline` directly.
+`projects.pipeline` (a separate field from `costGridVersion.pipeline`) is written by the server: the cost grid Save (`PUT /api/cost-grids/:id/versions/:vId`) that changes the stage writes it on every linked project in the same transaction (`propagateStage`, `api/src/services/cost-grid-save.js`), and so does `publish` (`SIP`). `getProjectPipeline(projectId)` (`js/core.js`) resolves the authoritative value for a given project: the linked cost grid version's `pipeline` if `costGridRef` is set, else `config.projects[].pipeline` directly.
 
 Do not confuse pipeline **stage** (`SIP`/`Expected`/.../`Canceled`, this section) with project **status** (`Not started yet`/`Started`/`Started At Risk`/`Put on hold`/`Completed` — a separate field, whose allowed values per pipeline stage are defined by `js/lib/status-rules.js`'s `getStatusRule()`).
 

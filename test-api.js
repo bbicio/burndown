@@ -1429,6 +1429,55 @@ async function testCostGridSave() {
     }
     ok(fiveHundreds === 0, `CS-10 Save with a stage change and a project PATCH fired together → no 500 (${fiveHundreds})`);
   }
+
+  // CS-11..13: the lifecycle routes write through versionedWrite, with no version from the client
+  const g2 = await api('POST', '/api/cost-grids', { name: '__test_cs_life__' }, adminCookie);
+  const cg2 = g2.data?.id;
+  if (cg2) later('POST', `/api/admin/reset/cost-grid/${cg2}`);
+  const created = async (type, id) => (await logRows(type, id)).find(r => r.action === 'create');
+  ok(!!cg2 && (await created('cost_grid', cg2))?.version === 0, 'CS-12 POST /api/cost-grids → change_log cost_grid create/0');
+  const d1 = cg2 ? (await api('POST', `/api/cost-grids/${cg2}/versions`, { label: 'd1' }, adminCookie)).data?.id : null;
+  const d2 = cg2 ? (await api('POST', `/api/cost-grids/${cg2}/versions`, { label: 'd2' }, adminCookie)).data?.id : null;
+  ok(!!d1 && (await created('cost_grid_version', d1))?.version === 0, 'CS-12 POST …/versions → change_log cost_grid_version create/0');
+  const dup = d1 ? await api('POST', `/api/cost-grids/${cg2}/versions/${d1}/duplicate`, { label: 'd3' }, adminCookie) : { data: null };
+  ok(dup.status === 201 && (await created('cost_grid_version', dup.data?.id))?.version === 0, `CS-12 duplicate → change_log create/0 (got ${dup.status})`);
+  if (d2) {
+    const del = await api('DELETE', `/api/cost-grids/${cg2}/versions/${d2}`, null, adminCookie);
+    const delRow = (await logRows('cost_grid_version', d2)).slice(-1)[0];
+    ok(del.status === 200 && delRow?.action === 'delete' && delRow?.version === 1, `CS-12 DELETE a Draft version → change_log delete/1 (got ${del.status}, ${JSON.stringify(delRow && [delRow.action, delRow.version])})`);
+  }
+  const g3 = await api('POST', '/api/cost-grids', { name: '__test_cs_del__' }, adminCookie);
+  if (g3.data?.id) {
+    const delG = await api('DELETE', `/api/cost-grids/${g3.data.id}`, null, adminCookie);
+    const delGRow = (await logRows('cost_grid', g3.data.id)).slice(-1)[0];
+    ok(delG.status === 200 && delGRow?.action === 'delete', `CS-12 DELETE a proposal → change_log cost_grid delete (got ${delG.status})`);
+  }
+
+  // CS-13: refresh-rate and reassign-owner bump the version without asking for one
+  if (d1) {
+    const before = (await api('GET', `/api/cost-grids/${cg2}/versions`, null, adminCookie)).data?.find(v => v.id === d1)?.version;
+    const rr = await api('POST', `/api/cost-grids/${cg2}/versions/${d1}/refresh-rate`, null, adminCookie);
+    const after = (await api('GET', `/api/cost-grids/${cg2}/versions`, null, adminCookie)).data?.find(v => v.id === d1)?.version;
+    ok(rr.status === 200 && after === before + 1, `CS-13 refresh-rate → 200, version +1 (got ${rr.status}, ${before} → ${after})`);
+  }
+  if (cg2 && sysadminCookie) {
+    const sysId = (await api('GET', '/api/auth/me', null, sysadminCookie)).data?.id;
+    const gv = async () => (await sql('SELECT version FROM cost_grids WHERE id = $1', [cg2]))?.[0]?.version;
+    const before = await gv();
+    const ro = await api('PATCH', `/api/cost-grids/${cg2}/reassign-owner`, { ownerId: sysId }, adminCookie);
+    ok(ro.status === 200 && (await gv()) === before + 1, `CS-13 reassign-owner → 200, grid version +1 (got ${ro.status})`);
+  }
+
+  // CS-11: publish bumps the version and logs; a Save from the version before it is stale
+  if (d1) {
+    const pre = (await api('GET', `/api/cost-grids/${cg2}/versions`, null, adminCookie)).data?.find(v => v.id === d1)?.version;
+    const pub = await api('POST', `/api/cost-grids/${cg2}/versions/${d1}/publish`, null, adminCookie);
+    const pubRow = (await logRows('cost_grid_version', d1)).slice(-1)[0];
+    ok(pub.status === 200 && pubRow?.action === 'update' && pubRow?.version === pre + 1 && pubRow?.snapshot?.pipeline === 'SIP',
+      `CS-11 publish → 200, change_log update/${pre + 1} (got ${pub.status}, ${JSON.stringify(pubRow && [pubRow.action, pubRow.version])})`);
+    const late = await save(d1, { version: pre, header: { note: 'late' } }).catch(() => ({}));
+    ok(late.status === 409 && late.data?.code === 'STALE', `CS-11 a Save from the version before publish → 409 STALE (got ${late.status})`);
+  }
 }
 
 // ── Ratecards ─────────────────────────────────────────────────────────────────
