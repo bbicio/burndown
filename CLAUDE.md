@@ -136,7 +136,7 @@ css/                     — stylesheets: tokens.css (design tokens, also `[v-cl
                             tokens" and "Cache-busting" below.
 js/api.js                — Api.* namespace + apiFetch wrapper (401 → login redirect; parsed error body attached
                             as `err.data`). Detail: [docs/js/shared-libs.md](docs/js/shared-libs.md).
-js/api-sync.js           — in-memory ↔ API sync layer (cgSyncFromApi, loadConfigFromApi, _pushProjectToApi, etc.). Full narrative: [docs/js/api-sync.md](docs/js/api-sync.md).
+js/api-sync.js           — in-memory ↔ API sync layer (cgSyncFromApi, loadConfigFromApi, _saveProject, etc.). Full narrative: [docs/js/api-sync.md](docs/js/api-sync.md).
 js/core.js               — state, in-memory helpers (loadConfig/persistConfig are no-ops), shared badges, esc(), fmtH(), showConfirm()/showInfo() modal idioms, findRate(), formatUploadInconsistencies(). Full narrative: [docs/js/core.md](docs/js/core.md).
 js/nav.js                — navigation injection, initNav(): one `<aside class="pd-nav">` (sidebar ≥ 1024px, icon
                             navbar below), the shared modals, the T&C gate, initNotifications(), window.__navUser.
@@ -298,8 +298,9 @@ Key sync functions in `api-sync.js`:
 | `loadPipelineBudgetsFromApi()` | Loads pre-computed budget totals indexed by versionId into `_pbBudgets` |
 | `refreshTimesheetDataFromApi()` | Loads timesheet rows from API into `timesheetData` + `_timesheetProjectData` |
 | `_cgSaveVersion(cgId, verId)` | The cost grid editor's Save: one versioned `PUT` of the changed header and structure, see "Save contract" |
-| `_pushProjectToApi(project)` | Pushes project (all sub-resources) to API; returns `false` only if the core upsert failed; no production caller left |
-| `_pushProjectToApiDetailed(project)` | Same push, returns `{ ok, failed: [{part, error}] }` and never throws; used by `project-config.html`'s `onSave` so a failed save is not reported as success. Empty sections are pushed too; `{ skipEmpty: true }` (opt-in, used only by `js/costgrid.js`'s two callers) skips empty sections so a stale in-memory copy cannot wipe them; `_pushProjectToApi(project, opts)` forwards it |
+| `_saveProject(base, draft)` | `project-config.html`'s Save: one versioned `PUT /api/projects/:id` of the parts that differ from `base`, see "Save contract"; answers `apiSave`'s outcome, with `outcome.project` on success |
+| `_generateProject(cgId, verId, body)` | Generate project: one `POST …/versions/:vId/projects` that creates the project with its tasks, PTC and link |
+| `_addTasksToProject(cgId, verId, projectId, body)` | Add tasks: one `POST …/projects/:projectId/tasks` with the new tasks only |
 
 **Cost grid store** (`_cgStore` Map in `costgrid.js`). `cgLoad/cgSave/cgGetIndex` operate on this Map. Deep-clones on read and write to avoid accidental in-place mutation.
 
@@ -417,6 +418,7 @@ Rules to keep (exempt files and writes: the lists of `scripts/save-contract-guar
 - **No file under `js/` writes with `fetch`, `apiFetch` or a write method of `Api.*`**: it writes with `apiSave` (`js/lib/save.js`).
 - **An `Api.*` method left without a caller is deleted.**
 - **A `409 STALE` is shown with a Reload action**; after a success the page adopts the server's answer, not its own inputs.
+- **project-config saves only with Save** (`PUT /api/projects/:id`, `_saveProject`): the changed parts with the version it started from, all or nothing; a failed Save never creates the project. Detail: [docs/pages/project-config.md](docs/pages/project-config.md).
 - **The cost grid editor saves only with Save** (`PUT /api/cost-grids/:id/versions/:vId`, `_cgSaveVersion`): it says whether the draft is saved, asks before leaving unsaved changes and offers to save first before the actions that start from the saved version; `CG_AUTOSAVE_ENABLED` in `js/costgrid.js` is the one switch of the autosave. Detail: [docs/pages/costgrid.md](docs/pages/costgrid.md).
 
 Full detail: [docs/api/services.md](docs/api/services.md), [docs/js/lib.md](docs/js/lib.md) (`save.js`).

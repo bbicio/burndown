@@ -49,7 +49,7 @@
         </div>
       </div>
     </div>
-    <div v-if="jsonError" class="alert alert-danger alert-sm pc-alert">{{ jsonError }}</div>
+    <div v-if="jsonError" class="alert alert-danger alert-sm pc-alert">{{ jsonError }}<button v-if="saveReloadable" type="button" class="btn btn-outline-secondary btn-sm ms-2" @click="onReload">Reload</button></div>
     <div v-if="isViewer" class="alert alert-info alert-sm pc-alert pc-viewer-banner">
       <span>You have <strong>viewer</strong> access to this project — editing is disabled.</span>
     </div>
@@ -504,7 +504,7 @@
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js" integrity="sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz" crossorigin="anonymous"></script>
 <script defer src="https://unpkg.com/vue@3.5.45/dist/vue.global.prod.js" integrity="sha384-K2FjvpG1y48yCE+7CBPhnKc16ShPmT3dlNwvoA3dhjV18+L5ugI0P8PWPvdjm/Fa" crossorigin="anonymous"></script>
 <script defer src="js/api.js?v=17"></script>
-<script defer src="js/core.js?v=16"></script>
+<script defer src="js/core.js?v=17"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script type="module" src="js/lib/notification-url.js?v=1"></script>
 <script type="module" src="js/lib/money.js?v=6"></script>
@@ -518,11 +518,12 @@
 <script type="module" src="js/lib/dates.js?v=7"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
-<script type="module" src="js/lib/project-push-result.js?v=4"></script>
-<script defer src="js/api-sync.js?v=33"></script>
+<script type="module" src="js/lib/save.js?v=1"></script>
+<script type="module" src="js/lib/project-draft.js?v=1"></script>
+<script defer src="js/api-sync.js?v=34"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script type="module" src="js/lib/icons.js?v=7"></script>
 <script defer src="js/nav.js?v=24"></script>
-<script type="module" src="js/pages/project-config.js?v=1"></script>
+<script type="module" src="js/pages/project-config.js?v=2"></script>
 </body>
 </html>

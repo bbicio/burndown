@@ -416,6 +416,8 @@ The page head has a link back to the portfolio, the project's name with its stag
 <summary>Details</summary>
 
 - If something changed and you close the tab or leave the page, the browser asks you to confirm. Tags, actuals and a new client or program are saved at once and are not part of this.
+- Save keeps everything or nothing: when one part is refused, the reason is shown and nothing of the form is saved.
+- If someone else saved the project after you opened it, Save says so and offers **Reload**, which drops your changes and shows the project as it is now. **Reload** appears too when the server's answer was lost and the change may have been saved.
 - A save that is refused says "Save failed", names what was not saved and gives the reason.
 - Below 1024 pixels the section list becomes a row of tabs, and on a phone one section is shown at a time.
 

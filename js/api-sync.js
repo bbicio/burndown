@@ -4,10 +4,11 @@
 //   • On page load  → call cgSyncFromApi() / loadConfigFromApi() /
 //                     refreshTimesheetDataFromApi() to seed in-memory state
 //                     from the server before rendering.
-//   • On user action → the cost grid editor saves with Save, on the save contract
-//                     (_cgSaveVersion below, js/lib/save.js); the project writes
-//                     below still update in-memory state first and call the API
-//                     in the background, logging their errors.
+//   • On user action → the cost grid editor and project-config save with Save, on
+//                     the save contract (_cgSaveVersion, _saveProject below,
+//                     js/lib/save.js); Generate and Add tasks are one request each
+//                     (_generateProject, _addTasksToProject). Memory adopts the
+//                     server's answer, and only on success.
 
 // ── COST GRIDS ────────────────────────────────────────────────────────────────
 
@@ -233,6 +234,8 @@ function _apiProjectToLocal(p) {
     groups:     p.groups       || [],
     costGridRef:  versionId ? { cgId, versionId } : null,
     my_permission: p.my_permission || 'owner',
+    version:    p.version,
+    links:      Array.isArray(p.links) ? p.links : [],
   };
 }
 
@@ -246,93 +249,32 @@ async function loadConfigFromApi() {
   }
 }
 
-// Upsert a single project and its sub-resources to the API. Never throws: resolves to
-// { ok, failed } where `failed` lists every step that did not reach the server as
-// { part, error } (part: 'project' | 'tasks' | 'phasing' | 'ptc' | 'planning' | 'groups').
-// If the core metadata upsert fails the sub-resources are not attempted. Callers that must not
-// report success on a partial save (project-config.html's onSave) use this one; the others use
-// _pushProjectToApi() below.
-async function _pushProjectToApiDetailed(project, { skipEmpty = false } = {}) {
-  if (!project?.id) return { ok: false, failed: [{ part: 'project', error: 'Missing project id' }] };
-  const { tasks, phasing, planning, ptc, groups, costGridRef, ...meta } = project;
+// The project writes, on the save contract (js/lib/save.js): each answers apiSave's outcome and never throws;
+// with `ok`, outcome.project is the server's project in the config.projects shape. A failed write never
+// creates the project.
 
-  // Carry the cost-grid version link into the API payload
-  if (costGridRef?.versionId) meta.cgVersionId = costGridRef.versionId;
-
-  // Sanitize clientId: the frontend uses sentinel values like '__unassigned__'
-  // which are not valid UUIDs and would cause a PostgreSQL type error.
-  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  if (meta.clientId && !uuidRe.test(meta.clientId)) meta.clientId = null;
-
-  // The project period travels with the tasks (one transaction on the server, PUT /tasks) whenever the
-  // tasks are sent, so the header PATCH must not carry it; without tasks to send the PATCH carries it.
-  // A fallback POST creates the project and always carries the full period.
-  // skipEmpty: costgrid.js callers re-send a whole, possibly stale, in-memory project and never edit these
-  // sections, so for them "empty" means "not touched" and must not overwrite the server's data (2026-09-30).
-  const nonEmpty = v => Array.isArray(v) ? v.length > 0 : v != null && typeof v === 'object' && Object.keys(v).length > 0;
-  const present  = v => Array.isArray(v) || (v != null && typeof v === 'object');
-  const wanted   = v => skipEmpty ? nonEmpty(v) : present(v);
-  const sendTasks = wanted(tasks);
-  const patchMeta = { ...meta };
-  if (sendTasks) { delete patchMeta.startDate; delete patchMeta.endDate; }
-
-  // Upsert core metadata
-  try {
-    await Api.projects.update(project.id, patchMeta);
-  } catch (updateErr) {
-    // A refusal by the project rules (currency lock, link rules) is final: retrying it as a create would only
-    // end in a duplicate-key error that hides the message. Any other failure is treated as "project not there yet".
-    if (updateErr?.data?.code === 'PROJECT_RULE' || updateErr?.data?.code === 'DATE_RULE') {
-      console.warn('[sync] project update refused:', updateErr.message);
-      return { ok: false, failed: [{ part: 'project', error: updateErr.message, code: updateErr.data.code, reason: updateErr.data.error }] };
-    }
-    try { await Api.projects.create({ ...meta, id: project.id }); }
-    catch (e) {
-      console.warn('[sync] project upsert failed:', e.message);
-      return { ok: false, failed: [{ part: 'project', error: e.message, code: e.data?.code, reason: e.data?.error }] };
-    }
-  }
-
-  // Sub-resources: tasks, phasing, PTC, monthly hour planning, functional role groups.
-  // A section is pushed whenever the project object carries it, even when empty: an empty array/object
-  // is how the user clears a section, and skipping it left the old data on the server. Only a section
-  // that is absent (undefined/null) is left alone. config.projects items always carry all five
-  // (_apiProjectToLocal normalises them), so this never wipes a section the page did not load.
-  // Exception: with { skipEmpty: true } (js/costgrid.js) empty sections are not pushed.
-  const failed = [];
-  const steps = [
-    ['tasks',    tasks,    () => Api.projects.saveTasks(project.id, { tasks, period: { startDate: meta.startDate || '', endDate: meta.endDate || '' } })],
-    ['phasing',  phasing,  () => Api.projects.phasing(project.id, phasing)],
-    ['ptc',      ptc,      () => Api.projects.ptc(project.id, ptc)],
-    ['planning', planning, () => Api.projects.planning(project.id, planning)],
-    ['groups',   groups,   () => Api.projects.groups(project.id, groups)],
-  ];
-  for (const [part, value, run] of steps) {
-    if (!wanted(value)) continue;
-    try { await run(); }
-    catch (e) {
-      console.warn(`[sync] ${part} save failed:`, e.message);
-      failed.push({ part, ...(part === 'tasks' ? { withPeriod: true } : {}), error: e.message, code: e.data?.code, reason: e.data?.error });
-    }
-  }
-  return { ok: failed.length === 0, failed };
+// project-config's Save: PUT /api/projects/:id with the version the draft started from and only the parts
+// that differ from `base` (projectSavable of the project as loaded, js/lib/project-draft.js).
+async function _saveProject(base, draft) {
+  const outcome = await window.apiSave('PUT', `/projects/${encodeURIComponent(draft.id)}`,
+    { version: draft.version, ...window.projectChanges(base, draft) });
+  if (outcome.kind === 'ok') outcome.project = _apiProjectToLocal(outcome.data);
+  return outcome;
 }
 
-// Upsert a single project and its sub-resources to the API (fire-and-forget).
-// Returns true once the project's core metadata is confirmed to exist server-side, false if that
-// upsert itself failed (never throws) — sub-resource failures stay best-effort and don't affect
-// this return value (see _pushProjectToApiDetailed() for the full outcome). Callers that need to
-// know whether the project is genuinely safe to link to / navigate to (e.g. cgDoGenerateProject)
-// should check it.
-async function _pushProjectToApi(project, opts) {
-  const { failed } = await _pushProjectToApiDetailed(project, opts);
-  return !failed.some(f => f.part === 'project');
+// Generate project: one request creates the project, its tasks, PTC and link (201 with the project).
+async function _generateProject(cgId, versionId, body) {
+  const outcome = await window.apiSave('POST', `/cost-grids/${cgId}/versions/${versionId}/projects`, body);
+  if (outcome.kind === 'ok') outcome.project = _apiProjectToLocal(outcome.data);
+  return outcome;
 }
 
-// Delete a project from the API (fire-and-forget).
-async function _deleteProjectFromApi(projectId) {
-  try { await Api.projects.delete(projectId); }
-  catch (e) { console.warn('[sync] project delete failed:', e.message); }
+// Add tasks: appends the new tasks only and adds their ids/names to the link.
+async function _addTasksToProject(cgId, versionId, projectId, body) {
+  const outcome = await window.apiSave('POST',
+    `/cost-grids/${cgId}/versions/${versionId}/projects/${encodeURIComponent(projectId)}/tasks`, body);
+  if (outcome.kind === 'ok') outcome.project = _apiProjectToLocal(outcome.data);
+  return outcome;
 }
 
 // ── REPORTING / BUDGET CACHE ─────────────────────────────────────────────────
