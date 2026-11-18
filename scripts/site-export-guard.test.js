@@ -21,7 +21,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const NEVER_INCLUDED = parseRules(
   [
     'docs/', '.claude/', 'scripts/', '**/*.test.js', '**/*.spec.js', 'test-api.js',
-    'vitest.config.js', 'CLAUDE.md', 'PRD.md', '.gitattributes', 'package.json',
+    'vitest.config.js', 'vitest.site-export.config.js', 'CLAUDE.md', 'PRD.md', '.gitattributes', 'package.json',
     'package-lock.json', 'api/nodemon.json', 'api/src/scripts/', 'api/src/trust-device.js',
     'api/src/db/reset-dev.sql',
   ].map((g) => `exclude ${g}`).join('\n'),
