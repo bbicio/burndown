@@ -4,10 +4,10 @@
 //   • On page load  → call cgSyncFromApi() / loadConfigFromApi() /
 //                     refreshTimesheetDataFromApi() to seed in-memory state
 //                     from the server before rendering.
-//   • On user action → update in-memory state immediately (instant UI),
-//                     then fire an async API call in background.
-//
-// All API calls are fire-and-forget: errors are logged but never block the UI.
+//   • On user action → the cost grid editor saves with Save, on the save contract
+//                     (_cgSaveVersion below, js/lib/save.js); the project writes
+//                     below still update in-memory state first and call the API
+//                     in the background, logging their errors.
 
 // ── COST GRIDS ────────────────────────────────────────────────────────────────
 
@@ -34,6 +34,7 @@ function _cgApiVersionToLocal(v) {
     projectName:    v.projectName  || v.project_name  || '',
     ratecardId:     v.ratecardId   || v.ratecard_id   || null,
     clientId:       v.clientId     || v.client_id     || null,
+    version:        Number.isInteger(v.version) ? v.version : undefined,
     linkedProjects: (v.linkedProjects || []).map(lp => ({
       projectId:   lp.projectId   || lp.project_id   || '',
       projectName: lp.projectName || lp.project_name || '',
@@ -138,8 +139,8 @@ async function cgLoadStructureFromApi(cgId, versionId) {
       }
     }
 
+    if (Number.isInteger(struct.version)) ver.version = struct.version;
     cgSave(cg);
-    _cgForgetRuleNotices(versionId);
     return true;
   } catch (e) {
     console.warn('[sync] cgLoadStructureFromApi:', e.message);
@@ -147,109 +148,64 @@ async function cgLoadStructureFromApi(cgId, versionId) {
   }
 }
 
-// Upsert a cost grid + one version to the API. Both already exist on the server (ids are always
-// server-assigned): a failed PATCH is reported, never converted into a POST that would duplicate them.
-// Used by cgAutoSave and version create/duplicate operations.
-// opts.strict = true: a failed upsert throws instead of being logged and swallowed.
-// opts.background = true: the writes never raise the save overlay (autosave).
-// opts.onPatched(): called after a successful PATCH.
-// opts.onServerRate(rate, currency, roles): called after a successful PATCH whose currency_rate differs from the
-// version's; an array it returns replaces the roles of this save's structure.
-// Resolves to true only when every write reached the server; false when one failed (non-strict) or there was
-// nothing to write. A failed name save does not stop the version and its structure from being saved.
-// A refusal is refused again on every autosave, so the user is told once per version, code and message; a
-// successful structure save or a reload of the structure forgets the version's notices.
-// The version period travels with the structure (the server checks tasks and period together); the PATCH carries it
-// only when no structure is loaded. A refused PATCH never stops the structure save and is never retried as a POST.
-const _cgRuleNotified = new Set();
-function _cgForgetRuleNotices(versionId) {
-  for (const k of [..._cgRuleNotified]) if (k.startsWith(`${versionId}|`)) _cgRuleNotified.delete(k);
-}
-async function _cgUpsertVersionToApi(cgId, versionId, opts) {
-  const strict = !!(opts && opts.strict);
-  const bg = { background: !!(opts && opts.background) };
-  let allOk = true;
+// The editor's Save of the open version (save contract cycle 2): one PUT /api/cost-grids/:id/versions/:vId with
+// the version it started from, the header fields that differ from the base and, only when it changed, the
+// structure. On ok the draft adopts the server's version, rate and pipeline year, and every header field it has
+// not edited since the Save was sent; the base becomes what was sent, so an edit made during the Save stays
+// unsaved. On any other outcome the draft stays as it is and the save state says why.
+// Resolves to { kind: 'ok'|'none'|'conflict'|'unknown'|'rule'|'error', message? }; 'none' = nothing to save.
+async function _cgSaveVersion(cgId, versionId) {
+  const HEADER_LOCAL = {
+    label: 'versionLabel', pipeline: 'pipeline', startDate: 'startDate', endDate: 'endDate', currency: 'currency',
+    note: 'note', ratecardId: 'ratecardId', clientId: 'clientId', projectName: 'projectName',
+  };
+  if (_cgActiveCgId !== cgId || _cgActiveVersionId !== versionId || !_cgDraft || !_cgBase) return { kind: 'none' };
+  const draft = _cgDraft;
+  const sent = window.cgSavableState(draft);
+  const header = window.cgChangedHeader(_cgBase, draft);
+  const structureChanged = window.cgStructureChanged(_cgBase, draft);
+  if (!Object.keys(header).length && !structureChanged) { cgRefreshSaveState(); return { kind: 'none' }; }
+
+  const body = { version: draft.version };
+  if (Object.keys(header).length) body.header = header;
+  if (structureChanged) body.structure = sent.structure;
+  _cgSaving = true;
+  cgSetSaveState({ status: 'saving' });
+  const res = await window.apiSave('PUT', `/cost-grids/${cgId}/versions/${versionId}`, body);
+  _cgSaving = false;
+  // Another version may have been opened while the Save was in flight: its base, state and flag stay its own.
+  const stillOpen = _cgDraft === draft;
+  if (res.kind !== 'ok') {
+    if (stillOpen) cgSetSaveState({ status: 'failed', message: res.message, reloadable: res.kind === 'conflict' || res.kind === 'unknown' });
+    return { kind: res.kind, message: res.message };
+  }
+
+  const server = _cgApiVersionToLocal(res.data);
+  const serverHeader = window.cgSavableState(server).header;
+  const now = window.cgSavableState(draft).header;
+  const same = (x, y) => JSON.stringify(x) === JSON.stringify(y);
+  for (const [k, local] of Object.entries(HEADER_LOCAL)) {
+    if (same(now[k], sent.header[k]) && !same(serverHeader[k], sent.header[k])) draft[local] = server[local];
+  }
+  draft.version = server.version;
+  draft.pipelineYear = server.pipelineYear;
   const cg = cgLoad(cgId);
-  if (!cg) return false;
-  const ver = cg.versions.find(v => v.versionId === versionId);
-  if (!ver) return false;
-
-  // One notice per version, code and message for a refusal that will repeat on every autosave.
-  const notifyRefusal = (e, fromStructure) => {
-    const key = `${versionId}|${e.data.code}|${e.data.error}`;
-    if (_cgRuleNotified.has(key) || typeof showInfo !== 'function') return;
-    _cgRuleNotified.add(key);
-    const msg = String(e.data.error || '');
-    const text = `${/[.!?]$/.test(msg) ? msg : msg + '.'}`;
-    // A refused PATCH is atomic (nothing of the version is saved); a refused structure keeps the other changes.
-    const tail = e.data.code === 'STRUCTURE_RULE'
-      ? ' Your changes to this version are not being saved: reload the page to see its current structure.'
-      : (fromStructure ? ' Tasks and the period of this version are not saved until this is fixed; other changes are saved.'
-                       : ' Your changes to this version are not being saved until this is fixed.');
-    showInfo(text + tail, '⚠️ Changes not saved');
-  };
-
-  // Upsert the grid itself (name)
-  try {
-    await Api.costGrids.update(cgId, { name: cg.name }, bg);
-  } catch (e) { console.warn('[sync] grid upsert failed:', e.message); if (strict) throw e; allOk = false; }
-
-  // Upsert the version metadata
-  const { phases, roles: verRoles, ...meta } = ver;
-  let roles = verRoles;
-  const serverMeta = {
-    label:          meta.versionLabel,
-    pipeline:       meta.pipeline    || null,
-    startDate:      meta.startDate   || null,
-    endDate:        meta.endDate     || null,
-    currency:       meta.currency || 'EUR',
-    note:           meta.note        || '',
-    status:         meta.status      || 'draft',
-    projectName:    meta.projectName || '',
-    linkedProjects: meta.linkedProjects || [],
-    ratecardId:     meta.ratecardId  || null,
-    clientId: (meta.clientId && meta.clientId !== '__unassigned__') ? meta.clientId : null,
-  };
-  // Save phase/task/role structure only if it was explicitly loaded this session.
-  // If phases is empty here, the structure was never loaded — don't wipe existing DB data.
-  const hasStructure = !!(phases && phases.length > 0);
-  let patchBody = serverMeta;
-  if (hasStructure) { patchBody = { ...serverMeta }; delete patchBody.startDate; delete patchBody.endDate; }
-  let serverRate = NaN, serverCurrency, patched = false;
-  try {
-    const resp = await Api.costGrids.versions.update(cgId, versionId, patchBody, bg);
-    patched = true;
-    serverRate = parseFloat(resp?.currency_rate);
-    serverCurrency = resp?.currency;
-  } catch (e) {
-    console.warn('[sync] version upsert failed:', e.message);
-    if (strict) throw e;
-    allOk = false;
-    if (e.data?.code === 'DATE_RULE' || e.data?.code === 'CURRENCY_RULE') notifyRefusal(e, false);
+  if (cg) {
+    const idx = cg.versions.findIndex(v => v.versionId === versionId);
+    if (idx >= 0) cg.versions[idx] = draft;
+    cgSave(cg);
   }
-  if (patched && opts && typeof opts.onPatched === 'function') opts.onPatched();
-  if (opts && typeof opts.onServerRate === 'function' && Number.isFinite(serverRate)
-      && serverRate !== (parseFloat(meta.currencyRate) || 1)) {
-    const synced = opts.onServerRate(serverRate, serverCurrency, roles || []);
-    if (Array.isArray(synced)) roles = synced;
-  }
+  if (!stillOpen) return { kind: 'ok' };
 
-  if (hasStructure) {
-    try {
-      await Api.costGrids.versions.saveStructure(cgId, versionId, {
-        phases,
-        roles: roles || [],
-        period: { startDate: meta.startDate || '', endDate: meta.endDate || '' },
-      }, bg);
-      _cgForgetRuleNotices(versionId);
-    } catch (e) {
-      console.warn('[sync] structure save failed:', e.message);
-      if (strict) throw e;
-      allOk = false;
-      if (e.data?.code === 'STRUCTURE_RULE' || e.data?.code === 'DATE_RULE' || e.data?.code === 'MONEY_RULE') notifyRefusal(e, true);
-    }
+  _cgBase = { header: serverHeader, structure: sent.structure };
+  const afterCurrencyChange = _cgCurrencyChangePending.delete(versionId);
+  const serverRate = parseFloat(res.data?.currency_rate);
+  if (Number.isFinite(serverRate) && serverRate !== (parseFloat(draft.currencyRate) || 1)) {
+    cgAdoptServerRate(cgId, versionId, serverRate, afterCurrencyChange, server.currency, sent.structure.roles);
   }
-  return allOk;
+  if (header.pipeline !== undefined) cgPropagatePipelineToProjects();
+  cgRefreshSaveState();
+  return { kind: 'ok' };
 }
 
 // ── PROJECTS / CONFIG ─────────────────────────────────────────────────────────

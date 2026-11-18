@@ -13,8 +13,7 @@ function stubs() {
   const Api = { costGrids: {
     create: async () => ({ id: 'cg-new' }),
     versions: {
-      create: async (cgId, body) => { calls.create.push(body); return { id: 'v-new', currency_rate: '1' }; },
-      saveStructure: async () => ({}),
+      create: async (cgId, body) => { calls.create.push(body); return { id: 'v-new', currency_rate: '1', version: 0 }; },
     },
   } };
   return { calls, Api, deps: {
@@ -40,7 +39,7 @@ function stubs() {
 
 function build(head, deps, flag) {
   const names = Object.keys(deps);
-  const win = { location: { href: 'http://x/pipeline.html' }, history: { replaceState() {} } };
+  const win = { location: { href: 'http://x/pipeline.html' }, history: { replaceState() {} }, apiSave: async () => ({ kind: 'ok', data: { version: 1 } }) };
   const fn = new Function(...names, 'window', `let ${flag} = false; return ${extractBlock(src, head)}`);
   return fn(...names.map(n => deps[n]), win);
 }

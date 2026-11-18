@@ -295,7 +295,7 @@ Key sync functions in `api-sync.js`:
 | `loadConfigFromApi()` | Loads all projects from API into `config.projects` |
 | `loadPipelineBudgetsFromApi()` | Loads pre-computed budget totals indexed by versionId into `_pbBudgets` |
 | `refreshTimesheetDataFromApi()` | Loads timesheet rows from API into `timesheetData` + `_timesheetProjectData` |
-| `_cgUpsertVersionToApi(cgId, verId)` | Write-through: pushes cost grid version to API |
+| `_cgSaveVersion(cgId, verId)` | The cost grid editor's Save: one versioned `PUT` of the changed header and structure, see "Save contract" |
 | `_pushProjectToApi(project)` | Pushes project (all sub-resources) to API; returns `false` only if the core upsert failed; no production caller left |
 | `_pushProjectToApiDetailed(project)` | Same push, returns `{ ok, failed: [{part, error}] }` and never throws; used by `project-config.html`'s `onSave` so a failed save is not reported as success. Empty sections are pushed too; `{ skipEmpty: true }` (opt-in, used only by `js/costgrid.js`'s two callers) skips empty sections so a stale in-memory copy cannot wipe them; `_pushProjectToApi(project, opts)` forwards it |
 

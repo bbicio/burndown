@@ -54,7 +54,7 @@ Loaded via `<script type="module">` on every page that can render version lock s
 
 `resolveRoleRate(...)` — 3-tier rate resolution: ratecard per-currency override → role per-currency override → EUR baseline × the caller's `currencyRate` (the version's own rate; only `cgPreviewRateChange` passes the target currency's live rate); deduplicates logic previously repeated inline three times. Called from both the Vue role-selector/rate-cell code in `costgrid.html` and from `js/costgrid.js`'s `cgSyncRoleRatesToBaseline`/`cgPreviewRateChange` — see `docs/js/costgrid.md`.
 
-`stripCloneTaskIds(phases)` — strips `taskId`/`phaseId` before a cloned structure is POSTed to `saveStructure()` for a new version — fixes a `duplicate key value violates unique constraint "tasks_pkey"` error: the backend reuses a supplied `taskId` as the new row's PK, correct for a same-version re-save but wrong for Clone, since the source version's tasks still exist in the DB under those exact IDs. Used by `js/costgrid.js`'s `cgCloneGrid()` — see `docs/js/costgrid.md`.
+`stripCloneTaskIds(phases)` — strips `taskId`/`phaseId` before a cloned structure is sent to the Save route of a new version — fixes a `duplicate key value violates unique constraint "tasks_pkey"` error: the backend reuses a supplied `taskId` as the new row's PK, correct for a same-version re-save but wrong for Clone, since the source version's tasks still exist in the DB under those exact IDs. Used by `js/costgrid.js`'s `cgCloneGrid()` — see `docs/js/costgrid.md`.
 
 ## portfolio-calc.js
 

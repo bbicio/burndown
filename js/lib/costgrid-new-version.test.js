@@ -48,10 +48,10 @@ describe('cgCreateNewVersionDirect (no-modal full copy of the version)', () => {
     window.__pdashAuthRedirecting = false;
   });
 
-  it('computes the default label from the current version count, flushes the autosave, then calls the server duplicate, never re-sending the structure', async () => {
+  it('computes the default label from the current version count, then calls the server duplicate without saving the draft, never re-sending the structure', async () => {
     const { fn, stubs } = build();
     await fn();
-    expect(stubs.cgAutoSave).toHaveBeenCalledTimes(1);
+    expect(stubs.cgAutoSave).not.toHaveBeenCalled();
     expect(api.duplicate).toHaveBeenCalledWith('cg1', 'v1', { label: 'v2' });
     expect(api.create).not.toHaveBeenCalled();
     expect(api.saveStructure).not.toHaveBeenCalled();
@@ -65,6 +65,7 @@ describe('cgCreateNewVersionDirect (no-modal full copy of the version)', () => {
     expect(added.versionLabel).toBe('v2');
     expect(added.pipeline).toBe('Draft');
     expect(added.phases).toEqual([]);
+    expect(added.version).toBe(0);
     expect(added.currency).toBe('CHF');
     expect(stubs.cgLoadStructureFromApi).toHaveBeenCalledWith('cg1', 'v2id');
     expect(opened).toEqual([['cg1', 'v2id']]);
@@ -81,14 +82,8 @@ describe('cgCreateNewVersionDirect (no-modal full copy of the version)', () => {
     expect(opened).toHaveLength(0);
   });
 
-  it('flushes in strict mode and, if the flush fails, shows the error via showInfo and does not copy stale server data', async () => {
-    const { fn, stubs } = build();
-    stubs.cgAutoSave.mockRejectedValueOnce(new Error('save down'));
-    await fn();
-    expect(stubs.cgAutoSave).toHaveBeenCalledWith(true);
-    expect(api.duplicate).not.toHaveBeenCalled();
-    expect(shownInfo.some(a => String(a[0]).includes('save down'))).toBe(true);
-    expect(opened).toHaveLength(0);
+  it('never saves the draft itself: the copy is of the saved version (Save first? asks before, see cgConfirmSaveFirst)', () => {
+    expect(extractBlock(js, 'async function cgCreateNewVersionDirect(')).not.toMatch(/cgAutoSave|_cgSaveVersion|apiSave/);
   });
 
   it('a fast repeat call is ignored while one is already in flight', async () => {

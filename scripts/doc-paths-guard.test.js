@@ -45,6 +45,7 @@ import { ROOT, liveMarkdown, citedPaths, unresolved } from './lib/live-docs.mjs'
 // never existed. Each entry is a decision somebody took on purpose -- adding
 // one is how you record "this file is gone and its mentions are historical".
 const GONE = new Map([
+  ['js/lib/api-sync-upsert.test.js', 'replaced by js/lib/api-sync-save.test.js in save contract cycle 2 (2026-11-18); only historical mentions remain'],
   ['js/config-form.js',          'deleted 2d4446f (2026-07-27); only historical mentions remain'],
   ['js/dashboard.js',            'deleted 2d4446f (2026-07-27); only historical mentions remain'],
   ['js/main.js',                 'deleted 2d4446f (2026-07-27)'],
@@ -91,7 +92,7 @@ describe('unresolved', () => {
   // the repo-wide assertion then goes green on an empty list and the floors,
   // which only count citations, cannot notice. The guard would be dead and
   // the suite green. (Under-filtering, e.g. inverting the GONE test, is loud:
-  // all 10 allowlisted paths reappear and the assertion fails.)
+  // all the allowlisted paths reappear and the assertion fails.)
   const cited = new Map([['js/nope.js', ['a.md', 'b.md']], ['js/real.js', ['a.md']]]);
   const exists = p => p === 'js/real.js';
 

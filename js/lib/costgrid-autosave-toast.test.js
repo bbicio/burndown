@@ -2,120 +2,86 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { extractBlock } from '../../scripts/lib/extract-source.mjs';
 
-// B-088: cgAutoSave reports whether every write reached the server, and the "saved" toast of the debounced
-// autosave appears only then. js/costgrid.js is a classic script, so both functions are cut out and run against stubs.
+// The autosave stays behind CG_AUTOSAVE_ENABLED (save contract cycle 2): cgAutoSave is the Save of the open
+// version, and with the switch on the "saved" toast of the debounced autosave appears only when that Save went
+// through. js/costgrid.js is a classic script, so the functions are cut out and run against stubs.
 const js = readFileSync('js/costgrid.js', 'utf8');
 
 afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks(); });
 
-function buildAutoSave({ upsert, active = true, cgExists = true } = {}) {
-  const cg = { id: 'cg1', versions: [{ versionId: 'v1' }] };
-  const stubs = {
-    _cgActiveCgId: active ? 'cg1' : null,
-    _cgActiveVersionId: active ? 'v1' : null,
-    _cgDraft: active ? { versionId: 'v1' } : null,
-    cgSyncHeaderFromForm: () => {},
-    cgLoad: () => (cgExists ? cg : null),
-    cgSave: () => {},
-    _cgUpsertVersionToApi: upsert,
-    _cgCurrencyChangePending: new Set(),
-  };
-  const names = Object.keys(stubs);
-  return new Function(...names, `${extractBlock(js, 'function cgAutoSave(')}; return cgAutoSave;`)(...names.map(n => stubs[n]));
-}
-
-describe('cgAutoSave — background flag', () => {
-  const bgOf = async (call) => { const upsert = vi.fn(async () => true); await call(buildAutoSave({ upsert })); return upsert.mock.calls[0][2].background; };
-  it('a default cgAutoSave() upserts with background: true', async () => {
-    expect(await bgOf(f => f())).toBe(true);
-  });
-  it('cgAutoSave(true) upserts without background', async () => {
-    expect(await bgOf(f => f(true))).toBe(false);
-  });
-  it('cgAutoSave(false, { background: false }) upserts without background', async () => {
-    expect(await bgOf(f => f(false, { background: false }))).toBe(false);
-  });
-  it('cgSaveVersion and cgPublishDraft call cgAutoSave with background: false', () => {
-    expect(extractBlock(js, 'async function cgSaveVersion(')).toContain('cgAutoSave(false, { background: false })');
-    expect(extractBlock(js, 'async function cgPublishDraft(')).toContain('cgAutoSave(false, { background: false })');
+describe('CG_AUTOSAVE_ENABLED', () => {
+  it('is off: the only switch of the autosave', () => {
+    expect(js.match(/const CG_AUTOSAVE_ENABLED = (true|false);/g)).toEqual(['const CG_AUTOSAVE_ENABLED = false;']);
   });
 });
 
-describe('cgAutoSave — outcome', () => {
-  it('resolves true when the upsert reports success', async () => {
-    expect(await buildAutoSave({ upsert: vi.fn(async () => true) })()).toBe(true);
+describe('cgAutoSave', () => {
+  function build({ active = true, outcome = { kind: 'ok' } } = {}) {
+    const save = vi.fn(async () => outcome);
+    const stubs = {
+      _cgActiveCgId: active ? 'cg1' : null,
+      _cgActiveVersionId: active ? 'v1' : null,
+      _cgDraft: active ? { versionId: 'v1' } : null,
+      _cgSaveVersion: save,
+    };
+    const names = Object.keys(stubs);
+    const fn = new Function(...names, `${extractBlock(js, 'function cgAutoSave(')}; return cgAutoSave;`)(...names.map(n => stubs[n]));
+    return { fn, save };
+  }
+
+  it('is the Save of the open version and resolves to its outcome', async () => {
+    const { fn, save } = build({ outcome: { kind: 'rule', message: 'm' } });
+    expect(await fn()).toEqual({ kind: 'rule', message: 'm' });
+    expect(save).toHaveBeenCalledWith('cg1', 'v1');
   });
 
-  it('resolves false when the upsert reports a failed write', async () => {
-    expect(await buildAutoSave({ upsert: vi.fn(async () => false) })()).toBe(false);
-  });
-
-  it('resolves false, and logs, when the upsert throws and the save is not strict', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    expect(await buildAutoSave({ upsert: vi.fn(async () => { throw new Error('boom'); }) })()).toBe(false);
-    expect(warn).toHaveBeenCalled();
-  });
-
-  it('rejects when the upsert throws and the save is strict', async () => {
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
-    await expect(buildAutoSave({ upsert: vi.fn(async () => { throw new Error('boom'); }) })(true)).rejects.toThrow('boom');
-  });
-
-  it('resolves false when there is nothing to save (no active version, or no grid)', async () => {
-    const upsert = vi.fn(async () => true);
-    expect(await buildAutoSave({ upsert, active: false })()).toBe(false);
-    expect(await buildAutoSave({ upsert, cgExists: false })()).toBe(false);
-    expect(upsert).not.toHaveBeenCalled();
+  it('resolves none when no version is open', async () => {
+    const { fn, save } = build({ active: false });
+    expect(await fn()).toEqual({ kind: 'none' });
+    expect(save).not.toHaveBeenCalled();
   });
 });
 
-describe('cgScheduleAutoSave — toast', () => {
-  function build(outcome) {
+describe('cgScheduleAutoSave', () => {
+  function build(outcome, enabled) {
     const show = vi.fn();
     const toastEl = {};
     const stubs = {
       _cgAutoSaveTimer: null,
       cgAutoSave: vi.fn(() => Promise.resolve(outcome)),
+      cgRefreshSaveState: vi.fn(),
       document: { getElementById: id => (id === 'cgAutoSaveToast' ? toastEl : null) },
       bootstrap: { Toast: { getOrCreateInstance: () => ({ show }) } },
     };
     const names = Object.keys(stubs);
-    const fn = new Function(...names, `${extractBlock(js, 'function cgScheduleAutoSave(')}; return cgScheduleAutoSave;`)(...names.map(n => stubs[n]));
-    return { fn, show, cgAutoSave: stubs.cgAutoSave };
+    const fn = new Function(...names, `const CG_AUTOSAVE_ENABLED = ${enabled}; ${extractBlock(js, 'function cgScheduleAutoSave(')}; return cgScheduleAutoSave;`)(...names.map(n => stubs[n]));
+    return { fn, show, ...stubs };
   }
 
-  it('shows the toast when the save succeeded', async () => {
+  it('switched off, only refreshes the save state', async () => {
     vi.useFakeTimers();
-    const { fn, show, cgAutoSave } = build(true);
+    const { fn, cgAutoSave, cgRefreshSaveState } = build({ kind: 'ok' }, false);
+    fn();
+    await vi.advanceTimersByTimeAsync(3000);
+    expect(cgRefreshSaveState).toHaveBeenCalledTimes(1);
+    expect(cgAutoSave).not.toHaveBeenCalled();
+  });
+
+  it('switched on, shows the toast when the save succeeded', async () => {
+    vi.useFakeTimers();
+    const { fn, show, cgAutoSave } = build({ kind: 'ok' }, true);
     fn();
     await vi.advanceTimersByTimeAsync(2000);
     expect(cgAutoSave).toHaveBeenCalledTimes(1);
     expect(show).toHaveBeenCalledTimes(1);
   });
 
-  it('does not show the toast when a write failed', async () => {
+  it('switched on, does not show the toast when the save failed', async () => {
     vi.useFakeTimers();
-    const { fn, show, cgAutoSave } = build(false);
+    const { fn, show, cgAutoSave } = build({ kind: 'unknown', message: 'x' }, true);
     fn();
     await vi.advanceTimersByTimeAsync(2000);
     expect(cgAutoSave).toHaveBeenCalledTimes(1);
     expect(show).not.toHaveBeenCalled();
-  });
-});
-
-describe('cgSaveVersion — button label', () => {
-  function run(outcome) {
-    document.body.innerHTML = '<button id="btnCgSave"><i></i> Save</button>';
-    const cgAutoSave = vi.fn(() => Promise.resolve(outcome));
-    const fn = new Function('cgAutoSave', `${extractBlock(js, 'async function cgSaveVersion(')}; return cgSaveVersion;`)(cgAutoSave);
-    return fn().then(() => document.getElementById('btnCgSave').textContent.trim());
-  }
-
-  it('says "✓ Saved" when every write reached the server', async () => {
-    expect(await run(true)).toBe('✓ Saved');
-  });
-
-  it('says "⚠ Not saved" when a write failed', async () => {
-    expect(await run(false)).toBe('⚠ Not saved');
   });
 });
