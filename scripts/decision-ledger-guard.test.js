@@ -82,10 +82,12 @@
 // forward, because that would exempt this cycle's own spec and plan -- the two
 // files the guard most needs to cover. Any later addition to EXEMPT means the
 // guard is being worked around, not configured.
-import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { describe, it, expect, afterAll } from 'vitest';
+import { readFileSync, readdirSync, existsSync, mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { execFileSync } from 'node:child_process';
+import { tmpdir } from 'node:os';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const DIRS = ['docs/superpowers/specs', 'docs/superpowers/plans'];
@@ -686,5 +688,106 @@ describe('live specs and plans: acceptance criteria', () => {
     }
     expect(failures, `these files have no usable "## Criteri di accettazione" section, entries
       "N. **<label>** — <verifiable outcome>" (PROCESS.md 6b):\n  ${failures.join('\n  ')}`).toEqual([]);
+  });
+});
+
+// SIXTH RULE (2026-11-18, process-speed-2): every task of a plan carries a `**Docs:**` line -- the
+// documents the task updates in the same commit, or `none — <reason>` (CLAUDE.md, "Process override
+// — docs in the tasks"). It applies from the cycle after the one that added DOCS_ANCHOR: to every
+// plan added by a commit that is not an ancestor of the anchor's adding commit, and to plans not yet
+// committed. The anchor and every earlier plan are exempt. Form only: whether the list is right is
+// not judged. Without git, or without the anchor in its history (a shallow clone), the rule fails
+// with a message instead of passing.
+const DOCS_ANCHOR = 'docs/superpowers/plans/2026-11-18-process-speed-2.md';
+const PLANS_DIR = 'docs/superpowers/plans';
+
+const gitIn = (root, ...args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8' }).trim();
+const directPlan = (rel) => rel.startsWith(`${PLANS_DIR}/`) && !rel.slice(PLANS_DIR.length + 1).includes('/')
+  && rel.endsWith('.md') && !rel.endsWith('-brief.md');
+
+/** @returns {Set<string>} the plans the Docs rule applies to in the repository at `root`. */
+function docsScope(root, anchor = DOCS_ANCHOR) {
+  const added = gitIn(root, 'log', '--diff-filter=A', '--format=%H', '--', anchor).split('\n').filter(Boolean);
+  if (!added.length) throw new Error(`Docs rule: the anchor ${anchor} is not in this repository's git history`);
+  const anchorCommit = added[added.length - 1];
+  const later = gitIn(root, 'log', '--diff-filter=A', '--name-only', '--format=', `${anchorCommit}..HEAD`, '--', PLANS_DIR)
+    .split('\n').map((l) => l.trim()).filter(Boolean);
+  const untracked = gitIn(root, 'ls-files', '--others', '--exclude-standard', '--', PLANS_DIR)
+    .split('\n').map((l) => l.trim()).filter(Boolean);
+  return new Set([...later, ...untracked].filter((rel) => directPlan(rel) && rel !== anchor));
+}
+
+/** @returns {string[]} the `### Task` headings with no `**Docs:**` line in their section. */
+function checkDocsLines(markdown) {
+  const lines = liveLines(markdown);
+  const missing = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!/^### Task\b/.test(lines[i])) continue;
+    let j = i + 1;
+    let found = false;
+    for (; j < lines.length && !/^#{2,3} /.test(lines[j]); j++) if (/^\*\*Docs:\*\*/.test(lines[j])) found = true;
+    if (!found) missing.push(lines[i].trim());
+    i = j - 1;
+  }
+  return missing;
+}
+
+describe('checkDocsLines', () => {
+  it('lists a task with no Docs line and accepts a list or none — reason', () => {
+    const md = '### Task 1: a\n**Docs:** `CLAUDE.md`\n- [ ] x\n\n### Task 2: b\n- [ ] y\n\n### Task 3: c\n**Docs:** none — process text only\n';
+    expect(checkDocsLines(md)).toEqual(['### Task 2: b']);
+  });
+  it('does not count a Docs line inside a code fence, and stops a task at the next ## heading', () => {
+    const md = '### Task 1: a\n```\n**Docs:** x\n```\n\n## Decisioni aperte\n**Docs:** y\n';
+    expect(checkDocsLines(md)).toEqual(['### Task 1: a']);
+  });
+  it('parses CRLF like LF', () => {
+    expect(checkDocsLines('### Task 1: a\r\n**Docs:** none — x\r\n')).toEqual([]);
+  });
+});
+
+describe('docsScope', () => {
+  const made = [];
+  afterAll(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+  const repo = () => {
+    const d = realpathSync.native(mkdtempSync(join(tmpdir(), 'docs-scope-')));
+    made.push(d);
+    gitIn(d, 'init', '-q', '-b', 'main');
+    gitIn(d, 'config', 'user.name', 'T');
+    gitIn(d, 'config', 'user.email', 't@example.invalid');
+    mkdirSync(join(d, PLANS_DIR), { recursive: true });
+    return d;
+  };
+  const commit = (d, rel, msg) => { writeFileSync(join(d, rel), '# p\n'); gitIn(d, 'add', '-A'); gitIn(d, 'commit', '-q', '-m', msg); };
+
+  it('covers plans added after the anchor and uncommitted ones; exempts the anchor and earlier plans', () => {
+    const d = repo();
+    const anchor = `${PLANS_DIR}/anchor.md`;
+    commit(d, `${PLANS_DIR}/old.md`, 'old');
+    commit(d, anchor, 'anchor');
+    commit(d, `${PLANS_DIR}/new.md`, 'new');
+    writeFileSync(join(d, PLANS_DIR, 'draft.md'), '# p\n');
+    writeFileSync(join(d, PLANS_DIR, 'x-brief.md'), '# b\n');
+    expect([...docsScope(d, anchor)].sort()).toEqual([`${PLANS_DIR}/draft.md`, `${PLANS_DIR}/new.md`]);
+  }, 60000);
+
+  it('fails with a message when the anchor is not in the history', () => {
+    const d = repo();
+    commit(d, `${PLANS_DIR}/old.md`, 'old');
+    expect(() => docsScope(d, `${PLANS_DIR}/anchor.md`)).toThrow(/anchor .* is not in this repository's git history/);
+  }, 60000);
+});
+
+describe('live plans: Docs lines', () => {
+  it('every plan after the anchor carries a Docs line in each task', () => {
+    const failures = [];
+    for (const rel of docsScope(ROOT)) {
+      const abs = join(ROOT, rel);
+      if (!existsSync(abs)) continue;
+      for (const task of checkDocsLines(readFileSync(abs, 'utf8'))) failures.push(`${rel} -- ${task}`);
+    }
+    expect(failures, `these plan tasks have no "**Docs:**" line -- list the documents the task updates in
+      the same commit, or write "**Docs:** none — <reason>" (CLAUDE.md, "Process override — docs in the tasks"):\n  ${failures.join('\n  ')}`)
+      .toEqual([]);
   });
 });

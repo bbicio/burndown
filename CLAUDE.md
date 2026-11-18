@@ -10,6 +10,8 @@ For the development workflow (new feature / evolution / audit-fix), see [docs/su
 
 **Process override — execution worktree:** create a plan's execution worktree as `PROCESS.md` §6.1b says, not with the native `EnterWorktree` tool that `superpowers:using-git-worktrees` prefers.
 
+**Process override — docs in the tasks:** for `superpowers:writing-plans`, every task of a plan carries a `**Docs:**` line listing the documents that describe what the task changes (`CLAUDE.md`, `docs/`, `handbook/restricted/ARCHITECTURE.md`, `PRD.md`/`docs/prd/`, `handbook/public/manual.md`, `handbook/restricted/TEST_CASES.md`), or `none — <reason>`; the task updates them in the same commit. `scripts/decision-ledger-guard.test.js` pins the line.
+
 **Process override — final review and fix pass:** for `superpowers:executing-plans` and `superpowers:subagent-driven-development`, the whole-branch final review is the one `PROCESS.md` §6.4 describes, and after its fix pass only the test files covering the touched files run — the full suite is Gate 1's (`PROCESS.md` §6.2).
 
 **Infrastructure safety — Docker commands against the main stack (`pdash-db`/`pdash-api`/`pdash-nginx`/`pdash-adminer`, project `burndown`):** never delegate a plan task or subagent dispatch that runs `docker compose` (`up`/`down`/`restart`/etc.) directly against the main stack without all three of the following.

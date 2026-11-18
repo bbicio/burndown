@@ -130,6 +130,7 @@ Le regole sotto valgono per tutti e tre gli scenari.
 
 ### 6.1 Modalità e modello, scelti al passaggio Piano → Esecuzione
 - **La modalità va dichiarata, non dedotta da una parola dell'utente.** Claude dichiara la modalità che applicherebbe *e la regola di questo paragrafo che la giustifica* (es. "4 file di produzione, nessuna migrazione, nessuna nuova API, i 4 task toccano gli stessi 2 file → **nativa** per §6.1"). **Questa dichiarazione non è un turno a sé: viaggia dentro il passaggio di consegne di `/writing-plans`**, insieme al path del Piano e alle sue decisioni aperte (§6b). Una richiesta secca dell'utente ("subagent-driven") resta vincolante, ma va prima messa a confronto con la regola.
+- **Ogni task del Piano porta la sua riga `**Docs:**`** e aggiorna quei documenti nello stesso commit; la regola sta in `CLAUDE.md` ("Process override — docs in the tasks") e in `scripts/decision-ledger-guard.test.js`. Al Gate 5 `/sync-docs` riporta come "already on branch" ciò che il branch ha già aggiornato.
 - **Il Piano deve dire se i task sono indipendenti.** Subagent-driven presuppone task indipendenti: se il Piano non lo afferma esplicitamente, la precondizione non è soddisfatta e si va in nativa.
 - **Ciclo piccolo** (indicativamente ≤ 5 file, nessuna migrazione, nessuna nuova API, task fortemente sequenziali): esecuzione **nativa** (`superpowers:executing-plans`), oppure pochi task più grandi.
 - **Ciclo grande o con task indipendenti:** subagent-driven.
