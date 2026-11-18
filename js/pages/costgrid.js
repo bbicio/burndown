@@ -458,15 +458,11 @@ Vue.createApp({
       if (!name) { this.createProgramModal.error = 'Name is required.'; return; }
       if (!id) { this.createProgramModal.error = 'Program ID is required.'; return; }
       this.createProgramModal.saving = true;
-      try {
-        const created = await Api.programs.create(id, name);
-        this.programs.push(created);
-        this.hideModalThen('cgCreateProgramModal', () => cgResumePendingGeneration(created.id));
-      } catch (e) {
-        this.createProgramModal.error = e.message || 'Save failed.';
-      } finally {
-        this.createProgramModal.saving = false;
-      }
+      const res = await window.apiSave('POST', '/programs', { id, name });
+      this.createProgramModal.saving = false;
+      if (res.kind !== 'ok') { this.createProgramModal.error = res.message || 'Save failed.'; return; }
+      this.programs.push({ id: res.data.id, name: res.data.name });
+      this.hideModalThen('cgCreateProgramModal', () => cgResumePendingGeneration(res.data.id));
     },
     async openRoleModal(mode, sourceRoleCode) {
       this.roleModalMode = mode || 'add';

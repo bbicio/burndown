@@ -41,23 +41,15 @@ const SERVER_EXEMPT = new Set([
 ]);
 
 const CLIENT_EXEMPT = new Set([
-  // Save contract cycle 2 moved the cost grid editor's Save to apiSave; these writes stay (cycle 3: projects and
-  // links; cycle 4: tags; the lifecycle of a proposal is out of scope).
-  'js/api-sync.js: projects.create',
-  'js/api-sync.js: projects.delete',
-  'js/api-sync.js: projects.groups',
-  'js/api-sync.js: projects.phasing',
-  'js/api-sync.js: projects.planning',
-  'js/api-sync.js: projects.ptc',
-  'js/api-sync.js: projects.saveTasks',
-  'js/api-sync.js: projects.update',
+  // Save contract cycles 2 and 3 moved the cost grid editor's Save and the project and program writes to apiSave;
+  // these writes stay (cycle 4: tags; cycle 5: actuals; cycle 6: clients; cycle 7: single shares; the lifecycle
+  // of a proposal is out of scope).
   'js/clients.js',
   'js/costgrid.js: costGrids.create',
   'js/costgrid.js: costGrids.delete',
   'js/costgrid.js: costGrids.versions.create',
   'js/costgrid.js: costGrids.versions.delete',
   'js/costgrid.js: costGrids.versions.duplicate',
-  'js/costgrid.js: costGrids.versions.linkedProjects.add',
   'js/costgrid.js: costGrids.versions.publish',
   'js/nav.js',
   'js/notifications.js',
@@ -67,7 +59,6 @@ const CLIENT_EXEMPT = new Set([
   'js/pages/admin.js',
   'js/pages/costgrid.js: costGrids.reassignOwner',
   'js/pages/costgrid.js: costGrids.versions.tags.replace',
-  'js/pages/costgrid.js: programs.create',
   'js/pages/login.js',
   'js/pages/master-clients.js',
   'js/pages/master-currencies.js',
@@ -75,13 +66,17 @@ const CLIENT_EXEMPT = new Set([
   'js/pages/pipeline.js',
   'js/pages/planning.js',
   'js/pages/profile.js',
-  'js/pages/project-config.js',
+  'js/pages/project-config.js: clients.create',
+  'js/pages/project-config.js: projects.tags.replace',
+  'js/pages/project-config.js: timesheets.delete',
+  'js/pages/project-config.js: timesheets.upload',
   'js/pages/reset-password.js',
   'js/pages/team.js',
   'js/pages/terms.js',
   'js/pages/timesheets.js',
   'js/share-list-component.js',
-  'js/shares.js',
+  'js/shares.js: costGrids.shares',
+  'js/shares.js: projects.shares',
   'js/upload.js',
 ]);
 
@@ -98,6 +93,18 @@ const RETIRED = [
   'js/costgrid.js: costGrids.versions.saveStructure',
   'api/src/routes/projects.js: projects',
   'api/src/routes/config.js: programs',
+  'js/api-sync.js: projects.create',
+  'js/api-sync.js: projects.delete',
+  'js/api-sync.js: projects.groups',
+  'js/api-sync.js: projects.phasing',
+  'js/api-sync.js: projects.planning',
+  'js/api-sync.js: projects.ptc',
+  'js/api-sync.js: projects.saveTasks',
+  'js/api-sync.js: projects.update',
+  'js/costgrid.js: costGrids.versions.linkedProjects.add',
+  'js/pages/costgrid.js: programs.create',
+  'js/pages/project-config.js: programs.create',
+  'js/shares.js: programs.share',
 ];
 
 const CLIENT_LAYERS = new Set(['js/api.js', 'js/lib/save.js']);

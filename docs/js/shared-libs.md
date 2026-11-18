@@ -22,6 +22,8 @@ The share modal, for `cost_grid`, `project` and `program`. Loads active users th
 
 Module state: `_shareAllUsers` is the immutable source list; `_shareUserList` is that list minus the already-shared users.
 
+A program share (2026-11-18, save-contract cycle 3) goes through `apiSave('POST', '/programs/:id/share', …)`; the success message is `_programShareMessage(result)`: `Shared <n> project(s)` followed by `; <k> kept their higher access.` when the server kept a higher permission on `k` projects, and ` The email could not be sent.` when it could not. A refusal shows its reason. Tests: `js/lib/shares-program.test.js`.
+
 **2026-11-11 (B-416/B-432):** a share response with `emailSent: false` turns the success message into "…, but the email could not be sent." For a `program` the modal has no share list, and `_renderShareList()` used to return before refreshing `_shareUserList`, so the search offered nobody on a first open, or the last proposal's/project's list; it now refreshes it with no exclusions (`js/lib/shares-modal.test.js`).
 
 ## js/share-list-component.js

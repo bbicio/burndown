@@ -716,6 +716,7 @@ Every offer and every project has an owner, normally whoever created it, and can
 - Sharing an offer does not share the projects generated from it: each grant is separate.
 - The offer's detail panel and the offer editor list who has access, with the permission of each person. A share can be removed from that list; adding one or changing its permission needs the share dialog.
 - Each program in Portfolio, and its Program Dashboard, has a **Share** button that gives the chosen permission on every project of the program in one step. It is available to administrators and to people who own or edit at least one project of the program.
+- Sharing a program never lowers anyone's access: a person who already owns or edits one of its projects keeps that, and the confirmation says how many projects kept a higher access.
 - Viewers do not see the buttons that change things: Edit, Clone and Delete on the pipeline board, Configure and Load Actuals on the reports, and the project configuration form is read only.
 - An administrator can reassign an offer's owner from the offer editor. The new owner also gets Editor access to the projects already linked to it, and is notified by email.
 - When someone's access to a project is removed, they are notified.

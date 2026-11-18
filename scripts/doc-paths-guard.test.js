@@ -45,6 +45,8 @@ import { ROOT, liveMarkdown, citedPaths, unresolved } from './lib/live-docs.mjs'
 // never existed. Each entry is a decision somebody took on purpose -- adding
 // one is how you record "this file is gone and its mentions are historical".
 const GONE = new Map([
+  ['js/lib/project-push-result.js', 'deleted by save contract cycle 3 (2026-11-18): Save and Generate are single transactions; only historical mentions remain'],
+  ['js/lib/project-push-result.test.js', 'deleted with js/lib/project-push-result.js (save contract cycle 3, 2026-11-18)'],
   ['js/lib/api-sync-push-project.test.js', 'replaced by js/lib/api-sync-project-save.test.js in save contract cycle 3 (2026-11-18); only historical mentions remain'],
   ['js/lib/api-sync-upsert.test.js', 'replaced by js/lib/api-sync-save.test.js in save contract cycle 2 (2026-11-18); only historical mentions remain'],
   ['js/config-form.js',          'deleted 2d4446f (2026-07-27); only historical mentions remain'],
