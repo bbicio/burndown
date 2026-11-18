@@ -158,7 +158,7 @@ The POT tab compares the client's (or client group's) target for the offer's yea
 
 | Control | What it does |
 |---|---|
-| Save | Saves at once. Every edit is also saved automatically in the background. |
+| Save | Saves the version. Nothing is saved until you press it; a line beside it says whether every change is saved. |
 | Clone | Creates a new, separate offer with a copy of this version's phases, tasks and roles. |
 | Export XLS | Downloads the version as an Excel workbook. |
 | Share | Opens the share dialog (not on a Draft). |
@@ -177,6 +177,10 @@ The version holds a label, the stage, start and end dates, the currency, the cli
 - A cloned offer always starts at version "v1" and does not copy tags or the exchange rate.
 - The offer owner's name, creation date and the list of people it is shared with appear in the editor. An administrator can hand the offer to another user with **Reassign**.
 - The **Tags** card attaches the values of the lists maintained in Attribute Lists (admin).
+- Beside **Save** the editor says "All changes saved", "Unsaved changes", "Saving…" or "Not saved" with the reason. If someone else saved the same version after you opened it, or the server's answer was lost, **Reload** shows the saved version and discards your changes.
+- Leaving the editor, switching version or opening a linked project with unsaved changes asks whether to leave without saving; so do closing or reloading the tab.
+- **Generate project**, **Publish to SIP**, **+ New version** and **Clone** start from the saved version: with unsaved changes they offer to save first, and do not run if the save fails.
+- Changing the stage is saved with **Save**; the projects generated from the offer then take the new stage.
 
 </details>
 

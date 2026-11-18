@@ -17,6 +17,7 @@ function build() {
   saved = [];
   const stubs = {
     Api: { costGrids: { versions: api } },
+    cgIsDraftDirty: () => false,
     cgAutoSave: vi.fn(async () => {}),
     cgLoad: () => store,
     cgSave: c => saved.push(JSON.parse(JSON.stringify(c))),

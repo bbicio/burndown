@@ -8,6 +8,12 @@ This file holds the full implementation narrative for this page — cycle-by-cyc
 
 How the editor's version switching and the proposal create/clone flow work **today** — reference description, as opposed to the dated cycle entries below. Moved verbatim from `CLAUDE.md` on 2026-10-10 (phase 3 of the context-size split).
 
+### Save (save contract cycle 2, 2026-11-18)
+
+The editor saves only with **Save** (`cgSaveVersion` → `_cgSaveVersion`, [docs/js/api-sync.md](../js/api-sync.md)); `CG_AUTOSAVE_ENABLED` in `js/costgrid.js` keeps the autosave off. A `role="status"` line in `.ph-actions`, before Save, shows the save state the page receives through `onSaveState`: `All changes saved`, `Unsaved changes`, `Saving…` or `Not saved: <reason>`, with **Reload** after a conflict or a lost answer. It stays until it changes — no toast, no timer. Save is disabled while the state is `All changes saved`. Reload asks `Discard your unsaved changes and reload this version?`, then reloads the grids (`cgSyncFromApi`) and reopens the version; it also drops the version's pending currency-change flag.
+
+Back, a version segment and a linked project's link ask `You have unsaved changes. Leave without saving?` (**Leave** / **Stay**, through `cgAsk`, which relabels `showConfirm`'s buttons) when `cgIsDraftDirty()`; Leave goes without saving, and Back no longer waits. A `beforeunload` handler (`onBeforeUnload`) asks the browser's own question for the sidebar, a reload or closing the tab, only with unsaved changes and not after Leave. Generate project, Publish, "+ New version" and Clone of the open version call `cgConfirmSaveFirst`: with unsaved changes they ask `You have unsaved changes. Save them first?` (**Save and continue** / **Cancel**) and run only when the Save went through. The stage and currency menus are header edits like any other; the stage reaches the linked projects on the server with the Save. Tests: `js/lib/costgrid-save-state.test.js`, `js/lib/api-sync-save.test.js`.
+
 ### Version tab switching (editor)
 
 **Superseded on 2026-10-16: the header card is now the shared page head, see "Header unification (2026-10-16)" at the end of this file.** As of the 2026-10-07 redesign cycle, the former `.page-title-bar`/`.page-toolbar`/version-tabs row is one `.cg-header` card (`costgrid.html`): row 1 is the proposal name, client/linked-project subtitle and stage pill; row 2 is the `.cg-version-seg` segmented control (a "+ New version" segment, `v-if="isDraft"`, then one segment per version, the active one navy-filled) on the left and Save/Clone/Export XLS/Share plus exactly one primary action (Publish to SIP / Generate project / "Selecting tasks…" / "All tasks are in projects") on the right.
@@ -49,7 +55,6 @@ Opening a version or the role selector loads the ratecard maps without re-pricin
 
 - `costgrid.html` is a separate page. The back button navigates to `pipeline.html`.
 - After delete (grid or version): `cgConfirmDeleteGrid`/`cgConfirmDeleteVersion` call their `onSuccess` callback if given, else fall back to a bare `renderPipelineBoard()` — a global that no longer exists on `pipeline.html` (its Vue rewrite passes a callback that bumps `refreshTick` instead); `costgrid.html` still defines its own local `renderPipelineBoard()` override, so the fallback remains safe there.
-- After JSON import: `cgImportAll()` calls `renderPipelineBoard()` guarded by a `typeof` check, for the same reason.
 - `showCostGridEditorView(cgId, verId, opts)` redirects to `costgrid.html?cgId=...&verId=...` on `pipeline.html` (a page-local override, plain redirect); `opts.focusName` appends `&focus=name` to the URL (2026-10-07, see "New Proposal / Clone" above). On `costgrid.html` itself, `js/costgrid.js`'s own `showCostGridEditorView` is instead a thin bridge delegating into the page's mounted Vue instance (`_cgVueApp.openVersion(cgId, versionId)`) — no longer a single-page-app DOM-render function.
 - On `costgrid.html` cold load: call `cgSyncFromApi()` before reading URL params to avoid empty `_cgStore`
 

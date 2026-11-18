@@ -47,6 +47,8 @@ Vue.createApp({
       ptcFocusedTask: null, ptcRaw: '', ptcInvalid: false, ptcSnapshot: null, hoursEditing: null, addToProjectSel: '',
       addToProjectModal: { projId: '', projName: '', taskNames: [], taskIds: [] },
       backSaving: false, headerBadge: window.headerBadge,
+      // The Save state (cgSaveState, js/costgrid.js), handed over by onSaveState; `leaving` silences beforeunload.
+      saveState: { status: 'saved', message: '', reloadable: false }, leaving: false,
       proposalBusy: false, // true while cloneProposal is in flight (2026-10-07)
       editingVersionLabel: false, versionLabelBeforeEdit: '', // Task 2, 2026-10-07: inline version-label rename
       shareSummary: { count: 0, initials: [], myRole: '' }, // Task 2, 2026-10-07: Sharing card closed-state summary
@@ -66,6 +68,13 @@ Vue.createApp({
     };
   },
   computed: {
+    saveStateText() {
+      const s = this.saveState;
+      if (s.status === 'dirty') return 'Unsaved changes';
+      if (s.status === 'saving') return 'Saving…';
+      if (s.status === 'failed') return 'Not saved: ' + s.message;
+      return 'All changes saved';
+    },
     isAdminUser() { return ['admin', 'sysadmin'].includes(this.myRole); },
     roleModalTeams() {
       const teams = [...new Set(this.roleAllRoles.map(r => r.code.indexOf(' - ') > 0 ? r.code.slice(0, r.code.indexOf(' - ')).trim() : '—'))].sort();
@@ -660,12 +669,30 @@ Vue.createApp({
     },
     async switchVersion(verId) {
       if (verId === this.verId) return;
+      if (cgIsDraftDirty()) {
+        cgAsk('You have unsaved changes. Leave without saving?', 'Leave', 'Stay', () => this.openVersion(this.cgId, verId));
+        return;
+      }
       await this.openVersion(this.cgId, verId);
     },
     async goBack() {
-      this.backSaving = true;
-      await new Promise(r => setTimeout(r, 500));
-      window.location.href = '/pipeline.html';
+      const leave = () => { this.leaving = true; window.location.href = '/pipeline.html'; };
+      if (cgIsDraftDirty()) { cgAsk('You have unsaved changes. Leave without saving?', 'Leave', 'Stay', leave); return; }
+      leave();
+    },
+    onSaveState(state) { this.saveState = state; },
+    // Sidebar links, closing or reloading the tab: the browser's own question, only with unsaved changes.
+    onBeforeUnload(e) {
+      if (this.leaving || !cgIsDraftDirty()) return;
+      e.preventDefault();
+      e.returnValue = '';
+    },
+    reloadVersion() {
+      cgAsk('Discard your unsaved changes and reload this version?', 'Reload', 'Cancel', async () => {
+        _cgCurrencyChangePending.delete(this.verId);
+        await cgSyncFromApi();
+        await this.openVersion(this.cgId, this.verId);
+      }, null, 'Reload this version');
     },
     onHeaderFieldChange() {
       // @change fires on blur, so trimming here cannot rewrite an input the user is still
@@ -791,7 +818,11 @@ Vue.createApp({
       cgConfirmDeleteVersion(this.cgId, this.verId, v.versionLabel, () => { window.location.href = 'pipeline.html'; });
     },
     publishDraft() { cgPublishDraft(); },
-    openLinkedProject(projId) { showDashboardView(projId); },
+    openLinkedProject(projId) {
+      const leave = () => { this.leaving = true; showDashboardView(projId); };
+      if (cgIsDraftDirty()) { cgAsk('You have unsaved changes. Leave without saving?', 'Leave', 'Stay', leave); return; }
+      leave();
+    },
     exportXls() { cgExportXls(); },
     generateProject() { if (this.isReadOnly) return; cgGenerateProject(); },
     moneyInput(amount) { return window.formatMoneyInput(amount, this.draft?.currency || 'EUR', window.__currencies); },
@@ -1213,6 +1244,7 @@ Vue.createApp({
     if (!targetVerId) { this.loadError = 'Cost grid not found or access denied.'; this.loading = false; return; }
 
     _cgVueApp = this; // wire the bridge — Global Constraint 7
+    window.addEventListener('beforeunload', e => this.onBeforeUnload(e));
 
     document.addEventListener('hidden.bs.modal', e => {
       if (e.target && e.target.id === 'shareModal') { this.shareListRefreshTick++; this.loadShareSummary(); }

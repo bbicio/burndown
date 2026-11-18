@@ -18,6 +18,7 @@ function build({ myPermission = 'owner', srcOverrides = {} } = {}) {
   calls = [];
   const stubs = {
     Api: { costGrids: { create: api.create, delete: api.delete, versions: { create: api.versionsCreate } } },
+    cgIsDraftDirty: () => false,
     cgApiClientId: id => (id && /^[0-9a-f-]{36}$/i.test(id)) ? id : null,
     cgAutoSave: vi.fn(async () => { calls.push('flush'); }),
     cgLoad: id => store[id],

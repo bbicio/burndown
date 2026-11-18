@@ -782,10 +782,40 @@ async function cgSaveVersion() {
   return cgAutoSave();
 }
 
+// showConfirm with its two buttons relabelled for one question; the labels are put back when it closes.
+function cgAsk(message, okLabel, cancelLabel, onConfirm, onCancel, title = 'Unsaved changes') {
+  const modalEl = document.getElementById('confirmModal');
+  const ok = document.getElementById('confirmModalOk');
+  const cancel = document.getElementById('confirmModalCancel');
+  if (modalEl && ok && cancel) {
+    const before = [ok.textContent, cancel.textContent];
+    ok.textContent = okLabel;
+    cancel.textContent = cancelLabel;
+    modalEl.addEventListener('hidden.bs.modal', () => {
+      document.getElementById('confirmModalOk').textContent = before[0];
+      document.getElementById('confirmModalCancel').textContent = before[1];
+    }, { once: true });
+  }
+  showConfirm(message, onConfirm, onCancel, title);
+}
+
+// Generate project, Publish, "+ New version" and Clone of the open version start from the saved version: with
+// unsaved changes they ask "Save first?". Save and continue runs `proceed` only when the Save went through;
+// Cancel, or a Save that did not, runs `abort` (the save state shows why).
+function cgConfirmSaveFirst(proceed, abort) {
+  if (!cgIsDraftDirty()) { proceed(); return; }
+  cgAsk('You have unsaved changes. Save them first?', 'Save and continue', 'Cancel', async () => {
+    const out = await cgSaveVersion();
+    if (out.kind === 'ok') proceed();
+    else if (abort) abort();
+  }, () => { if (abort) abort(); });
+}
+
 // ── PUBLISH DRAFT ─────────────────────────────────────────────────────────────
 
 async function cgPublishDraft() {
   if (!_cgActiveCgId || !_cgActiveVersionId) return;
+  if (cgIsDraftDirty()) { cgConfirmSaveFirst(() => cgPublishDraft()); return; }
   const cg = cgLoad(_cgActiveCgId);
   const ver = cg?.versions.find(v => v.versionId === _cgActiveVersionId);
   if (!ver || ver.pipeline !== 'Draft') return;
@@ -843,6 +873,7 @@ function cgNextVersionLabel(versions) {
 
 async function cgCreateNewVersionDirect() {
   if (_cgNewVersionInFlight) return; // already in flight -- ignore a fast repeat click
+  if (cgIsDraftDirty()) { cgConfirmSaveFirst(() => cgCreateNewVersionDirect()); return; }
   _cgNewVersionInFlight = true;
 
   const cgId = _cgActiveCgId;
@@ -984,6 +1015,10 @@ let _cgCloneInFlight = false;
 async function cgCloneGrid(srcCgId, srcVerId, year) {
   if (_cgCloneInFlight) return null; // already in flight -- ignore a fast repeat click (null: not a failure)
   if (!srcCgId || !srcVerId) return false;
+  // A clone of the open version copies what is saved: unsaved changes ask "Save first?" (false when not run).
+  if (_cgActiveCgId === srcCgId && _cgActiveVersionId === srcVerId && cgIsDraftDirty()) {
+    return new Promise(resolve => cgConfirmSaveFirst(() => resolve(cgCloneGrid(srcCgId, srcVerId, year)), () => resolve(false)));
+  }
   _cgCloneInFlight = true;
 
   try {
@@ -1101,6 +1136,7 @@ async function cgCloneGrid(srcCgId, srcVerId, year) {
 // ── GENERATE PROJECT ──────────────────────────────────────────────────────────
 
 function cgGenerateProject() {
+  if (cgIsDraftDirty()) { cgConfirmSaveFirst(() => cgGenerateProject()); return; }
   cgSyncHeaderFromForm();
   const v = _cgDraft;
   if (!v.projectName) { showInfo('Enter a project name before generating.'); return; }

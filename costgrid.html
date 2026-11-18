@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="css/tokens.css?v=14">
   <link rel="stylesheet" href="css/style.css?v=38">
   <link rel="stylesheet" href="css/controls.css?v=1">
-  <link rel="stylesheet" href="css/costgrid.css?v=9">
+  <link rel="stylesheet" href="css/costgrid.css?v=10">
 </head>
 <body>
 
@@ -64,7 +64,8 @@
         </div>
 
         <div class="ph-actions">
-          <button id="btnCgSave" type="button" class="ph-btn" @click="saveVersion"><ph-icon name="save" :size="14"></ph-icon>Save</button>
+          <span class="cg-save-state" :class="'is-' + saveState.status" role="status" aria-live="polite">{{ saveStateText }}<button v-if="saveState.status === 'failed' && saveState.reloadable" type="button" class="cg-save-reload" @click="reloadVersion">Reload</button></span>
+          <button id="btnCgSave" type="button" class="ph-btn" :disabled="saveState.status === 'saved'" @click="saveVersion"><ph-icon name="save" :size="14"></ph-icon>Save</button>
           <button type="button" class="ph-btn" :disabled="proposalBusy" @click="cloneProposal" title="Clone this version as a new proposal"><ph-icon name="clone" :size="14"></ph-icon>Clone</button>
           <button type="button" class="ph-btn" @click="exportXls"><ph-icon name="download" :size="14"></ph-icon>Export XLS</button>
           <button v-if="!isDraft" class="ph-btn" @click="openShareModal('cost_grid', cgId, cg.name)" title="Share this cost grid"><ph-icon name="share" :size="14"></ph-icon>Share</button>
