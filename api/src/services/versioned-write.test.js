@@ -186,3 +186,55 @@ test('an update locks FOR NO KEY UPDATE (FK inserts do not wait); a delete locks
   await versionedWrite(del.pool, { type: 'role', id: 'r1', expectedVersion: 2, userId: 'u1', action: 'delete', write: async () => {} });
   assert.ok(del.texts().some(t => /SELECT version FROM roles WHERE id = \$1 FOR UPDATE/.test(t)), del.texts().join(' | '));
 });
+
+test('unchecked update bumps the version and logs without comparing', async () => {
+  fakeRole();
+  const db = fakeDb({ stored: 4 });
+  let writes = 0;
+  const out = await versionedWrite(db.pool, {
+    type: 'role', id: 'r1', expectedVersion: undefined, unchecked: true, userId: 'u1', action: 'update',
+    write: async () => { writes++; },
+  });
+  assert.equal(writes, 1);
+  assert.equal(out.version, 5);
+  assert.equal(db.logInsert().params[2], 5);
+  assert.equal(db.logInsert().params[3], 'update');
+});
+
+test('unchecked delete logs the stored version + 1', async () => {
+  fakeRole();
+  const db = fakeDb({ stored: 4 });
+  const out = await versionedWrite(db.pool, {
+    type: 'role', id: 'r1', unchecked: true, userId: 'u1', action: 'delete', write: async () => {},
+  });
+  assert.equal(out.version, 5);
+  assert.equal(db.logInsert().params[2], 5);
+  assert.equal(db.logInsert().params[3], 'delete');
+});
+
+test('unchecked create is refused', async () => {
+  fakeRole();
+  const db = fakeDb();
+  await assert.rejects(
+    versionedWrite(db.pool, { type: 'role', unchecked: true, userId: 'u1', action: 'create', write: async () => 'x' }),
+    /unchecked applies to update and delete only/,
+  );
+  assert.equal(db.logInsert(), undefined);
+});
+
+test('without unchecked a missing version is still STALE', async () => {
+  fakeRole();
+  const db = fakeDb({ stored: 4 });
+  await assert.rejects(
+    versionedWrite(db.pool, { type: 'role', id: 'r1', userId: 'u1', action: 'update', write: async () => {} }),
+    StaleError,
+  );
+});
+
+test('cost_grid, cost_grid_version and project are registered entities', () => {
+  assert.equal(entities.cost_grid.table, 'cost_grids');
+  assert.equal(entities.cost_grid_version.table, 'cost_grid_versions');
+  assert.equal(entities.cost_grid_version.staleMessage, 'This version was changed by someone else since you opened it.');
+  assert.equal(entities.cost_grid_version.notFoundMessage, 'Version not found');
+  assert.equal(entities.project.table, 'projects');
+});

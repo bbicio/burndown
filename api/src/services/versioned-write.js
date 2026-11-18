@@ -1,6 +1,7 @@
 // The save contract on the server: lock the row, compare the version the client started from, run
 // the route's own write, bump the version and log the full snapshot to change_log — all in one
-// transaction. With a pool it opens the transaction; with a client it runs inside the caller's.
+// transaction. `unchecked: true` (update/delete only) skips the comparison for a server-started
+// write and still bumps and logs. With a pool it opens the transaction; with a client it runs inside the caller's.
 const { withTransaction } = require('../db/transaction');
 const { entities } = require('./saved-entities');
 
@@ -31,9 +32,10 @@ async function logChange(client, type, id, version, action, userId, snapshot) {
   );
 }
 
-async function run(client, { type, id, expectedVersion, userId, action, write }) {
+async function run(client, { type, id, expectedVersion, userId, action, write, unchecked }) {
   const def = entities[type];
   if (!def) throw new Error(`Unknown saved entity type: ${type}`);
+  if (unchecked && action === 'create') throw new Error('unchecked applies to update and delete only');
 
   if (action === 'create') {
     const out = await write(client);
@@ -51,7 +53,10 @@ async function run(client, { type, id, expectedVersion, userId, action, write })
   const locked = await client.query(`SELECT version FROM ${def.table} WHERE id = $1 ${lock}`, [id]);
   if (!locked.rows[0]) throw new NotFoundError(type);
   const stored = locked.rows[0].version;
-  if (!Number.isInteger(expectedVersion) || expectedVersion !== stored) throw new StaleError(type, stored);
+  // unchecked: a write started by the server, not by a client's draft — no version to compare.
+  if (!unchecked && (!Number.isInteger(expectedVersion) || expectedVersion !== stored)) {
+    throw new StaleError(type, stored);
+  }
 
   if (action === 'delete') {
     const entity = await def.snapshot(client, id);
