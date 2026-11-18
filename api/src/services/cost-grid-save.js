@@ -11,6 +11,7 @@ const { isValidSoldHours } = require('../lib/sold-hours');
 const { structureBodyError } = require('../lib/input-rules');
 const { versionedWrite } = require('./versioned-write');
 
+const PIPELINE_STAGES = ['SIP', 'Expected', 'Anticipated', 'Committed', 'Canceled'];
 const HEADER_FIELDS = ['label', 'pipeline', 'startDate', 'endDate', 'currency', 'note', 'ratecardId', 'clientId', 'projectName'];
 
 // A refusal answered with `status` (400 by default) and { error, code }.
@@ -38,6 +39,12 @@ async function applyHeader(client, vId, header, { role }) {
   const periodErr = periodChangeError(bodyPeriod, storedPeriod, { kind: 'month', label: 'version' });
   if (periodErr) throw ruleError(periodErr, DATE_RULE);
   const period = mergePeriod(bodyPeriod, storedPeriod);
+  // The stage: one of the five, never back to Draft, and a Draft gets its stage only from publish (which also
+  // sets the pipeline year and removes the other Drafts). The stage reaches the linked projects, so it is checked.
+  if (h.pipeline !== undefined && h.pipeline !== stored.pipeline) {
+    if (stored.pipeline === 'Draft') throw ruleError('A Draft gets its stage from Publish to SIP.');
+    if (!PIPELINE_STAGES.includes(h.pipeline)) throw ruleError(`Invalid pipeline stage: ${h.pipeline}`);
+  }
 
   const fields = [];
   const params = [];

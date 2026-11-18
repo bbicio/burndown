@@ -1016,7 +1016,8 @@ async function cgCloneGrid(srcCgId, srcVerId, year) {
   if (_cgCloneInFlight) return null; // already in flight -- ignore a fast repeat click (null: not a failure)
   if (!srcCgId || !srcVerId) return false;
   // A clone of the open version copies what is saved: unsaved changes ask "Save first?" (false when not run).
-  if (_cgActiveCgId === srcCgId && _cgActiveVersionId === srcVerId && cgIsDraftDirty()) {
+  // A viewer has nothing to save: the clone copies the saved version straight away.
+  if (_cgActiveCgId === srcCgId && _cgActiveVersionId === srcVerId && cgLoad(srcCgId)?.myPermission !== 'viewer' && cgIsDraftDirty()) {
     return new Promise(resolve => cgConfirmSaveFirst(() => resolve(cgCloneGrid(srcCgId, srcVerId, year)), () => resolve(false)));
   }
   _cgCloneInFlight = true;

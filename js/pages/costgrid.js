@@ -537,7 +537,13 @@ Vue.createApp({
         resolvedVerId = cgRec.versions[0]?.versionId;
         if (!resolvedVerId) { this.loadError = 'Version not found.'; this.loading = false; return; }
       }
-      await cgLoadStructureFromApi(cgId, resolvedVerId);
+      // A structure that did not load is never opened: its empty phases would become the base, and a Save would
+      // then replace the stored structure with them.
+      if (!await cgLoadStructureFromApi(cgId, resolvedVerId)) {
+        this.loadError = 'This version could not be loaded. Reload the page to try again.';
+        this.loading = false;
+        return;
+      }
       cgRec = cgLoad(cgId);
       const version = cgRec.versions.find(v => v.versionId === resolvedVerId);
       if (!version) { this.loadError = 'Version not found.'; this.loading = false; return; }
@@ -573,9 +579,6 @@ Vue.createApp({
       // `_cgDraft` directly) always sees the current edited state.
       this.draft = _cgDraft;
       this.prevCurrency = this.draft.currency || 'EUR';
-      // The base the Save compares to: the draft as opened. A role rate priced below because it was never saved
-      // is a change, so it shows as unsaved.
-      cgCaptureBase();
       this.selectionMode = false; this.selectedTaskIds = new Set(); this.addToProjectMode = 'new';
 
       try {
@@ -589,6 +592,9 @@ Vue.createApp({
       }
 
       await cgUpdateActiveRatecardMap(); // loads the ratecard maps only — saved rates are not re-priced
+      // The base the Save compares to: the draft as opened, the never-saved role rates already priced, so
+      // opening a version never shows it as unsaved.
+      cgCaptureBase();
       this.ratecardMap = { ..._cgActiveRatecardMap };
       this.ratecardOverrides = { ..._cgActiveRatecardOverrides };
       this.isClientRatecard = _cgIsClientRatecard;
@@ -681,6 +687,9 @@ Vue.createApp({
       leave();
     },
     onSaveState(state) { this.saveState = state; },
+    // Every keystroke (v-model writes the draft first): the state and Save's enabled state follow the typing,
+    // not the blur.
+    onAnyInput() { if (this.draft) cgRefreshSaveState(); },
     // Sidebar links, closing or reloading the tab: the browser's own question, only with unsaved changes.
     onBeforeUnload(e) {
       if (this.leaving || !cgIsDraftDirty()) return;
@@ -1245,6 +1254,7 @@ Vue.createApp({
 
     _cgVueApp = this; // wire the bridge — Global Constraint 7
     window.addEventListener('beforeunload', e => this.onBeforeUnload(e));
+    document.addEventListener('input', () => this.onAnyInput());
 
     document.addEventListener('hidden.bs.modal', e => {
       if (e.target && e.target.id === 'shareModal') { this.shareListRefreshTick++; this.loadShareSummary(); }

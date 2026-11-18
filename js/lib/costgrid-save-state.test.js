@@ -233,3 +233,49 @@ describe('Save first?', () => {
     expect(ask).not.toHaveBeenCalled();
   });
 });
+
+describe('round 1 fixes', () => {
+  const openSrc = extractBlock(html, 'async openVersion(cgId, versionId) {');
+
+  it('openVersion captures the base after the never-saved role rates are priced', () => {
+    expect(openSrc.indexOf('cgCaptureBase()')).toBeGreaterThan(openSrc.indexOf('await cgUpdateActiveRatecardMap()'));
+  });
+
+  it('a structure that failed to load opens nothing: no draft, no base, an error', async () => {
+    const stubs = {
+      cgLoad: () => ({ id: 'cg1', versions: [{ versionId: 'v1', phases: [] }] }),
+      cgLoadStructureFromApi: vi.fn(async () => false),
+      cgCaptureBase: vi.fn(),
+      cgMigrateVersion: vi.fn(v => v),
+    };
+    const { openVersion } = method('async openVersion(cgId, versionId) {', stubs);
+    const ctx = { loading: false, loadError: null };
+    await openVersion.call(ctx, 'cg1', 'v1');
+    expect(ctx.loadError).toMatch(/could not be loaded/i);
+    expect(ctx.loading).toBe(false);
+    expect(stubs.cgMigrateVersion).not.toHaveBeenCalled();
+    expect(stubs.cgCaptureBase).not.toHaveBeenCalled();
+  });
+
+  it('typing refreshes the save state at once, not on blur', () => {
+    const cgRefreshSaveState = vi.fn();
+    const { onAnyInput } = method('onAnyInput() {', { cgRefreshSaveState });
+    onAnyInput.call({ draft: {} });
+    expect(cgRefreshSaveState).toHaveBeenCalledTimes(1);
+    expect(readFileSync('js/pages/costgrid.js', 'utf8')).toMatch(/addEventListener\('input', \(\) => this\.onAnyInput\(\)\)/);
+  });
+
+  it('Clone of the open version by a viewer never asks "Save first?"', async () => {
+    const ask = vi.fn();
+    const stubs = {
+      cgIsDraftDirty: () => true, cgConfirmSaveFirst: ask,
+      _cgActiveCgId: 'cg1', _cgActiveVersionId: 'v1', _cgCloneInFlight: false,
+      cgLoadStructureFromApi: vi.fn(async () => false), showInfo: vi.fn(),
+      cgLoad: () => ({ id: 'cg1', myPermission: 'viewer', versions: [] }),
+    };
+    const names = Object.keys(stubs);
+    const clone = new Function(...names, 'window', `${extractBlock(js, 'async function cgCloneGrid(')}; return cgCloneGrid;`)(...names.map(n => stubs[n]), window);
+    await clone('cg1', 'v1');
+    expect(ask).not.toHaveBeenCalled();
+  });
+});

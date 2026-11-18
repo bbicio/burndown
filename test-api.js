@@ -104,9 +104,19 @@ async function versionOf(path, cookie = adminCookie) {
 // patchVersion takes a header body (linkedProjects, status and currencyRate, which the old route ignored, are
 // dropped); putStructure takes { phases, roles, period }, the period travelling as header.startDate/endDate.
 const CG_HEADER_FIELDS = ['label', 'pipeline', 'startDate', 'endDate', 'currency', 'note', 'ratecardId', 'clientId', 'projectName'];
+// A stage on a Draft goes through publish first, as in the editor (the Save refuses it on a Draft).
 async function patchVersion(path, body, cookie) {
   const header = {};
   for (const [k, v] of Object.entries(body || {})) if (CG_HEADER_FIELDS.includes(k)) header[k] = v;
+  const ids = path.match(/^\/api\/cost-grids\/([^/]+)\/versions\/([^/]+)$/);
+  if (ids && header.pipeline !== undefined && header.pipeline !== 'Draft') {
+    const list = await api('GET', `/api/cost-grids/${ids[1]}/versions`, null, cookie);
+    if ((list.data || []).find(v => v.id === ids[2])?.pipeline === 'Draft') {
+      const published = await api('POST', `${path}/publish`, null, cookie);
+      if (header.pipeline === 'SIP') delete header.pipeline;
+      if (!Object.keys(header).length) return published;
+    }
+  }
   const out = { version: await versionOf(path, cookie) };
   if (Object.keys(header).length) out.header = header;
   return api('PUT', path, out, cookie);
@@ -1312,6 +1322,8 @@ async function testCostGridSave() {
   const v7 = await mkVersion('cs7');
   const v8 = await mkVersion('cs8');
   if (!ok(!!(role.id && cgId && vId && v6 && v7 && v8), 'CS-setup role, proposal and versions')) return;
+  // cs1 is published: a Draft gets its stage only from publish (CS-14).
+  ok((await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/publish`, null, adminCookie)).status === 200, 'CS-setup cs1 published');
   const vPath = id => `/api/cost-grids/${cgId}/versions/${id}`;
   const readV = async id => ((await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || []).find(v => v.id === id);
   const save = async (id, body, cookie = adminCookie) => api('PUT', vPath(id), body, cookie);
@@ -1428,6 +1440,17 @@ async function testCostGridSave() {
       if (sv.status >= 500 || pp.status >= 500) { fiveHundreds++; process.stdout.write(`    race ${i}: Save ${sv.status}, PATCH ${pp.status}\n`); }
     }
     ok(fiveHundreds === 0, `CS-10 Save with a stage change and a project PATCH fired together → no 500 (${fiveHundreds})`);
+  }
+
+  // CS-14: the stage is one of the five; a published version never goes back to Draft; a Draft gets its stage from publish
+  {
+    const cur = async id => (await readV(id))?.version;
+    const bad = await save(vId, { version: await cur(vId), header: { pipeline: 'Won' } });
+    const back = await save(vId, { version: await cur(vId), header: { pipeline: 'Draft' } });
+    const skip = await save(v6, { version: await cur(v6), header: { pipeline: 'SIP' } });
+    ok(bad.status === 400 && back.status === 400 && skip.status === 400 && skip.data?.error === 'A Draft gets its stage from Publish to SIP.',
+      `CS-14 an unknown stage, Draft again, and a stage on a Draft → 400 (got ${bad.status}, ${back.status}, ${skip.status})`);
+    ok((await readV(vId))?.pipeline !== 'Draft' && (await readV(v6))?.pipeline === 'Draft', 'CS-14 nothing written');
   }
 
   // CS-11..13: the lifecycle routes write through versionedWrite, with no version from the client
