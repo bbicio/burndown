@@ -214,7 +214,7 @@ router.put('/:id', requireAuth, async (req, res, next) => {
       if (target) await lockVersion(client, target);
       return versionedWrite(client, {
         type: 'project', id, expectedVersion: body.version, userId: req.user.id, action: 'update',
-        write: async c => { result = await applyProjectSave(c, id, body, { role }); },
+        write: async c => { result = await applyProjectSave(c, id, body, { role, userId: req.user.id }); },
       });
     });
     if (result.seedFromVersionId) await copyVersionTagsToProject(id, result.seedFromVersionId);

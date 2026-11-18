@@ -9,6 +9,7 @@ const { amountError, ptcRowsError, phasingError, MONEY_RULE_CODE, MAX_DECIMAL_10
 const { descriptionsSignature } = require('../lib/topic-extract');
 const { ruleError } = require('./cost-grid-save');
 const { respondSaveError } = require('./versioned-write');
+const { isAdminRole } = require('../lib/is-admin');
 
 const PROJECT_HEADER_FIELDS = ['name', 'code', 'programId', 'clientId', 'startDate', 'endDate',
   'currency', 'pipeline', 'status', 'description', 'cgVersionId'];
@@ -28,6 +29,23 @@ function respondWriteError(res, err) {
   if (!err.isRule) return false;
   res.status(err.status).json(err.code ? { error: err.message, code: err.code } : { error: err.message });
   return true;
+}
+
+// A program the caller may attach a project to: the same rule as PATCH /programs/:id — an admin, a program with no
+// projects yet, or owner/editor on one of its projects. Otherwise a 403 ruleError, so a project of one's own cannot
+// be used to reach a program's share (POST /programs/:id/share). Null when allowed.
+async function programAccessError(client, programId, { userId, role }) {
+  if (!programId || isAdminRole(role)) return null;
+  const projects = (await client.query('SELECT id FROM projects WHERE program_id = $1', [programId])).rows;
+  if (!projects.length) return null;
+  const access = await client.query(
+    `SELECT 1 FROM projects p
+     LEFT JOIN resource_shares rs ON rs.resource_type = 'project' AND rs.resource_id = p.id AND rs.user_id = $1
+     WHERE p.id = ANY($2::uuid[]) AND (p.owner_id = $1 OR (rs.user_id IS NOT NULL AND rs.permission IN ('owner','editor')))
+     LIMIT 1`,
+    [userId, projects.map(p => p.id)]
+  );
+  return access.rows.length ? null : ruleError('Access denied', undefined, 403);
 }
 
 // The shape of a Save body, checked before the transaction: null, or the 400 message.
@@ -153,12 +171,17 @@ async function applySections(client, projectId, { phasing, ptc, planning, groups
 // this header, the tasks of the body or the stored ones), then the writes. The caller holds the lock of the
 // version header.cgVersionId names. Returns the profile codes to queue and the version whose tags seed the
 // project (its first link), both for after the commit.
-async function applyProjectSave(client, id, body, { role }) {
+async function applyProjectSave(client, id, body, { role, userId }) {
   const h = body.header || {};
   const stored = (await client.query(
-    `SELECT name, code, description, start_date, end_date, currency, cg_version_id, phasing, ptc, planning
+    `SELECT name, code, description, start_date, end_date, currency, cg_version_id, program_id, phasing, ptc, planning
      FROM projects WHERE id = $1`, [id]
   )).rows[0];
+
+  if (h.programId && h.programId !== stored.program_id) {
+    const err = await programAccessError(client, h.programId, { userId, role });
+    if (err) throw err;
+  }
 
   if (h.currency !== undefined) {
     const err = rules.projectCurrencyChangeError({ role, currentCurrency: stored.currency, newCurrency: h.currency });
@@ -266,6 +289,8 @@ async function applyCreate(client, { body, version, userId, role }) {
   const ptc = b.ptc === undefined ? [] : b.ptc;
   const clientId = typeof b.clientId === 'string' && isUuid(b.clientId) ? b.clientId : null;
   const currency = version.currency || 'EUR';
+  const programErr = await programAccessError(client, b.programId, { userId, role });
+  if (programErr) throw programErr;
 
   const id = (await client.query(
     `INSERT INTO projects (code, name, program_id, client_id, start_date, end_date, currency, pipeline, status, cg_version_id, owner_id, description)
@@ -291,6 +316,6 @@ async function applyCreate(client, { body, version, userId, role }) {
 }
 
 module.exports = {
-  PROJECT_HEADER_FIELDS, projectSaveBodyError, applyProjectSave, applyTasks, applySections, applyCreate, upsertLink,
+  PROJECT_HEADER_FIELDS, projectSaveBodyError, programAccessError, applyProjectSave, applyTasks, applySections, applyCreate, upsertLink,
   respondWriteError,
 };

@@ -647,6 +647,10 @@ router.post('/:id/versions/:vId/linked-projects', requireAuth, async (req, res, 
     }
     const { projectId, taskIds, taskNames } = req.body || {};
     if (!isUuid(projectId)) return res.status(404).json({ error: 'Project not found' });
+    // The project must be editable by the caller too, as for Add tasks: a proposal editor cannot link someone else's project.
+    if (!await canEditProject(req.user.id, req.user.role, projectId)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
     const role = await liveRole(req.user.id);
     await withTransaction(pool, async client => {
       await lockVersion(client, req.params.vId);

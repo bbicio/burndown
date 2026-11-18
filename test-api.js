@@ -5372,6 +5372,27 @@ async function testGenerateAndAddTasks() {
     const lk = await linkOf(l2.data.id);
     ok(JSON.stringify(lk?.task_ids) === '["x1","x2"]', `LK-01 two linked-projects POSTs merge the task ids (got ${JSON.stringify(lk?.task_ids)})`);
   }
+
+  // PA-01, PA-02, LK-03 (Gate 3 security findings): a proposal editor cannot attach a project to a program they cannot
+  // edit, nor link someone else's project. The plain user is a grid editor since ATK-03.
+  if (!(plain.id && plain.cookie && sysadminCookie)) { ok(false, 'PA-setup plain user or sysadmin unavailable'); return; }
+  const prgId = `__test_pa_${tag}`;
+  const prg = await api('POST', '/api/programs', { id: prgId, name: '__test pa program__' }, adminCookie);
+  if (prg.status === 201) later('DELETE', `/api/programs/${prgId}`);
+  const inPrg = track(await api('POST', '/api/projects', { name: `__test_pa_in_${tag}__`, programId: prgId }, sysadminCookie));
+  const pa1 = track(await generate({ name: `__test_pa_gen_${tag}__`, programId: prgId, tasks: [] }, plain.cookie));
+  ok(pa1.status === 403 && !(await list()).some(p => p.name === `__test_pa_gen_${tag}__`),
+    `PA-01 Generate into a program the user cannot edit → 403, no project (got ${pa1.status})`);
+  const own = track(await api('POST', '/api/projects', { name: `__test_pa_own_${tag}__` }, sysadminCookie));
+  if (own.data?.id && inPrg.data?.id) {
+    await api('POST', `/api/projects/${own.data.id}/shares`, { userId: plain.id, permission: 'editor' }, adminCookie);
+    const v = (await read(own.data.id))?.version;
+    const pa2 = await api('PUT', `/api/projects/${own.data.id}`, { version: v, header: { programId: prgId } }, plain.cookie);
+    ok(pa2.status === 403 && (await read(own.data.id))?.program_id == null,
+      `PA-02 Save attaching an editable project to a program the user cannot edit → 403 (got ${pa2.status})`);
+    const l3 = await api('POST', `${vBase}/linked-projects`, { projectId: inPrg.data.id, taskIds: ['z'], taskNames: ['Z'] }, plain.cookie);
+    ok(l3.status === 403 && !(await linkOf(inPrg.data.id)), `LK-03 linking a project the user cannot edit → 403, no link (got ${l3.status})`);
+  } else ok(false, 'PA-02/LK-03 setup projects unavailable');
 }
 
 // ── Save contract — project Save (cycle 3) ────────────────────────────────────
