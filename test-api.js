@@ -91,7 +91,39 @@ async function versionOf(path, cookie = adminCookie) {
     const r = await api('GET', `/api/ratecards/${card[1]}`, null, cookie);
     return r.status === 200 ? r.data?.version ?? null : null;
   }
+  const cgv = path.match(/^\/api\/cost-grids\/([^/]+)\/versions\/([^/]+)/);
+  if (cgv) {
+    const r = await api('GET', `/api/cost-grids/${cgv[1]}/versions`, null, cookie);
+    return r.status === 200 ? (r.data || []).find(v => v.id === cgv[2])?.version ?? null : null;
+  }
   return null;
+}
+
+// The cost grid editor's Save is one route, PUT /api/cost-grids/:id/versions/:vId { version, header?, structure? }.
+// These two translate the bodies of the routes it replaced, so the older checks keep their assertions:
+// patchVersion takes a header body (linkedProjects, status and currencyRate, which the old route ignored, are
+// dropped); putStructure takes { phases, roles, period }, the period travelling as header.startDate/endDate.
+const CG_HEADER_FIELDS = ['label', 'pipeline', 'startDate', 'endDate', 'currency', 'note', 'ratecardId', 'clientId', 'projectName'];
+async function patchVersion(path, body, cookie) {
+  const header = {};
+  for (const [k, v] of Object.entries(body || {})) if (CG_HEADER_FIELDS.includes(k)) header[k] = v;
+  const out = { version: await versionOf(path, cookie) };
+  if (Object.keys(header).length) out.header = header;
+  return api('PUT', path, out, cookie);
+}
+async function putStructure(path, body, cookie) {
+  const vPath = path.replace(/\/structure$/, '');
+  const b = body || {};
+  const structure = {};
+  if ('phases' in b) structure.phases = b.phases;
+  if ('roles' in b) structure.roles = b.roles;
+  const out = { version: await versionOf(vPath, cookie), structure };
+  if (b.period && typeof b.period === 'object') {
+    out.header = {};
+    if (b.period.startDate !== undefined) out.header.startDate = b.period.startDate;
+    if (b.period.endDate !== undefined) out.header.endDate = b.period.endDate;
+  }
+  return api('PUT', vPath, out, cookie);
 }
 async function withVersion(path, body) {
   return { ...(body || {}), version: await versionOf(path) };
@@ -960,7 +992,7 @@ async function testPipelineYears() {
     return { cgId, vId };
   };
   const cancel = (c, vId) =>
-    api('PATCH', `/api/cost-grids/${c.cgId}/versions/${vId}`, { pipeline: 'Canceled' }, sysadminCookie);
+    patchVersion(`/api/cost-grids/${c.cgId}/versions/${vId}`, { pipeline: 'Canceled' }, sysadminCookie);
 
   const A = await mkCg('a');
   const B = await mkCg('b'); await cancel(B, B.vId);
@@ -1261,6 +1293,144 @@ async function testSaveContract() {
   }
 }
 
+// ── Save contract — cost grid version Save (cycle 2) ─────────────────────────
+
+async function testCostGridSave() {
+  section('Save contract — cost grid version Save');
+  const logRows = async (type, id) =>
+    (await sql('SELECT version, action, user_id, snapshot FROM change_log WHERE entity_type = $1 AND entity_id = $2 ORDER BY id', [type, String(id)])) || [];
+  const isStale = r => r.status === 409 && r.data?.code === 'STALE';
+  const tag = String(Date.now());
+  const role = await makeTestRole('CS' + tag);
+
+  const g = await api('POST', '/api/cost-grids', { name: '__test_cs_cg__' }, adminCookie);
+  const cgId = g.data?.id;
+  if (cgId) later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+  const mkVersion = async label => (cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label }, adminCookie)).data?.id : null);
+  const vId = await mkVersion('cs1');
+  if (!ok(!!(role.id && cgId && vId), 'CS-setup role, proposal and version')) return;
+  const vPath = id => `/api/cost-grids/${cgId}/versions/${id}`;
+  const readV = async id => ((await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || []).find(v => v.id === id);
+  const save = async (id, body, cookie = adminCookie) => api('PUT', vPath(id), body, cookie);
+
+  // CS-01: one Save, version +1, one change_log row with the structure
+  const v0 = (await readV(vId))?.version;
+  const s1 = await save(vId, { version: v0, header: { note: 'x' } });
+  ok(s1.status === 200 && s1.data?.version === v0 + 1 && s1.data?.note === 'x' && Array.isArray(s1.data?.structure?.phases),
+    `CS-01 Save header → 200, version +1, snapshot with structure (got ${s1.status} ${JSON.stringify(s1.data)?.slice(0, 120)})`);
+  const rows1 = await logRows('cost_grid_version', vId);
+  const last1 = rows1.slice(-1)[0];
+  ok(last1?.action === 'update' && last1?.version === v0 + 1 && Array.isArray(last1?.snapshot?.structure?.phases),
+    `CS-01 change_log: update/${v0 + 1} with snapshot.structure.phases (got ${JSON.stringify(rows1.map(r => [r.action, r.version]))})`);
+
+  // CS-02: two Saves from the same version — the second is stale, the first one's stage stays
+  const vA = s1.data?.version;
+  const a2 = await save(vId, { version: vA, header: { pipeline: 'Expected' } });
+  const b2 = await save(vId, { version: vA, header: { pipeline: 'Committed' } });
+  ok(a2.status === 200 && isStale(b2) && b2.data?.version === vA + 1 && b2.data?.error === 'This version was changed by someone else since you opened it.',
+    `CS-02 second Save from the same version → 409 STALE (got ${a2.status}, ${b2.status})`);
+  ok((await readV(vId))?.pipeline === 'Expected', 'CS-02 the first Save\'s stage stays');
+
+  // CS-03: no version → 409 STALE
+  const s3 = await save(vId, { header: { note: 'y' } });
+  ok(isStale(s3), `CS-03 Save without version → 409 STALE (got ${s3.status})`);
+
+  // CS-04: unknown fields and an empty body are refused, with no change_log row
+  const before4 = (await logRows('cost_grid_version', vId)).length;
+  const cur4 = (await readV(vId))?.version;
+  const u1 = await save(vId, { version: cur4, header: { linkedProjects: [] } });
+  ok(u1.status === 400 && u1.data?.error === 'Unknown field: linkedProjects', `CS-04 header.linkedProjects → 400 (got ${u1.status} ${u1.data?.error})`);
+  const u2 = await save(vId, { version: cur4, header: { status: 'Started' } });
+  ok(u2.status === 400 && u2.data?.error === 'Unknown field: status', `CS-04 header.status → 400 (got ${u2.status} ${u2.data?.error})`);
+  const u3 = await save(vId, { version: cur4 });
+  ok(u3.status === 400 && u3.data?.error === 'Nothing to update', `CS-04 empty body → 400 Nothing to update (got ${u3.status} ${u3.data?.error})`);
+  ok((await logRows('cost_grid_version', vId)).length === before4, 'CS-04 no change_log row for a refused Save');
+
+  // CS-05: a stage change reaches the linked project, with its version and a project/update row
+  const gen = await api('POST', '/api/projects', { name: `__test_cs_proj_${tag}__`, cgVersionId: vId, currency: 'EUR' }, adminCookie);
+  const pId = gen.data?.id;
+  if (pId) later('DELETE', `/api/projects/${pId}`);
+  if (ok(gen.status === 201 && !!pId, `CS-05 setup linked project (got ${gen.status})`)) {
+    const pBefore = (await sql('SELECT pipeline, version FROM projects WHERE id = $1', [pId]))?.[0];
+    const s5 = await save(vId, { version: (await readV(vId))?.version, header: { pipeline: 'Committed' } });
+    const pAfter = (await sql('SELECT pipeline, version FROM projects WHERE id = $1', [pId]))?.[0];
+    ok(s5.status === 200 && pAfter?.pipeline === 'Committed' && pAfter?.version === (pBefore?.version ?? -9) + 1,
+      `CS-05 stage Committed → project pipeline Committed, version +1 (got ${s5.status}, ${JSON.stringify(pBefore)} → ${JSON.stringify(pAfter)})`);
+    const pRow = (await logRows('project', pId)).slice(-1)[0];
+    ok(pRow?.action === 'update' && pRow?.snapshot?.pipeline === 'Committed', `CS-05 change_log project/update (got ${JSON.stringify(pRow && [pRow.action, pRow.version])})`);
+  }
+
+  // CS-06: a refused rule changes nothing
+  const v6 = await mkVersion('cs6');
+  if (ok(!!v6, 'CS-06 setup version')) {
+    const p6 = await save(v6, { version: 0, header: { startDate: '202604', endDate: '202606' } });
+    ok(p6.status === 200, `CS-06 setup period (got ${p6.status} ${p6.data?.error})`);
+    const before6 = await readV(v6);
+    const rows6 = (await logRows('cost_grid_version', v6)).length;
+    const r6 = await save(v6, {
+      version: before6?.version,
+      header: { note: 'not saved' },
+      structure: { phases: [{ phaseName: 'P', tasks: [{ taskName: 'Late', taskStartDate: '2026-09-01', taskEndDate: '2026-09-02', hours: { [role.code]: 1 } }] }], roles: [{ roleCode: role.code, rate: 10 }] },
+    });
+    const after6 = await readV(v6);
+    const st6 = (await api('GET', `${vPath(v6)}/structure`, null, adminCookie)).data?.phases || [];
+    ok(r6.status === 400 && r6.data?.code === 'DATE_RULE', `CS-06 task outside the period → 400 DATE_RULE (got ${r6.status} ${r6.data?.code})`);
+    ok(after6?.version === before6?.version && after6?.note !== 'not saved' && st6.length === 0 && (await logRows('cost_grid_version', v6)).length === rows6,
+      'CS-06 version, header, structure and change_log unchanged');
+  }
+
+  // CS-07: a currency change and the rates in one Save — the rates are checked in the new currency
+  const v7 = await mkVersion('cs7');
+  if (ok(!!v7, 'CS-07 setup version')) {
+    const st = rate => ({ phases: [{ phaseName: 'P', tasks: [{ taskName: 'T', hours: { [role.code]: 2 } }] }], roles: [{ roleCode: role.code, rate }] });
+    const bad = await save(v7, { version: 0, header: { currency: 'CHF' }, structure: st(10.125) });
+    ok(bad.status === 400 && bad.data?.code === 'MONEY_RULE' && /for CHF/.test(bad.data?.error || ''),
+      `CS-07 rate with too many decimals → MONEY_RULE in CHF (got ${bad.status} ${bad.data?.error})`);
+    const good = await save(v7, { version: 0, header: { currency: 'CHF' }, structure: st(10.5) });
+    ok(good.status === 200 && good.data?.currency === 'CHF' && Number(good.data?.currency_rate) === testRates.CHF,
+      `CS-07 valid rate → 200, CHF at its active rate ${testRates.CHF} (got ${good.status} ${good.data?.currency_rate} ${good.data?.error || ''})`);
+  }
+
+  // CS-08: a header-only Save is checked against the stored tasks, and leaves them untouched
+  const v8 = await mkVersion('cs8');
+  if (ok(!!v8, 'CS-08 setup version')) {
+    const set8 = await save(v8, {
+      version: 0, header: { startDate: '202604', endDate: '202612' },
+      structure: { phases: [{ phaseName: 'P', tasks: [{ taskName: 'Nov', taskStartDate: '2026-11-02', taskEndDate: '2026-11-06', hours: { [role.code]: 1 } }] }], roles: [{ roleCode: role.code, rate: 10 }] },
+    });
+    ok(set8.status === 200, `CS-08 setup period and one task (got ${set8.status} ${set8.data?.error})`);
+    const ver8 = set8.data?.version;
+    const narrow = await save(v8, { version: ver8, header: { endDate: '202609' } });
+    ok(narrow.status === 400 && narrow.data?.code === 'DATE_RULE', `CS-08 endDate excluding a stored task → DATE_RULE (got ${narrow.status} ${narrow.data?.code})`);
+    const wide = await save(v8, { version: ver8, header: { endDate: '202701' } });
+    const tasks8 = ((await api('GET', `${vPath(v8)}/structure`, null, adminCookie)).data?.phases || []).flatMap(p => p.tasks.map(t => t.title));
+    ok(wide.status === 200 && tasks8.join(',') === 'Nov', `CS-08 compatible endDate → 200, stored tasks unchanged (got ${wide.status}, ${tasks8})`);
+  }
+
+  // CS-09: the reads carry the version
+  const list9 = (await api('GET', '/api/cost-grids', null, adminCookie)).data || [];
+  const nested = list9.find(x => x.id === cgId)?.versions || [];
+  const vers9 = (await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || [];
+  const struct9 = (await api('GET', `${vPath(vId)}/structure`, null, adminCookie)).data;
+  ok(nested.length > 0 && nested.every(v => Number.isInteger(v.version)), 'CS-09 GET /api/cost-grids → nested versions carry an integer version');
+  ok(vers9.length > 0 && vers9.every(v => Number.isInteger(v.version)), 'CS-09 GET …/versions → integer version');
+  ok(Number.isInteger(struct9?.version), `CS-09 GET …/structure → integer version (got ${struct9?.version})`);
+
+  // CS-10: a stage change in parallel with a PATCH of the linked project — no 500, no deadlock
+  if (pId) {
+    let fiveHundreds = 0;
+    for (let i = 0; i < 4; i++) {
+      const stage = i % 2 ? 'Expected' : 'Anticipated';
+      const [sv, pp] = await Promise.all([
+        save(vId, { version: (await readV(vId))?.version, header: { pipeline: stage } }),
+        api('PATCH', `/api/projects/${pId}`, { name: `__test_cs_proj_${tag}_${i}__` }, adminCookie),
+      ]);
+      if (sv.status >= 500 || pp.status >= 500) { fiveHundreds++; process.stdout.write(`    race ${i}: Save ${sv.status}, PATCH ${pp.status}\n`); }
+    }
+    ok(fiveHundreds === 0, `CS-10 Save with a stage change and a project PATCH fired together → no 500 (${fiveHundreds})`);
+  }
+}
+
 // ── Ratecards ─────────────────────────────────────────────────────────────────
 
 async function testRatecards() {
@@ -1467,7 +1637,7 @@ async function testServerValidation() {
   if (!ok(!!svId && !!myRole, `SV-20 setup: grid, version and role (got ${sgv?.status})`)) {
     // fall through to the project checks
   } else {
-    const putS = (vid, body) => api('PUT', `/api/cost-grids/${sgId}/versions/${vid}/structure`, body, adminCookie);
+    const putS = (vid, body) => putStructure(`/api/cost-grids/${sgId}/versions/${vid}/structure`, body, adminCookie);
     const s20 = await putS(someUuid, { phases: [], roles: [{ roleCode: 'X', rate: 10 }] });
     ok(s20.status === 404 && s20.data?.error === 'Version not found', `SV-20 structure PUT on a missing version → 404 (got ${s20.status})`);
     const s21 = await putS('not-a-uuid', { phases: [], roles: [] });
@@ -1561,16 +1731,16 @@ async function testServerValidation() {
     const gv = await api('POST', `/api/cost-grids/${g.data?.id}/versions`, { label: 'v1' }, adminCookie);
     if (ok(!!g.data?.id && !!gv.data?.id, `SV-46 setup: grid and version (got ${g.status}, ${gv.status})`)) {
       const stPath = `/api/cost-grids/${g.data.id}/versions/${gv.data.id}/structure`;
-      const good = await api('PUT', stPath, { phases: [{ title: 'SV keep phase', tasks: [] }], roles: [] }, adminCookie);
+      const good = await putStructure(stPath, { phases: [{ title: 'SV keep phase', tasks: [] }], roles: [] }, adminCookie);
       const titles = async () => ((await api('GET', stPath, null, adminCookie)).data?.phases || []).map(p => p.title).join('|');
       ok(good.status === 200 && await titles() === 'SV keep phase', `SV-46 setup: a valid structure PUT → 200 (got ${good.status})`);
-      const b1 = await api('PUT', stPath, { phases: 'abc' }, adminCookie);
+      const b1 = await putStructure(stPath, { phases: 'abc' }, adminCookie);
       ok(b1.status === 400 && await titles() === 'SV keep phase', `SV-46 structure PUT with phases 'abc' → 400, phases unchanged (got ${b1.status})`);
-      const b2 = await api('PUT', stPath, { roles: [null] }, adminCookie);
+      const b2 = await putStructure(stPath, { roles: [null] }, adminCookie);
       ok(b2.status === 400, `SV-47 structure PUT with roles [null] → 400 (got ${b2.status})`);
-      const b3 = await api('PUT', stPath, { phases: {} }, adminCookie);
+      const b3 = await putStructure(stPath, { phases: {} }, adminCookie);
       ok(b3.status === 400, `SV-47 structure PUT with phases {} → 400 (got ${b3.status})`);
-      const b4 = await api('PUT', stPath, { phases: [{ tasks: [{ roles: {} }] }] }, adminCookie);
+      const b4 = await putStructure(stPath, { phases: [{ tasks: [{ roles: {} }] }] }, adminCookie);
       ok(b4.status === 400 && await titles() === 'SV keep phase', `SV-47 structure PUT with task roles {} → 400, phases unchanged (got ${b4.status})`);
     }
   }
@@ -1785,13 +1955,13 @@ async function testPotSummaryExtended() {
     const vId = v.data?.id;
     if (!vId) return null;
     if (days) {
-      await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+      await putStructure(`/api/cost-grids/${cgId}/versions/${vId}/structure`, {
         phases: [{ title: 'P1', tasks: [{ title: 'T1', roles: [{ roleId: role.id, days, rateOverride: 100 }] }] }],
       }, adminCookie);
     }
     if (stage) {
       await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/publish`, null, adminCookie);
-      await api('PATCH', `/api/cost-grids/${cgId}/versions/${vId}`, { pipeline: stage }, adminCookie);
+      await patchVersion(`/api/cost-grids/${cgId}/versions/${vId}`, { pipeline: stage }, adminCookie);
     }
     return { cgId, vId, stage };
   }
@@ -1848,11 +2018,11 @@ async function testPotSummaryExtended() {
       { label: 'v1', clientId: cid, currency: 'EUR', currencyRate: 1 }, adminCookie);
     const vId = v.data?.id;
     if (!vId) continue;
-    await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+    await putStructure(`/api/cost-grids/${cgId}/versions/${vId}/structure`, {
       phases: [{ title: 'P1', tasks: [{ title: 'T1', roles: [{ roleId: role.id, days: i + 2, rateOverride: 100 }] }] }],
     }, adminCookie);
     await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/publish`, null, adminCookie);
-    await api('PATCH', `/api/cost-grids/${cgId}/versions/${vId}`, { pipeline: 'Committed' }, adminCookie);
+    await patchVersion(`/api/cost-grids/${cgId}/versions/${vId}`, { pipeline: 'Committed' }, adminCookie);
     gMade.push({ cgId, vId });
   }
   if (gMade.length !== 2) { fail('POT-12: proposal setup failed — skipping'); return; }
@@ -1892,11 +2062,11 @@ async function testPotMasterDataFields() {
       { label: 'v1', clientId, currency }, adminCookie);
     const vId = v.data?.id;
     if (!vId) return null;
-    await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+    await putStructure(`/api/cost-grids/${cgId}/versions/${vId}/structure`, {
       phases: [{ title: 'P1', tasks: [{ title: 'T1', roles: [{ roleId: role.id, days, rateOverride: 100 }] }] }],
     }, adminCookie);
     await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/publish`, null, adminCookie);
-    await api('PATCH', `/api/cost-grids/${cgId}/versions/${vId}`, { pipeline: stage }, adminCookie);
+    await patchVersion(`/api/cost-grids/${cgId}/versions/${vId}`, { pipeline: stage }, adminCookie);
     return { cgId, vId };
   }
 
@@ -1968,7 +2138,7 @@ async function testMoneyRules() {
   const usdV = cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'usd', currency: 'USD' }, adminCookie)).data?.id : null;
   if (!mrRole.id || !eurV || !usdV) { fail('MR-setup: role/proposal/versions failed — skipping'); return; }
 
-  const putRate = (vId, rate) => api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+  const putRate = (vId, rate) => putStructure(`/api/cost-grids/${cgId}/versions/${vId}/structure`, {
     phases: [{ phaseName: 'P1', tasks: [{ taskName: 'T1', hours: { [mrRole.code]: 2 } }] }],
     roles: [{ roleCode: mrRole.code, rate }],
   }, adminCookie);
@@ -2145,7 +2315,7 @@ async function testMoneyRules() {
   } else fail('MR-15b: POT setup failed — skipping');
 
   // MR-16 — task PTC on the structure PUT (version currency, DECIMAL(10,2)); 0 / null / absent store 0
-  const putPtc = (vId, ptc, withPtc = true) => api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+  const putPtc = (vId, ptc, withPtc = true) => putStructure(`/api/cost-grids/${cgId}/versions/${vId}/structure`, {
     phases: [{ phaseName: 'P1', tasks: [{ taskName: 'T1', hours: { [mrRole.code]: 2 }, ...(withPtc ? { ptc } : {}) }] }],
     roles: [{ roleCode: mrRole.code, rate: 100 }],
   }, adminCookie);
@@ -2171,7 +2341,7 @@ async function testMoneyRules() {
     `MR-16c USD task PTC 175.555 → MONEY_RULE, 175.55 → 200 (got ${u1.status}, ${u2.status})`);
 
   // MR-17 — second body shape: roles[].rateOverride (0 is a rate override, absent is NULL)
-  const putShape2 = (vId, rateOverride, withOverride = true) => api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+  const putShape2 = (vId, rateOverride, withOverride = true) => putStructure(`/api/cost-grids/${cgId}/versions/${vId}/structure`, {
     phases: [{ title: 'P1', tasks: [{ title: 'T1', roles: [{ roleId: mrRole.id, days: 2, ...(withOverride ? { rateOverride } : {}) }] }] }],
   }, adminCookie);
   const w1 = await putShape2(eurV, 0), w1s = await storedRate(eurV);
@@ -2207,9 +2377,9 @@ async function testPotReferenceVersion() {
     const v = await api('POST', `/api/cost-grids/${cgId}/versions`, { label, clientId, currency: 'EUR' }, cookie);
     const vId = v.data?.id;
     if (!vId) return null;
-    await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, structure(days), adminCookie);
+    await putStructure(`/api/cost-grids/${cgId}/versions/${vId}/structure`, structure(days), adminCookie);
     await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/publish`, null, adminCookie);
-    await api('PATCH', `/api/cost-grids/${cgId}/versions/${vId}`, { pipeline: stage }, adminCookie);
+    await patchVersion(`/api/cost-grids/${cgId}/versions/${vId}`, { pipeline: stage }, adminCookie);
     return vId;
   }
   // v1 in stage A, then (optionally) v2 in stage B, created by the sysadmin: a published proposal
@@ -2290,16 +2460,16 @@ async function testPotReferenceVersion() {
   const vPath = `/api/cost-grids/${cgId}/versions/${vId}`;
   ok(near(parseFloat(usd.data.currency_rate), testRates.USD), 'POT-22 setup: a USD version takes the live USD rate, not the body');
 
-  await api('PATCH', vPath, { currencyRate: 2.5 }, adminCookie);
-  const p22 = await api('PATCH', vPath, { label: 'x', currencyRate: 2.5 }, adminCookie);
+  await patchVersion(vPath, { currencyRate: 2.5 }, adminCookie);
+  const p22 = await patchVersion(vPath, { label: 'x', currencyRate: 2.5 }, adminCookie);
   ok(p22.status === 200 && near(await budgetRate(vId), testRates.USD), 'POT-22 PATCH with currencyRate (no currency) → rate unchanged');
 
-  const p23a = await api('PATCH', vPath, { currency: 'EUR', currencyRate: 2.5 }, adminCookie);
+  const p23a = await patchVersion(vPath, { currency: 'EUR', currencyRate: 2.5 }, adminCookie);
   ok(p23a.status === 200 && parseFloat(p23a.data?.currency_rate) === 1, 'POT-23 PATCH to EUR → currency_rate 1');
-  const p23b = await api('PATCH', vPath, { currency: 'USD' }, adminCookie);
+  const p23b = await patchVersion(vPath, { currency: 'USD' }, adminCookie);
   ok(p23b.status === 200 && near(parseFloat(p23b.data?.currency_rate), testRates.USD), 'POT-23 PATCH to USD → the live USD rate');
 
-  const p24 = await api('PATCH', vPath, { currency: 'NOK' }, adminCookie);
+  const p24 = await patchVersion(vPath, { currency: 'NOK' }, adminCookie);
   const after24 = ((await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || []).find(v => v.id === vId);
   ok(p24.status === 400 && p24.data?.code === 'CURRENCY_RULE' && after24?.currency === 'USD' && near(await budgetRate(vId), testRates.USD),
     `POT-24 PATCH to an inactive currency → 400 CURRENCY_RULE, nothing written (got ${p24.status})`);
@@ -2317,7 +2487,7 @@ async function testPotReferenceVersion() {
 
   // POT-26 — same currency re-sent after the live rate moved: the version keeps its rate
   const moved = await api('PATCH', '/api/currencies/USD/rate', { rate: testRates.USD + 0.5 }, adminCookie);
-  const p26 = await api('PATCH', vPath, { currency: 'USD' }, adminCookie);
+  const p26 = await patchVersion(vPath, { currency: 'USD' }, adminCookie);
   ok(moved.status === 200 && p26.status === 200 && near(parseFloat(p26.data?.currency_rate), testRates.USD),
     'POT-26 PATCH with the same currency → 200, rate unchanged after the live rate moved');
   await api('PATCH', '/api/currencies/USD/rate', { rate: testRates.USD }, adminCookie);
@@ -2334,7 +2504,7 @@ async function testPotReferenceVersion() {
   const chfId = chf.data?.id;
   if (!chfId) { fail(`POT-26b setup: CHF version (got ${chf.status})`); return; }
   if (await sql("UPDATE currencies SET active = false WHERE code = 'CHF'")) try {
-    const p26b = await api('PATCH', `/api/cost-grids/${cgId}/versions/${chfId}`, { label: 'chf2', currency: 'CHF' }, adminCookie);
+    const p26b = await patchVersion(`/api/cost-grids/${cgId}/versions/${chfId}`, { label: 'chf2', currency: 'CHF' }, adminCookie);
     ok(p26b.status === 200 && near(parseFloat(p26b.data?.currency_rate), testRates.CHF),
       `POT-26b autosave with the same, since deactivated, currency → 200, rate kept (got ${p26b.status})`);
     const p27 = await api('POST', `/api/cost-grids/${cgId}/versions/${chfId}/refresh-rate`, null, adminCookie);
@@ -2345,7 +2515,7 @@ async function testPotReferenceVersion() {
   }
 
   // POT-28 — a currency PATCH on a version that does not exist → 404, whatever the currency
-  const p28 = await api('PATCH', `/api/cost-grids/${cgId}/versions/00000000-0000-0000-0000-000000000000`, { currency: 'NOK' }, adminCookie);
+  const p28 = await patchVersion(`/api/cost-grids/${cgId}/versions/00000000-0000-0000-0000-000000000000`, { currency: 'NOK' }, adminCookie);
   ok(p28.status === 404, `POT-28 currency PATCH on an unknown version → 404 (got ${p28.status})`);
 }
 
@@ -4346,10 +4516,9 @@ async function testVersionScope() {
 
   const cross = `/api/cost-grids/${A.cgId}/versions/${B.vId}`; // grid A's id, grid B's version
   const cases = [
-    ['VS-01 PATCH version',            'PATCH',  cross,                              { label: 'hijack' }],
+    ['VS-01 PUT version (Save)',       'PUT',    cross,                              { version: 0, header: { label: 'hijack' } }],
     ['VS-03 POST duplicate',           'POST',   `${cross}/duplicate`,               null],
     ['VS-04 GET structure',            'GET',    `${cross}/structure`,               null],
-    ['VS-05 PUT structure',            'PUT',    `${cross}/structure`,               { phases: [] }],
     ['VS-06 GET linked-projects',      'GET',    `${cross}/linked-projects`,         null],
     ['VS-07 POST linked-projects',     'POST',   `${cross}/linked-projects`,         { projectId: FAKE }],
     ['VS-08 DELETE linked-projects',   'DELETE', `${cross}/linked-projects/${FAKE}`, null],
@@ -4378,7 +4547,7 @@ async function testVersionScope() {
     "VS-02 grid B's version still exists after the cross-grid DELETE");
 
   // Same-grid requests keep working
-  const okPatch = await api('PATCH', `/api/cost-grids/${A.cgId}/versions/${A.vId}`, { label: 'vA2' }, adminCookie);
+  const okPatch = await patchVersion(`/api/cost-grids/${A.cgId}/versions/${A.vId}`, { label: 'vA2' }, adminCookie);
   ok(okPatch.status === 200 && okPatch.data?.label === 'vA2', 'VS-11 PATCH with the version of the same grid → 200');
   ok((await api('GET', `/api/cost-grids/${A.cgId}/versions/${A.vId}/structure`, null, adminCookie)).status === 200,
     'VS-11 GET structure with the version of the same grid → 200');
@@ -4456,7 +4625,7 @@ async function testStructureRule() {
   const vId = cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'v1' }, adminCookie)).data?.id : null;
   if (!ok(!!(cgId && vId), 'SR-setup proposal with one version created')) return;
   const base = `/api/cost-grids/${cgId}/versions/${vId}`;
-  const putStructure = phases => api('PUT', `${base}/structure`, { phases }, adminCookie);
+  const putStructure = phases => putStructure(`${base}/structure`, { phases }, adminCookie);
 
   const first = await putStructure([
     { title: 'P1', tasks: [{ title: 'T1' }, { title: 'T2' }] },
@@ -4532,16 +4701,16 @@ async function testDateRule() {
   ok(Array.isArray(list2.data) && list2.data.length === 0, 'DT-01 the refused POST created no version');
 
   // DT-02 / DT-03: version PATCH
-  const p2 = await api('PATCH', base, { startDate: '2026-05' }, adminCookie);
+  const p2 = await patchVersion(base, { startDate: '2026-05' }, adminCookie);
   ok(isRule(p2), `DT-02 version PATCH with a malformed month → 400 DATE_RULE (got ${p2.status})`);
   const vper = async () => {
     const v = ((await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || []).find(x => x.id === vId);
     return `${String(v?.start_date || '').trim()}|${String(v?.end_date || '').trim()}`;
   };
   ok(await vper() === '|', 'DT-02 the refused PATCH left the version period empty');
-  const p3 = await api('PATCH', base, { startDate: '202602', endDate: '202612' }, adminCookie);
+  const p3 = await patchVersion(base, { startDate: '202602', endDate: '202612' }, adminCookie);
   ok(p3.status === 200, `DT-03 version PATCH with a valid period → 200 (got ${p3.status})`);
-  const p3b = await api('PATCH', base, { endDate: '202601' }, adminCookie);
+  const p3b = await patchVersion(base, { endDate: '202601' }, adminCookie);
   ok(isRule(p3b), `DT-03 PATCH moving end before the stored start → 400 DATE_RULE (got ${p3b.status})`);
   const vlist = (await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || [];
   ok(String(vlist.find(v => v.id === vId)?.end_date || '').trim() === '202612', 'DT-03 the refused PATCH left the end date at 202612');
@@ -4554,7 +4723,7 @@ async function testDateRule() {
 
   // DT-08: re-sending an empty period against an empty period is "unchanged"
   const emptyV = await mk(cgId, 'v-empty');
-  const p8 = await api('PATCH', `/api/cost-grids/${cgId}/versions/${emptyV}`, { startDate: null, endDate: null }, adminCookie);
+  const p8 = await patchVersion(`/api/cost-grids/${cgId}/versions/${emptyV}`, { startDate: null, endDate: null }, adminCookie);
   ok(p8.status === 200, `DT-08 version PATCH re-sending null/null on a version without period → 200 (got ${p8.status})`);
 
   // The linked project, with a stored period
@@ -4592,7 +4761,7 @@ async function testDateRule() {
   ok(await countNamed('__test_dt_mal__') === 0, 'DT-13 the refused POST created no project');
 
   // DT-05 / DT-06: PUT structure
-  const put = phases => api('PUT', `${base}/structure`, { phases }, adminCookie);
+  const put = phases => putStructure(`${base}/structure`, { phases }, adminCookie);
   const titles = async () => ((await api('GET', `${base}/structure`, null, adminCookie)).data?.phases || [])
     .flatMap(p => p.tasks.map(t => t.title)).sort().join(',');
   const s0 = await put([{ title: 'P1', tasks: [{ title: 'Keep' }] }]);
@@ -4648,7 +4817,7 @@ async function testTaskPeriod() {
   if (!ok(!!(cgId && vId), 'TD-setup proposal with a version')) return;
   const base = `/api/cost-grids/${cgId}/versions/${vId}`;
   const isRule = r => r.status === 400 && r.data?.code === 'DATE_RULE';
-  const setPeriod = await api('PATCH', base, { startDate: '202604', endDate: '202612' }, adminCookie);
+  const setPeriod = await patchVersion(base, { startDate: '202604', endDate: '202612' }, adminCookie);
   if (!ok(setPeriod.status === 200, `TD-setup version period 202604-202612 (got ${setPeriod.status})`)) return;
 
   const gen = await api('POST', '/api/projects', { name: '__test_tp_proj__', cgVersionId: vId, currency: 'EUR', startDate: '202604', endDate: '202612' }, adminCookie);
@@ -4656,7 +4825,7 @@ async function testTaskPeriod() {
   if (pId) later('DELETE', `/api/projects/${pId}`);
   if (!ok(gen.status === 201 && !!pId, `TD-setup project with period 202604-202612 (got ${gen.status})`)) return;
 
-  const put = (b, phases) => api('PUT', `${b}/structure`, { phases }, adminCookie);
+  const put = (b, phases) => putStructure(`${b}/structure`, { phases }, adminCookie);
   const titles = async () => ((await api('GET', `${base}/structure`, null, adminCookie)).data?.phases || [])
     .flatMap(p => p.tasks.map(t => t.title)).sort().join(',');
   const vPeriod = async () => {
@@ -4685,12 +4854,12 @@ async function testTaskPeriod() {
   ok(r3b.status === 200, `TD-03 project tasks inside the project period → 200 (got ${r3b.status})`);
 
   // TD-04: version PATCH shrinking the period under a task (the TD-02 task starts on 2026-04-01)
-  const p4 = await api('PATCH', base, { startDate: '202605', endDate: '202612' }, adminCookie);
+  const p4 = await patchVersion(base, { startDate: '202605', endDate: '202612' }, adminCookie);
   ok(isRule(p4), `TD-04 version PATCH pushing a task out of the period → 400 DATE_RULE (got ${p4.status})`);
   ok(await vPeriod() === '202604|202612', 'TD-04 the refused PATCH left the version period unchanged');
-  const p4b = await api('PATCH', base, { startDate: '202603', endDate: '202612' }, adminCookie);
+  const p4b = await patchVersion(base, { startDate: '202603', endDate: '202612' }, adminCookie);
   ok(p4b.status === 200, `TD-04 version PATCH widening the period → 200 (got ${p4b.status})`);
-  const p4c = await api('PATCH', base, { startDate: '202603', endDate: '202612' }, adminCookie);
+  const p4c = await patchVersion(base, { startDate: '202603', endDate: '202612' }, adminCookie);
   ok(p4c.status === 200, `TD-04 version PATCH re-sending the same period → 200 (got ${p4c.status})`);
 
   // TD-05: project PATCH shrinking the period under a task (the TD-03 task on 2026-08-01)
@@ -4707,9 +4876,9 @@ async function testTaskPeriod() {
   const base6 = `/api/cost-grids/${cgId}/versions/${v6}`;
   const s6 = await put(base6, [{ title: 'P1', tasks: [{ title: 'July', taskStartDate: '2026-07-01' }] }]);
   ok(s6.status === 200, `TD-06 setup: a task on a version without period → 200 (got ${s6.status})`);
-  const p6 = await api('PATCH', base6, { startDate: '202608', endDate: '202612' }, adminCookie);
+  const p6 = await patchVersion(base6, { startDate: '202608', endDate: '202612' }, adminCookie);
   ok(isRule(p6), `TD-06 first period that excludes a task → 400 DATE_RULE (got ${p6.status})`);
-  const p6b = await api('PATCH', base6, { startDate: '202607', endDate: '202612' }, adminCookie);
+  const p6b = await patchVersion(base6, { startDate: '202607', endDate: '202612' }, adminCookie);
   ok(p6b.status === 200, `TD-06 first period that includes the task → 200 (got ${p6b.status})`);
 }
 
@@ -4735,7 +4904,7 @@ async function testDateRulesC3() {
   if (!ok(!!(cgId && vId && v2Id), 'DR-setup proposal with two versions')) return;
   const base = `/api/cost-grids/${cgId}/versions/${vId}`;
   const isRule = r => r.status === 400 && r.data?.code === 'DATE_RULE';
-  const setPeriod = await api('PATCH', base, { startDate: '202604', endDate: '202612' }, adminCookie);
+  const setPeriod = await patchVersion(base, { startDate: '202604', endDate: '202612' }, adminCookie);
   if (!ok(setPeriod.status === 200, `DR-setup version period 202604-202612 (got ${setPeriod.status})`)) return;
 
   const gen = await api('POST', '/api/projects', { name: '__test_dr_proj__', cgVersionId: vId, currency: 'EUR', startDate: '202604', endDate: '202612' }, adminCookie);
@@ -4747,7 +4916,7 @@ async function testDateRulesC3() {
   if (p2Id) later('DELETE', `/api/projects/${p2Id}`);
   if (!ok(gen2.status === 201 && !!p2Id, `DR-setup project without period (got ${gen2.status})`)) return;
 
-  const put = (phases, period) => api('PUT', `${base}/structure`, period === undefined ? { phases } : { phases, period }, adminCookie);
+  const put = (phases, period) => putStructure(`${base}/structure`, period === undefined ? { phases } : { phases, period }, adminCookie);
   const vPeriod = async () => {
     const v = ((await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || []).find(x => x.id === vId);
     return `${String(v?.start_date || '').trim()}|${String(v?.end_date || '').trim()}`;
@@ -4757,7 +4926,7 @@ async function testDateRulesC3() {
   // DR-01: the same period reduction gets the same refusal from the version PATCH and the structure PUT
   const s0 = await put(one('Early', '2026-04-10', '2026-04-20'));
   ok(s0.status === 200, `DR-setup structure with a task on 2026-04-10 (got ${s0.status})`);
-  const e1 = await api('PATCH', base, { startDate: '202605', endDate: '202612' }, adminCookie);
+  const e1 = await patchVersion(base, { startDate: '202605', endDate: '202612' }, adminCookie);
   const e1b = await put(one('Early', '2026-04-10', '2026-04-20'), { startDate: '202605', endDate: '202612' });
   ok(isRule(e1) && isRule(e1b) && e1.data.error === e1b.data.error,
     `DR-01 version PATCH and structure PUT refuse the same reduction with the same text (got ${e1.status}: ${e1.data?.error} | ${e1b.status}: ${e1b.data?.error})`);
@@ -4848,7 +5017,7 @@ async function testPeriodWithTasks() {
   if (!ok(!!(cgId && vId), 'PS-setup proposal with a version')) return;
   const base = `/api/cost-grids/${cgId}/versions/${vId}`;
   const isRule = r => r.status === 400 && r.data?.code === 'DATE_RULE';
-  const setPeriod = await api('PATCH', base, { startDate: '202604', endDate: '202612' }, adminCookie);
+  const setPeriod = await patchVersion(base, { startDate: '202604', endDate: '202612' }, adminCookie);
   if (!ok(setPeriod.status === 200, `PS-setup version period 202604-202612 (got ${setPeriod.status})`)) return;
 
   const gen = await api('POST', '/api/projects', { name: '__test_ps_proj__', cgVersionId: vId, currency: 'EUR', startDate: '202604', endDate: '202612' }, adminCookie);
@@ -4856,7 +5025,7 @@ async function testPeriodWithTasks() {
   if (pId) later('DELETE', `/api/projects/${pId}`);
   if (!ok(gen.status === 201 && !!pId, `PS-setup project with period 202604-202612 (got ${gen.status})`)) return;
 
-  const put = (phases, period) => api('PUT', `${base}/structure`, period === undefined ? { phases } : { phases, period }, adminCookie);
+  const put = (phases, period) => putStructure(`${base}/structure`, period === undefined ? { phases } : { phases, period }, adminCookie);
   const titles = async () => ((await api('GET', `${base}/structure`, null, adminCookie)).data?.phases || [])
     .flatMap(p => p.tasks.map(t => t.title)).sort().join(',');
   const vPeriod = async () => {
@@ -4984,7 +5153,7 @@ async function testProjectCurrencyLock() {
   ok((await curPatch(sysadminCookie, 'EUR')).status === 200, 'PR-04 sysadmin: restore it → 200');
 
   // PR-05: version currency
-  const vc = (cookie, id, currency) => api('PATCH', verPath(id), { currency }, cookie);
+  const vc = (cookie, id, currency) => patchVersion(verPath(id), { currency }, cookie);
   const v1 = await vc(adminCookie, vId, 'USD');
   ok(v1.status === 400 && v1.data?.error === 'Currency cannot be changed: projects are linked to this proposal',
     `PR-05 admin: change the currency of a version with projects → 400 (got ${v1.status})`);
@@ -5078,7 +5247,7 @@ async function testProjectCurrencyLock() {
     if (!rId) continue;
     rounds++;
     const [pa, pb] = await Promise.all([
-      api('PATCH', verPath(rId), { currency: 'USD' }, adminCookie),
+      patchVersion(verPath(rId), { currency: 'USD' }, adminCookie),
       api('POST', '/api/projects', { name: `__test_pr_race_${i}__`, cgVersionId: rId, currency: 'EUR' }, adminCookie),
     ]);
     if (pb.data?.id) later('DELETE', `/api/projects/${pb.data.id}`);
@@ -5160,7 +5329,7 @@ async function testRateIsCustom() {
       .data?.phases?.[0]?.tasks?.[0]?.roles || [];
     return Object.fromEntries(roles.map(r => [r.code, r.rate_is_custom]));
   };
-  const putHours = roles => api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+  const putHours = roles => putStructure(`/api/cost-grids/${cgId}/versions/${vId}/structure`, {
     phases: [{ phaseName: 'P1', tasks: [{ taskName: 'T1', hours: { [A.code]: 2, [B.code]: 3 } }] }],
     roles,
   }, adminCookie);
@@ -5184,7 +5353,7 @@ async function testRateIsCustom() {
   ok(d.status === 201 && f3[A.code] === true && f3[B.code] === false,
     `CF-03 "+ New version" copies rate_is_custom (got ${d.status}, ${JSON.stringify(f3)})`);
 
-  const r4 = await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/structure`, {
+  const r4 = await putStructure(`/api/cost-grids/${cgId}/versions/${vId}/structure`, {
     phases: [{ title: 'P1', tasks: [{ title: 'T1', roles: [
       { roleId: A.id, days: 2, rateOverride: 90, rateIsCustom: true },
       { roleId: B.id, days: 1 },
@@ -5212,7 +5381,7 @@ async function testVersionDuplicate() {
   if (!(cgId && srcId && role.id)) { ok(false, 'ND-setup grid, version and role'); return; }
 
   // Source content: 1 phase, 2 tasks, one with a custom rate override
-  const put = await api('PUT', `/api/cost-grids/${cgId}/versions/${srcId}/structure`, {
+  const put = await putStructure(`/api/cost-grids/${cgId}/versions/${srcId}/structure`, {
     phases: [{ title: 'Phase A', tasks: [
       { title: 'Task 1', description: 'first', start_date: '2026-02-01', end_date: '2026-03-15', ptc: 123.5,
         roles: [{ roleId: role.id, days: 10.5, rateOverride: 77 }] },
@@ -5231,7 +5400,7 @@ async function testVersionDuplicate() {
   if (itemId) await api('PUT', `/api/cost-grids/${cgId}/versions/${srcId}/tags`, { itemIds: [itemId] }, adminCookie);
 
   // Give the source a non-EUR currency, so its rate snapshot is not 1
-  await api('PATCH', `/api/cost-grids/${cgId}/versions/${srcId}`, { currency: 'USD' }, adminCookie);
+  await patchVersion(`/api/cost-grids/${cgId}/versions/${srcId}`, { currency: 'USD' }, adminCookie);
 
   const srcStructBefore = (await api('GET', `/api/cost-grids/${cgId}/versions/${srcId}/structure`, null, adminCookie)).data;
 
@@ -5362,7 +5531,7 @@ async function testPipelineYearDraft() {
   const cg6 = await mkGrid();
   const d6 = await mkDraft(cg6, { pipelineYear: TEST_YEAR_D });
   const vId6 = d6.data?.id;
-  const put = vId6 ? await api('PUT', `/api/cost-grids/${cg6}/versions/${vId6}/structure`, {
+  const put = vId6 ? await putStructure(`/api/cost-grids/${cg6}/versions/${vId6}/structure`, {
     phases: [{ title: 'Phase A', tasks: [{ title: 'Task 1', roles: [{ roleId: role.id, days: 12 }] }] }],
   }, adminCookie) : null;
   ok(put?.status === 200, 'PYP-06 setup: Draft structure saved');
@@ -5792,6 +5961,7 @@ async function main() {
     await testRoles();
     await testRatecards();
     await testSaveContract();
+    await testCostGridSave();
     await testServerValidation();
     await testPots();
     await testCostGridBudgets();
