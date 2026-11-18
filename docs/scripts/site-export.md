@@ -33,6 +33,10 @@ The destination is `--dest <dir>`, else the environment variable `PDASH_EXPORT_D
 6. Asks `y/N` on an interactive terminal and refuses without one. `--yes --sha <40 lowercase hex>` replaces the question: the two flags come together, each at most once, and a `--sha` that is not 40 lowercase hex characters is refused. The format of `--sha` is checked first of all, and before any other refusal the copy refuses when the ref does not resolve to that SHA, also with `--dry-run`. Past step 5 it refuses when any warning was printed (the `origin/main` ones about the commit, untracked destination files that would be deleted, or destination files with local changes that would be overwritten), because no one is there to answer N; the library function `runCopy` keys this on `assumeYes`, not on the pin. Every other refusal above still applies, and `--yes --dry-run` writes nothing.
 7. Deletes first, then writes, so a file can become a folder.
 
+## Tests
+
+The command's tests are the files of `scripts/site-export/`, split so vitest runs them on parallel workers; their shared throw-away repositories and the copy wrapper are in `scripts/lib/site-export-fixture.mjs`. The rule parser's tests are `scripts/lib/site-export.test.js`.
+
 ## Guard
 
 `scripts/site-export-guard.test.js` fails when a tracked file matches no rule, and when a file that must never be public (`docs/`, `.claude/`, `scripts/`, tests, the root toolchain, the files the spec names) is included. Its list of never-included paths is a deliberate hand-kept copy: deriving it from the rules would make the check circular. A new file under a block-included folder (`js/`, `css/`, `handbook/`, `api/src/`) is included without a decision unless it matches that list.
