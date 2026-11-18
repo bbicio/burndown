@@ -416,6 +416,8 @@ The page head has a link back to the portfolio, the project's name with its stag
 <summary>Details</summary>
 
 - If something changed and you close the tab or leave the page, the browser asks you to confirm. Tags, actuals and a new client or program are saved at once and are not part of this.
+- Save keeps everything or nothing: when one part is refused, the reason is shown and nothing of the form is saved.
+- If someone else saved the project after you opened it, Save says so and offers **Reload**, which drops your changes and shows the project as it is now. **Reload** appears too when the server's answer was lost and the change may have been saved.
 - A save that is refused says "Save failed", names what was not saved and gives the reason.
 - Below 1024 pixels the section list becomes a row of tabs, and on a phone one section is shown at a time.
 
@@ -714,6 +716,7 @@ Every offer and every project has an owner, normally whoever created it, and can
 - Sharing an offer does not share the projects generated from it: each grant is separate.
 - The offer's detail panel and the offer editor list who has access, with the permission of each person. A share can be removed from that list; adding one or changing its permission needs the share dialog.
 - Each program in Portfolio, and its Program Dashboard, has a **Share** button that gives the chosen permission on every project of the program in one step. It is available to administrators and to people who own or edit at least one project of the program.
+- Sharing a program never lowers anyone's access: a person who already owns or edits one of its projects keeps that, and the confirmation says how many projects kept a higher access.
 - Viewers do not see the buttons that change things: Edit, Clone and Delete on the pipeline board, Configure and Load Actuals on the reports, and the project configuration form is read only.
 - An administrator can reassign an offer's owner from the offer editor. The new owner also gets Editor access to the projects already linked to it, and is notified by email.
 - When someone's access to a project is removed, they are notified.

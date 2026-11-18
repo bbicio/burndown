@@ -119,7 +119,7 @@ function clearProjectData(pid) {
 
 // ── CONFIG ────────────────────────────────────────────────────────────────────
 function loadConfig()    { /* no-op: config.projects is populated by loadConfigFromApi() */ }
-function persistConfig() { /* no-op: mutations are pushed to the API via _pushProjectToApi() */ }
+function persistConfig() { /* no-op: project-config saves with _saveProject() (js/api-sync.js), on the save contract */ }
 
 function loadSummarySelection() {
   try { const s = storageGet(SUMMARY_KEY); if (s) portfolioSummaryProjects = new Set(JSON.parse(s)); } catch(e) {}

@@ -136,7 +136,7 @@ css/                     — stylesheets: tokens.css (design tokens, also `[v-cl
                             tokens" and "Cache-busting" below.
 js/api.js                — Api.* namespace + apiFetch wrapper (401 → login redirect; parsed error body attached
                             as `err.data`). Detail: [docs/js/shared-libs.md](docs/js/shared-libs.md).
-js/api-sync.js           — in-memory ↔ API sync layer (cgSyncFromApi, loadConfigFromApi, _pushProjectToApi, etc.). Full narrative: [docs/js/api-sync.md](docs/js/api-sync.md).
+js/api-sync.js           — in-memory ↔ API sync layer (cgSyncFromApi, loadConfigFromApi, _saveProject, etc.). Full narrative: [docs/js/api-sync.md](docs/js/api-sync.md).
 js/core.js               — state, in-memory helpers (loadConfig/persistConfig are no-ops), shared badges, esc(), fmtH(), showConfirm()/showInfo() modal idioms, findRate(), formatUploadInconsistencies(). Full narrative: [docs/js/core.md](docs/js/core.md).
 js/nav.js                — navigation injection, initNav(): one `<aside class="pd-nav">` (sidebar ≥ 1024px, icon
                             navbar below), the shared modals, the T&C gate, initNotifications(), window.__navUser.
@@ -298,8 +298,9 @@ Key sync functions in `api-sync.js`:
 | `loadPipelineBudgetsFromApi()` | Loads pre-computed budget totals indexed by versionId into `_pbBudgets` |
 | `refreshTimesheetDataFromApi()` | Loads timesheet rows from API into `timesheetData` + `_timesheetProjectData` |
 | `_cgSaveVersion(cgId, verId)` | The cost grid editor's Save: one versioned `PUT` of the changed header and structure, see "Save contract" |
-| `_pushProjectToApi(project)` | Pushes project (all sub-resources) to API; returns `false` only if the core upsert failed; no production caller left |
-| `_pushProjectToApiDetailed(project)` | Same push, returns `{ ok, failed: [{part, error}] }` and never throws; used by `project-config.html`'s `onSave` so a failed save is not reported as success. Empty sections are pushed too; `{ skipEmpty: true }` (opt-in, used only by `js/costgrid.js`'s two callers) skips empty sections so a stale in-memory copy cannot wipe them; `_pushProjectToApi(project, opts)` forwards it |
+| `_saveProject(base, draft)` | `project-config.html`'s Save: one versioned `PUT /api/projects/:id` of the parts that differ from `base`, see "Save contract"; answers `apiSave`'s outcome, with `outcome.project` on success |
+| `_generateProject(cgId, verId, body)` | Generate project: one `POST …/versions/:vId/projects` that creates the project with its tasks, PTC and link |
+| `_addTasksToProject(cgId, verId, projectId, body)` | Add tasks: one `POST …/projects/:projectId/tasks` with the new tasks only |
 
 **Cost grid store** (`_cgStore` Map in `costgrid.js`). `cgLoad/cgSave/cgGetIndex` operate on this Map. Deep-clones on read and write to avoid accidental in-place mutation.
 
@@ -405,7 +406,7 @@ One implementation, `js/lib/dates.js` (server twin `api/src/lib/dates.js`). Rule
 - **Every route that writes a version, project or task period uses `periodError`/`periodChangeError`** and refuses with `400 { error, code: 'DATE_RULE' }`; the timesheet upload checks each date with `toIso` and refuses the whole file with the row number; `js/api-sync.js` must not retry a `DATE_RULE` refusal as a `POST`.
 - **Every editable date field is a `<cg-date-picker>`**, never a native date/month input or a numeric placeholder; its text (`Dec 1, 2025`, `Dec 2025`) comes only from `js/lib/dates.js` (`js/lib/dates-guard.test.js`).
 - **Every date field that has a twin passes `min`/`max`**, and a picker reads typed text only through `parseDateInput`.
-- **Every write of a proposal or project task date is checked with `taskPeriodError` against the parent period, and a period change with `taskDatesError`** — or, when the period travels with the tasks (the cost grid Save, `PUT /api/projects/:id/tasks`), with `taskDatesError` against the new period — both refused with `400 { error, code: 'DATE_RULE' }`; the task and period pickers take their `min`/`max` from `taskDateBounds`/`periodBounds`.
+- **Every write of a proposal or project task date is checked with `taskPeriodError` against the parent period, and a period change with `taskDatesError`** — or, when the period travels with the tasks (the cost grid Save, the project Save `PUT /api/projects/:id`), with `taskDatesError` against the new period — both refused with `400 { error, code: 'DATE_RULE' }`; the task and period pickers take their `min`/`max` from `taskDateBounds`/`periodBounds`.
 - **An existing invalid version or project period is tolerated** until its dates change; task dates are checked on every structure or task-list save.
 
 Full detail: [docs/js/lib.md](docs/js/lib.md), [docs/api/lib.md](docs/api/lib.md) (`dates.js`).
@@ -417,6 +418,7 @@ Rules to keep (exempt files and writes: the lists of `scripts/save-contract-guar
 - **No file under `js/` writes with `fetch`, `apiFetch` or a write method of `Api.*`**: it writes with `apiSave` (`js/lib/save.js`).
 - **An `Api.*` method left without a caller is deleted.**
 - **A `409 STALE` is shown with a Reload action**; after a success the page adopts the server's answer, not its own inputs.
+- **project-config saves only with Save** (`PUT /api/projects/:id`, `_saveProject`): the changed parts with the version it started from, all or nothing; a failed Save never creates the project. Detail: [docs/pages/project-config.md](docs/pages/project-config.md).
 - **The cost grid editor saves only with Save** (`PUT /api/cost-grids/:id/versions/:vId`, `_cgSaveVersion`): it says whether the draft is saved, asks before leaving unsaved changes and offers to save first before the actions that start from the saved version; `CG_AUTOSAVE_ENABLED` in `js/costgrid.js` is the one switch of the autosave. Detail: [docs/pages/costgrid.md](docs/pages/costgrid.md).
 
 Full detail: [docs/api/services.md](docs/api/services.md), [docs/js/lib.md](docs/js/lib.md) (`save.js`).
@@ -432,7 +434,7 @@ Full detail: [docs/api/services.md](docs/api/services.md), [docs/js/lib.md](docs
 ### Project currency lock
 
 A project generated from a proposal keeps the proposal's currency and neither side can change it afterwards; creating a project without a proposal, deleting a project and unlinking it from a proposal are inhibited. Everything is enforced on the **API** for everyone except a sysadmin (live DB role via `liveRole`), with `400 { error, code: 'PROJECT_RULE' }`, and mirrored in the UI. Rules to keep:
-- **Server rules live in `api/src/lib/project-rules.js`** (pure, `node:test`) and are called from `routes/projects.js` (`POST`: a project needs a proposal; `PATCH`: a currency change, clearing/re-pointing `cgVersionId`, a new link needs the same currency; `DELETE`) and `routes/cost-grids.js` (version `PATCH` currency while it has projects, version/proposal `DELETE` with projects, linked-projects `POST` currency check and `DELETE`). "Version has projects" = a `cg_version_projects` row **or** a `projects.cg_version_id`. A re-sent identical `currency`/`cgVersionId` is accepted (the frontend re-sends the whole project on every save).
+- **Server rules live in `api/src/lib/project-rules.js`** (pure, `node:test`) and are called from `routes/projects.js` (`POST`: a project needs a proposal; the Save `PUT /:id`: a currency change, clearing/re-pointing `cgVersionId`, a new link needs the same currency; `DELETE`) and `routes/cost-grids.js` (version Save currency while it has projects, version/proposal `DELETE` with projects, linked-projects `POST` currency check and `DELETE`, Generate `POST …/versions/:vId/projects` and Add tasks `POST …/projects/:projectId/tasks`). "Version has projects" = a `cg_version_projects` row **or** a `projects.cg_version_id`. A re-sent identical `currency`/`cgVersionId` is accepted (the frontend re-sends the whole project on every save).
 - **Single switch-back points:** `DIRECT_PROJECT_CREATION_ENABLED` and `PROJECT_REMOVAL_ENABLED` in `project-rules.js` (server, both `false`) and `DIRECT_PROJECT_CREATION_ENABLED` in `js/lib/project-rules.js` (browser, keep in sync by hand). Re-enabling direct creation also needs the conversion/rate cycle (project-config's Currency menu is already editable on a brand-new project).
 - **Currency change vs linking is serialised per version** by `api/src/lib/version-lock.js` (`pg_advisory_xact_lock`): the version currency check+write and all three link paths run under it (the project `PATCH` takes it before its project row lock).
 - **`js/api-sync.js` must not retry a refused `PATCH` as a `POST`:** a `PROJECT_RULE` refusal is final (any other failure of the update still means "project not there yet").

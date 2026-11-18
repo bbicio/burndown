@@ -1189,47 +1189,29 @@ async function cgDoAddTasksToProject(projId, selectedTaskIds) {
     });
   });
 
-  // The push sends ALL the project's tasks and the server refuses the whole list for one out-of-period task,
-  // so the check covers the tasks the project already holds too.
-  const refusal = cgOutOfPeriodNotice([...(proj.tasks || []), ...newTasks], proj.startDate, proj.endDate);
+  // A preventive notice on the new tasks: the server checks them against the project's stored period and decides.
+  const refusal = cgOutOfPeriodNotice(newTasks, proj.startDate, proj.endDate);
   if (refusal) { showInfo(refusal); return; }
 
-  // Append tasks to project in memory and push to API
-  if (!proj.tasks) proj.tasks = [];
-  proj.tasks.push(...newTasks);
-  const pushResult = await _pushProjectToApiDetailed(proj, { skipEmpty: true });
-  // Only a refused project or tasks save means the new tasks are not on the server; a phasing/ptc/planning/groups
-  // failure leaves them saved.
-  const f = (pushResult.failed || []).find(x => x.part === 'tasks' || x.part === 'project');
-  if (f) {
-    // Nothing was saved for the new tasks: take them back out and record no link.
-    proj.tasks.splice(proj.tasks.length - newTasks.length, newTasks.length);
-    showInfo(`Tasks were not added to "${proj.name}": ${f.reason || f.error}`);
+  const nameOf = tid => (v.phases || []).flatMap(ph => ph.tasks || []).find(t => t.taskId === tid)?.taskName?.trim() || null;
+  const taskNames = [...new Set(selectedTaskIds.map(nameOf).filter(Boolean))];
+
+  // One request appends the new tasks and adds them to the link; memory changes only with its answer.
+  const outcome = await _addTasksToProject(_cgActiveCgId, _cgActiveVersionId, projId,
+    { tasks: newTasks, taskIds: selectedTaskIds, taskNames });
+  if (outcome.kind !== 'ok') {
+    showInfo(`Tasks were not added to "${proj.name}": ${outcome.message}`);
     return;
   }
-
-  // Update task_ids + task_names_direct in cg_version_projects (upsert via POST)
-  const lp = (_cgDraft.linkedProjects || []).find(l => l.projectId === projId);
-  if (lp) {
-    const updatedTaskIds = [...(lp.taskIds || []), ...selectedTaskIds];
-    // Resolve names for all assigned taskIds (union of previous + new)
-    const resolveNameForId = tid => {
-      for (const ph of v.phases || []) {
-        const t = ph.tasks.find(t => t.taskId === tid);
-        if (t?.taskName?.trim()) return t.taskName.trim();
-      }
-      return null;
-    };
-    const updatedTaskNames = [...new Set([
-      ...(lp.taskNames || []),
-      ...selectedTaskIds.map(resolveNameForId).filter(Boolean),
-    ])];
-    lp.taskIds   = updatedTaskIds;
-    lp.taskNames = updatedTaskNames;
-    await Api.costGrids.versions.linkedProjects.add(
-      _cgActiveCgId, _cgActiveVersionId,
-      { projectId: projId, taskIds: updatedTaskIds, taskNames: updatedTaskNames }
-    ).catch(e => console.warn('[sync] task_ids update failed:', e.message));
+  const idx = config.projects.findIndex(p => p.id === projId);
+  if (idx >= 0) config.projects[idx] = { ...outcome.project, my_permission: proj.my_permission };
+  const link = (outcome.project.links || []).find(l => l.versionId === _cgActiveVersionId);
+  if (link) {
+    if (!_cgDraft.linkedProjects) _cgDraft.linkedProjects = [];
+    let lp = _cgDraft.linkedProjects.find(l => l.projectId === projId);
+    if (!lp) { lp = { projectId: projId, projectName: proj.name }; _cgDraft.linkedProjects.push(lp); }
+    lp.taskIds   = link.taskIds;
+    lp.taskNames = link.taskNames;
   }
 
   // Sync back to _cgStore
@@ -1366,9 +1348,6 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
   const { tasks, selTasks, projStart, projEnd, refusal } = cgGenerationPlan(selectedTaskIds);
   if (refusal) { showInfo(refusal); return; }
 
-  if (!config.projects) config.projects = [];
-  const generatedId = crypto.randomUUID();
-
   const ptc = selTasks
     .filter(t => t.ptc > 0)
     .map(t => ({
@@ -1377,70 +1356,49 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
       amount: t.ptc,
       month:  t.taskStartDate ? toYYYYMM(t.taskStartDate) : '',
     }));
-
-  const newProject = {
-    id:        generatedId,
-    code:      projectCode || '',
-    name:      projectName,
-    startDate: projStart,
-    endDate:   projEnd,
-    currency:  v.currency || 'EUR',
-    pipeline:  _cgDraft.pipeline || 'SIP',
-    status:    '',
-    note:      v.note     || '',
-    description: (v.note || '').trim(),
-    tasks,
-    phasing:   {},
-    planning:  {},
-    ptc,
-    groups:    [],
-    costGridRef: { cgId: _cgActiveCgId, versionId: _cgActiveVersionId },
-    clientId:  _cgDraft.clientId || '__unassigned__',
-    programId: programId || null,
-  };
-  config.projects.push(newProject);
-  persistConfig();
   const selectedTaskNames = selectedTaskIds.map(tid => {
     const t = (v.phases || []).flatMap(ph => ph.tasks).find(t => t.taskId === tid);
     return t?.taskName?.trim() || null;
   }).filter(Boolean);
 
-  // Exit selection mode synchronously, before the awaits below — neither depends on their
-  // result, and leaving the toolbar's "Create project" button live during the network
-  // round-trip let a second click generate a duplicate project (round-2 code-review fix).
+  // Exit selection mode synchronously, before the await below, so a second click on "Create project" during the
+  // round-trip cannot generate a duplicate.
   _cgSelectionMode = false;
   _cgSelectedTaskIds = new Set();
 
-  // Awaited (not fire-and-forget) so the post-generation dialog below only offers to navigate to
-  // project-config.html once the project genuinely exists server-side — otherwise a fast Confirm
-  // click could land there before the project was persisted, showing "Project not found."
-  // _pushProjectToApi returns false (never throws) when the core project upsert itself failed —
-  // only then is the project genuinely absent server-side; its sub-resource pushes (tasks,
-  // phasing, etc.) do not gate this success check but are reported via summarizeGenerateResult.
-  let pushedOk = false;
-  let tasksFailed = null;
-  let failedParts = [];
-  let linkTaskIds = selectedTaskIds;
-  let linkTaskNames = selectedTaskNames;
-  try {
-    const pushResult = await _pushProjectToApiDetailed(newProject, { skipEmpty: true });
-    failedParts = pushResult.failed || [];
-    pushedOk = !pushResult.failed.some(f => f.part === 'project');
-    tasksFailed = pushResult.failed.find(f => f.part === 'tasks') || null;
-    if (tasksFailed) { linkTaskIds = []; linkTaskNames = []; newProject.tasks = []; } // the server refused them: memory must match
-    if (pushedOk) {
-      await Api.costGrids.versions.linkedProjects.add(_cgActiveCgId, _cgActiveVersionId, { projectId: generatedId, taskIds: linkTaskIds, taskNames: linkTaskNames });
-    }
-  } catch (e) {
-    console.warn('[sync] project generation sync failed:', e.message);
+  // One request creates the project with the version's currency and stage, its tasks, PTC, link and tags. Memory
+  // receives the project and the link only with its answer, so the configuration page is offered only for a
+  // project the server has.
+  const outcome = await _generateProject(_cgActiveCgId, _cgActiveVersionId, {
+    name:        projectName,
+    code:        projectCode || '',
+    programId:   programId || null,
+    clientId:    _cgDraft.clientId && _cgDraft.clientId !== '__unassigned__' ? _cgDraft.clientId : null,
+    startDate:   projStart,
+    endDate:     projEnd,
+    description: (v.note || '').trim(),
+    tasks,
+    ptc,
+    taskIds:     selectedTaskIds,
+    taskNames:   selectedTaskNames,
+  });
+  if (outcome.kind !== 'ok') {
+    renderCgEditor();
+    showInfo(outcome.kind === 'unknown' ? outcome.message : `Project "${projectName}" was not created: ${outcome.message}`);
+    return;
   }
 
+  const created = outcome.project;
+  if (!config.projects) config.projects = [];
+  config.projects.push(created);
+  persistConfig();
+  const link = (created.links || []).find(l => l.versionId === _cgActiveVersionId) || { taskIds: [], taskNames: [] };
   if (!_cgDraft.linkedProjects) _cgDraft.linkedProjects = [];
   _cgDraft.linkedProjects.push({
-    projectId:   generatedId,
-    projectName: projectName,
-    taskIds:     linkTaskIds,
-    taskNames:   linkTaskNames,
+    projectId:   created.id,
+    projectName: created.name,
+    taskIds:     link.taskIds,
+    taskNames:   link.taskNames,
     createdAt:   new Date().toISOString(),
   });
   _cgDraft.status = 'sip';
@@ -1456,27 +1414,11 @@ async function cgDoGenerateProject(selectedTaskIds, projectName, programId, proj
 
   renderCgEditor();
 
-  if (!pushedOk) {
-    showInfo(
-      `Project "${projectName}" was created locally, but saving it to the server failed. Reload the page and check the Portfolio before continuing — the project may need to be re-created.`,
-      '⚠️ Sync failed'
-    );
-    return;
-  }
-
-  const generateMsg = summarizeGenerateResult(projectName, failedParts);
-  if (generateMsg) {
-    showInfo(generateMsg);
-    return;
-  }
-
-  // openConfigModal() never existed on this page (dead reference left over from before this
-  // page's Vue migration) — Confirm silently threw and never navigated. project-config.html is
-  // where a project's ID/code is actually assigned, reached the same way portfolio.html's own
-  // Configure button does (js/portfolio.js:214).
+  // project-config.html is where a project's ID/code is assigned, reached the same way portfolio.html's own
+  // Configure button does (js/portfolio.js).
   showConfirm(
-    `Project "${projectName}" created in Portfolio (pipeline: ${_cgDraft.pipeline || 'SIP'}).\n\nOpen configuration to assign the Project ID?`,
-    () => { window.location.href = '/project-config.html?projectId=' + encodeURIComponent(generatedId); },
+    `Project "${projectName}" created in Portfolio (pipeline: ${created.pipeline || _cgDraft.pipeline || 'SIP'}).\n\nOpen configuration to assign the Project ID?`,
+    () => { window.location.href = '/project-config.html?projectId=' + encodeURIComponent(created.id); },
     null, '✓ Project created'
   );
 }

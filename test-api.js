@@ -91,6 +91,11 @@ async function versionOf(path, cookie = adminCookie) {
     const r = await api('GET', `/api/ratecards/${card[1]}`, null, cookie);
     return r.status === 200 ? r.data?.version ?? null : null;
   }
+  const proj = path.match(/^\/api\/projects\/([^/]+)/);
+  if (proj) {
+    const r = await api('GET', `/api/projects/${proj[1]}`, null, cookie);
+    return r.status === 200 ? r.data?.version ?? null : null;
+  }
   const cgv = path.match(/^\/api\/cost-grids\/([^/]+)\/versions\/([^/]+)/);
   if (cgv) {
     const r = await api('GET', `/api/cost-grids/${cgv[1]}/versions`, null, cookie);
@@ -135,6 +140,36 @@ async function putStructure(path, body, cookie) {
   }
   return api('PUT', vPath, out, cookie);
 }
+// The project's Save is one route, PUT /api/projects/:id { version, header?, tasks?, phasing?, ptc?, planning?,
+// groups? }. saveProjectLegacy translates the calls to the routes it replaced, so the older checks keep their
+// assertions: PATCH /api/projects/:id → header (fields outside the header list, which the old route ignored, are
+// dropped); PUT …/tasks (an array, or { tasks, period }) → tasks plus header.startDate/endDate;
+// PATCH …/{phasing,ptc,planning,groups} → that section.
+const PROJECT_HEADER_FIELDS = ['name', 'code', 'programId', 'clientId', 'startDate', 'endDate',
+  'currency', 'pipeline', 'status', 'description', 'cgVersionId'];
+async function saveProjectLegacy(method, path, body, cookie = adminCookie) {
+  const m = path.match(/^\/api\/projects\/([^/]+)(?:\/(tasks|phasing|ptc|planning|groups))?$/);
+  if (!m) throw new Error(`saveProjectLegacy: not a project save path: ${path}`);
+  const [, id, part] = m;
+  const out = { version: await versionOf(`/api/projects/${id}`, cookie) };
+  const b = body || {};
+  if (!part) {
+    const header = {};
+    for (const [k, v] of Object.entries(b)) if (PROJECT_HEADER_FIELDS.includes(k)) header[k] = v;
+    if (Object.keys(header).length) out.header = header;
+  } else if (part === 'tasks') {
+    out.tasks = Array.isArray(body) ? body : b.tasks;
+    if (!Array.isArray(body) && b.period && typeof b.period === 'object') {
+      out.header = {};
+      if (b.period.startDate !== undefined) out.header.startDate = b.period.startDate;
+      if (b.period.endDate !== undefined) out.header.endDate = b.period.endDate;
+    }
+  } else {
+    out[part] = b[part];
+  }
+  return api('PUT', `/api/projects/${id}`, out, cookie);
+}
+
 async function withVersion(path, body) {
   return { ...(body || {}), version: await versionOf(path) };
 }
@@ -1435,7 +1470,7 @@ async function testCostGridSave() {
       const stage = i % 2 ? 'Expected' : 'Anticipated';
       const [sv, pp] = await Promise.all([
         save(vId, { version: (await readV(vId))?.version, header: { pipeline: stage } }),
-        api('PATCH', `/api/projects/${pId}`, { name: `__test_cs_proj_${tag}_${i}__` }, adminCookie),
+        saveProjectLegacy('PATCH', `/api/projects/${pId}`, { name: `__test_cs_proj_${tag}_${i}__` }, adminCookie),
       ]);
       if (sv.status >= 500 || pp.status >= 500) { fiveHundreds++; process.stdout.write(`    race ${i}: Save ${sv.status}, PATCH ${pp.status}\n`); }
     }
@@ -1687,17 +1722,17 @@ async function testServerValidation() {
 
   // Project writes on a project that does not exist, or with a malformed id (B-189, B-191, B-192)
   const ghost = '00000000-0000-4000-8000-0000000000aa';
-  const g1 = await api('PATCH', `/api/projects/${ghost}/phasing`, { phasing: { '2026-01': 10 } }, adminCookie);
+  const g1 = await saveProjectLegacy('PATCH', `/api/projects/${ghost}/phasing`, { phasing: { '2026-01': 10 } }, adminCookie);
   ok(g1.status === 404 && g1.data?.error === 'Project not found', `SV-10 PATCH phasing on a missing project → 404 (got ${g1.status})`);
-  const g2 = await api('PATCH', `/api/projects/${ghost}/ptc`, { ptc: [{ amount: 10 }] }, adminCookie);
+  const g2 = await saveProjectLegacy('PATCH', `/api/projects/${ghost}/ptc`, { ptc: [{ amount: 10 }] }, adminCookie);
   ok(g2.status === 404 && g2.data?.error === 'Project not found', `SV-11 PATCH ptc on a missing project → 404 (got ${g2.status})`);
-  const g3 = await api('PUT', `/api/projects/${ghost}/tasks`, [], adminCookie);
+  const g3 = await saveProjectLegacy('PUT', `/api/projects/${ghost}/tasks`, [], adminCookie);
   ok(g3.status === 404, `SV-12 PUT tasks on a missing project → 404 (got ${g3.status})`);
-  const g4 = await api('PATCH', '/api/projects/not-a-uuid/phasing', { phasing: {} }, adminCookie);
+  const g4 = await saveProjectLegacy('PATCH', '/api/projects/not-a-uuid/phasing', { phasing: {} }, adminCookie);
   ok(g4.status === 400, `SV-13 PATCH phasing with a non-UUID id → 400 (got ${g4.status})`);
-  const g5 = await api('PUT', '/api/projects/not-a-uuid/tasks', [], adminCookie);
+  const g5 = await saveProjectLegacy('PUT', '/api/projects/not-a-uuid/tasks', [], adminCookie);
   ok(g5.status === 400, `SV-13b PUT tasks with a non-UUID id → 400 (got ${g5.status})`);
-  const g6 = await api('PATCH', '/api/projects/not-a-uuid/ptc', { ptc: [] }, adminCookie);
+  const g6 = await saveProjectLegacy('PATCH', '/api/projects/not-a-uuid/ptc', { ptc: [] }, adminCookie);
   ok(g6.status === 400, `SV-13c PATCH ptc with a non-UUID id → 400 (got ${g6.status})`);
 
   // Cost grid structure PUT (B-189, B-192, B-229)
@@ -1889,20 +1924,20 @@ async function testServerValidation() {
   const tpId = tp.data?.id;
   if (tpId) later('DELETE', `/api/projects/${tpId}`);
   if (!ok(!!tpId, `SV-14 setup: project created (got ${tp.status})`)) return;
-  const e1 = await api('PUT', `/api/projects/${tpId}/tasks`, [{ name: 'T', resources: [null] }], adminCookie);
+  const e1 = await saveProjectLegacy('PUT', `/api/projects/${tpId}/tasks`, [{ name: 'T', resources: [null] }], adminCookie);
   ok(e1.status === 400 && e1.data?.error === 'Task "T" has an empty resource entry.',
     `SV-14 PUT tasks with a null resource → 400 (got ${e1.status}: ${e1.data?.error})`);
-  const e2 = await api('PUT', `/api/projects/${tpId}/tasks`, [{ name: 'T', resources: [{ role: 'R', hourlyRate: 10 }] }], adminCookie);
+  const e2 = await saveProjectLegacy('PUT', `/api/projects/${tpId}/tasks`, [{ name: 'T', resources: [{ role: 'R', hourlyRate: 10 }] }], adminCookie);
   ok(e2.status === 200, `SV-14 a valid PUT tasks right after the refusal → 200 (got ${e2.status}: ${e2.data?.error})`);
 
   const phasingOf = async () => ((await api('GET', '/api/projects', null, adminCookie)).data || []).find(p => p.id === tpId)?.phasing;
   const phBefore = JSON.stringify(await phasingOf());
-  const bp = await api('PATCH', `/api/projects/${tpId}/phasing`, { phasing: { '2026-01': -1 } }, adminCookie);
+  const bp = await saveProjectLegacy('PATCH', `/api/projects/${tpId}/phasing`, { phasing: { '2026-01': -1 } }, adminCookie);
   ok(bp.status === 400, `SV-15 PATCH phasing with an invalid amount → 400 (got ${bp.status})`);
   ok(JSON.stringify(await phasingOf()) === phBefore, 'SV-15 the stored phasing is unchanged after the refusal');
-  const t1 = await api('PUT', `/api/projects/${tpId}/tasks`, [{ name: 'T', resources: {} }], adminCookie);
+  const t1 = await saveProjectLegacy('PUT', `/api/projects/${tpId}/tasks`, [{ name: 'T', resources: {} }], adminCookie);
   ok(t1.status === 400, `SV-53 PUT tasks with resources {} → 400 (got ${t1.status})`);
-  const t2 = await api('PUT', `/api/projects/${tpId}/tasks`, [null], adminCookie);
+  const t2 = await saveProjectLegacy('PUT', `/api/projects/${tpId}/tasks`, [null], adminCookie);
   ok(t2.status === 400, `SV-53 PUT tasks with [null] → 400 (got ${t2.status})`);
 }
 
@@ -2240,7 +2275,7 @@ async function testMoneyRules() {
   if (mrProj) later('DELETE', `/api/projects/${mrProj}`);
   if (!mrProj) fail(`MR-07/08: project setup failed (got ${rpj.status}) — skipping`);
   if (mrProj) {
-  const putTaskRate = hourlyRate => api('PUT', `/api/projects/${mrProj}/tasks`,
+  const putTaskRate = hourlyRate => saveProjectLegacy('PUT', `/api/projects/${mrProj}/tasks`,
     [{ name: 'T1', resources: [{ role: 'R', hourlyRate, soldHours: 1 }] }], sysadminCookie);
   const storedTaskRate = async () => (await api('GET', `/api/projects/${mrProj}/tasks`, null, sysadminCookie)).data?.[0]?.resources?.[0]?.hourlyRate;
   const t1 = await putTaskRate(150);
@@ -2254,8 +2289,8 @@ async function testMoneyRules() {
     `MR-08 project resource rate -1 and 'abc' → MONEY_RULE, stored rate still 150 (got ${t3.status}, ${t4.status})`);
 
   // MR-18 / MR-19 — project phasing and PTC amounts
-  const patchPhasing = (id, phasing) => api('PATCH', `/api/projects/${id}/phasing`, { phasing }, sysadminCookie);
-  const patchPtc = (id, ptc) => api('PATCH', `/api/projects/${id}/ptc`, { ptc }, sysadminCookie);
+  const patchPhasing = (id, phasing) => saveProjectLegacy('PATCH', `/api/projects/${id}/phasing`, { phasing }, sysadminCookie);
+  const patchPtc = (id, ptc) => saveProjectLegacy('PATCH', `/api/projects/${id}/ptc`, { ptc }, sysadminCookie);
   const readProj = async (id, field) => (await api('GET', `/api/projects/${id}`, null, sysadminCookie)).data?.[field];
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -2776,6 +2811,52 @@ async function testPrograms() {
 
   ok((await api('POST', '/api/programs', { id, name }, adminCookie)).status === 409,
     'PRG-04 POST /programs with a duplicate id → 409');
+
+  // PG-01..05 (save-contract cycle 3): a registered create, and a share that never lowers a permission
+  const logRows = async pid =>
+    (await sql('SELECT action, snapshot FROM change_log WHERE entity_type = $1 AND entity_id = $2 ORDER BY id', ['program', String(pid)])) || [];
+  ok(r.status === 201 && (await logRows(id)).map(x => x.action)[0] === 'create', 'PG-01 POST /programs leaves a program/create row');
+  if (!sysadminCookie || r.status !== 201) { ok(false, 'PG-setup sysadmin or program unavailable'); return; }
+  const mkProj = async n => {
+    const p = await api('POST', '/api/projects', { name: `__test_pg_${n}_${Date.now()}__`, programId: id }, sysadminCookie);
+    if (p.data?.id) later('DELETE', `/api/projects/${p.data.id}`);
+    return p.data?.id;
+  };
+  const pA = await mkProj('a');
+  const pB = await mkProj('b');
+  const u1 = await makeTsUser('pg1');
+  const u2 = await makeTsUser('pg2');
+  const u3 = await makeTsUser('pg3');
+  const sysId = (await api('GET', '/api/auth/me', null, sysadminCookie)).data?.id;
+  if (!ok(!!(pA && pB && u1 && u2 && u3 && sysId), 'PG-setup two projects in the program and three users')) return;
+  const permOf = async (pid, uid) => (await sql(
+    "SELECT permission FROM resource_shares WHERE resource_type = 'project' AND resource_id = $1 AND user_id = $2", [pid, uid]))?.[0]?.permission;
+  const share = (userId, permission) => api('POST', `/api/programs/${id}/share`, { userId, permission }, adminCookie);
+
+  // PG-02: an editor of project A, shared the program as viewer, stays editor there
+  await api('POST', `/api/projects/${pA}/shares`, { userId: u1.id, permission: 'editor' }, adminCookie);
+  const s2 = await share(u1.id, 'viewer');
+  ok(s2.status === 201 && s2.data?.kept === 1 && s2.data?.granted === 1 && await permOf(pA, u1.id) === 'editor' && await permOf(pB, u1.id) === 'viewer',
+    `PG-02 share as viewer to an editor keeps editor; kept 1, granted 1 (got ${s2.status} ${JSON.stringify(s2.data)})`);
+
+  // PG-03: the owner of the projects stays owner
+  const s3 = await share(sysId, 'viewer');
+  ok(s3.status === 201 && await permOf(pA, sysId) === 'owner' && await permOf(pB, sysId) === 'owner' && s3.data?.kept === 2,
+    `PG-03 share to the projects' owner keeps owner (got ${s3.status} ${JSON.stringify(s3.data)})`);
+
+  // PG-04: a viewer is raised to editor; a new user is granted every project
+  await api('POST', `/api/projects/${pA}/shares`, { userId: u2.id, permission: 'viewer' }, adminCookie);
+  const s4 = await share(u2.id, 'editor');
+  ok(s4.status === 201 && s4.data?.raised === 1 && s4.data?.granted === 1 && await permOf(pA, u2.id) === 'editor',
+    `PG-04 share as editor to a viewer raises it (got ${JSON.stringify(s4.data)})`);
+  const s4b = await share(u3.id, 'viewer');
+  ok(s4b.data?.granted === 2 && s4b.data?.shared === 2, `PG-04 a new user is granted every project (got ${JSON.stringify(s4b.data)})`);
+
+  // PG-05: one program/update row per share, with the shares in the snapshot
+  const updates = (await logRows(id)).filter(x => x.action === 'update');
+  ok(updates.length === 4 && Array.isArray(updates[3].snapshot?.shares)
+    && updates[3].snapshot.shares.some(x => x.userId === u3.id && x.projectId === pB),
+    `PG-05 four shares → four program/update rows with snapshot.shares (got ${updates.length})`);
 }
 
 // ── Admin Reset — single proposal ─────────────────────────────────────────────
@@ -3308,7 +3389,7 @@ async function testTagLinking() {
       'TAG-06 linked project tags can be cleared independently of the proposal');
 
     // TAG-16: re-saving the link (the frontend sends cgVersionId on every save) must not re-seed
-    await api('PATCH', `/api/projects/${linkedProjId}`, { cgVersionId: vId }, adminCookie);
+    await saveProjectLegacy('PATCH', `/api/projects/${linkedProjId}`, { cgVersionId: vId }, adminCookie);
     const rStill = await api('GET', `/api/projects/${linkedProjId}/tags`, null, adminCookie);
     ok(rStill.status === 200 && (rStill.data || []).length === 0,
       'TAG-16 re-sending the same cgVersionId does not resurrect cleared tags');
@@ -3322,7 +3403,7 @@ async function testTagLinking() {
     const laterProjId = rEmptyProj.data?.id;
     if (laterProjId) later('DELETE', `/api/projects/${laterProjId}`);
     if (laterProjId) {
-      await api('PATCH', `/api/projects/${laterProjId}`, { cgVersionId: vId }, adminCookie);
+      await saveProjectLegacy('PATCH', `/api/projects/${laterProjId}`, { cgVersionId: vId }, adminCookie);
       const rLater = await api('GET', `/api/projects/${laterProjId}/tags`, null, adminCookie);
       ok(rLater.status === 200 && (rLater.data || []).some(t => t.item_id === itemId),
         'TAG-14 PATCH linking an untagged project copies the version\'s tags');
@@ -3333,7 +3414,7 @@ async function testTagLinking() {
 
   // TAG-15: linking a project that already has manual tags must not overwrite them
   if (standaloneProjId && itemId && itemId2 && cgId && vId) {
-    await api('PATCH', `/api/projects/${standaloneProjId}`, { cgVersionId: vId }, adminCookie);
+    await saveProjectLegacy('PATCH', `/api/projects/${standaloneProjId}`, { cgVersionId: vId }, adminCookie);
     const rKeep = await api('GET', `/api/projects/${standaloneProjId}/tags`, null, adminCookie);
     const keepIds = (rKeep.data || []).map(t => t.item_id);
     ok(rKeep.status === 200 && keepIds.length === 1 && keepIds[0] === itemId2,
@@ -3350,13 +3431,15 @@ async function testTagLinking() {
     if (raceProjId) later('DELETE', `/api/projects/${raceProjId}`);
     if (raceProjId) {
       const [pa, pb] = await Promise.all([
-        api('PATCH', `/api/projects/${raceProjId}`, { cgVersionId: vId }, adminCookie),
-        api('PATCH', `/api/projects/${raceProjId}`, { cgVersionId: vId }, adminCookie),
+        saveProjectLegacy('PATCH', `/api/projects/${raceProjId}`, { cgVersionId: vId }, adminCookie),
+        saveProjectLegacy('PATCH', `/api/projects/${raceProjId}`, { cgVersionId: vId }, adminCookie),
       ]);
       const rRaceTags = await api('GET', `/api/projects/${raceProjId}/tags`, null, adminCookie);
-      ok(pa.status === 200 && pb.status === 200 && rRaceTags.status === 200
+      // Both saves start from the same version: one may lose with 409 STALE, never with an error or a double seed.
+      const okOrStale = r => r.status === 200 || (r.status === 409 && r.data?.code === 'STALE');
+      ok([pa, pb].some(r => r.status === 200) && okOrStale(pa) && okOrStale(pb) && rRaceTags.status === 200
         && (rRaceTags.data || []).length === 1 && rRaceTags.data[0].item_id === itemId,
-        'TAG-19 overlapping first-link PATCHes both succeed and seed the tags once');
+        `TAG-19 overlapping first-link saves: one succeeds, the other succeeds or gets 409 STALE, tags seeded once (got ${pa.status}, ${pb.status})`);
     } else {
       ok(false, 'TAG-19 skipped — project could not be created');
     }
@@ -3418,7 +3501,7 @@ async function testXlsxUploadGate() {
   const projId = rProj.data?.id;
   if (projId) later('DELETE', `/api/projects/${projId}`);
   if (projId) {
-    await api('PUT', `/api/projects/${projId}/tasks`,
+    await saveProjectLegacy('PUT', `/api/projects/${projId}/tasks`,
       [{ name: 'Analysis', resources: [{ role: 'Consultant', soldHours: 8 }] }], adminCookie);
   }
   later('DELETE', `/api/timesheets/${code}`);
@@ -3481,7 +3564,7 @@ async function testResourceMatching() {
   const projId = rProj.data?.id;
   if (projId) later('DELETE', `/api/projects/${projId}`);
   if (projId) {
-    await api('PUT', `/api/projects/${projId}/tasks`,
+    await saveProjectLegacy('PUT', `/api/projects/${projId}/tasks`,
       [{ name: 'Analysis', resources: [{ role: 'Consultant', soldHours: 8 }] }], adminCookie);
   }
   later('DELETE', `/api/timesheets/${code}`);
@@ -3639,7 +3722,7 @@ async function profileFixture() {
     const id = r.data?.id;
     if (id) {
       later('DELETE', `/api/projects/${id}`);
-      await api('PUT', `/api/projects/${id}/tasks`,
+      await saveProjectLegacy('PUT', `/api/projects/${id}/tasks`,
         [{ name: 'Analysis', resources: [{ role: 'Consultant', soldHours: 8 }] }], adminCookie);
     }
     return id;
@@ -3798,16 +3881,16 @@ async function testProfileEngineHooks() {
   prof = await getProfile(resId);
   ok(prof?.profile?.dimensions?.market?.values?.[0]?.value === newLabel && newLabel !== itemLabel,
     'PE-12 renaming a list value shows the new label in the profile after the next run');
-  const rCode = await api('PATCH', `/api/projects/${p1}`, { code: `${code1}B` }, adminCookie);
+  const rCode = await saveProjectLegacy('PATCH', `/api/projects/${p1}`, { code: `${code1}B` }, adminCookie);
   const rRun = await runProfileJobs();
   ok(rCode.status === 200 && rRun.status === 200 && rRun.data?.errors?.length === 0,
     'PE-12 changing a project\'s code queues both codes and the run completes without errors');
-  await api('PATCH', `/api/projects/${p1}`, { code: code1 }, adminCookie);   // restore for cleanup
+  await saveProjectLegacy('PATCH', `/api/projects/${p1}`, { code: code1 }, adminCookie);   // restore for cleanup
 
   // PE-14: renaming a project re-queues its code so the cached profile shows the new name
   await runProfileJobs();
   const newName = `__prof_proj_renamed_${ts}__`;
-  await api('PATCH', `/api/projects/${p1}`, { name: newName }, adminCookie);
+  await saveProjectLegacy('PATCH', `/api/projects/${p1}`, { name: newName }, adminCookie);
   await runProfileJobs();
   prof = await getProfile(resId);
   const pj = prof?.profile?.projects;
@@ -4054,16 +4137,16 @@ async function testProjectDescriptions() {
   const get = async () => (await api('GET', `/api/projects/${id}`, null, adminCookie)).data;
   ok((await get())?.description === 'Oncology portal', 'PD-01 description stored and returned by GET /:id');
 
-  ok((await api('PATCH', `/api/projects/${id}`, { description: 'Second version' }, adminCookie)).status === 200
+  ok((await saveProjectLegacy('PATCH', `/api/projects/${id}`, { description: 'Second version' }, adminCookie)).status === 200
       && (await get())?.description === 'Second version', 'PD-02 PATCH description updates it');
-  ok((await api('PATCH', `/api/projects/${id}`, { description: '' }, adminCookie)).status === 200
+  ok((await saveProjectLegacy('PATCH', `/api/projects/${id}`, { description: '' }, adminCookie)).status === 200
       && (await get())?.description === '', 'PD-03 PATCH description "" stores an empty string (not NULL, no error)');
 
   const tasks = [
     { name: 'Analysis', description: 'Analyse sources', resources: [] },
     { name: 'Build', resources: [] },
   ];
-  ok((await api('PUT', `/api/projects/${id}/tasks`, tasks, adminCookie)).status === 200, 'PD-04 PUT tasks with descriptions → 200');
+  ok((await saveProjectLegacy('PUT', `/api/projects/${id}/tasks`, tasks, adminCookie)).status === 200, 'PD-04 PUT tasks with descriptions → 200');
   const t = (await api('GET', `/api/projects/${id}/tasks`, null, adminCookie)).data || [];
   ok(t.find(x => x.name === 'Analysis')?.description === 'Analyse sources'
       && t.find(x => x.name === 'Build')?.description === '', 'PD-04 GET tasks returns descriptions ("" when none)');
@@ -4079,15 +4162,15 @@ async function testProjectDescriptions() {
     return !!st?.projects?.find(p => p.project_code === code)?.queued_at;
   };
   await api('DELETE', `/api/profile-jobs/projects/${encodeURIComponent(code)}/queue`, null, adminCookie);
-  await api('PUT', `/api/projects/${id}/tasks`, tasks, adminCookie);                       // identical → no enqueue
+  await saveProjectLegacy('PUT', `/api/projects/${id}/tasks`, tasks, adminCookie);                       // identical → no enqueue
   ok(!(await queued()), 'PD-05 saving identical task descriptions does not queue the project');
-  await api('PUT', `/api/projects/${id}/tasks`,
+  await saveProjectLegacy('PUT', `/api/projects/${id}/tasks`,
     [{ ...tasks[0], description: 'Analyse deeply' }, tasks[1]], adminCookie);
   ok(await queued(), 'PD-05 changing a task description queues the project code');
   await api('DELETE', `/api/profile-jobs/projects/${encodeURIComponent(code)}/queue`, null, adminCookie);
-  await api('PATCH', `/api/projects/${id}`, { description: '' }, adminCookie);              // unchanged → no enqueue
+  await saveProjectLegacy('PATCH', `/api/projects/${id}`, { description: '' }, adminCookie);              // unchanged → no enqueue
   ok(!(await queued()), 'PD-05 PATCH with an unchanged description does not queue the project');
-  await api('PATCH', `/api/projects/${id}`, { description: 'A new description' }, adminCookie);
+  await saveProjectLegacy('PATCH', `/api/projects/${id}`, { description: 'A new description' }, adminCookie);
   ok(await queued(), 'PD-05 changing the project description queues the project code');
 }
 
@@ -4210,10 +4293,10 @@ async function testTopicExtraction() {
 
     const desc = `Portal build [[Web development ${ts}]] and ((Pharma marketing)) and <<${itemLabel}>> and [[Copy editing ${ts}]]`;
     const taskDesc = `Deep analysis work [[Statistical modelling ${ts}]]`;
-    const putTasks = (d) => api('PUT', `/api/projects/${p1}/tasks`,
+    const putTasks = (d) => saveProjectLegacy('PUT', `/api/projects/${p1}/tasks`,
       [{ name: 'Analysis', description: d, resources: [{ role: 'Consultant', soldHours: 8 }] }], adminCookie);
     ok((await putTasks(taskDesc)).status === 200, 'TX-01 saving a task description works');
-    ok((await api('PATCH', `/api/projects/${p1}`, { description: desc }, adminCookie)).status === 200, 'TX-01 saving the project description works');
+    ok((await saveProjectLegacy('PATCH', `/api/projects/${p1}`, { description: desc }, adminCookie)).status === 200, 'TX-01 saving the project description works');
     await uploadCsv('/api/timesheets/upload', profileCsv([[code1, '2026-01-15', person, 4]]), adminCookie);
 
     // reject "Copy editing" beforehand: it must never be linked again
@@ -4276,18 +4359,18 @@ async function testTopicExtraction() {
     await api('POST', `/api/profile-jobs/projects/${encodeURIComponent(code1)}/process`, null, adminCookie);
     ok(stubBodies.length > before, 'TX-05 Process from the console re-extracts (hash cleared)');
     const mid = stubBodies.length;
-    await api('PATCH', `/api/projects/${p1}`, { description: desc }, adminCookie);   // same text
+    await saveProjectLegacy('PATCH', `/api/projects/${p1}`, { description: desc }, adminCookie);   // same text
     await runProfileJobs();
     ok(stubBodies.length === mid, 'TX-05 an unchanged text is not sent again');
 
     // too-short text is never sent
-    await api('PATCH', `/api/projects/${p1}`, { description: '[[ZZSHORT]]' }, adminCookie);
+    await saveProjectLegacy('PATCH', `/api/projects/${p1}`, { description: '[[ZZSHORT]]' }, adminCookie);
     await runProfileJobs();
     ok(!stubSaw('ZZSHORT'), 'TX-06 a text shorter than 20 characters is not sent to the LLM');
 
     // TX-10: a persistent extraction failure is counted once, not on every run
     stubMode = 'http500';
-    await api('PATCH', `/api/projects/${p1}`, { description: `Retry description for the persistent failure [[Retry topic ${ts}]]` }, adminCookie);
+    await saveProjectLegacy('PATCH', `/api/projects/${p1}`, { description: `Retry description for the persistent failure [[Retry topic ${ts}]]` }, adminCookie);
     const run1 = await runProfileJobs();
     ok(run1.data?.projects >= 1, 'TX-10 the first failed extraction is counted as work');
     const run2 = await runProfileJobs();
@@ -4302,7 +4385,7 @@ async function testTopicExtraction() {
     for (const mode of ['http500', 'garbage', 'html200']) {
       stubMode = mode;
       const longer = `Fresh description for failure ${mode} [[Failure topic ${mode} ${ts}]]`;
-      ok((await api('PATCH', `/api/projects/${p1}`, { description: longer }, adminCookie)).status === 200,
+      ok((await saveProjectLegacy('PATCH', `/api/projects/${p1}`, { description: longer }, adminCookie)).status === 200,
         `TX-07 saving a description while the LLM answers "${mode}" still works`);
       const r = await runProfileJobs();
       ok(r.status === 200 && (r.data?.errors || []).length === 0, `TX-07 the run does not fail because of "${mode}"`);
@@ -4321,7 +4404,7 @@ async function testTopicExtraction() {
     // kill switch
     await api('PUT', '/api/profile-jobs/topic-settings', { enabled: false }, adminCookie);
     const n = stubBodies.length;
-    await api('PATCH', `/api/projects/${p1}`, { description: `Another long description [[Disabled ${ts}]]` }, adminCookie);
+    await saveProjectLegacy('PATCH', `/api/projects/${p1}`, { description: `Another long description [[Disabled ${ts}]]` }, adminCookie);
     await runProfileJobs();
     ok(stubBodies.length === n, 'TX-09 with extraction switched off the LLM is not called');
     await api('PUT', '/api/profile-jobs/topic-settings', { enabled: true }, adminCookie);
@@ -4364,7 +4447,7 @@ async function testPlanningModel() {
   const pid = rP.data?.id;
   if (!ok(!!pid, 'PM-setup project created')) return;
   later('DELETE', `/api/projects/${pid}`);
-  await api('PUT', `/api/projects/${pid}/tasks`,
+  await saveProjectLegacy('PUT', `/api/projects/${pid}/tasks`,
     [{ name: 'Analysis', startDate: '20990105', endDate: '20990329', resources: [{ role: 'Consultant', soldHours: 100 }] }], adminCookie);
   later('DELETE', `/api/timesheets/${code}`);
   const csv = ['projectId,date,task,role,owner,hours',
@@ -4407,7 +4490,7 @@ async function testPlanningModel() {
   const pid7 = r7?.data?.id;
   if (!ok(!!pid7, 'PM-07 setup: a project owned by another account was created')) return;
   later('DELETE', `/api/projects/${pid7}`);
-  await api('PUT', `/api/projects/${pid7}/tasks`,
+  await saveProjectLegacy('PUT', `/api/projects/${pid7}/tasks`,
     [{ name: 'Analysis', startDate: '20990105', endDate: '20990329', resources: [{ role: 'Consultant', soldHours: 100 }] }], sysadminCookie);
   later('DELETE', `/api/timesheets/${code7}`);
   const csv7 = ['projectId,date,task,role,owner,hours', `${code7},2099-01-05,Analysis,Consultant,Secret Owner${ts},10`].join('\n');
@@ -4463,7 +4546,7 @@ async function testPlanningAssistant() {
   const mkProject = async (code, name, tasks, startDate = '209901') => {
     const r = await api('POST', '/api/projects', { name, code, startDate, endDate: '209903' }, sysadminCookie);
     const id = r.data?.id;
-    if (id) { later('DELETE', `/api/projects/${id}`); await api('PUT', `/api/projects/${id}/tasks`, tasks, adminCookie); }
+    if (id) { later('DELETE', `/api/projects/${id}`); await saveProjectLegacy('PUT', `/api/projects/${id}/tasks`, tasks, adminCookie); }
     return id;
   };
   const task = (name, sold, dates = ['20990105', '20990329']) => [{ name, startDate: dates[0], endDate: dates[1], resources: [{ role: role.code, soldHours: sold }] }];
@@ -4643,18 +4726,18 @@ async function testProjectPatchValidation() {
   if (!id) { ok(false, 'PV-setup project created'); return; }
   later('DELETE', `/api/projects/${id}`);
 
-  const bad1 = await api('PATCH', `/api/projects/${id}`, { cgVersionId: 'not-a-uuid' }, adminCookie);
+  const bad1 = await saveProjectLegacy('PATCH', `/api/projects/${id}`, { cgVersionId: 'not-a-uuid' }, adminCookie);
   ok(bad1.status === 400 && /cgVersionId/.test(bad1.data?.error || ''), `PV-01 non-UUID cgVersionId → 400 (got ${bad1.status})`);
-  const bad2 = await api('PATCH', `/api/projects/${id}`, { clientId: 'not-a-uuid' }, adminCookie);
+  const bad2 = await saveProjectLegacy('PATCH', `/api/projects/${id}`, { clientId: 'not-a-uuid' }, adminCookie);
   ok(bad2.status === 400 && /clientId/.test(bad2.data?.error || ''), `PV-02 non-UUID clientId → 400 (got ${bad2.status})`);
-  const bad3 = await api('PATCH', `/api/projects/${id}`, { cgVersionId: 12345 }, adminCookie);
+  const bad3 = await saveProjectLegacy('PATCH', `/api/projects/${id}`, { cgVersionId: 12345 }, adminCookie);
   ok(bad3.status === 400, `PV-03 non-string cgVersionId → 400 (got ${bad3.status})`);
 
-  ok((await api('PATCH', `/api/projects/${id}`, { cgVersionId: null }, adminCookie)).status === 200,
+  ok((await saveProjectLegacy('PATCH', `/api/projects/${id}`, { cgVersionId: null }, adminCookie)).status === 200,
     'PV-04 cgVersionId null still unlinks → 200');
-  ok((await api('PATCH', `/api/projects/${id}`, { cgVersionId: '', clientId: '' }, adminCookie)).status === 200,
+  ok((await saveProjectLegacy('PATCH', `/api/projects/${id}`, { cgVersionId: '', clientId: '' }, adminCookie)).status === 200,
     "PV-04 empty string still unlinks → 200");
-  ok((await api('PATCH', `/api/projects/${id}`, { name: '__test_patch_validation_2__' }, adminCookie)).status === 200,
+  ok((await saveProjectLegacy('PATCH', `/api/projects/${id}`, { name: '__test_patch_validation_2__' }, adminCookie)).status === 200,
     'PV-05 an ordinary field update is unchanged → 200');
 }
 
@@ -4805,7 +4888,7 @@ async function testDateRule() {
   if (!ok(gen.status === 201 && !!pId, `DT-setup project created with a period (got ${gen.status})`)) return;
 
   // DT-04 / DT-09: project PATCH
-  const j4 = await api('PATCH', `/api/projects/${pId}`, { startDate: '202609', endDate: '202607' }, adminCookie);
+  const j4 = await saveProjectLegacy('PATCH', `/api/projects/${pId}`, { startDate: '202609', endDate: '202607' }, adminCookie);
   ok(isRule(j4), `DT-04 project PATCH with end before start → 400 DATE_RULE (got ${j4.status})`);
   const projects = async () => (await api('GET', '/api/projects', null, adminCookie)).data || [];
   const period = async () => {
@@ -4813,13 +4896,13 @@ async function testDateRule() {
     return `${String(p?.start_date || '').trim()}|${String(p?.end_date || '').trim()}`;
   };
   ok(await period() === '202601|202612', 'DT-04 the refused PATCH left the project period unchanged');
-  const j9 = await api('PATCH', `/api/projects/${pId}`, { name: '__test_dt_proj_renamed__' }, adminCookie);
+  const j9 = await saveProjectLegacy('PATCH', `/api/projects/${pId}`, { name: '__test_dt_proj_renamed__' }, adminCookie);
   ok(j9.status === 200, `DT-09 project PATCH touching only the name → 200 (got ${j9.status})`);
 
   // DT-14 / DT-15: project PATCH, malformed month and end-only before the stored start
-  const j14 = await api('PATCH', `/api/projects/${pId}`, { startDate: '2026-05' }, adminCookie);
+  const j14 = await saveProjectLegacy('PATCH', `/api/projects/${pId}`, { startDate: '2026-05' }, adminCookie);
   ok(isRule(j14), `DT-14 project PATCH with a malformed month → 400 DATE_RULE (got ${j14.status})`);
-  const j15 = await api('PATCH', `/api/projects/${pId}`, { endDate: '202512' }, adminCookie);
+  const j15 = await saveProjectLegacy('PATCH', `/api/projects/${pId}`, { endDate: '202512' }, adminCookie);
   ok(isRule(j15), `DT-15 project PATCH with end before the stored start → 400 DATE_RULE (got ${j15.status})`);
   ok(await period() === '202601|202612', 'DT-14/15 the refused PATCHes left the project period unchanged');
 
@@ -4847,20 +4930,20 @@ async function testDateRule() {
 
   // DT-07: PUT project tasks
   const tasksPath = `/api/projects/${pId}/tasks`;
-  const t0 = await api('PUT', tasksPath, [{ name: 'Keep' }], adminCookie);
+  const t0 = await saveProjectLegacy('PUT', tasksPath, [{ name: 'Keep' }], adminCookie);
   const names = async () => ((await api('GET', tasksPath, null, adminCookie)).data || []).map(t => t.name).sort().join(',');
   ok(t0.status === 200 && await names() === 'Keep', 'DT-setup project tasks saved');
-  const r7 = await api('PUT', tasksPath, [{ name: 'X', startDate: '20260510', endDate: '20260501' }], adminCookie);
+  const r7 = await saveProjectLegacy('PUT', tasksPath, [{ name: 'X', startDate: '20260510', endDate: '20260501' }], adminCookie);
   ok(isRule(r7), `DT-07 project tasks with end before start → 400 DATE_RULE (got ${r7.status})`);
   ok(await names() === 'Keep', 'DT-07 the refused PUT left the project tasks unchanged');
-  const r17 = await api('PUT', tasksPath, [{ name: 'X', startDate: '20260431' }], adminCookie);
+  const r17 = await saveProjectLegacy('PUT', tasksPath, [{ name: 'X', startDate: '20260431' }], adminCookie);
   ok(isRule(r17), `DT-17 project tasks with an impossible day → 400 DATE_RULE (got ${r17.status})`);
   ok(await names() === 'Keep', 'DT-17 the refused PUT left the project tasks unchanged');
 
   // DT-10: a task with only one date is accepted
   const r10 = await put([{ title: 'P1', tasks: [{ title: 'T1', taskStartDate: '2026-05-10' }] }]);
   ok(r10.status === 200, `DT-10 structure with a start-only task → 200 (got ${r10.status})`);
-  const r10b = await api('PUT', tasksPath, [{ name: 'X', startDate: '20260510' }], adminCookie);
+  const r10b = await saveProjectLegacy('PUT', tasksPath, [{ name: 'X', startDate: '20260510' }], adminCookie);
   ok(r10b.status === 200, `DT-10 project tasks with a start-only task → 200 (got ${r10b.status})`);
 
   // DT-11: the timesheet ingest refuses an impossible ISO date, naming the row
@@ -4917,12 +5000,12 @@ async function testTaskPeriod() {
   // TD-03: PUT project tasks
   const tasksPath = `/api/projects/${pId}/tasks`;
   const names = async () => ((await api('GET', tasksPath, null, adminCookie)).data || []).map(t => t.name).sort().join(',');
-  const t0 = await api('PUT', tasksPath, [{ name: 'Keep' }], adminCookie);
+  const t0 = await saveProjectLegacy('PUT', tasksPath, [{ name: 'Keep' }], adminCookie);
   ok(t0.status === 200 && await names() === 'Keep', 'TD-setup project tasks saved');
-  const r3 = await api('PUT', tasksPath, [{ name: 'Late', startDate: '20270105' }], adminCookie);
+  const r3 = await saveProjectLegacy('PUT', tasksPath, [{ name: 'Late', startDate: '20270105' }], adminCookie);
   ok(isRule(r3), `TD-03 project tasks with a task after the project period → 400 DATE_RULE (got ${r3.status})`);
   ok(await names() === 'Keep', 'TD-03 the refused PUT left the project tasks unchanged');
-  const r3b = await api('PUT', tasksPath, [{ name: 'Inside', startDate: '20260410' }, { name: 'Aug', startDate: '20260801' }], adminCookie);
+  const r3b = await saveProjectLegacy('PUT', tasksPath, [{ name: 'Inside', startDate: '20260410' }, { name: 'Aug', startDate: '20260801' }], adminCookie);
   ok(r3b.status === 200, `TD-03 project tasks inside the project period → 200 (got ${r3b.status})`);
 
   // TD-04: version PATCH shrinking the period under a task (the TD-02 task starts on 2026-04-01)
@@ -4935,11 +5018,11 @@ async function testTaskPeriod() {
   ok(p4c.status === 200, `TD-04 version PATCH re-sending the same period → 200 (got ${p4c.status})`);
 
   // TD-05: project PATCH shrinking the period under a task (the TD-03 task on 2026-08-01)
-  const p5 = await api('PATCH', `/api/projects/${pId}`, { endDate: '202605' }, adminCookie);
+  const p5 = await saveProjectLegacy('PATCH', `/api/projects/${pId}`, { endDate: '202605' }, adminCookie);
   ok(isRule(p5), `TD-05 project PATCH pushing a task out of the period → 400 DATE_RULE (got ${p5.status})`);
   const pp = (await api('GET', '/api/projects', null, adminCookie)).data?.find(x => x.id === pId);
   ok(`${String(pp?.start_date || '').trim()}|${String(pp?.end_date || '').trim()}` === '202604|202612', 'TD-05 the refused PATCH left the project period unchanged');
-  const p5b = await api('PATCH', `/api/projects/${pId}`, { endDate: '202701' }, adminCookie);
+  const p5b = await saveProjectLegacy('PATCH', `/api/projects/${pId}`, { endDate: '202701' }, adminCookie);
   ok(p5b.status === 200, `TD-05 project PATCH widening the period → 200 (got ${p5b.status})`);
 
   // TD-06: a version without a period has no limits; giving it one that excludes a task is refused
@@ -5007,7 +5090,7 @@ async function testDateRulesC3() {
   const e2 = await put(one('Renamed', '2026-03-01', '2026-03-05'));
   ok(isRule(e2), `DR-02 structure with a renamed task outside the period → 400 DATE_RULE (got ${e2.status})`);
   const tasksPath = `/api/projects/${pId}/tasks`;
-  const e2b = await api('PUT', tasksPath, [{ name: 'Renamed', startDate: '20260301', endDate: '20260305' }], adminCookie);
+  const e2b = await saveProjectLegacy('PUT', tasksPath, [{ name: 'Renamed', startDate: '20260301', endDate: '20260305' }], adminCookie);
   ok(isRule(e2b), `DR-02 project tasks with a task outside the period → 400 DATE_RULE (got ${e2b.status})`);
 
   // DR-03: the same tasks and the same period change nothing
@@ -5016,22 +5099,22 @@ async function testDateRulesC3() {
     `DR-03 structure re-sending tasks and period → 200, period unchanged (got ${r3.status}: ${r3.data?.error})`);
 
   // DR-04 / DR-05: project tasks inside the period; a re-sent identical period is accepted
-  const r4 = await api('PUT', tasksPath, [{ name: 'Mid', startDate: '20260601', endDate: '20260630' }], adminCookie);
+  const r4 = await saveProjectLegacy('PUT', tasksPath, [{ name: 'Mid', startDate: '20260601', endDate: '20260630' }], adminCookie);
   ok(r4.status === 200, `DR-04 project tasks inside the period → 200 (got ${r4.status}: ${r4.data?.error})`);
-  const r5 = await api('PATCH', `/api/projects/${pId}`, { startDate: '202604', endDate: '202612' }, adminCookie);
+  const r5 = await saveProjectLegacy('PATCH', `/api/projects/${pId}`, { startDate: '202604', endDate: '202612' }, adminCookie);
   ok(r5.status === 200, `DR-05 project PATCH re-sending the same period with a task in it → 200 (got ${r5.status}: ${r5.data?.error})`);
 
   // DR-06: month keys must sit inside the project period; a stored key is tolerated
-  const ph = body => api('PATCH', `/api/projects/${pId}/phasing`, { phasing: body }, adminCookie);
-  const pt = rows => api('PATCH', `/api/projects/${pId}/ptc`, { ptc: rows }, adminCookie);
-  const pl = body => api('PATCH', `/api/projects/${pId}/planning`, { planning: body }, adminCookie);
+  const ph = body => saveProjectLegacy('PATCH', `/api/projects/${pId}/phasing`, { phasing: body }, adminCookie);
+  const pt = rows => saveProjectLegacy('PATCH', `/api/projects/${pId}/ptc`, { ptc: rows }, adminCookie);
+  const pl = body => saveProjectLegacy('PATCH', `/api/projects/${pId}/planning`, { planning: body }, adminCookie);
   ok(isRule(await ph({ '202601': 1 })), 'DR-06 phasing with a month before the period → 400 DATE_RULE');
   ok(isRule(await pt([{ month: '202601', amount: 1 }])), 'DR-06 PTC row with a month before the period → 400 DATE_RULE');
   ok(isRule(await pl({ '202701': 8 })), 'DR-06 planning with a month after the period → 400 DATE_RULE');
   const in6 = [await ph({ '202611': 5 }), await pt([{ month: '202611', amount: 1 }]), await pl({ '202611': 8 })];
   ok(in6.every(r => r.status === 200), `DR-06 phasing, PTC and planning with a month inside the period → 200 (got ${in6.map(r => r.status)})`);
   // Shrink the period under the stored keys (no task is pushed out), then re-send them with a new key.
-  const shrink = await api('PATCH', `/api/projects/${pId}`, { endDate: '202610' }, adminCookie);
+  const shrink = await saveProjectLegacy('PATCH', `/api/projects/${pId}`, { endDate: '202610' }, adminCookie);
   ok(shrink.status === 200, `DR-06 setup: period shrunk under the stored month keys → 200 (got ${shrink.status}: ${shrink.data?.error})`);
   const keep6 = [await ph({ '202611': 5, '202610': 1 }), await pt([{ month: '202611', amount: 1 }, { month: '202610', amount: 2 }]), await pl({ '202611': 8, '202610': 4 })];
   ok(keep6.every(r => r.status === 200), `DR-06 re-sending a stored key outside the period with a new one inside → 200 (got ${keep6.map(r => r.status)})`);
@@ -5039,12 +5122,12 @@ async function testDateRulesC3() {
 
   // DR-07: a project without a period has no limits; planning on a missing project is a 404
   const q = [
-    await api('PATCH', `/api/projects/${p2Id}/phasing`, { phasing: { '202601': 1 } }, adminCookie),
-    await api('PATCH', `/api/projects/${p2Id}/ptc`, { ptc: [{ month: '', amount: 1 }, { month: '202601', amount: 1 }] }, adminCookie),
-    await api('PATCH', `/api/projects/${p2Id}/planning`, { planning: { '202601': 3 } }, adminCookie),
+    await saveProjectLegacy('PATCH', `/api/projects/${p2Id}/phasing`, { phasing: { '202601': 1 } }, adminCookie),
+    await saveProjectLegacy('PATCH', `/api/projects/${p2Id}/ptc`, { ptc: [{ month: '', amount: 1 }, { month: '202601', amount: 1 }] }, adminCookie),
+    await saveProjectLegacy('PATCH', `/api/projects/${p2Id}/planning`, { planning: { '202601': 3 } }, adminCookie),
   ];
   ok(q.every(r => r.status === 200), `DR-07 project without period accepts any month, blank included (got ${q.map(r => r.status)})`);
-  const r7 = await api('PATCH', '/api/projects/00000000-0000-4000-8000-000000000000/planning', { planning: {} }, adminCookie);
+  const r7 = await saveProjectLegacy('PATCH', '/api/projects/00000000-0000-4000-8000-000000000000/planning', { planning: {} }, adminCookie);
   ok(r7.status === 404, `DR-07 planning on a missing project → 404 (got ${r7.status})`);
 
   // DR-08: a task linked to a project by name only cannot be dropped, nor lost by a rename that keeps its id
@@ -5059,15 +5142,15 @@ async function testDateRulesC3() {
   ok(k8.status === 200, `DR-08 renaming the linked task under the same id → 200 (got ${k8.status}: ${k8.data?.error})`);
 
   // DR-09: a period the project already has is not written; a month key must be a YYYYMM month
-  const same9 = await api('PATCH', `/api/projects/${pId}`, { startDate: '202604', endDate: '202610' }, adminCookie);
+  const same9 = await saveProjectLegacy('PATCH', `/api/projects/${pId}`, { startDate: '202604', endDate: '202610' }, adminCookie);
   ok(same9.status === 200 && same9.data?.id === pId, `DR-09 PATCH re-sending the same period → 200 with the project id (got ${same9.status}: ${same9.data?.error})`);
-  const ren9 = await api('PATCH', `/api/projects/${pId}`, { name: '__test_dr_proj_renamed__', startDate: '202604', endDate: '202610' }, adminCookie);
+  const ren9 = await saveProjectLegacy('PATCH', `/api/projects/${pId}`, { name: '__test_dr_proj_renamed__', startDate: '202604', endDate: '202610' }, adminCookie);
   const after9 = ((await api('GET', '/api/projects', null, adminCookie)).data || []).find(x => x.id === pId);
   ok(ren9.status === 200 && after9?.name === '__test_dr_proj_renamed__' && `${String(after9?.start_date || '').trim()}|${String(after9?.end_date || '').trim()}` === '202604|202610',
     `DR-09 PATCH renaming with the same period → 200, name changed, period unchanged (got ${ren9.status})`);
   const key9 = await pt([{ month: '2026-07', amount: 1 }]);
   ok(isRule(key9) && /is not a valid month/.test(key9.data?.error || ''), `DR-09 PTC row with a month that is not YYYYMM → 400 DATE_RULE naming the format (got ${key9.status}: ${key9.data?.error})`);
-  const key9b = await api('PATCH', `/api/projects/${p2Id}/ptc`, { ptc: [{ month: '2026-07', amount: 1 }] }, adminCookie);
+  const key9b = await saveProjectLegacy('PATCH', `/api/projects/${p2Id}/ptc`, { ptc: [{ month: '2026-07', amount: 1 }] }, adminCookie);
   ok(isRule(key9b) && /is not a valid month/.test(key9b.data?.error || ''), `DR-09 the same on a project without a period → 400 DATE_RULE (got ${key9b.status}: ${key9b.data?.error})`);
 }
 
@@ -5141,7 +5224,7 @@ async function testPeriodWithTasks() {
 
   // ── project side: PUT /api/projects/:id/tasks carries the project period ──
   const pBase = `/api/projects/${pId}`;
-  const pPut = (tasks, period) => api('PUT', `${pBase}/tasks`, period === undefined ? tasks : { tasks, period }, adminCookie);
+  const pPut = (tasks, period) => saveProjectLegacy('PUT', `${pBase}/tasks`, period === undefined ? tasks : { tasks, period }, adminCookie);
   const pTitles = async () => ((await api('GET', `${pBase}/tasks`, null, adminCookie)).data || []).map(t => t.name).sort().join(',');
   const pPeriod = async () => {
     const p = ((await api('GET', '/api/projects', null, adminCookie)).data || []).find(x => x.id === pId);
@@ -5175,6 +5258,251 @@ async function testPeriodWithTasks() {
   const r10 = await pPut(pOne('Old', '2025-01-06', '2025-01-10'), { startDate: '', endDate: '' });
   ok(r10.status === 200, `PS-10 empty project period with a task of any date → 200 (got ${r10.status}: ${r10.data?.error})`);
   ok(await pPeriod() === '|', 'PS-10 the project period is empty');
+}
+
+// ── Save contract — Generate and Add tasks (cycle 3) ──────────────────────────
+
+// GP-01..05, ATK-01..05, LK-01: POST …/versions/:vId/projects (Generate) and …/projects/:projectId/tasks (Add tasks),
+// each one transaction with its link; POST …/linked-projects merges the task lists.
+async function testGenerateAndAddTasks() {
+  section('Save contract — Generate and Add tasks');
+  const logRows = async id =>
+    (await sql('SELECT version, action FROM change_log WHERE entity_type = $1 AND entity_id = $2 ORDER BY id', ['project', String(id)])) || [];
+  const isCode = (r, code) => r.status === 400 && r.data?.code === code;
+  const tag = String(Date.now());
+  const g = await api('POST', '/api/cost-grids', { name: `__test_gp_cg_${tag}__` }, adminCookie);
+  const cgId = g.data?.id;
+  if (cgId) later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+  const vId = cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'gp' }, adminCookie)).data?.id : null;
+  if (!ok(!!(cgId && vId), 'GP-setup proposal and version created')) return;
+  const vBase = `/api/cost-grids/${cgId}/versions/${vId}`;
+  const rLists = await api('GET', '/api/attribute-lists', null, adminCookie);
+  const market = (rLists.data || []).find(l => l.slug === 'market');
+  const itemId = market ? (await api('POST', `/api/attribute-lists/${market.id}/items`, { label: `__test_gp_item_${tag}__` }, adminCookie)).data?.id : null;
+  if (itemId) await api('PUT', `${vBase}/tags`, { itemIds: [itemId] }, adminCookie);
+  const list = async () => (await api('GET', '/api/projects', null, adminCookie)).data || [];
+  const read = async id => (await list()).find(p => p.id === id);
+  const links = async () => (await api('GET', `${vBase}/linked-projects`, null, adminCookie)).data || [];
+  const linkOf = async id => (await links()).find(l => l.project_id === id);
+  const task = (name, start = '20260110', end = '20260120', rate = 100) =>
+    ({ name, startDate: start, endDate: end, resources: [{ role: 'DEV', soldHours: 2, hourlyRate: rate }] });
+  const generate = (body, cookie = adminCookie) => api('POST', `${vBase}/projects`, {
+    startDate: '202601', endDate: '202612', description: '', ptc: [], taskIds: [], taskNames: [], ...body,
+  }, cookie);
+  const track = r => { if (r.data?.id) later('DELETE', `/api/projects/${r.data.id}`); return r; };
+
+  // GP-01: a valid Generate
+  const g1 = track(await generate({ name: `__test_gp_${tag}__`, tasks: [task('A')], ptc: [{ title: 'A', note: '', amount: 5, month: '202601' }],
+    taskIds: ['tA'], taskNames: ['A'] }));
+  const p1 = g1.data?.id;
+  ok(g1.status === 201 && !!p1 && g1.data?.currency === 'EUR' && g1.data?.tasks?.length === 1 && g1.data?.ptc?.length === 1,
+    `GP-01 Generate → 201 with the version currency, tasks and ptc (got ${g1.status} ${g1.data?.error || ''})`);
+  const l1 = p1 ? await linkOf(p1) : null;
+  ok(JSON.stringify(l1?.task_ids) === '["tA"]', `GP-01 the link carries the task ids (got ${JSON.stringify(l1?.task_ids)})`);
+  if (itemId && p1) {
+    const tags = (await api('GET', `/api/projects/${p1}/tags`, null, adminCookie)).data || [];
+    ok(tags.some(t => t.item_id === itemId), 'GP-01 the project got the version\'s tags');
+  }
+  if (p1) ok((await logRows(p1)).map(r => r.action)[0] === 'create', 'GP-01 a project/create row');
+
+  // GP-02: a task outside the period — no project, no link
+  const g2 = track(await generate({ name: `__test_gp_out_${tag}__`, tasks: [task('Out', '20270110', '20270120')], taskIds: ['tOut'], taskNames: ['Out'] }));
+  ok(isCode(g2, 'DATE_RULE'), `GP-02 Generate with a task outside the period → 400 DATE_RULE (got ${g2.status})`);
+  ok(!(await list()).some(p => p.name === `__test_gp_out_${tag}__`) && (await links()).length === 1,
+    'GP-02 no project and no link left behind');
+
+  // GP-03: a user without permission on the grid
+  const plain = await getPlainUser();
+  if (plain.cookie) {
+    const g3 = track(await generate({ name: `__test_gp_plain_${tag}__`, tasks: [] }, plain.cookie));
+    ok(g3.status === 403, `GP-03 Generate without permission on the grid → 403 (got ${g3.status})`);
+  } else ok(false, 'GP-03 plain user unavailable');
+
+  // GP-04: the currency comes from the version, not the body
+  const g4 = track(await generate({ name: `__test_gp_chf_${tag}__`, currency: 'CHF', tasks: [] }));
+  ok(g4.status === 201 && g4.data?.currency === 'EUR', `GP-04 a body currency is ignored → EUR (got ${g4.status} ${g4.data?.currency})`);
+
+  // GP-05: a rate with too many decimals
+  const g5 = track(await generate({ name: `__test_gp_money_${tag}__`, tasks: [task('M', '20260110', '20260120', 10.123)] }));
+  ok(isCode(g5, 'MONEY_RULE') && !(await list()).some(p => p.name === `__test_gp_money_${tag}__`),
+    `GP-05 a rate with too many decimals → 400 MONEY_RULE, no project (got ${g5.status})`);
+
+  if (!p1) return;
+  const addTasks = (id, body, cookie = adminCookie) => api('POST', `${vBase}/projects/${id}/tasks`, body, cookie);
+
+  // ATK-01: Add tasks after a project Save keeps the Save's name and status; the link is the union
+  const before = await read(p1);
+  const s1 = await api('PUT', `/api/projects/${p1}`, { version: before.version, header: { name: `__test_gp_${tag}_renamed__`, status: 'Started' } }, adminCookie);
+  const a1 = await addTasks(p1, { tasks: [task('B', '20260210', '20260220')], taskIds: ['tB'], taskNames: ['B'] });
+  const after1 = await read(p1);
+  ok(s1.status === 200 && a1.status === 200 && after1.name === `__test_gp_${tag}_renamed__` && after1.status === 'Started'
+    && after1.tasks.map(t => t.name).join(',') === 'A,B',
+    `ATK-01 Add tasks keeps the saved name and status and appends the task (got ${s1.status}, ${a1.status}, ${after1.name}, ${after1.tasks.map(t => t.name)})`);
+  ok(JSON.stringify((await linkOf(p1))?.task_ids) === '["tA","tB"]', 'ATK-01 the link holds the union of the task ids');
+
+  // ATK-05: one project/update row, version +1
+  ok(after1.version === before.version + 2 && (await logRows(p1)).slice(-1)[0]?.action === 'update',
+    `ATK-05 Add tasks bumps the version and logs an update (got ${before.version} → ${after1.version})`);
+
+  // ATK-02: a task outside the stored period — nothing added
+  const a2 = await addTasks(p1, { tasks: [task('Late', '20270110', '20270120')], taskIds: ['tLate'], taskNames: ['Late'] });
+  ok(isCode(a2, 'DATE_RULE') && (await read(p1)).tasks.length === 2 && JSON.stringify((await linkOf(p1))?.task_ids) === '["tA","tB"]',
+    `ATK-02 a task outside the period → DATE_RULE, no task and no id added (got ${a2.status})`);
+
+  // ATK-03: grid editor without permission on the project
+  if (plain.id && plain.cookie) {
+    await api('POST', `/api/cost-grids/${cgId}/shares`, { userId: plain.id, permission: 'editor' }, adminCookie);
+    const a3 = await addTasks(p1, { tasks: [task('C')], taskIds: ['tC'], taskNames: ['C'] }, plain.cookie);
+    ok(a3.status === 403, `ATK-03 Add tasks without permission on the project → 403 (got ${a3.status})`);
+  }
+
+  // ATK-04: a project linked only through cg_version_id gets its link row
+  const bare = track(await api('POST', '/api/projects', { name: `__test_gp_bare_${tag}__`, cgVersionId: vId, currency: 'EUR', startDate: '202601', endDate: '202612' }, adminCookie));
+  if (bare.data?.id) {
+    const a4 = await addTasks(bare.data.id, { tasks: [task('D')], taskIds: ['tD'], taskNames: ['D'] });
+    ok(a4.status === 200 && JSON.stringify((await linkOf(bare.data.id))?.task_ids) === '["tD"]',
+      `ATK-04 Add tasks on a project without a link row creates it (got ${a4.status} ${a4.data?.error || ''})`);
+  } else ok(false, 'ATK-04 setup project unavailable');
+
+  // LK-01: POST linked-projects merges the lists
+  const l2 = track(await generate({ name: `__test_gp_lk_${tag}__`, tasks: [] }));
+  if (l2.data?.id) {
+    await api('POST', `${vBase}/linked-projects`, { projectId: l2.data.id, taskIds: ['x1'], taskNames: ['X1'] }, adminCookie);
+    await api('POST', `${vBase}/linked-projects`, { projectId: l2.data.id, taskIds: ['x2'], taskNames: ['X2'] }, adminCookie);
+    const lk = await linkOf(l2.data.id);
+    ok(JSON.stringify(lk?.task_ids) === '["x1","x2"]', `LK-01 two linked-projects POSTs merge the task ids (got ${JSON.stringify(lk?.task_ids)})`);
+  }
+
+  // PA-01, PA-02, LK-03 (Gate 3 security findings): a proposal editor cannot attach a project to a program they cannot
+  // edit, nor link someone else's project. The plain user is a grid editor since ATK-03.
+  if (!(plain.id && plain.cookie && sysadminCookie)) { ok(false, 'PA-setup plain user or sysadmin unavailable'); return; }
+  const prgId = `__test_pa_${tag}`;
+  const prg = await api('POST', '/api/programs', { id: prgId, name: '__test pa program__' }, adminCookie);
+  if (prg.status === 201) later('DELETE', `/api/programs/${prgId}`);
+  const inPrg = track(await api('POST', '/api/projects', { name: `__test_pa_in_${tag}__`, programId: prgId }, sysadminCookie));
+  const pa1 = track(await generate({ name: `__test_pa_gen_${tag}__`, programId: prgId, tasks: [] }, plain.cookie));
+  ok(pa1.status === 403 && !(await list()).some(p => p.name === `__test_pa_gen_${tag}__`),
+    `PA-01 Generate into a program the user cannot edit → 403, no project (got ${pa1.status})`);
+  const own = track(await api('POST', '/api/projects', { name: `__test_pa_own_${tag}__` }, sysadminCookie));
+  if (own.data?.id && inPrg.data?.id) {
+    await api('POST', `/api/projects/${own.data.id}/shares`, { userId: plain.id, permission: 'editor' }, adminCookie);
+    const v = (await read(own.data.id))?.version;
+    const pa2 = await api('PUT', `/api/projects/${own.data.id}`, { version: v, header: { programId: prgId } }, plain.cookie);
+    ok(pa2.status === 403 && (await read(own.data.id))?.program_id == null,
+      `PA-02 Save attaching an editable project to a program the user cannot edit → 403 (got ${pa2.status})`);
+    const l3 = await api('POST', `${vBase}/linked-projects`, { projectId: inPrg.data.id, taskIds: ['z'], taskNames: ['Z'] }, plain.cookie);
+    ok(l3.status === 403 && !(await linkOf(inPrg.data.id)), `LK-03 linking a project the user cannot edit → 403, no link (got ${l3.status})`);
+  } else ok(false, 'PA-02/LK-03 setup projects unavailable');
+}
+
+// ── Save contract — project Save (cycle 3) ────────────────────────────────────
+
+// PSV-01..10: PUT /api/projects/:id { version, header?, tasks?, phasing?, ptc?, planning?, groups? } in one versioned transaction.
+async function testProjectSave() {
+  section('Save contract — project Save');
+  if (!sysadminCookie) { ok(false, 'PSV-setup sysadmin account unavailable'); return; }
+  const logRows = async id =>
+    (await sql('SELECT version, action, user_id, snapshot FROM change_log WHERE entity_type = $1 AND entity_id = $2 ORDER BY id', ['project', String(id)])) || [];
+  const isStale = r => r.status === 409 && r.data?.code === 'STALE';
+  const isRule = r => r.status === 400 && r.data?.code === 'DATE_RULE';
+  const tag = String(Date.now());
+  const list = async () => (await api('GET', '/api/projects', null, adminCookie)).data || [];
+  const read = async id => (await list()).find(p => p.id === id);
+  const save = (id, body, cookie = adminCookie) => api('PUT', `/api/projects/${id}`, body, cookie);
+  const mk = async (name, extra = {}) => {
+    const r = await api('POST', '/api/projects', { name, ...extra }, sysadminCookie);
+    if (r.data?.id) later('DELETE', `/api/projects/${r.data.id}`);
+    return r;
+  };
+
+  // PSV-01: one Save, version +1, one project/update row with tasks and links
+  const p1 = (await mk(`__test_psv_${tag}__`, { startDate: '202601', endDate: '202606' })).data?.id;
+  if (!ok(!!p1, 'PSV-setup project created')) return;
+  const v0 = (await read(p1))?.version;
+  const s1 = await save(p1, { version: v0, header: { name: `__test_psv_${tag}_x__` } });
+  ok(s1.status === 200 && s1.data?.version === v0 + 1 && s1.data?.name === `__test_psv_${tag}_x__`,
+    `PSV-01 Save header → 200, version +1 (got ${s1.status} ${s1.data?.error || ''})`);
+  const last1 = (await logRows(p1)).slice(-1)[0];
+  ok(last1?.action === 'update' && last1?.version === v0 + 1 && Array.isArray(last1?.snapshot?.tasks) && Array.isArray(last1?.snapshot?.links),
+    `PSV-01 change_log: update/${v0 + 1} with snapshot.tasks and snapshot.links (got ${JSON.stringify(last1 && [last1.action, last1.version])})`);
+
+  // PSV-03: two Saves from the same version — the second is stale, the first one's name stays
+  const vA = s1.data?.version;
+  const a3 = await save(p1, { version: vA, header: { name: `__test_psv_${tag}_a__` } });
+  const b3 = await save(p1, { version: vA, header: { name: `__test_psv_${tag}_b__` } });
+  ok(a3.status === 200 && isStale(b3) && b3.data?.version === vA + 1
+    && b3.data?.error === 'This project was changed by someone else since you opened it.',
+    `PSV-03 second Save from the same version → 409 STALE (got ${a3.status}, ${b3.status})`);
+  ok((await read(p1))?.name === `__test_psv_${tag}_a__`, 'PSV-03 the first Save\'s name stays');
+
+  // PSV-04: a refused section rolls back the header and the tasks, with no change_log row
+  const before4 = await read(p1);
+  const rows4 = (await logRows(p1)).length;
+  const r4 = await save(p1, {
+    version: before4.version, header: { name: `__test_psv_${tag}_refused__` },
+    tasks: [{ name: 'Inside', startDate: '20260210', endDate: '20260220' }], phasing: { '202612': 1 },
+  });
+  const after4 = await read(p1);
+  ok(isRule(r4), `PSV-04 phasing outside the period → 400 DATE_RULE (got ${r4.status} ${r4.data?.error})`);
+  ok(after4.name === before4.name && JSON.stringify(after4.tasks) === JSON.stringify(before4.tasks)
+    && JSON.stringify(after4.phasing) === JSON.stringify(before4.phasing) && after4.version === before4.version,
+    'PSV-04 name, tasks and phasing unchanged after the refusal');
+  ok((await logRows(p1)).length === rows4, 'PSV-04 no change_log row for a refused Save');
+
+  // PSV-05: unknown fields and an empty body are refused
+  const u5 = await save(p1, { version: after4.version, header: { linkedProjects: [] } });
+  ok(u5.status === 400 && u5.data?.error === 'Unknown field: linkedProjects', `PSV-05 header.linkedProjects → 400 (got ${u5.status} ${u5.data?.error})`);
+  const e5 = await save(p1, { version: after4.version });
+  ok(e5.status === 400 && e5.data?.error === 'Nothing to update', `PSV-05 empty body → 400 Nothing to update (got ${e5.status} ${e5.data?.error})`);
+
+  // PSV-06: the period moves and the phasing goes to the new months, in one Save
+  const r6 = await save(p1, { version: after4.version, header: { startDate: '202604', endDate: '202609' }, phasing: { '202608': 5 } });
+  const after6 = await read(p1);
+  ok(r6.status === 200 && String(after6?.start_date).trim() === '202604' && after6?.phasing?.['202608'] === 5,
+    `PSV-06 period moved and phasing in the new months in one Save → 200 (got ${r6.status} ${r6.data?.error || ''})`);
+
+  // PSV-07: a user without permission on the project
+  const plain = await getPlainUserCookie();
+  if (plain) {
+    const r7 = await save(p1, { version: after6.version, header: { name: 'nope' } }, plain);
+    ok(r7.status === 403, `PSV-07 Save by a user without permission → 403 (got ${r7.status})`);
+  } else ok(false, 'PSV-07 plain user unavailable');
+
+  // PSV-09: GET /api/projects carries an integer version and links
+  ok(Number.isInteger(after6?.version) && Array.isArray(after6?.links), `PSV-09 GET /api/projects → integer version and links (got ${after6?.version}, ${JSON.stringify(after6?.links)})`);
+
+  // PSV-08: a stage propagated by the cost grid Save bumps the project version; a Save from before gets 409
+  const g = await api('POST', '/api/cost-grids', { name: `__test_psv_cg_${tag}__` }, adminCookie);
+  const cgId = g.data?.id;
+  if (cgId) later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+  const vId = cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'psv' }, adminCookie)).data?.id : null;
+  if (vId) await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/publish`, null, adminCookie);
+  const linked = vId ? await api('POST', '/api/projects', { name: `__test_psv_linked_${tag}__`, cgVersionId: vId, currency: 'EUR' }, adminCookie) : null;
+  const p8 = linked?.data?.id;
+  if (p8) later('DELETE', `/api/projects/${p8}`);
+  if (ok(!!p8, 'PSV-08 setup: linked project created')) {
+    const seen = (await read(p8))?.version;
+    const verRow = ((await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || []).find(v => v.id === vId);
+    const st = await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}`, { version: verRow?.version, header: { pipeline: 'Committed' } }, adminCookie);
+    const r8 = await save(p8, { version: seen, header: { status: 'Started' } });
+    ok(st.status === 200 && isStale(r8), `PSV-08 Save opened before a stage change → 409 STALE (got ${st.status}, ${r8.status})`);
+    ok((await read(p8))?.pipeline === 'Committed', 'PSV-08 the propagated stage stays');
+  }
+
+  // PSV-10: POST and DELETE leave create and delete rows
+  const p10 = (await mk(`__test_psv_del_${tag}__`)).data?.id;
+  if (ok(!!p10, 'PSV-10 setup: project created')) {
+    const created = (await logRows(p10)).map(r => r.action);
+    ok(created[0] === 'create', `PSV-10 POST /api/projects → a create row (got ${JSON.stringify(created)})`);
+    const d10 = await api('DELETE', `/api/projects/${p10}`, null, sysadminCookie);
+    const deleted = (await logRows(p10)).map(r => r.action);
+    ok(d10.status === 200 && deleted.slice(-1)[0] === 'delete', `PSV-10 DELETE /api/projects/:id → a delete row (got ${d10.status} ${JSON.stringify(deleted)})`);
+
+    // PSV-02: a Save of a deleted project is 404, and the project does not come back
+    const r2 = await save(p10, { version: 0, header: { name: 'back' } });
+    ok(r2.status === 404 && r2.data?.error === 'Project not found', `PSV-02 Save of a deleted project → 404 (got ${r2.status} ${r2.data?.error})`);
+    ok(!(await list()).some(p => p.id === p10), 'PSV-02 the deleted project is not recreated');
+  }
 }
 
 async function testProjectCurrencyLock() {
@@ -5214,12 +5542,12 @@ async function testProjectCurrencyLock() {
   ok(lnk.status === 201, `PR-03 admin: link the generated project → 201 (got ${lnk.status})`);
 
   // PR-04: project currency
-  const curPatch = (cookie, currency) => api('PATCH', `/api/projects/${pId}`, { currency }, cookie);
+  const curPatch = (cookie, currency) => saveProjectLegacy('PATCH', `/api/projects/${pId}`, { currency }, cookie);
   const c1 = await curPatch(adminCookie, 'USD');
   ok(c1.status === 400 && c1.data?.error === 'Currency cannot be changed: amounts are not converted yet',
     `PR-04 admin: change the project currency → 400 (got ${c1.status})`);
   ok((await curPatch(adminCookie, 'EUR')).status === 200, 'PR-04 admin: re-sending the same currency → 200');
-  ok((await api('PATCH', `/api/projects/${pId}`, { currency: 'EUR', cgVersionId: vId, name: '__test_pr_linked__' }, adminCookie)).status === 200,
+  ok((await saveProjectLegacy('PATCH', `/api/projects/${pId}`, { currency: 'EUR', cgVersionId: vId, name: '__test_pr_linked__' }, adminCookie)).status === 200,
     'PR-04 admin: a whole-project re-save with unchanged currency and link → 200');
   ok((await curPatch(sysadminCookie, 'USD')).status === 200, 'PR-04 sysadmin: change the project currency → 200');
   ok((await curPatch(sysadminCookie, 'EUR')).status === 200, 'PR-04 sysadmin: restore it → 200');
@@ -5236,7 +5564,7 @@ async function testProjectCurrencyLock() {
   ok((await vc(sysadminCookie, vId, 'EUR')).status === 200, 'PR-05 sysadmin: restore it → 200');
 
   // PR-06: unlinking / re-pointing
-  const lp = (cookie, cgVersionId) => api('PATCH', `/api/projects/${pId}`, { cgVersionId }, cookie);
+  const lp = (cookie, cgVersionId) => saveProjectLegacy('PATCH', `/api/projects/${pId}`, { cgVersionId }, cookie);
   const u1 = await lp(adminCookie, null);
   ok(u1.status === 400 && u1.data?.error === 'Deleting a project or unlinking it from its proposal is temporarily disabled',
     `PR-06 admin: clearing cgVersionId → 400 (got ${u1.status})`);
@@ -5248,7 +5576,7 @@ async function testProjectCurrencyLock() {
   ok((await lp(sysadminCookie, vId)).status === 200, 'PR-06 sysadmin: restore → 200');
 
   // PR-07: linking a project that has no proposal is still allowed
-  if (dId) ok((await api('PATCH', `/api/projects/${dId}`, { cgVersionId: v2Id }, adminCookie)).status === 200,
+  if (dId) ok((await saveProjectLegacy('PATCH', `/api/projects/${dId}`, { cgVersionId: v2Id }, adminCookie)).status === 200,
     'PR-07 admin: linking an unlinked project to a version → 200');
 
   // PR-10..PR-13: a project and its version must share the currency at link time; an unknown version is refused
@@ -5276,15 +5604,15 @@ async function testProjectCurrencyLock() {
   const d2Id = d2.data?.id;
   if (d2Id) later('DELETE', `/api/projects/${d2Id}`);
   if (d2Id) {
-    const pm = await api('PATCH', `/api/projects/${d2Id}`, { cgVersionId: v3Id }, adminCookie);
+    const pm = await saveProjectLegacy('PATCH', `/api/projects/${d2Id}`, { cgVersionId: v3Id }, adminCookie);
     ok(pm.status === 400 && pm.data?.error === 'The project and the proposal must have the same currency',
       `PR-12 admin: PATCH linking a EUR project to a USD version → 400 (got ${pm.status})`);
-    const pn = await api('PATCH', `/api/projects/${d2Id}`, { cgVersionId: NOVER }, adminCookie);
+    const pn = await saveProjectLegacy('PATCH', `/api/projects/${d2Id}`, { cgVersionId: NOVER }, adminCookie);
     ok(pn.status === 400 && pn.data?.error === 'Proposal version not found', `PR-12 admin: PATCH linking to an unknown version → 400 (got ${pn.status})`);
     const lm = await api('POST', `${verPath(v3Id)}/linked-projects`, { projectId: d2Id, taskIds: [], taskNames: [] }, adminCookie);
     ok(lm.status === 400 && lm.data?.error === 'The project and the proposal must have the same currency',
       `PR-13 admin: POST linked-projects between a EUR project and a USD version → 400 (got ${lm.status})`);
-    ok((await api('PATCH', `/api/projects/${d2Id}`, { cgVersionId: v3Id }, sysadminCookie)).status === 200,
+    ok((await saveProjectLegacy('PATCH', `/api/projects/${d2Id}`, { cgVersionId: v3Id }, sysadminCookie)).status === 200,
       'PR-12 sysadmin: the same link is allowed → 200');
   }
   if (xId) ok((await api('POST', `${verPath(v3Id)}/linked-projects`, { projectId: xId, taskIds: [], taskNames: [] }, adminCookie)).status === 201,
@@ -6034,6 +6362,8 @@ async function main() {
     await testRatecards();
     await testSaveContract();
     await testCostGridSave();
+    await testProjectSave();
+    await testGenerateAndAddTasks();
     await testServerValidation();
     await testPots();
     await testCostGridBudgets();

@@ -1,16 +1,19 @@
 const express = require('express');
 const { query, pool } = require('../db/client');
 const { requireAuth, liveRole } = require('../middleware/auth');
-const { isUuid, taskListError } = require('../lib/input-rules');
+const { isUuid } = require('../lib/input-rules');
 const rules = require('../lib/project-rules');
-const { withVersionLock, lockVersion } = require('../lib/version-lock');
+const { lockVersion } = require('../lib/version-lock');
 const { sendShareNotification, sendShareRevokedEmail } = require('../services/email');
-const { isValidSoldHours } = require('../lib/sold-hours');
-const { DATE_RULE, periodError, periodChangeError, taskDatesError, mergePeriod, periodChanged, periodColumn, monthKeysError, toYmd } = require('../lib/dates');
+const { DATE_RULE, periodError } = require('../lib/dates');
 const { isAdminRole } = require('../lib/is-admin');
 const { enqueueProjectsQuiet } = require('../services/profile-engine');
-const { descriptionsSignature } = require('../lib/topic-extract');
-const { amountError, ptcRowsError, phasingError, MONEY_RULE_CODE, MAX_DECIMAL_10_2 } = require('../lib/money-rules');
+const { withTransaction } = require('../db/transaction');
+const { versionedWrite, NotFoundError } = require('../services/versioned-write');
+const { PROJECT_COLUMNS, PROJECT_FROM, entities } = require('../services/saved-entities');
+const { ruleError } = require('../services/cost-grid-save');
+const { projectSaveBodyError, applyProjectSave, respondWriteError } = require('../services/project-save');
+const projectSnapshot = entities.project.snapshot;
 let _createNotification;
 
 const router = express.Router();
@@ -43,9 +46,8 @@ async function canEdit(userId, role, projectId) {
 }
 
 // Copies a cost grid version's tags onto a project, only when the project has none yet.
-// One atomic statement. Best-effort: the project write it follows has already succeeded
-// (and js/api-sync.js treats a failed PATCH as "project missing"), so a failure here is
-// logged, not surfaced. A missed copy is repaired by re-running this same statement by
+// One atomic statement. Best-effort: the project write it follows has already been committed,
+// so a failure here is logged, not surfaced. A missed copy is repaired by re-running this same statement by
 // hand for that one project (NOT by re-running migration 023, which would also refill
 // every project whose tags were deliberately cleared).
 async function copyVersionTagsToProject(projectId, versionId) {
@@ -96,34 +98,11 @@ router.get('/', requireAuth, async (req, res, next) => {
                     LIMIT 1)
          END AS my_permission,`;
 
+    // The columns are the project snapshot's (services/saved-entities.js), so a Save answers in this shape.
     const { rows } = await query(
-      `SELECT p.id, p.code, p.name, p.program_id, p.client_id, p.pipeline, p.status,
-              p.start_date, p.end_date, p.currency, p.cg_version_id, cgv.cost_grid_id AS cg_id, p.created_at,
-              p.owner_id, p.phasing, p.ptc, p.planning, p.groups,
-              p.description,
-              ${myPermCol}
-              u.first_name || ' ' || u.last_name AS owner_name,
-              c.name AS client_name,
-              pr.name AS program_name,
-              COALESCE(
-                (SELECT json_agg(json_build_object(
-                   'name',                 pt.name,
-                   'billable',             pt.billable,
-                   'completed',            pt.completed,
-                   'startDate',            pt.start_date,
-                   'endDate',              pt.end_date,
-                   'monthlyDistribution',  pt.monthly_distribution,
-                   'resources',            pt.resources,
-                   'description',          pt.description
-                 ) ORDER BY pt.sort_order)
-                 FROM project_tasks pt WHERE pt.project_id = p.id),
-                '[]'::json
-              ) AS tasks
-       FROM projects p
-       JOIN users u ON u.id = p.owner_id
-       LEFT JOIN clients c ON c.id = p.client_id
-       LEFT JOIN programs pr ON pr.id = p.program_id
-       LEFT JOIN cost_grid_versions cgv ON cgv.id = p.cg_version_id
+      `SELECT ${myPermCol}
+              ${PROJECT_COLUMNS}
+       ${PROJECT_FROM}
        WHERE 1=1 ${visibilityClause}
        ORDER BY p.name`,
       isAdmin ? [] : [req.user.id]
@@ -149,7 +128,8 @@ router.get('/:id', requireAuth, async (req, res, next) => {
       [req.params.id]
     );
     if (!rows[0]) return res.status(404).json({ error: 'Project not found' });
-    res.json(rows[0]);
+    const snap = await projectSnapshot(pool, req.params.id);
+    res.json({ ...rows[0], links: snap?.links || [] });
   } catch (err) { next(err); }
 });
 
@@ -168,205 +148,82 @@ router.post('/', requireAuth, async (req, res, next) => {
     const createErr = rules.projectCreateError({ role, versionId: safeCgVersionId });
     if (createErr) return refuse(res, createErr);
 
-    const insertSql = `INSERT INTO projects (id, code, name, program_id, client_id, start_date, end_date, currency, pipeline, status, cg_version_id, owner_id, description)
-       VALUES (COALESCE($1::uuid, uuid_generate_v4()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-       RETURNING id, code, name, owner_id, created_at`;
     const insertParams = [id || null, code?.trim() || null, name.trim(), programId || null, safeClientId, startDate || null,
        endDate || null, currency || 'EUR', pipeline || null, status || null,
        safeCgVersionId, req.user.id, String(description ?? '')];
-    let rows;
-    if (safeCgVersionId) {
-      // Linked at creation: the version must exist and share the currency, checked and written under the version lock.
-      const out = await withVersionLock(safeCgVersionId, async client => {
+    // One transaction: linked at creation, the version must exist and share the currency, checked and written
+    // under the version lock; the owner's share is written with the row.
+    const out = await withTransaction(pool, async client => {
+      if (safeCgVersionId) {
+        await lockVersion(client, safeCgVersionId);
         const ver = (await client.query('SELECT currency FROM cost_grid_versions WHERE id = $1', [safeCgVersionId])).rows[0];
-        if (!ver) return { err: rules.MESSAGES.versionNotFound };
+        if (!ver) throw ruleError(rules.MESSAGES.versionNotFound, rules.RULE_CODE);
         const linkErr = rules.linkCurrencyError({ role, projectCurrency: currency, versionCurrency: ver.currency });
-        if (linkErr) return { err: linkErr };
-        return { rows: (await client.query(insertSql, insertParams)).rows };
+        if (linkErr) throw ruleError(linkErr, rules.RULE_CODE);
+      }
+      return versionedWrite(client, {
+        type: 'project', userId: req.user.id, action: 'create',
+        write: async c => {
+          const newId = (await c.query(
+            `INSERT INTO projects (id, code, name, program_id, client_id, start_date, end_date, currency, pipeline, status, cg_version_id, owner_id, description)
+             VALUES (COALESCE($1::uuid, uuid_generate_v4()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+             RETURNING id`, insertParams
+          )).rows[0].id;
+          await c.query(
+            `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
+             VALUES ('project', $1, $2, 'owner', $2)`,
+            [newId, req.user.id]
+          );
+          return { id: newId };
+        },
       });
-      if (out.err) return refuse(res, out.err);
-      rows = out.rows;
-    } else {
-      ({ rows } = await query(insertSql, insertParams));
-    }
+    });
 
-    // Register owner in resource_shares
-    await query(
-      `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
-       VALUES ('project', $1, $2, 'owner', $2)`,
-      [rows[0].id, req.user.id]
-    );
-
-    if (safeCgVersionId) await copyVersionTagsToProject(rows[0].id, safeCgVersionId);
+    if (safeCgVersionId) await copyVersionTagsToProject(out.entity.id, safeCgVersionId);
     if (code?.trim()) await enqueueProjectsQuiet([code.trim()]);
 
-    res.status(201).json(rows[0]);
-  } catch (err) { next(err); }
+    res.status(201).json(out.entity);
+  } catch (err) {
+    if (respondWriteError(res, err)) return;
+    next(err);
+  }
 });
 
-// PATCH /api/projects/:id
-router.patch('/:id', requireAuth, async (req, res, next) => {
+// PUT /api/projects/:id — the project's Save: { version, header?, tasks?, phasing?, ptc?, planning?, groups? }
+// in one versionedWrite, all or nothing. header carries only changed fields among PROJECT_HEADER_FIELDS; each
+// section only when changed, `tasks` replacing the task list. The rules (project currency lock, dates, money)
+// run on the final state: the period after this header, the tasks of the body or the stored ones.
+// Replaces PATCH /:id, PUT /:id/tasks and PATCH /:id/{phasing,ptc,planning,groups} (save-contract cycle 3).
+router.put('/:id', requireAuth, async (req, res, next) => {
   try {
-    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
+    const id = req.params.id;
+    if (!isUuid(id)) return res.status(400).json({ error: 'Invalid project id' });
+    const { rows: [found] } = await query('SELECT 1 FROM projects WHERE id = $1', [id]);
+    if (!found) return res.status(404).json({ error: 'Project not found' });
+    if (!await canEdit(req.user.id, req.user.role, id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    for (const key of ['cgVersionId', 'clientId']) {
-      const v = req.body[key];
-      if (v && (typeof v !== 'string' || !isUuid(v))) {
-        return res.status(400).json({ error: `${key} must be a valid UUID` });
-      }
-    }
-    // One unlocked read feeds the rules below and the choice of path. A period that this read shows as
-    // unchanged is not written at all (and not locked), so it cannot overwrite a concurrent change; one that
-    // it shows as changed is checked, and written, under the project row lock.
-    const { rows: [stored] } = await query(
-      'SELECT id, name, start_date, end_date, currency, cg_version_id FROM projects WHERE id = $1', [req.params.id]);
-    const bodyPeriod = { start: req.body.startDate, end: req.body.endDate };
-    const periodMoved = !!stored && periodChanged(bodyPeriod, { start: stored.start_date, end: stored.end_date });
-    const needsRules = req.body.currency !== undefined || req.body.cgVersionId !== undefined;
-    const role = needsRules ? await liveRole(req.user.id) : null;
-    if (needsRules) {
-      if (stored) {
-        if (req.body.currency !== undefined) {
-          const err = rules.projectCurrencyChangeError({ role, currentCurrency: stored.currency, newCurrency: req.body.currency });
-          if (err) return refuse(res, err);
-        }
-        if (req.body.cgVersionId !== undefined) {
-          const err = rules.projectLinkChangeError({ role, currentVersionId: stored.cg_version_id, newVersionId: req.body.cgVersionId });
-          if (err) return refuse(res, err);
-          // A new link (not a re-send of the current one): the version must exist and share the currency.
-          const newVersionId = req.body.cgVersionId;
-          if (newVersionId && String(newVersionId).toLowerCase() !== String(stored.cg_version_id || '').toLowerCase()) {
-            const { rows: [ver] } = await query('SELECT currency FROM cost_grid_versions WHERE id = $1', [newVersionId]);
-            if (!ver) return refuse(res, rules.MESSAGES.versionNotFound);
-            const linkErr = rules.linkCurrencyError({ role, projectCurrency: stored.currency, versionCurrency: ver.currency });
-            if (linkErr) return refuse(res, linkErr);
-          }
-        }
-      }
-    }
-    const allowed = ['name', 'code', 'programId', 'clientId', 'startDate', 'endDate',
-                     'currency', 'pipeline', 'status', 'cgVersionId', 'description'];
-    const map = {
-      description: 'description',
-      name: 'name', code: 'code', programId: 'program_id', clientId: 'client_id',
-      startDate: 'start_date', endDate: 'end_date', currency: 'currency',
-      pipeline: 'pipeline', status: 'status', cgVersionId: 'cg_version_id'
-    };
-
-    const fields = [];
-    const params = [];
-    let periodOmitted = false;
-    for (const key of allowed) {
-      if (req.body[key] !== undefined) {
-        if ((key === 'startDate' || key === 'endDate') && !periodMoved) { periodOmitted = true; continue; }
-        params.push(key === 'description' ? String(req.body[key] ?? '') : (req.body[key] || null));
-        fields.push(`${map[key]} = $${params.length}`);
-      }
-    }
-    if (!fields.length) {
-      // The body held only a period the project already has: nothing to write. The answer is read again, so it
-      // does not carry a name that a save finishing meanwhile has already changed.
-      if (periodOmitted) {
-        const { rows: [now] } = await query('SELECT id, name FROM projects WHERE id = $1', [req.params.id]);
-        return now ? res.json({ id: now.id, name: now.name }) : res.status(404).json({ error: 'Project not found' });
-      }
-      return res.status(400).json({ error: 'Nothing to update' });
-    }
-
-    let prevCode = null;
-    if (req.body.code !== undefined) {
-      const prev = await query('SELECT code FROM projects WHERE id = $1', [req.params.id]);
-      prevCode = prev.rows[0]?.code ?? null;
-    }
-
-    let prevDescription = null;
-    if (req.body.description !== undefined) {
-      const prev = await query('SELECT description FROM projects WHERE id = $1', [req.params.id]);
-      prevDescription = prev.rows[0]?.description ?? '';
-    }
-
-    params.push(req.params.id);
-    const updateSql = `UPDATE projects SET ${fields.join(', ')} WHERE id = $${params.length} RETURNING id, name`;
-
-    let rows;
-    let seedFromVersionId = null;
-    if (req.body.cgVersionId !== undefined || periodMoved) {
-      // Read the previous link and write the new one under one row lock, so two overlapping
-      // saves (js/api-sync.js re-sends cgVersionId on every save) cannot both observe
-      // "no link yet" and both seed tags — only the first link ever seeds them. A period change takes the
-      // same lock, so the tasks it is checked against cannot change before the write.
-      const client = await pool.connect();
-      let refusedByLock = null;
-      let dateRefusal = null;
-      try {
-        await client.query('BEGIN');
-        // Linking: take the version lock first (before the project row lock) so the currency check below
-        // cannot interleave with a currency change of that version (see lib/version-lock.js).
-        const target = req.body.cgVersionId || null;
-        if (target) await lockVersion(client, target);
-        const prev = await client.query(
-          'SELECT cg_version_id, currency, start_date, end_date FROM projects WHERE id = $1 FOR UPDATE', [req.params.id]);
-        const prevCgVersionId = prev.rows[0]?.cg_version_id ?? null;
-        const lockedPeriod = prev.rows[0] ? { start: prev.rows[0].start_date, end: prev.rows[0].end_date } : null;
-        // Only a period that is going to be written is checked: when the unlocked read showed it as unchanged the
-        // columns are not in the UPDATE, so a change made by someone else meanwhile is not this request's business.
-        if (lockedPeriod && periodMoved && periodChanged(bodyPeriod, lockedPeriod)) {
-          dateRefusal = periodChangeError(bodyPeriod, lockedPeriod, { kind: 'month', label: 'project' });
-          if (!dateRefusal) {
-            const tasks = (await client.query('SELECT name, start_date, end_date FROM project_tasks WHERE project_id = $1', [req.params.id]))
-              .rows.map(t => ({ name: t.name, start: t.start_date, end: t.end_date }));
-            dateRefusal = taskDatesError({
-              tasks, storedTasks: tasks, storedPeriod: lockedPeriod,
-              nextPeriod: mergePeriod(bodyPeriod, lockedPeriod), parent: 'project',
-            });
-          }
-        }
-        if (!dateRefusal && target && String(target).toLowerCase() !== String(prevCgVersionId || '').toLowerCase()) {
-          const ver = (await client.query('SELECT currency FROM cost_grid_versions WHERE id = $1', [target])).rows[0];
-          const projCurrency = prev.rows[0]?.currency;
-          refusedByLock = !ver
-            ? rules.MESSAGES.versionNotFound
-            : rules.linkCurrencyError({ role, projectCurrency: projCurrency, versionCurrency: ver.currency });
-        }
-        if (dateRefusal || refusedByLock) {
-          await client.query('ROLLBACK');
-        } else {
-          ({ rows } = await client.query(updateSql, params));
-          await client.query('COMMIT');
-          if (rows[0] && !prevCgVersionId && req.body.cgVersionId) seedFromVersionId = req.body.cgVersionId;
-        }
-      } catch (err) {
-        await client.query('ROLLBACK').catch(() => {});
-        throw err;
-      } finally {
-        client.release();
-      }
-      if (dateRefusal) return res.status(400).json({ error: dateRefusal, code: DATE_RULE });
-      if (refusedByLock) return refuse(res, refusedByLock);
-    } else {
-      ({ rows } = await query(updateSql, params));
-    }
-    if (!rows[0]) return res.status(404).json({ error: 'Project not found' });
-
-    if (req.body.description !== undefined && String(req.body.description ?? '') !== prevDescription) {
-      await enqueueProjectCode(req.params.id);
-    }
-    if (seedFromVersionId) await copyVersionTagsToProject(req.params.id, seedFromVersionId);
-    if (seedFromVersionId) await enqueueProjectCode(req.params.id);
-    if (req.body.name !== undefined && req.body.code === undefined) await enqueueProjectCode(req.params.id);
-    if (req.body.code !== undefined) {
-      let newCode = null;
-      try {
-        newCode = (await query('SELECT code FROM projects WHERE id = $1', [req.params.id])).rows[0]?.code ?? null;
-      } catch (err) {
-        console.warn('[projects] read new code:', err.message);
-      }
-      await enqueueProjectsQuiet([prevCode, newCode]);
-    }
-
-    res.json(rows[0]);
-  } catch (err) { next(err); }
+    const body = req.body;
+    const bodyErr = projectSaveBodyError(body);
+    if (bodyErr) return res.status(400).json({ error: bodyErr });
+    const role = await liveRole(req.user.id);
+    // Linking: the version lock comes before the project row lock (see lib/version-lock.js).
+    const target = body.header?.cgVersionId || null;
+    let result;
+    const out = await withTransaction(pool, async client => {
+      if (target) await lockVersion(client, target);
+      return versionedWrite(client, {
+        type: 'project', id, expectedVersion: body.version, userId: req.user.id, action: 'update',
+        write: async c => { result = await applyProjectSave(c, id, body, { role, userId: req.user.id }); },
+      });
+    });
+    if (result.seedFromVersionId) await copyVersionTagsToProject(id, result.seedFromVersionId);
+    if (result.enqueue) await enqueueProjectsQuiet(result.codes);
+    res.json(out.entity);
+  } catch (err) {
+    if (respondWriteError(res, err)) return;
+    next(err);
+  }
 });
 
 // DELETE /api/projects/:id
@@ -390,7 +247,15 @@ router.delete('/:id', requireAuth, async (req, res, next) => {
     } catch (err) {
       console.warn('[projects] read code before delete:', err.message);
     }
-    await query('DELETE FROM projects WHERE id = $1', [req.params.id]);
+    try {
+      await versionedWrite(pool, {
+        type: 'project', id: req.params.id, unchecked: true, action: 'delete', userId: req.user.id,
+        write: c => c.query('DELETE FROM projects WHERE id = $1', [req.params.id]),
+      });
+    } catch (err) {
+      // A project already gone answers as before: nothing left to delete.
+      if (!(err instanceof NotFoundError)) throw err;
+    }
     if (delCode) await enqueueProjectsQuiet([delCode]);
     res.json({ ok: true });
   } catch (err) { next(err); }
@@ -411,242 +276,6 @@ router.get('/:id/tasks', requireAuth, async (req, res, next) => {
       [req.params.id]
     );
     res.json(rows);
-  } catch (err) { next(err); }
-});
-
-// PUT /api/projects/:id/tasks  — bulk replace
-router.put('/:id/tasks', requireAuth, async (req, res, next) => {
-  try {
-    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid project id' });
-    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    // Body: the task array (today), or { tasks, period } so the project period travels with the tasks.
-    const body = req.body;
-    const { tasks, period } = Array.isArray(body) ? { tasks: body, period: undefined } : (body || {});
-    const shapeErr = taskListError(tasks);
-    if (shapeErr) return res.status(400).json({ error: shapeErr });
-    const hasPeriod = period !== null && typeof period === 'object';
-
-    // Reject the whole request — no partial writes — if any resource's sold
-    // hours fall outside the allowed set. No automatic rounding.
-    for (const t of tasks) {
-      for (const r of (t?.resources || [])) {
-        if (r === null || typeof r !== 'object') {
-          return res.status(400).json({ error: `Task "${t?.name || ''}" has an empty resource entry.` });
-        }
-        if (r?.soldHours != null && !isValidSoldHours(r.soldHours)) {
-          return res.status(400).json({
-            error: `Invalid sold hours "${r.soldHours}" for role "${r.role || ''}" on task "${t.name || ''}". Allowed values: whole numbers, or with a fraction of .25, .5, or .75.`,
-          });
-        }
-      }
-    }
-
-    const client = await pool.connect();
-    let descriptionsChanged = false;
-    try {
-      await client.query('BEGIN');
-      const stored = (await client.query('SELECT start_date, end_date, currency FROM projects WHERE id = $1 FOR UPDATE', [req.params.id])).rows[0];
-      if (!stored) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Project not found' });
-      }
-      // Resource rates: a blank rate (absent, null, '') is saved as 0; any other value must be a valid amount
-      // in the project's currency, read under the row lock. Checked before any write.
-      for (const t of tasks) {
-        if (!Array.isArray(t?.resources)) continue;
-        t.resources = t.resources.map(r => (r && (r.hourlyRate === undefined || r.hourlyRate === null || r.hourlyRate === '')
-          ? { ...r, hourlyRate: 0 } : r));
-        for (const r of t.resources) {
-          const err = amountError(r?.hourlyRate, stored.currency, `Hourly rate of "${r?.role || ''}" on task "${t.name || ''}"`, { max: MAX_DECIMAL_10_2 });
-          if (err) {
-            await client.query('ROLLBACK');
-            return res.status(400).json({ error: err, code: MONEY_RULE_CODE });
-          }
-        }
-      }
-      // An absent side keeps the stored value, '' clears it.
-      const storedPeriod = { start: stored.start_date, end: stored.end_date };
-      const bodyPeriod = hasPeriod ? { start: period.startDate, end: period.endDate } : {};
-      if (hasPeriod) {
-        const periodErr = periodChangeError(bodyPeriod, storedPeriod, { kind: 'month', label: 'project' });
-        if (periodErr) {
-          await client.query('ROLLBACK');
-          return res.status(400).json({ error: periodErr, code: DATE_RULE });
-        }
-      }
-      const next = mergePeriod(bodyPeriod, storedPeriod);
-      const before = await client.query('SELECT name, description, start_date, end_date FROM project_tasks WHERE project_id = $1', [req.params.id]);
-      const taskErr = taskDatesError({
-        tasks: tasks.map(t => ({ name: t?.name || '', start: t?.startDate, end: t?.endDate })),
-        storedTasks: before.rows.map(t => ({ name: t.name, start: t.start_date, end: t.end_date })),
-        storedPeriod, nextPeriod: next, parent: 'project',
-      });
-      if (taskErr) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: taskErr, code: DATE_RULE });
-      }
-      if (hasPeriod && periodChanged(bodyPeriod, storedPeriod)) {
-        await client.query('UPDATE projects SET start_date = $1, end_date = $2 WHERE id = $3',
-          [periodColumn(next.start), periodColumn(next.end), req.params.id]);
-      }
-
-
-      await client.query('DELETE FROM project_tasks WHERE project_id = $1', [req.params.id]);
-
-      for (let i = 0; i < tasks.length; i++) {
-        const t = tasks[i];
-        await client.query(
-          `INSERT INTO project_tasks
-           (project_id, name, billable, completed, start_date, end_date,
-            monthly_distribution, resources, sort_order, description)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
-          [req.params.id, (t.name || '').replace(/\s+/g, ' ').trim(), t.billable ?? true, t.completed ?? false,
-           toYmd(t.startDate) ?? null,
-           toYmd(t.endDate) ?? null,
-           t.monthlyDistribution ? JSON.stringify(t.monthlyDistribution) : null,
-           t.resources ? JSON.stringify(t.resources) : null, i, String(t.description ?? '')]
-        );
-      }
-      const after = tasks.map(t => ({ name: (t.name || '').replace(/\s+/g, ' ').trim(), description: String(t.description ?? '') }));
-      descriptionsChanged = descriptionsSignature(before.rows) !== descriptionsSignature(after);
-      await client.query('COMMIT');
-    } catch (err) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw err;
-    } finally {
-      client.release();
-    }
-    if (descriptionsChanged) await enqueueProjectCode(req.params.id);
-    res.json({ ok: true });
-  } catch (err) { next(err); }
-});
-
-// ── PHASING & PTC ─────────────────────────────────────────────────────────────
-
-// PATCH /api/projects/:id/phasing
-router.patch('/:id/phasing', requireAuth, async (req, res, next) => {
-  try {
-    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid project id' });
-    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    const { phasing } = req.body;
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const row = (await client.query('SELECT currency, start_date, end_date, phasing FROM projects WHERE id = $1 FOR UPDATE', [req.params.id])).rows[0];
-      if (!row) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Project not found' });
-      }
-      const phErr = phasingError(phasing, row.currency);
-      if (phErr) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: phErr, code: MONEY_RULE_CODE });
-      }
-      const phDateErr = monthKeysError(Object.keys(phasing).map(k => ({ key: k, label: `Phasing ${k}` })),
-        { start: row.start_date, end: row.end_date }, Object.keys(row.phasing || {}));
-      if (phDateErr) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: phDateErr, code: DATE_RULE });
-      }
-      await client.query('UPDATE projects SET phasing = $1 WHERE id = $2', [JSON.stringify(phasing), req.params.id]);
-      await client.query('COMMIT');
-    } catch (err) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw err;
-    } finally {
-      client.release();
-    }
-    res.json({ ok: true });
-  } catch (err) { next(err); }
-});
-
-// PATCH /api/projects/:id/ptc
-router.patch('/:id/ptc', requireAuth, async (req, res, next) => {
-  try {
-    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid project id' });
-    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    const { ptc } = req.body;
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const row = (await client.query('SELECT currency, start_date, end_date, ptc FROM projects WHERE id = $1 FOR UPDATE', [req.params.id])).rows[0];
-      if (!row) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Project not found' });
-      }
-      const ptcErr = ptcRowsError(ptc, row.currency);
-      if (ptcErr) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: ptcErr, code: MONEY_RULE_CODE });
-      }
-      const ptcDateErr = monthKeysError(ptc.map((r, i) => ({ key: r.month, label: `PTC row ${i + 1}` })),
-        { start: row.start_date, end: row.end_date }, (Array.isArray(row.ptc) ? row.ptc : []).map(r => r?.month));
-      if (ptcDateErr) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: ptcDateErr, code: DATE_RULE });
-      }
-      await client.query('UPDATE projects SET ptc = $1 WHERE id = $2', [JSON.stringify(ptc), req.params.id]);
-      await client.query('COMMIT');
-    } catch (err) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw err;
-    } finally {
-      client.release();
-    }
-    res.json({ ok: true });
-  } catch (err) { next(err); }
-});
-
-// PATCH /api/projects/:id/planning
-router.patch('/:id/planning', requireAuth, async (req, res, next) => {
-  try {
-    if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid project id' });
-    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    const { planning } = req.body;
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const row = (await client.query('SELECT start_date, end_date, planning FROM projects WHERE id = $1 FOR UPDATE', [req.params.id])).rows[0];
-      if (!row) {
-        await client.query('ROLLBACK');
-        return res.status(404).json({ error: 'Project not found' });
-      }
-      const keys = planning && typeof planning === 'object' && !Array.isArray(planning) ? Object.keys(planning) : [];
-      const plDateErr = monthKeysError(keys.map(k => ({ key: k, label: `Planning ${k}` })),
-        { start: row.start_date, end: row.end_date }, Object.keys(row.planning || {}));
-      if (plDateErr) {
-        await client.query('ROLLBACK');
-        return res.status(400).json({ error: plDateErr, code: DATE_RULE });
-      }
-      await client.query('UPDATE projects SET planning = $1 WHERE id = $2', [JSON.stringify(planning), req.params.id]);
-      await client.query('COMMIT');
-    } catch (err) {
-      await client.query('ROLLBACK').catch(() => {});
-      throw err;
-    } finally {
-      client.release();
-    }
-    res.json({ ok: true });
-  } catch (err) { next(err); }
-});
-
-// PATCH /api/projects/:id/groups
-router.patch('/:id/groups', requireAuth, async (req, res, next) => {
-  try {
-    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-    const { groups } = req.body;
-    await query('UPDATE projects SET groups = $1 WHERE id = $2', [JSON.stringify(groups), req.params.id]);
-    res.json({ ok: true });
   } catch (err) { next(err); }
 });
 
@@ -834,3 +463,5 @@ router.put('/:id/tags', requireAuth, async (req, res, next) => {
 });
 
 module.exports = router;
+// The edit permission on a project, also checked by Add tasks (routes/cost-grids.js).
+module.exports.canEditProject = canEdit;

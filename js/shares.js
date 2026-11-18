@@ -273,13 +273,16 @@ async function _shareAddUser() {
   addBtn.textContent = '…';
   try {
     if (_shareType === 'program') {
-      const result = await Api.programs.share(_shareId, _shareSelected.id, perm);
-      const name = [_shareSelected.first_name, _shareSelected.last_name].filter(Boolean).join(' ') || _shareSelected.email;
+      // One request shares every project of the program; a permission is never lowered (save contract cycle 3).
+      const res = await window.apiSave('POST', `/programs/${encodeURIComponent(_shareId)}/share`,
+        { userId: _shareSelected.id, permission: perm });
+      if (res.kind !== 'ok') {
+        msgEl.textContent = res.message || 'Failed to share.';
+        msgEl.className = 'small text-danger';
+        return;
+      }
       _clearShareSelection();
-      const projects = `${result.shared} project${result.shared === 1 ? '' : 's'}`;
-      msgEl.textContent = result.emailSent === false
-        ? `Shared program with ${name} (${projects}), but the email could not be sent.`
-        : `Shared program with ${name} (${projects}).`;
+      msgEl.textContent = _programShareMessage(res.data);
       msgEl.className = 'small text-success';
     } else {
       const api = _shareType === 'cost_grid' ? Api.costGrids.shares : Api.projects.shares;
@@ -299,6 +302,15 @@ async function _shareAddUser() {
     addBtn.disabled = true; // stays disabled until a new user is selected
     addBtn.textContent = 'Share';
   }
+}
+
+// "Shared 3 projects; 2 kept their higher access." from the program share's answer.
+function _programShareMessage(result) {
+  const n = result?.shared || 0;
+  const kept = result?.kept || 0;
+  let msg = `Shared ${n} project${n === 1 ? '' : 's'}` + (kept > 0 ? `; ${kept} kept their higher access.` : '.');
+  if (result?.emailSent === false) msg += ' The email could not be sent.';
+  return msg;
 }
 
 function _clearShareSelection() {

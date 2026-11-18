@@ -4,7 +4,7 @@
 //   * Client: no file under js/ writes with fetch(, apiFetch( or a write method of Api.*; it writes
 //     with apiSave. js/api.js and js/lib/save.js are the two layers that do the writing.
 //   * Save steps (SAVE_STEPS): a write in the body of a listed function counts as inside, and every call
-//     of that function must sit inside a versionedWrite( call.
+//     of that function must sit inside a versionedWrite( call, or in the body of another step of its file.
 //   * Lists: SERVER_EXEMPT ('file: table') and CLIENT_EXEMPT (files, or 'file: write' entries naming each
 //     write that stays, its Api.* path) hold what is not migrated yet;
 //     an entry with no violation left fails (the lists only shrink), and RETIRED holds what left them
@@ -24,15 +24,16 @@ import { serverWrites, apiWriteMethods, clientWrites, callSpans, functionBodies,
 const ROOT = join(__dirname, '..');
 
 const REGISTERED_TABLES = ['roles', 'ratecards', 'ratecard_entries', 'programs', 'projects', 'cost_grids', 'cost_grid_versions',
-  'phases', 'tasks', 'task_roles'];
+  'phases', 'tasks', 'task_roles', 'project_tasks', 'cg_version_projects'];
 
 // Save steps: functions whose writes count as inside versionedWrite(, because every call of them, in any
 // server file, must sit inside the arguments of a versionedWrite( call.
-const SAVE_STEPS = { 'api/src/services/cost-grid-save.js': ['applyHeader', 'applyStructure'] };
+const SAVE_STEPS = {
+  'api/src/services/cost-grid-save.js': ['applyHeader', 'applyStructure'],
+  'api/src/services/project-save.js': ['applyProjectSave', 'applyTasks', 'applySections', 'applyCreate', 'upsertLink'],
+};
 
 const SERVER_EXEMPT = new Set([
-  'api/src/routes/config.js: programs',
-  'api/src/routes/projects.js: projects',
   'api/src/routes/reset.js: cost_grids',
   'api/src/routes/reset.js: programs',
   'api/src/routes/reset.js: projects',
@@ -40,23 +41,15 @@ const SERVER_EXEMPT = new Set([
 ]);
 
 const CLIENT_EXEMPT = new Set([
-  // Save contract cycle 2 moved the cost grid editor's Save to apiSave; these writes stay (cycle 3: projects and
-  // links; cycle 4: tags; the lifecycle of a proposal is out of scope).
-  'js/api-sync.js: projects.create',
-  'js/api-sync.js: projects.delete',
-  'js/api-sync.js: projects.groups',
-  'js/api-sync.js: projects.phasing',
-  'js/api-sync.js: projects.planning',
-  'js/api-sync.js: projects.ptc',
-  'js/api-sync.js: projects.saveTasks',
-  'js/api-sync.js: projects.update',
+  // Save contract cycles 2 and 3 moved the cost grid editor's Save and the project and program writes to apiSave;
+  // these writes stay (cycle 4: tags; cycle 5: actuals; cycle 6: clients; cycle 7: single shares; the lifecycle
+  // of a proposal is out of scope).
   'js/clients.js',
   'js/costgrid.js: costGrids.create',
   'js/costgrid.js: costGrids.delete',
   'js/costgrid.js: costGrids.versions.create',
   'js/costgrid.js: costGrids.versions.delete',
   'js/costgrid.js: costGrids.versions.duplicate',
-  'js/costgrid.js: costGrids.versions.linkedProjects.add',
   'js/costgrid.js: costGrids.versions.publish',
   'js/nav.js',
   'js/notifications.js',
@@ -66,7 +59,6 @@ const CLIENT_EXEMPT = new Set([
   'js/pages/admin.js',
   'js/pages/costgrid.js: costGrids.reassignOwner',
   'js/pages/costgrid.js: costGrids.versions.tags.replace',
-  'js/pages/costgrid.js: programs.create',
   'js/pages/login.js',
   'js/pages/master-clients.js',
   'js/pages/master-currencies.js',
@@ -74,13 +66,17 @@ const CLIENT_EXEMPT = new Set([
   'js/pages/pipeline.js',
   'js/pages/planning.js',
   'js/pages/profile.js',
-  'js/pages/project-config.js',
+  'js/pages/project-config.js: clients.create',
+  'js/pages/project-config.js: projects.tags.replace',
+  'js/pages/project-config.js: timesheets.delete',
+  'js/pages/project-config.js: timesheets.upload',
   'js/pages/reset-password.js',
   'js/pages/team.js',
   'js/pages/terms.js',
   'js/pages/timesheets.js',
   'js/share-list-component.js',
-  'js/shares.js',
+  'js/shares.js: costGrids.shares',
+  'js/shares.js: projects.shares',
   'js/upload.js',
 ]);
 
@@ -95,6 +91,20 @@ const RETIRED = [
   'js/api-sync.js: costGrids.versions.update',
   'js/api-sync.js: costGrids.versions.saveStructure',
   'js/costgrid.js: costGrids.versions.saveStructure',
+  'api/src/routes/projects.js: projects',
+  'api/src/routes/config.js: programs',
+  'js/api-sync.js: projects.create',
+  'js/api-sync.js: projects.delete',
+  'js/api-sync.js: projects.groups',
+  'js/api-sync.js: projects.phasing',
+  'js/api-sync.js: projects.planning',
+  'js/api-sync.js: projects.ptc',
+  'js/api-sync.js: projects.saveTasks',
+  'js/api-sync.js: projects.update',
+  'js/costgrid.js: costGrids.versions.linkedProjects.add',
+  'js/pages/costgrid.js: programs.create',
+  'js/pages/project-config.js: programs.create',
+  'js/shares.js: programs.share',
 ];
 
 const CLIENT_LAYERS = new Set(['js/api.js', 'js/lib/save.js']);
@@ -127,7 +137,9 @@ function checkContract({ server, client, apiJs, serverExempt, clientExempt, reti
     for (const name of stepNames) {
       for (const [a] of callSpans(src, name)) {
         if (/\bfunction\s*$/.test(src.slice(Math.max(0, a - 20), a))) continue;
-        if (!spans.some(([x, y]) => a > x && a < y)) serverOutside.add(`${file}: ${name}() outside versionedWrite(`);
+        // A call from the body of another step of this file is inside: that step is itself only called inside.
+        const inSpan = ([x, y]) => a > x && a < y;
+        if (!spans.some(inSpan) && !bodies.some(inSpan)) serverOutside.add(`${file}: ${name}() outside versionedWrite(`);
       }
     }
   }
@@ -290,6 +302,21 @@ describe('save-contract rules on synthetic sources', () => {
       'api/src/routes/x.js': "await applyX(client);",
     } });
     expect(outside.serverViolations).toEqual(['api/src/routes/x.js: applyX() outside versionedWrite(']);
+  });
+  it('a step called from the body of another step of the same file counts as inside', () => {
+    const steps = { 'api/src/services/s.js': ['applyX', 'applyY'] };
+    const src = "async function applyY(client) {\n  await client.query('UPDATE roles SET a = 1');\n}\n"
+      + "async function applyX(client) {\n  await applyY(client);\n}\n";
+    const r = checkContract({ ...base, steps, server: {
+      'api/src/services/s.js': src,
+      'api/src/routes/x.js': "versionedWrite(pool, { write: async c => { await applyX(c); } });",
+    } });
+    expect(r.serverViolations).toEqual([]);
+    const loose = checkContract({ ...base, steps, server: {
+      'api/src/services/s.js': src + "function other(client) { applyY(client); }\n",
+      'api/src/routes/x.js': "versionedWrite(pool, { write: async c => { await applyX(c); } });",
+    } });
+    expect(loose.serverViolations).toEqual(['api/src/services/s.js: applyY() outside versionedWrite(']);
   });
   describe('per-write exemptions', () => {
     const apiJs2 = "const Api = {\n  g: {\n    publish: (id) => apiFetch('/g', { method: 'POST' }),\n    remove:  (id) => apiFetch('/g', { method: 'DELETE' }),\n  },\n};\n";

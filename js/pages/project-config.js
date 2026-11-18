@@ -21,6 +21,7 @@
         isNewProject: false,
         savedSnapshot: null,
         jsonError: '',
+        saveReloadable: false,
         attributeLists: [],
         projectTags: [],
         tagSaving: false,
@@ -624,32 +625,41 @@
           if (!proceed) return;
         }
 
-        this.saving = true;
-        try {
-          // config/cfgEditConfig/persistConfig are the existing in-memory-state contract (js/core.js, no-ops
-          // by design per CLAUDE.md's "Data strategy" section) — mirror the original's single-project write-back.
-          // Replace-or-push for new projects too: after a failed save the user stays here and may press Save
-          // again, and a plain push would add the same new project to config.projects a second time.
-          const idx = config.projects.findIndex(p => p.id === this.project.id);
-          if (idx >= 0) config.projects[idx] = this.project; else config.projects.push(this.project);
-          persistConfig();
-
-          const push = await _pushProjectToApiDetailed(this.project);
-          const outcome = summarizePushResult(push.failed);
-          if (!outcome.ok) {
-            // Not confirmed by the server: stay on the page, keep the leave-page prompt armed (savedSnapshot untouched).
-            this.jsonError = outcome.message;
-            this.saving = false;
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-            return;
-          }
-          // Saved: the redirect below must not trigger the leave-page prompt. Reached only when nothing above threw.
-          this.savedSnapshot = JSON.stringify(this.project);
+        // The base is the project as loaded (or as adopted after the last Save): only what differs is sent,
+        // with the version it started from (js/lib/project-draft.js). Nothing changed: nothing to send.
+        const base = window.projectSavable(JSON.parse(this.savedSnapshot));
+        if (!window.projectIsDirty(base, this.project)) {
           window.location.href = '/portfolio.html?projectId=' + this.project.id;
-        } catch (e) {
-          this.jsonError = 'Save failed: ' + e.message;
-          this.saving = false;
+          return;
         }
+        this.saving = true;
+        this.saveReloadable = false;
+        const outcome = await _saveProject(base, this.project);
+        if (outcome.kind !== 'ok') {
+          // Not saved, or not known to be: stay on the page with the leave-page prompt armed (savedSnapshot untouched).
+          // A conflict or a lost answer offers Reload; a refusal or an error (404 included) shows its reason.
+          const reloadable = outcome.kind === 'conflict' || outcome.kind === 'unknown';
+          this.jsonError = reloadable ? outcome.message : 'Save failed: ' + outcome.message;
+          this.saveReloadable = reloadable;
+          this.saving = false;
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+          return;
+        }
+        // config.projects adopts the server's project (the in-memory contract of js/core.js); the viewer's own
+        // permission is not in the server's answer.
+        const saved = { ...outcome.project, my_permission: this.project.my_permission };
+        const idx = config.projects.findIndex(p => p.id === saved.id);
+        if (idx >= 0) config.projects[idx] = saved; else config.projects.push(saved);
+        persistConfig();
+        // Saved: the redirect below must not trigger the leave-page prompt.
+        this.savedSnapshot = JSON.stringify(this.project);
+        window.location.href = '/portfolio.html?projectId=' + this.project.id;
+      },
+      // After a conflict or a lost answer: drop the unsaved changes and load the project as the server has it.
+      async onReload() {
+        if (!(await this.showConfirm('Discard your unsaved changes and reload this project?'))) return;
+        this.savedSnapshot = JSON.stringify(this.project);
+        window.location.reload();
       },
       openClientModal() {
         this.clientModal = { name: '', error: '', saving: false };
@@ -682,16 +692,12 @@
         if (!name) { this.programModal.error = 'Name is required.'; return; }
         if (!id) { this.programModal.error = 'Program ID is required.'; return; }
         this.programModal.saving = true;
-        try {
-          const created = await Api.programs.create(id, name);
-          await loadProgramsFromApi();
-          this.project.programId = created.id;
-          bootstrap.Modal.getInstance(document.getElementById('programEditModal'))?.hide();
-        } catch (e) {
-          this.programModal.error = e.message || 'Save failed.';
-        } finally {
-          this.programModal.saving = false;
-        }
+        const res = await window.apiSave('POST', '/programs', { id, name });
+        this.programModal.saving = false;
+        if (res.kind !== 'ok') { this.programModal.error = res.message || 'Save failed.'; return; }
+        await loadProgramsFromApi();
+        this.project.programId = res.data.id;
+        bootstrap.Modal.getInstance(document.getElementById('programEditModal'))?.hide();
       },
       // Money formatting/parsing: one implementation in js/lib/money.js, driven by the locale of the project currency.
       moneyInput(amount) { return window.formatMoneyInput(amount, this.project?.currency, window.__currencies); },

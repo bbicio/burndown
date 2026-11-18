@@ -76,10 +76,64 @@ async function costGridSnapshot(client, id) {
   return rows[0] || null;
 }
 
-// The project row; cycle 3 widens it to the project's sections.
+// The columns of one element of GET /api/projects, read over `projects p` joined by PROJECT_FROM; the
+// per-viewer my_permission is added by the route. `links` are the project's cg_version_projects rows.
+const PROJECT_COLUMNS = `p.id, p.code, p.name, p.program_id, p.client_id, p.pipeline, p.status,
+              p.start_date, p.end_date, p.currency, p.cg_version_id, cgv.cost_grid_id AS cg_id, p.created_at,
+              p.owner_id, p.phasing, p.ptc, p.planning, p.groups,
+              p.description, p.version,
+              u.first_name || ' ' || u.last_name AS owner_name,
+              c.name AS client_name,
+              pr.name AS program_name,
+              COALESCE(
+                (SELECT json_agg(json_build_object(
+                   'name',                 pt.name,
+                   'billable',             pt.billable,
+                   'completed',            pt.completed,
+                   'startDate',            pt.start_date,
+                   'endDate',              pt.end_date,
+                   'monthlyDistribution',  pt.monthly_distribution,
+                   'resources',            pt.resources,
+                   'description',          pt.description
+                 ) ORDER BY pt.sort_order)
+                 FROM project_tasks pt WHERE pt.project_id = p.id),
+                '[]'::json
+              ) AS tasks,
+              COALESCE(
+                (SELECT json_agg(json_build_object(
+                   'versionId', cvp.cost_grid_version_id,
+                   'cgId',      lv.cost_grid_id,
+                   'taskIds',   cvp.task_ids,
+                   'taskNames', cvp.task_names_direct
+                 ) ORDER BY cvp.cost_grid_version_id)
+                 FROM cg_version_projects cvp
+                 JOIN cost_grid_versions lv ON lv.id = cvp.cost_grid_version_id
+                 WHERE cvp.project_id = p.id),
+                '[]'::json
+              ) AS links`;
+const PROJECT_FROM = `FROM projects p
+       JOIN users u ON u.id = p.owner_id
+       LEFT JOIN clients c ON c.id = p.client_id
+       LEFT JOIN programs pr ON pr.id = p.program_id
+       LEFT JOIN cost_grid_versions cgv ON cgv.id = p.cg_version_id`;
+
+// One element of GET /api/projects (without my_permission). Null when the project does not exist.
 async function projectSnapshot(client, id) {
-  const { rows } = await client.query('SELECT * FROM projects WHERE id = $1', [id]);
+  const { rows } = await client.query(`SELECT ${PROJECT_COLUMNS} ${PROJECT_FROM} WHERE p.id = $1`, [id]);
   return rows[0] || null;
+}
+
+// The program and the shares of the projects in it. Null when the program does not exist.
+async function programSnapshot(client, id) {
+  const { rows } = await client.query('SELECT id, name, version FROM programs WHERE id = $1', [id]);
+  if (!rows[0]) return null;
+  const shares = await client.query(
+    `SELECT rs.resource_id AS "projectId", rs.user_id AS "userId", rs.permission
+     FROM resource_shares rs JOIN projects p ON p.id = rs.resource_id
+     WHERE rs.resource_type = 'project' AND p.program_id = $1
+     ORDER BY rs.resource_id, rs.user_id`, [id]
+  );
+  return { ...rows[0], shares: shares.rows };
 }
 
 const entities = {
@@ -101,6 +155,12 @@ const entities = {
     notFoundMessage: 'Project not found',
     snapshot: projectSnapshot,
   },
+  program: {
+    table: 'programs',
+    staleMessage: 'This program was changed by someone else since you opened it.',
+    notFoundMessage: 'Program not found',
+    snapshot: programSnapshot,
+  },
   role: {
     table: 'roles',
     staleMessage: 'This role was changed by someone else since you opened it.',
@@ -115,4 +175,4 @@ const entities = {
   },
 };
 
-module.exports = { entities, ratecardSnapshot, structureOf };
+module.exports = { entities, ratecardSnapshot, structureOf, PROJECT_COLUMNS, PROJECT_FROM };

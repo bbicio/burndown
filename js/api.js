@@ -147,8 +147,6 @@ const Api = {
 
   programs: {
     list:   ()              => apiFetch('/programs'),
-    create: (id, name)      => apiFetch('/programs',      { method: 'POST',   body: JSON.stringify({ id, name }) }),
-    share:  (id, userId, permission) => apiFetch(`/programs/${id}/share`, { method: 'POST', body: JSON.stringify({ userId, permission }) }),
   },
 
   roles: {
@@ -158,15 +156,7 @@ const Api = {
   projects: {
     list:    ()             => apiFetch('/projects'),
     get:     (id)           => apiFetch(`/projects/${id}`),
-    create:  (d)            => apiFetch('/projects',      { method: 'POST',   body: JSON.stringify(d) }),
-    update:  (id, d)        => apiFetch(`/projects/${id}`, { method: 'PATCH',  body: JSON.stringify(d) }),
-    delete:  (id)           => apiFetch(`/projects/${id}`, { method: 'DELETE' }),
     tasks:   (id)           => apiFetch(`/projects/${id}/tasks`),
-    saveTasks: (id, tasks)  => apiFetch(`/projects/${id}/tasks`, { method: 'PUT', body: JSON.stringify(tasks) }),
-    phasing:  (id, phasing)  => apiFetch(`/projects/${id}/phasing`,  { method: 'PATCH', body: JSON.stringify({ phasing }) }),
-    ptc:      (id, ptc)      => apiFetch(`/projects/${id}/ptc`,      { method: 'PATCH', body: JSON.stringify({ ptc }) }),
-    planning: (id, planning) => apiFetch(`/projects/${id}/planning`, { method: 'PATCH', body: JSON.stringify({ planning }) }),
-    groups:   (id, groups)   => apiFetch(`/projects/${id}/groups`,   { method: 'PATCH', body: JSON.stringify({ groups }) }),
     shares: {
       list:   (id)                    => apiFetch(`/projects/${id}/shares`),
       add:    (id, userId, permission) => apiFetch(`/projects/${id}/shares`,           { method: 'POST',   body: JSON.stringify({ userId, permission }) }),
@@ -195,7 +185,6 @@ const Api = {
       refreshRate:   (cgId, vId)      => apiFetch(`/cost-grids/${cgId}/versions/${vId}/refresh-rate`, { method: 'POST' }),
       linkedProjects: {
         list:   (cgId, vId)           => apiFetch(`/cost-grids/${cgId}/versions/${vId}/linked-projects`),
-        add:    (cgId, vId, d)        => apiFetch(`/cost-grids/${cgId}/versions/${vId}/linked-projects`, { method: 'POST', body: JSON.stringify(d) }),
       },
       tags: {
         list:    (cgId, vId)           => apiFetch(`/cost-grids/${cgId}/versions/${vId}/tags`),
