@@ -357,6 +357,10 @@ Pure helpers for `attribute-lists.html`, bridged to `window`: `itemCounts(items,
 
 The cost grid editor's draft against its base, bridged to `window`. `cgSavableState(draft)` → `{ header, structure }`: `header` has the Save route's fields (`label` from `versionLabel`, `pipeline`, `startDate`, `endDate`, `currency`, `note`, `ratecardId`, `clientId` with `'__unassigned__'` as `null`, `projectName`; a missing string is `''`), `structure` is `{ phases, roles }` with only what the route reads (hours keys sorted). `cgChangedHeader(base, draft)` → the header fields that differ (never `linkedProjects` or `status`); `cgStructureChanged(base, draft)` and `cgIsDirty(base, draft)` → booleans. The base is `cgSavableState` of the draft as opened or as adopted after a Save. Tests: `cg-draft.test.js`.
 
+## project-draft.js (2026-11-18, save-contract cycle 3)
+
+A project as `project-config.html` edits it, against its base, bridged to `window`. `projectSavable(project)` → `{ header, tasks, phasing, ptc, planning, groups }`: `header` has the project Save's fields (`name`, `code`, `programId`, `clientId` with a value that is not a UUID as `null`, `startDate`, `endDate`, `currency`, `pipeline`, `status`, `description`, `cgVersionId` from `costGridRef.versionId`; a missing string is `''`), and group entries without a role are dropped. `projectChanges(base, draft)` → the Save body without `version`: `header` with the changed fields only (so an unchanged stage is never sent), each section only when it changed; `projectIsDirty(base, draft)` → boolean. The base is `projectSavable` of the project as loaded or as adopted after a Save. Tests: `project-draft.test.js`.
+
 ## save.js (2026-11-17, save-contract cycle 1)
 
 `apiSave(method, path, body)`, bridged to `window`: writes through `window.apiFetch` (read at call time) and never rejects. It answers one outcome:
