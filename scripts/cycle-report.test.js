@@ -122,7 +122,10 @@ describe('the command line, arguments and log reuse', () => {
   it('a preflight on a log that already reached merged starts a new log', () => {
     const d = repoWithBranch('feat');
     for (const e of ['preflight', 'gate1', 'merged']) expect(cli(d, 'mark', e).status).toBe(0);
+    const draft = join(d, '.superpowers', 'cycle-log', 'feat.draft.md');
+    writeFileSync(draft, 'old judgement');
     expect(cli(d, 'mark', 'preflight').status).toBe(0);
     expect(logOf(d, 'feat')).toEqual(['preflight']);
+    expect(existsSync(draft)).toBe(false);
   });
 });

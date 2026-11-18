@@ -707,11 +707,17 @@ const directPlan = (rel) => rel.startsWith(`${PLANS_DIR}/`) && !rel.slice(PLANS_
 
 /** @returns {Set<string>} the plans the Docs rule applies to in the repository at `root`. */
 function docsScope(root, anchor = DOCS_ANCHOR) {
-  if (gitIn(root, 'rev-parse', '--is-shallow-repository') === 'true') {
+  let shallow;
+  try {
+    shallow = gitIn(root, 'rev-parse', '--is-shallow-repository');
+  } catch (e) {
+    throw new Error(`Docs rule: git cannot read this checkout (${String(e.message).split('\n')[0]}) — in the docker node:22 fallback run it from the main checkout and add \`git config --global --add safe.directory /app\``);
+  }
+  if (shallow === 'true') {
     throw new Error('Docs rule: shallow clone, cannot place the anchor — fetch the full history (`git fetch --unshallow`)');
   }
   const added = gitIn(root, 'log', '--diff-filter=A', '--format=%H', '--', anchor).split('\n').filter(Boolean);
-  if (!added.length) throw new Error(`Docs rule: the anchor ${anchor} is not in this repository's git history (in the docker node:22 fallback, git must be able to read the checkout: run it from the main checkout with \`git config --global --add safe.directory /app\`)`);
+  if (!added.length) throw new Error(`Docs rule: the anchor ${anchor} is not in this repository's git history`);
   const anchorCommit = added[added.length - 1];
   const later = gitIn(root, 'log', '--diff-filter=A', '--name-only', '--format=', `${anchorCommit}..HEAD`, '--', PLANS_DIR)
     .split('\n').map((l) => l.trim()).filter(Boolean);
@@ -778,6 +784,12 @@ describe('docsScope', () => {
     const d = repo();
     commit(d, `${PLANS_DIR}/old.md`, 'old');
     expect(() => docsScope(d, `${PLANS_DIR}/anchor.md`)).toThrow(/anchor .* is not in this repository's git history/);
+  }, 60000);
+
+  it('fails with the docker-fallback hint when git cannot read the checkout', () => {
+    const notRepo = realpathSync.native(mkdtempSync(join(tmpdir(), 'docs-norepo-')));
+    made.push(notRepo);
+    expect(() => docsScope(notRepo, `${PLANS_DIR}/anchor.md`)).toThrow(/git cannot read this checkout.*safe\.directory/s);
   }, 60000);
 
   it('fails with a message in a shallow clone, where the anchor cannot be placed', () => {

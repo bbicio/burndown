@@ -106,6 +106,7 @@ function main(argv) {
     // A preflight on a log that already reached the merge or the report is a new cycle on a reused name.
     if (event === 'preflight' && (have.has('merged') || have.has('report'))) {
       rmSync(file);
+      rmSync(file.replace(/\.log$/, '.draft.md'), { force: true });
       have = new Map();
     }
     if (have.has(event)) return 0;

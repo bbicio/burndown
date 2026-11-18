@@ -9,7 +9,7 @@ The branch defaults to the current one; on `main` or a detached HEAD the command
 
 ## Events
 
-`preflight`, `gate1`, `gate2`, `gate3`, `gate4`, `merged`, `gate5`, `report`. Another word is refused with a non-zero exit. A second `mark` of the same event is ignored: a re-entry into a gate is not a new entry. A `preflight` on a log that already holds `merged` or `report` starts a new log: the branch name is being reused for a new cycle.
+`preflight`, `gate1`, `gate2`, `gate3`, `gate4`, `merged`, `gate5`, `report`. Another word is refused with a non-zero exit. A second `mark` of the same event is ignored: a re-entry into a gate is not a new entry. A `preflight` on a log that already holds `merged` or `report` starts a new log, and removes the old draft: the branch name is being reused for a new cycle.
 
 ## The log
 
