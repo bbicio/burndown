@@ -207,6 +207,8 @@ scripts/security-scope.mjs — decides for `/finish-cycle` whether a branch need
                             packages get `npm audit`; the rule is pinned by its own `.test.js`.
 scripts/gate5-scope.mjs  — classifies Gate 5's uncommitted diff into three verdicts for `/finish-cycle`'s
                             test subset and pre-authorised push; the rule is pinned by its own `.test.js`.
+scripts/cycle-report.mjs — `mark` logs `/finish-cycle`'s gate times, `render` prints the report's mechanical
+                            lines. Detail: [docs/scripts/cycle-report.md](docs/scripts/cycle-report.md).
 scripts/architecture-guard.test.js — fails when `handbook/restricted/ARCHITECTURE.md` §5/§6 or the names its
                             diagrams cite (`scripts/lib/mermaid-facts.mjs`) drift from the code. Limits: its own header.
 scripts/claude-md-guard.test.js — fails when this file regrows past its ceiling, or when a
