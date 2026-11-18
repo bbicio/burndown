@@ -10,7 +10,9 @@ For the development workflow (new feature / evolution / audit-fix), see [docs/su
 
 **Process override — execution worktree:** create a plan's execution worktree as `PROCESS.md` §6.1b says, not with the native `EnterWorktree` tool that `superpowers:using-git-worktrees` prefers.
 
-**Process override — final review and fix pass:** for `superpowers:executing-plans` and `superpowers:subagent-driven-development`, the whole-branch final review is the one `PROCESS.md` §6.4 describes, and after its fix pass only the test files covering the touched files run — the full suite is Gate 1's (`PROCESS.md` §6.2).
+**Process override — docs in the tasks:** for `superpowers:writing-plans`, every task of a plan carries a `**Docs:**` line listing the documents that describe what the task changes (`CLAUDE.md`, `docs/`, `handbook/restricted/ARCHITECTURE.md`, `PRD.md`/`docs/prd/`, `handbook/public/manual.md`, `handbook/restricted/TEST_CASES.md`), or `none — <reason>`; the task updates them in the same commit. `scripts/decision-ledger-guard.test.js` pins the line.
+
+**Process override — final review and fix pass:** for `superpowers:executing-plans` and `superpowers:subagent-driven-development`, the whole-branch final review is the one `PROCESS.md` §6.4 describes — launched in the background at the last task's commit, with no fix pass by the executor: `/finish-cycle` starts at once and its Gate 3 handles the findings as round 1.
 
 **Infrastructure safety — Docker commands against the main stack (`pdash-db`/`pdash-api`/`pdash-nginx`/`pdash-adminer`, project `burndown`):** never delegate a plan task or subagent dispatch that runs `docker compose` (`up`/`down`/`restart`/etc.) directly against the main stack without all three of the following.
 1. **No `-v`/`--volumes` against the main stack, ever, ideally not even flagged as "not needed."** Any dispatch prompt that instructs an agent to run `docker compose down`/`up`/`restart` against the main project must explicitly forbid `-v`/`--volumes` in that same instruction, and must tell the agent to stop and escalate rather than trying a more aggressive command if the plain command doesn't behave as expected.
@@ -207,6 +209,8 @@ scripts/security-scope.mjs — decides for `/finish-cycle` whether a branch need
                             packages get `npm audit`; the rule is pinned by its own `.test.js`.
 scripts/gate5-scope.mjs  — classifies Gate 5's uncommitted diff into three verdicts for `/finish-cycle`'s
                             test subset and pre-authorised push; the rule is pinned by its own `.test.js`.
+scripts/cycle-report.mjs — `mark` logs `/finish-cycle`'s gate times, `render` prints the report's mechanical
+                            lines. Detail: [docs/scripts/cycle-report.md](docs/scripts/cycle-report.md).
 scripts/architecture-guard.test.js — fails when `handbook/restricted/ARCHITECTURE.md` §5/§6 or the names its
                             diagrams cite (`scripts/lib/mermaid-facts.mjs`) drift from the code. Limits: its own header.
 scripts/claude-md-guard.test.js — fails when this file regrows past its ceiling, or when a

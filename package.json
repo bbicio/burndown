@@ -6,6 +6,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:site-export": "vitest run --config vitest.site-export.config.js",
     "export:list": "node scripts/site-export.mjs list",
     "export:copy": "node scripts/site-export.mjs copy"
   },

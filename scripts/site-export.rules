@@ -15,6 +15,7 @@ exclude CLAUDE.md
 exclude PRD.md
 exclude test-api.js
 exclude vitest.config.js
+exclude vitest.site-export.config.js
 # root package.json / lock: the frontend test toolchain only
 exclude package.json
 exclude package-lock.json
