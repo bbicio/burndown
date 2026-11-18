@@ -198,3 +198,7 @@ Pure helpers of the invite/reset token routes in `routes/auth.js`: `isStr` (type
 ## password-policy.js (2026-11-17, password policy cycle)
 
 The password rule (NIST SP 800-63B): `MIN_LENGTH`, `MAX_LENGTH`, `MAX_BYTES`, `MIN_DISTINCT`, `CONTEXT_MIN`; `contextTokens({ email, firstName, lastName })` (the email's local part and its pieces split on `.`, `_`, `+`, `-`, the names and `pdash`, lower case, shorter tokens dropped; a missing field is not an error); `passwordError(password, context, { common })` → `null` or `{ message }`, stopping at the first failed check: a string, the minimum and maximum in code points, the maximum in UTF-8 bytes (bcrypt's limit), distinct characters, no context token, not in `common` (a `Set` of lower-case passwords). No Unicode normalisation. The list is `api/src/lib/data/common-passwords.txt` (SecLists, its header names the source commit and the filter), loaded by `services/passwords.js`. Browser twin: [docs/js/lib.md](../js/lib.md) `password-policy.js`. Tests: `password-policy.test.js`.
+
+## share-rank.js (2026-11-18, save-contract cycle 3)
+
+The order of the share permissions, `owner` > `editor` > `viewer`: `PERMISSION_RANK`, `higherPermission(current, next)` (the higher of the two; no `current` → `next`) and `RANK_SQL(col)`, the same ranks as a SQL `CASE` over a column, so a query does not restate the scale. `POST /programs/:id/share` (`routes/config.js`) uses it so a program share never lowers a project permission. Tests: `share-rank.test.js`.
