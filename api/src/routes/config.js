@@ -6,7 +6,8 @@ const { amountError, overridesError, ratecardEntryError, MONEY_RULE_CODE, MAX_DE
 const { isUuid } = require('../lib/input-rules');
 const { sendShareNotification } = require('../services/email');
 const { withTransaction } = require('../db/transaction');
-const { versionedWrite, respondSaveError } = require('../services/versioned-write');
+const { versionedWrite, respondSaveError, NotFoundError } = require('../services/versioned-write');
+const { RANK_SQL } = require('../lib/share-rank');
 const { ratecardSnapshot } = require('../services/saved-entities');
 let _createNotification; // lazy-loaded from notifications route to avoid circular deps
 
@@ -78,18 +79,20 @@ router.post('/programs', requireAuth, async (req, res, next) => {
   try {
     const { id, name } = req.body;
     if (!id?.trim() || !name?.trim()) return res.status(400).json({ error: 'id and name are required' });
-    const { rows } = await query(
-      'INSERT INTO programs (id, name) VALUES ($1, $2) RETURNING id, name',
-      [id.trim(), name.trim()]
-    );
-    res.status(201).json(rows[0]);
+    const out = await versionedWrite(pool, {
+      type: 'program', action: 'create', userId: req.user.id,
+      write: async c => (await c.query(
+        'INSERT INTO programs (id, name) VALUES ($1, $2) RETURNING id', [id.trim(), name.trim()]
+      )).rows[0].id,
+    });
+    res.status(201).json(out.entity);
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'Program ID already exists' });
     next(err);
   }
 });
 
-// requireAuth (not requireAdmin), matching POST /programs above: a non-admin who just created a
+// requireAuth (not requireAdmin), matching POST /programs above
 // program via costgrid.html's Generate Project flow needs to be able to fix a typo in its name.
 // Same ownership check as POST /programs/:id/share below — admin, or owner/editor on at least one
 // of the program's projects — except a program with zero projects yet (still being established;
@@ -116,13 +119,15 @@ router.patch('/programs/:id', requireAuth, async (req, res, next) => {
       }
     }
 
-    const { rows } = await query(
-      'UPDATE programs SET name = $1 WHERE id = $2 RETURNING id, name',
-      [name.trim(), req.params.id]
-    );
-    if (!rows[0]) return res.status(404).json({ error: 'Program not found' });
-    res.json(rows[0]);
-  } catch (err) { next(err); }
+    const out = await versionedWrite(pool, {
+      type: 'program', id: req.params.id, unchecked: true, action: 'update', userId: req.user.id,
+      write: c => c.query('UPDATE programs SET name = $1 WHERE id = $2', [name.trim(), req.params.id]),
+    });
+    res.json(out.entity);
+  } catch (err) {
+    if (respondSaveError(res, err)) return;
+    next(err);
+  }
 });
 
 // POST /programs/:id/share — share all projects in a program with a user
@@ -163,15 +168,32 @@ router.post('/programs/:id/share', requireAuth, async (req, res, next) => {
       if (!access.rows.length) return res.status(403).json({ error: 'Access denied' });
     }
 
-    // Share each project
-    for (const p of projects.rows) {
-      await query(
-        `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
-         VALUES ('project', $1, $2, $3, $4)
-         ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE SET permission = $3`,
-        [p.id, userId, permission, req.user.id]
-      );
-    }
+    // Share each project in one logged program update. A permission never goes down (share-rank.js): an existing
+    // owner or editor keeps it. granted = new rows, raised = rows taken to a higher permission, kept = the rest.
+    let granted = 0, raised = 0, kept = 0;
+    await versionedWrite(pool, {
+      type: 'program', id: req.params.id, unchecked: true, action: 'update', userId: req.user.id,
+      write: async c => {
+        for (const p of projects.rows) {
+          const { rows: [r] } = await c.query(
+            `WITH prev AS (
+               SELECT permission FROM resource_shares
+               WHERE resource_type = 'project' AND resource_id = $1 AND user_id = $2
+             )
+             INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
+             VALUES ('project', $1, $2, $3, $4)
+             ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE SET permission =
+               CASE WHEN ${RANK_SQL('EXCLUDED.permission')} > ${RANK_SQL('resource_shares.permission')}
+                    THEN EXCLUDED.permission ELSE resource_shares.permission END
+             RETURNING (SELECT permission FROM prev) AS before, permission`,
+            [p.id, userId, permission, req.user.id]
+          );
+          if (r.before == null) granted++;
+          else if (r.permission !== r.before) raised++;
+          else kept++;
+        }
+      },
+    });
 
     const sharerName = `${sharer.rows[0].first_name} ${sharer.rows[0].last_name}`;
     const appUrl = process.env.APP_URL || 'http://localhost';
@@ -202,7 +224,7 @@ router.post('/programs/:id/share', requireAuth, async (req, res, next) => {
       urlLabel: 'Open Portfolio',
     });
 
-    res.status(201).json({ ok: true, shared: projects.rows.length, emailSent });
+    res.status(201).json({ ok: true, shared: projects.rows.length, granted, raised, kept, emailSent });
   } catch (err) { next(err); }
 });
 
@@ -215,7 +237,15 @@ router.delete('/programs/:id', requireAdmin, async (req, res, next) => {
     if (parseInt(linked.rows[0].count) > 0) {
       return res.status(400).json({ error: 'Cannot delete program with linked projects' });
     }
-    await query('DELETE FROM programs WHERE id = $1', [req.params.id]);
+    try {
+      await versionedWrite(pool, {
+        type: 'program', id: req.params.id, unchecked: true, action: 'delete', userId: req.user.id,
+        write: c => c.query('DELETE FROM programs WHERE id = $1', [req.params.id]),
+      });
+    } catch (err) {
+      // A program already gone answers as before.
+      if (!(err instanceof NotFoundError)) throw err;
+    }
     res.json({ ok: true });
   } catch (err) { next(err); }
 });

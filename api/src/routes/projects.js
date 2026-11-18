@@ -148,9 +148,6 @@ router.post('/', requireAuth, async (req, res, next) => {
     const createErr = rules.projectCreateError({ role, versionId: safeCgVersionId });
     if (createErr) return refuse(res, createErr);
 
-    const insertSql = `INSERT INTO projects (id, code, name, program_id, client_id, start_date, end_date, currency, pipeline, status, cg_version_id, owner_id, description)
-       VALUES (COALESCE($1::uuid, uuid_generate_v4()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-       RETURNING id`;
     const insertParams = [id || null, code?.trim() || null, name.trim(), programId || null, safeClientId, startDate || null,
        endDate || null, currency || 'EUR', pipeline || null, status || null,
        safeCgVersionId, req.user.id, String(description ?? '')];
@@ -167,7 +164,11 @@ router.post('/', requireAuth, async (req, res, next) => {
       return versionedWrite(client, {
         type: 'project', userId: req.user.id, action: 'create',
         write: async c => {
-          const newId = (await c.query(insertSql, insertParams)).rows[0].id;
+          const newId = (await c.query(
+            `INSERT INTO projects (id, code, name, program_id, client_id, start_date, end_date, currency, pipeline, status, cg_version_id, owner_id, description)
+             VALUES (COALESCE($1::uuid, uuid_generate_v4()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+             RETURNING id`, insertParams
+          )).rows[0].id;
           await c.query(
             `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
              VALUES ('project', $1, $2, 'owner', $2)`,

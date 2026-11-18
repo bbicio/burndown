@@ -2811,6 +2811,52 @@ async function testPrograms() {
 
   ok((await api('POST', '/api/programs', { id, name }, adminCookie)).status === 409,
     'PRG-04 POST /programs with a duplicate id → 409');
+
+  // PG-01..05 (save-contract cycle 3): a registered create, and a share that never lowers a permission
+  const logRows = async pid =>
+    (await sql('SELECT action, snapshot FROM change_log WHERE entity_type = $1 AND entity_id = $2 ORDER BY id', ['program', String(pid)])) || [];
+  ok(r.status === 201 && (await logRows(id)).map(x => x.action)[0] === 'create', 'PG-01 POST /programs leaves a program/create row');
+  if (!sysadminCookie || r.status !== 201) { ok(false, 'PG-setup sysadmin or program unavailable'); return; }
+  const mkProj = async n => {
+    const p = await api('POST', '/api/projects', { name: `__test_pg_${n}_${Date.now()}__`, programId: id }, sysadminCookie);
+    if (p.data?.id) later('DELETE', `/api/projects/${p.data.id}`);
+    return p.data?.id;
+  };
+  const pA = await mkProj('a');
+  const pB = await mkProj('b');
+  const u1 = await makeTsUser('pg1');
+  const u2 = await makeTsUser('pg2');
+  const u3 = await makeTsUser('pg3');
+  const sysId = (await api('GET', '/api/auth/me', null, sysadminCookie)).data?.id;
+  if (!ok(!!(pA && pB && u1 && u2 && u3 && sysId), 'PG-setup two projects in the program and three users')) return;
+  const permOf = async (pid, uid) => (await sql(
+    "SELECT permission FROM resource_shares WHERE resource_type = 'project' AND resource_id = $1 AND user_id = $2", [pid, uid]))?.[0]?.permission;
+  const share = (userId, permission) => api('POST', `/api/programs/${id}/share`, { userId, permission }, adminCookie);
+
+  // PG-02: an editor of project A, shared the program as viewer, stays editor there
+  await api('POST', `/api/projects/${pA}/shares`, { userId: u1.id, permission: 'editor' }, adminCookie);
+  const s2 = await share(u1.id, 'viewer');
+  ok(s2.status === 201 && s2.data?.kept === 1 && s2.data?.granted === 1 && await permOf(pA, u1.id) === 'editor' && await permOf(pB, u1.id) === 'viewer',
+    `PG-02 share as viewer to an editor keeps editor; kept 1, granted 1 (got ${s2.status} ${JSON.stringify(s2.data)})`);
+
+  // PG-03: the owner of the projects stays owner
+  const s3 = await share(sysId, 'viewer');
+  ok(s3.status === 201 && await permOf(pA, sysId) === 'owner' && await permOf(pB, sysId) === 'owner' && s3.data?.kept === 2,
+    `PG-03 share to the projects' owner keeps owner (got ${s3.status} ${JSON.stringify(s3.data)})`);
+
+  // PG-04: a viewer is raised to editor; a new user is granted every project
+  await api('POST', `/api/projects/${pA}/shares`, { userId: u2.id, permission: 'viewer' }, adminCookie);
+  const s4 = await share(u2.id, 'editor');
+  ok(s4.status === 201 && s4.data?.raised === 1 && s4.data?.granted === 1 && await permOf(pA, u2.id) === 'editor',
+    `PG-04 share as editor to a viewer raises it (got ${JSON.stringify(s4.data)})`);
+  const s4b = await share(u3.id, 'viewer');
+  ok(s4b.data?.granted === 2 && s4b.data?.shared === 2, `PG-04 a new user is granted every project (got ${JSON.stringify(s4b.data)})`);
+
+  // PG-05: one program/update row per share, with the shares in the snapshot
+  const updates = (await logRows(id)).filter(x => x.action === 'update');
+  ok(updates.length === 4 && Array.isArray(updates[3].snapshot?.shares)
+    && updates[3].snapshot.shares.some(x => x.userId === u3.id && x.projectId === pB),
+    `PG-05 four shares → four program/update rows with snapshot.shares (got ${updates.length})`);
 }
 
 // ── Admin Reset — single proposal ─────────────────────────────────────────────
