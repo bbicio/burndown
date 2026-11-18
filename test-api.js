@@ -239,8 +239,7 @@ async function runCleanup() {
     const versioned = method === 'DELETE' && /^\/api\/(roles|ratecards)\/[^/]+$/.test(path);
     const r = await api(method, path, versioned ? { version: await versionOf(path, cookie) } : null, cookie);
     const success = [200, 204, 404].includes(r.status);
-    process.stdout.write(`  ${success ? green('✓') : red('✗')} ${method} ${path} → ${r.status}\n`);
-  }
+    process.stdout.write(`  ${success ? green('✓') : red('✗')} ${method} ${path} → ${r.status}\n`);  }
 }
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -1307,8 +1306,12 @@ async function testCostGridSave() {
   const cgId = g.data?.id;
   if (cgId) later('POST', `/api/admin/reset/cost-grid/${cgId}`);
   const mkVersion = async label => (cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label }, adminCookie)).data?.id : null);
+  // Every version is created first: once CS-02 moves cs1 past Draft the proposal takes no new version.
   const vId = await mkVersion('cs1');
-  if (!ok(!!(role.id && cgId && vId), 'CS-setup role, proposal and version')) return;
+  const v6 = await mkVersion('cs6');
+  const v7 = await mkVersion('cs7');
+  const v8 = await mkVersion('cs8');
+  if (!ok(!!(role.id && cgId && vId && v6 && v7 && v8), 'CS-setup role, proposal and versions')) return;
   const vPath = id => `/api/cost-grids/${cgId}/versions/${id}`;
   const readV = async id => ((await api('GET', `/api/cost-grids/${cgId}/versions`, null, adminCookie)).data || []).find(v => v.id === id);
   const save = async (id, body, cookie = adminCookie) => api('PUT', vPath(id), body, cookie);
@@ -1361,8 +1364,7 @@ async function testCostGridSave() {
   }
 
   // CS-06: a refused rule changes nothing
-  const v6 = await mkVersion('cs6');
-  if (ok(!!v6, 'CS-06 setup version')) {
+  {
     const p6 = await save(v6, { version: 0, header: { startDate: '202604', endDate: '202606' } });
     ok(p6.status === 200, `CS-06 setup period (got ${p6.status} ${p6.data?.error})`);
     const before6 = await readV(v6);
@@ -1380,8 +1382,7 @@ async function testCostGridSave() {
   }
 
   // CS-07: a currency change and the rates in one Save — the rates are checked in the new currency
-  const v7 = await mkVersion('cs7');
-  if (ok(!!v7, 'CS-07 setup version')) {
+  {
     const st = rate => ({ phases: [{ phaseName: 'P', tasks: [{ taskName: 'T', hours: { [role.code]: 2 } }] }], roles: [{ roleCode: role.code, rate }] });
     const bad = await save(v7, { version: 0, header: { currency: 'CHF' }, structure: st(10.125) });
     ok(bad.status === 400 && bad.data?.code === 'MONEY_RULE' && /for CHF/.test(bad.data?.error || ''),
@@ -1392,8 +1393,7 @@ async function testCostGridSave() {
   }
 
   // CS-08: a header-only Save is checked against the stored tasks, and leaves them untouched
-  const v8 = await mkVersion('cs8');
-  if (ok(!!v8, 'CS-08 setup version')) {
+  {
     const set8 = await save(v8, {
       version: 0, header: { startDate: '202604', endDate: '202612' },
       structure: { phases: [{ phaseName: 'P', tasks: [{ taskName: 'Nov', taskStartDate: '2026-11-02', taskEndDate: '2026-11-06', hours: { [role.code]: 1 } }] }], roles: [{ roleCode: role.code, rate: 10 }] },
@@ -4625,9 +4625,9 @@ async function testStructureRule() {
   const vId = cgId ? (await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'v1' }, adminCookie)).data?.id : null;
   if (!ok(!!(cgId && vId), 'SR-setup proposal with one version created')) return;
   const base = `/api/cost-grids/${cgId}/versions/${vId}`;
-  const putStructure = phases => putStructure(`${base}/structure`, { phases }, adminCookie);
+  const putPhases = phases => putStructure(`${base}/structure`, { phases }, adminCookie);
 
-  const first = await putStructure([
+  const first = await putPhases([
     { title: 'P1', tasks: [{ title: 'T1' }, { title: 'T2' }] },
     { title: 'P2', tasks: [] },
   ]);
@@ -4645,17 +4645,17 @@ async function testStructureRule() {
   const t1 = { id: idT1, title: 'T1' };
   const t2 = { id: idT2, title: 'T2' };
 
-  const r1 = await putStructure([{ title: 'P1', tasks: [{ ...t1, title: 'T1b' }, t2] }, { title: 'P2', tasks: [] }]);
+  const r1 = await putPhases([{ title: 'P1', tasks: [{ ...t1, title: 'T1b' }, t2] }, { title: 'P2', tasks: [] }]);
   ok(r1.status === 200, `SR-01 rename of a linked task → 200 (got ${r1.status})`);
 
-  const r2 = await putStructure([{ title: 'P1', tasks: [t2, t1] }, { title: 'P2', tasks: [] }]);
+  const r2 = await putPhases([{ title: 'P1', tasks: [t2, t1] }, { title: 'P2', tasks: [] }]);
   ok(r2.status === 200, `SR-02 reorder → 200 (got ${r2.status})`);
 
-  const r3 = await putStructure([{ title: 'P1', tasks: [t2] }, { title: 'P2', tasks: [t1] }]);
+  const r3 = await putPhases([{ title: 'P1', tasks: [t2] }, { title: 'P2', tasks: [t1] }]);
   ok(r3.status === 200, `SR-03 move to another phase → 200 (got ${r3.status})`);
 
   // SR-04/05: dropping the linked task is refused, and the DB keeps both tasks
-  const r4 = await putStructure([{ title: 'P1', tasks: [t2] }, { title: 'P2', tasks: [] }]);
+  const r4 = await putPhases([{ title: 'P1', tasks: [t2] }, { title: 'P2', tasks: [] }]);
   ok(r4.status === 400 && r4.data?.code === 'STRUCTURE_RULE',
     `SR-04 payload without the linked task → 400 STRUCTURE_RULE (got ${r4.status})`);
   ok(/"T1"/.test(r4.data?.error || ''), 'SR-04 the error names the missing task');
@@ -4667,7 +4667,7 @@ async function testStructureRule() {
   const orphan = '00000000-0000-4000-8000-000000000000';
   const lnk2 = await api('POST', `${base}/linked-projects`, { projectId: pId, taskIds: [idT1, orphan], taskNames: ['T1'] }, adminCookie);
   ok(lnk2.status === 201, 'SR-06 setup: link carries an orphan task id');
-  const r6 = await putStructure([{ title: 'P1', tasks: [t2] }, { title: 'P2', tasks: [t1] }]);
+  const r6 = await putPhases([{ title: 'P1', tasks: [t2] }, { title: 'P2', tasks: [t1] }]);
   ok(r6.status === 200, `SR-06 a save keeping T1 with an orphan id in the link → 200 (got ${r6.status})`);
 }
 
