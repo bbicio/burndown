@@ -35,7 +35,7 @@ The destination is `--dest <dir>`, else the environment variable `PDASH_EXPORT_D
 
 ## Tests
 
-The command's tests are the files of `scripts/site-export/`, split so vitest runs them on parallel workers; their shared throw-away repositories and the copy wrapper are in `scripts/lib/site-export-fixture.mjs`. The rule parser's tests are `scripts/lib/site-export.test.js`.
+The command's tests are the files of `scripts/site-export/`, split so vitest runs them on parallel workers; their shared throw-away repositories and the copy wrapper are in `scripts/lib/site-export-fixture.mjs`. `npm test` excludes that folder: they run with `npm run test:site-export` (`vitest.site-export.config.js`), and `/finish-cycle` Gate 1 runs it when the branch touches the command, its library or its rules. `scripts/site-export-scope.test.js` pins that the exclusion covers only that folder. The rule parser's tests, `scripts/lib/site-export.test.js`, and `scripts/site-export-guard.test.js` stay in the default suite.
 
 ## Guard
 
