@@ -1475,7 +1475,7 @@ async function testCostGridSave() {
     const pubRow = (await logRows('cost_grid_version', d1)).slice(-1)[0];
     ok(pub.status === 200 && pubRow?.action === 'update' && pubRow?.version === pre + 1 && pubRow?.snapshot?.pipeline === 'SIP',
       `CS-11 publish → 200, change_log update/${pre + 1} (got ${pub.status}, ${JSON.stringify(pubRow && [pubRow.action, pubRow.version])})`);
-    const late = await save(d1, { version: pre, header: { note: 'late' } }).catch(() => ({}));
+    const late = await api('PUT', `/api/cost-grids/${cg2}/versions/${d1}`, { version: pre, header: { note: 'late' } }, adminCookie);
     ok(late.status === 409 && late.data?.code === 'STALE', `CS-11 a Save from the version before publish → 409 STALE (got ${late.status})`);
   }
 }
