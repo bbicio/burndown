@@ -279,3 +279,26 @@ describe('round 1 fixes', () => {
     expect(ask).not.toHaveBeenCalled();
   });
 });
+
+describe('round 2 fix', () => {
+  it('a successful Publish leaves the draft clean before reloading, so no "Leave site?" dialog', async () => {
+    const order = [];
+    let draft = { versionId: 'v1', pipeline: 'Draft' };
+    const stubs = {
+      _cgActiveCgId: 'cg1', _cgActiveVersionId: 'v1',
+      get _cgDraft() { return draft; },
+      cgIsDraftDirty: () => false,
+      cgLoad: () => ({ id: 'cg1', versions: [{ versionId: 'v1', pipeline: 'Draft', versionLabel: 'v1' }] }),
+      cgSave: () => {},
+      showConfirm: (msg, ok) => ok(),
+      Api: { costGrids: { versions: { publish: async () => ({ pipeline_year: 2026 }), delete: async () => {} } } },
+      cgCaptureBase: vi.fn(() => order.push('base')),
+      window: { location: { reload: () => order.push('reload') } },
+    };
+    const names = Object.keys(stubs).filter(n => n !== '_cgDraft');
+    const fn = new Function(...names, '_cgDraftRef', `let _cgDraft = _cgDraftRef; ${extractBlock(js, 'async function cgPublishDraft(')}; return cgPublishDraft;`)(...names.map(n => stubs[n]), draft);
+    await fn();
+    await new Promise(r => setTimeout(r, 0));
+    expect(order).toEqual(['base', 'reload']);
+  });
+});
