@@ -8,7 +8,7 @@ Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `d
 
 ## Redesign (2026-11-09)
 
-Spec `docs/superpowers/specs/2026-11-09-attribute-lists-redesign-design.md`, plan `docs/superpowers/plans/2026-11-09-attribute-lists-redesign.md`, boards `docs/superpowers/design/attribute-lists/redesign/14*.png`. API unchanged; every call goes through the page's `request(method, url, body)` helper (`{ ok, status, data }`, never throws; error text is the server's `error`, else `Network error. Please try again.`).
+Spec `docs/superpowers/specs/2026-11-09-attribute-lists-redesign-design.md`, plan `docs/superpowers/plans/2026-11-09-attribute-lists-redesign.md`, boards `docs/superpowers/design/attribute-lists/redesign/14*.png`. API unchanged; writes go through `apiSave` (outcome `res.kind`, `res.data`, `res.message`), reads through the page's `read(path)` on `apiFetch` (`{ ok, data, message }`, never throws); the reload banners are unchanged.
 
 ### Current state
 

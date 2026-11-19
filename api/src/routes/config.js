@@ -26,14 +26,15 @@ router.post('/clients', requireAdmin, async (req, res, next) => {
   try {
     const { name } = req.body;
     if (!name?.trim()) return res.status(400).json({ error: 'name is required' });
-    const existing = await query('SELECT id FROM clients WHERE lower(name) = lower($1)', [name.trim()]);
-    if (existing.rows[0]) return res.status(409).json({ error: 'Client name already exists' });
     const { rows } = await query(
       'INSERT INTO clients (name) VALUES ($1) RETURNING id, name',
       [name.trim()]
     );
     res.status(201).json(rows[0]);
-  } catch (err) { next(err); }
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: `A client named "${req.body.name.trim()}" already exists.`, code: 'NAME_TAKEN' });
+    next(err);
+  }
 });
 
 router.patch('/clients/:id', requireAdmin, async (req, res, next) => {
@@ -46,7 +47,10 @@ router.patch('/clients/:id', requireAdmin, async (req, res, next) => {
     );
     if (!rows[0]) return res.status(404).json({ error: 'Client not found' });
     res.json(rows[0]);
-  } catch (err) { next(err); }
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: `A client named "${req.body.name.trim()}" already exists.`, code: 'NAME_TAKEN' });
+    next(err);
+  }
 });
 
 router.delete('/clients/:id', requireAdmin, async (req, res, next) => {

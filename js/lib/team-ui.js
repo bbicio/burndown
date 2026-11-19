@@ -227,7 +227,19 @@ export function deleteSummary(resource, aliases) {
   return { count: names.length, names };
 }
 
+// The fields of the Edit drawer that differ from what it opened with; null, undefined and '' are equal.
+const RESOURCE_FORM_FIELDS = ['firstName', 'lastName', 'email', 'roleId', 'jobDescription', 'userId'];
+export function changedResourceFields(initial, form) {
+  const blank = v => (v === null || v === undefined ? '' : v);
+  const out = {};
+  for (const k of RESOURCE_FORM_FIELDS) {
+    if (blank(initial?.[k]) !== blank(form?.[k])) out[k] = form[k];
+  }
+  return out;
+}
+
 window.sortResources = sortResources;
+window.changedResourceFields = changedResourceFields;
 window.buildProfileTree = buildProfileTree;
 window.filterComboOptions = filterComboOptions;
 window.paginate = paginate;

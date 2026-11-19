@@ -92,20 +92,24 @@ async function saveClientFromModal() {
   if (saveBtn.disabled) return; // already in flight -- ignore a fast repeat click
   saveBtn.disabled = true;
   try {
+    const res = _clientEditId
+      ? await window.apiSave('PATCH', '/clients/' + _clientEditId, { name })
+      : await window.apiSave('POST', '/clients', { name });
+    if (res.kind !== 'ok') {
+      errEl.textContent = res.message || 'Save failed.';
+      errEl.classList.remove('d-none');
+      return;
+    }
+    const savedName = res.data?.name || name;
     if (_clientEditId) {
-      await Api.clients.update(_clientEditId, name);
       const idx = _clients.findIndex(c => c.id === _clientEditId);
-      if (idx >= 0) _clients[idx] = { id: _clientEditId, name };
+      if (idx >= 0) _clients[idx] = { id: _clientEditId, name: savedName };
     } else {
-      const created = await Api.clients.create(name);
-      _clients.push({ id: created.id, name });
+      _clients.push({ id: res.data.id, name: savedName });
     }
     bootstrap.Modal.getInstance(document.getElementById('clientEditModal')).hide();
     renderClientsTable();
     cfgRefreshClientDropdown();
-  } catch(err) {
-    errEl.textContent = err.message || 'Save failed.';
-    errEl.classList.remove('d-none');
   } finally {
     saveBtn.disabled = false;
   }
@@ -117,14 +121,14 @@ function deleteClient(id) {
   showConfirm(
     `Delete client "${client.name}"?`,
     async () => {
-      try {
-        await Api.clients.delete(id);
-        _clients = _clients.filter(c => c.id !== id);
-        renderClientsTable();
-        cfgRefreshClientDropdown();
-      } catch(err) {
-        alert('Delete failed: ' + (err.message || 'Unknown error'));
+      const res = await window.apiSave('DELETE', '/clients/' + id);
+      if (res.kind !== 'ok') {
+        showInfo('Delete failed: ' + (res.message || 'Unknown error'));
+        return;
       }
+      _clients = _clients.filter(c => c.id !== id);
+      renderClientsTable();
+      cfgRefreshClientDropdown();
     }, null, '🗑 Delete client'
   );
 }

@@ -20,6 +20,7 @@ window.__cfgApp = Vue.createApp({
       loadOk:          true,   // false when loadAll failed: a deep link is then not reported as unknown
       potCounts:       {},     // { year: number of POTs }, from GET /pots without a year
       loadedPotsYear:  null,
+      potsLoadError:   '',
       phasing:         { proposal: null, project: null }, // { loading, error, data } per mode, loaded once while on the year
       phasingYearLoaded: null,
       phFilter:        { stages: [], clientId: '', potId: '' },
@@ -303,12 +304,15 @@ window.__cfgApp = Vue.createApp({
       const year = this.year || this.potsYear;
       try {
         const pots = await Api.pots.list(year);
-        if (this.loadedPotsYear != null && this.loadedPotsYear !== year) return; // another year was opened meanwhile
+        if (this.loadedPotsYear != null && this.loadedPotsYear !== year) return true; // another year was opened meanwhile
         this.pots = pots;
         this.potHistory = {};
+        this.potsLoadError = '';
+        return true;
       } catch (e) {
+        this.potsLoadError = e.message || '';
         if (this.loadedPotsYear === year) this.loadedPotsYear = null; // the next visit of this year loads again
-        this.globalError = e.message || 'Failed to load POT targets.';
+        return false;
       }
     },
 
@@ -327,11 +331,15 @@ window.__cfgApp = Vue.createApp({
       if (this.pipelineYears.find(py => py.year === year)) { this.pyf.error = `Pipeline ${year} already exists.`; return; }
       this.pyf.loading = true;
       try {
-        const created = await Api.pipelineYears.create(year, false);
-        this.pipelineYears.push({ offers: 0, ...created, _toggling: false, _loading: false });
+        const res = await window.apiSave('POST', '/pipeline-years', { year, active: false });
+        if (res.kind !== 'ok') {
+          this.pyf.error = res.message || 'Failed to create.';
+          // the write may have happened: show what the server has
+          if (res.kind === 'unknown') await this.loadAll();
+          return;
+        }
+        this.pipelineYears.push({ offers: 0, ...res.data, _toggling: false, _loading: false });
         this.pyf.show = false;
-      } catch (e) {
-        this.pyf.error = e.message || 'Failed to create.';
       } finally {
         this.pyf.loading = false;
       }
@@ -341,13 +349,19 @@ window.__cfgApp = Vue.createApp({
       if (py._toggling) { if (ev) ev.target.checked = py.active; return; }
       py._toggling = true;
       try {
-        const updated = await Api.pipelineYears.toggle(py.id, !py.active);
-        py.active = updated.active;
-      } catch (e) {
-        this.globalError = e.message || 'Failed to update pipeline year.';
+        const res = await window.apiSave('PATCH', '/pipeline-years/' + py.id, { active: !py.active });
+        if (res.kind === 'ok') {
+          py.active = res.data.active;
+        } else {
+          // the write may have happened: show what the server has (loadAll clears the banner, so it runs first)
+          if (res.kind === 'unknown') await this.loadAll();
+          this.globalError = res.message || 'Failed to update pipeline year.';
+        }
       } finally {
         py._toggling = false;
-        if (ev) ev.target.checked = py.active;
+        // loadAll (after an unknown outcome) replaced the list: read the year the server has now
+        const current = this.pipelineYears.find(p => p.id === py.id) || py;
+        if (ev) ev.target.checked = current.active;
       }
     },
 
@@ -367,13 +381,18 @@ window.__cfgApp = Vue.createApp({
         `Delete Pipeline ${py.year}? Cost grid versions linked to this year stay; the pipeline entry is removed.`,
         async () => {
           py._loading = true;
-          try {
-            await Api.pipelineYears.delete(py.id);
+          const res = await window.apiSave('DELETE', '/pipeline-years/' + py.id);
+          if (res.kind === 'ok') {
             this.pipelineYears = this.pipelineYears.filter(p => p.id !== py.id);
-          } catch (e) {
-            this.globalError = e.message || 'Failed to delete pipeline year.';
+            return;
+          }
+          // the write may have happened: show what the server has (loadAll clears the banner, so it runs first)
+          try {
+            if (res.kind === 'unknown') await this.loadAll();
+          } finally {
             py._loading = false;
           }
+          this.globalError = res.message || 'Failed to delete pipeline year.';
         },
         null,
         'Delete pipeline',
@@ -429,9 +448,14 @@ window.__cfgApp = Vue.createApp({
       this.potf.loading = true;
       try {
         if (this.potf.id) {
-          const updated = await Api.pots.update(this.potf.id, amount, this.potf.note.trim());
-          const p = this.pots.find(p => p.id === this.potf.id);
-          if (p) { p.amount = updated.amount; p.achieved_total = p.achieved_total || 0; }
+          const res = await window.apiSave('PATCH', '/pots/' + this.potf.id, { amount, note: this.potf.note.trim() });
+          if (res.kind !== 'ok') {
+            this.potf.error = res.message || 'Save failed.';
+            if (res.kind === 'unknown') await this.loadPots(); // the write may have happened
+            return;
+          }
+          const p =this.pots.find(p => p.id === this.potf.id);
+          if (p) { p.amount = res.data.amount; p.achieved_total = p.achieved_total || 0; }
           this.invalidatePotDetails(this.potf.id);
         } else {
           if (!this.potf.targetId) { this.potf.error = 'Select a target.'; this.potf.loading = false; return; }
@@ -444,14 +468,22 @@ window.__cfgApp = Vue.createApp({
           } else {
             body.clientId = this.potf.targetId;
           }
-          await Api.pots.create(body);
-          // Re-fetch the list to get denormalized names
-          this.pots = await Api.pots.list(this.year || this.potsYear);
+          // The reload fetches the list again, to get the denormalized names
+          const res = await window.saveAndReload('POST', '/pots', body, () => this.loadPots());
+          if (res.kind === 'ok') {
+            this.potf.show = false;
+            if (!res.reloaded) this.globalError = window.SAVED_NOT_RELOADED;
+          } else if (res.kind === 'unknown') {
+            // the reload shows whether the POT exists
+            this.potf.show = false;
+            this.globalError = res.message;
+          } else {
+            this.potf.error = res.message || 'Save failed.';
+            return;
+          }
         }
         this.refreshYearData();
         this.potf.show = false;
-      } catch (e) {
-        this.potf.error = e.message || 'Save failed.';
       } finally {
         this.potf.loading = false;
       }
@@ -462,16 +494,21 @@ window.__cfgApp = Vue.createApp({
         `Delete POT target for "${pot.special_label || pot.client_group_name || pot.client_name}" (${pot.year})? This cannot be undone.`,
         async () => {
           pot._loading = true;
-          try {
-            await Api.pots.delete(pot.id);
+          const res = await window.apiSave('DELETE', '/pots/' + pot.id);
+          if (res.kind === 'ok') {
             this.pots = this.pots.filter(p => p.id !== pot.id);
             if (this.potId === pot.id) this.go({ year: this.year }, { replace: true });
             this.refreshYearData();
             this.invalidatePotDetails(pot.id);
-          } catch (e) {
-            this.globalError = e.message || 'Delete failed.';
+            return;
+          }
+          // the write may have happened: show what the server has
+          try {
+            if (res.kind === 'unknown') await this.loadPots();
+          } finally {
             pot._loading = false;
           }
+          this.globalError = res.message || 'Delete failed.';
         },
         null,
         'Delete POT target',
@@ -481,7 +518,7 @@ window.__cfgApp = Vue.createApp({
     loadYearData(year) {
       this.loadedPotsYear = year; this.potsYear = year;
       this.pots = []; this.pipelineSummary = []; this.potDetails = {}; // the drawer reads fresh totals with the table
-      this.loadPots();
+      this.loadPots().then(ok => { if (!ok) this.globalError = this.potsLoadError || 'Failed to load POT targets.'; });
       this.loadPipelineSummary();
     },
 

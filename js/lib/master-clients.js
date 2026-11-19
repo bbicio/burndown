@@ -111,6 +111,19 @@ export async function moveClient({ clientId, fromGroupId, toGroupId }, api) {
   }
 }
 
+// The adapter moveClient takes on the page: each write goes through `save` (apiSave) and an outcome
+// other than ok throws its message, so moveClient's rollback and the page's error banner see an Error.
+export function clientGroupWrites(save) {
+  const run = async (method, groupId, clientId) => {
+    const res = await save(method, '/client-groups/' + groupId + '/clients/' + clientId);
+    if (res.kind !== 'ok') throw new Error(res.message);
+  };
+  return {
+    assignClient: (groupId, clientId) => run('PUT', groupId, clientId),
+    removeClient: (groupId, clientId) => run('DELETE', groupId, clientId),
+  };
+}
+
 export function groupNameError(name, groups, selfId) {
   const n = String(name ?? '').trim();
   if (!n) return 'Name is required.';
@@ -141,6 +154,6 @@ export function rowIsCustom({ row, codes, currencies, saved = false }) {
 if (typeof window !== 'undefined') {
   Object.assign(window, {
     filterClients, groupSections, customRateCount, roleFamily, sortFamilies, cellSource,
-    buildRatecardEntries, moveClient, groupNameError, readUrlState, urlFor, rowIsCustom,
+    buildRatecardEntries, moveClient, clientGroupWrites, groupNameError, readUrlState, urlFor, rowIsCustom,
   });
 }

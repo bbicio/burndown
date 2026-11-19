@@ -27,9 +27,11 @@ describe('master-pipelines POT table and year row', () => {
 
   it('keeps the server error under the row and the row open', () => {
     const fn = page.slice(page.indexOf('async savePot('), page.indexOf('async deletePot('));
-    const c = fn.slice(fn.indexOf('catch (e)'));
-    expect(c).toContain('this.potf.error = e.message');
-    expect(c).not.toContain('this.potf.show = false');
+    const i = fn.indexOf('this.potf.error = res.message');
+    expect(i).toBeGreaterThan(-1);
+    const branch = fn.slice(i, i + 200);
+    expect(branch).toContain('return');
+    expect(branch).not.toContain('this.potf.show = false');
   });
 
   it('hides the outside-POT note when there is nothing outside', () => {
@@ -39,7 +41,7 @@ describe('master-pipelines POT table and year row', () => {
 
   it('creates a pipeline hidden', () => {
     const fn = page.slice(page.indexOf('async createPipelineYear('), page.indexOf('async togglePipelineYear('));
-    expect(fn).toContain('Api.pipelineYears.create(year, false)');
+    expect(fn).toContain("apiSave('POST', '/pipeline-years', { year, active: false })");
   });
 
   it('disables delete when the year has offers', () => {
@@ -59,6 +61,42 @@ describe('master-pipelines POT table and year row', () => {
 
   it('keeps the year row achievement on achieved_total', () => {
     expect(page).toContain('achievement(yearTotals[py.year].achieved_total, yearTotals[py.year].pot_total)');
+  });
+});
+
+describe('savePot on the save contract', () => {
+  const whole = page.slice(page.indexOf('async savePot('), page.indexOf('async deletePot('));
+  const fn = whole.slice(whole.indexOf('saveAndReload('));
+
+  it('creates through saveAndReload and reloads the POTs', () => {
+    expect(fn).toContain("saveAndReload('POST', '/pots', body, () => this.loadPots())");
+  });
+
+  it('closes the form on ok before it checks the reload', () => {
+    const i = fn.indexOf("res.kind === 'ok'");
+    expect(i).toBeGreaterThan(-1);
+    const branch = fn.slice(i, i + 400);
+    expect(branch.indexOf('this.potf.show = false')).toBeGreaterThan(-1);
+    expect(branch.indexOf('this.potf.show = false')).toBeLessThan(branch.indexOf('res.reloaded'));
+    expect(branch).toContain('this.globalError = window.SAVED_NOT_RELOADED');
+  });
+
+  it('closes the form on an unknown outcome and shows its message', () => {
+    const i = fn.indexOf("res.kind === 'unknown'");
+    expect(i).toBeGreaterThan(-1);
+    const branch = fn.slice(i, i + 400);
+    expect(branch).toContain('this.potf.show = false');
+    expect(branch).toContain('this.globalError = res.message');
+  });
+
+  it('writes the edit with apiSave and adopts the answer', () => {
+    expect(whole).toContain("apiSave('PATCH', '/pots/' + this.potf.id, { amount, note: this.potf.note.trim() })");
+    expect(whole).toContain('p.amount = res.data.amount');
+  });
+
+  it('has no Api.pots write left in the page', () => {
+    expect(page).not.toMatch(/Api\.pots\.(create|update|delete)/);
+    expect(page).not.toMatch(/Api\.pipelineYears\.(create|toggle|delete)/);
   });
 });
 

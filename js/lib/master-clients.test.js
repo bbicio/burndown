@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   filterClients, groupSections, customRateCount, roleFamily, sortFamilies, cellSource,
-  buildRatecardEntries, moveClient, groupNameError, readUrlState, urlFor, rowIsCustom,
+  buildRatecardEntries, moveClient, groupNameError, readUrlState, urlFor, rowIsCustom, clientGroupWrites,
 } from './master-clients.js';
 
 const currencies = [
@@ -225,5 +225,45 @@ describe('rowIsCustom', () => {
     expect(rowIsCustom({ row, codes: ['EUR'], currencies, saved: true })).toBe(true);
     const typo = { ...row, texts: { EUR: '1x' } };
     expect(rowIsCustom({ row: typo, codes: ['EUR'], currencies, saved: true })).toBe(true);
+  });
+});
+
+describe('clientGroupWrites', () => {
+  const fake = (answer) => {
+    const calls = [];
+    const save = async (method, path) => { calls.push([method, path]); return typeof answer === 'function' ? answer(method, path) : answer; };
+    return { save, calls };
+  };
+
+  it('assignClient saves a PUT and resolves on ok', async () => {
+    const { save, calls } = fake({ kind: 'ok', data: {} });
+    await expect(clientGroupWrites(save).assignClient('g1', 'c1')).resolves.toBeUndefined();
+    expect(calls).toEqual([['PUT', '/client-groups/g1/clients/c1']]);
+  });
+
+  it('removeClient saves a DELETE', async () => {
+    const { save, calls } = fake({ kind: 'ok', data: {} });
+    await clientGroupWrites(save).removeClient('g1', 'c1');
+    expect(calls).toEqual([['DELETE', '/client-groups/g1/clients/c1']]);
+  });
+
+  it('throws the message of an error outcome', async () => {
+    const { save } = fake({ kind: 'error', message: 'X' });
+    await expect(clientGroupWrites(save).assignClient('g1', 'c1')).rejects.toThrow('X');
+  });
+
+  it('throws the message of an unknown outcome', async () => {
+    const { save } = fake({ kind: 'unknown', message: 'U' });
+    await expect(clientGroupWrites(save).removeClient('g1', 'c1')).rejects.toThrow('U');
+  });
+
+  it('moveClient puts the client back and throws the original error when the assign fails', async () => {
+    const { save, calls } = fake((m, p) => (m === 'PUT' && p === '/client-groups/g1/clients/c1' ? { kind: 'error', message: 'boom' } : { kind: 'ok', data: {} }));
+    await expect(moveClient({ clientId: 'c1', fromGroupId: 'g0', toGroupId: 'g1' }, clientGroupWrites(save))).rejects.toThrow('boom');
+    expect(calls).toEqual([
+      ['DELETE', '/client-groups/g0/clients/c1'],
+      ['PUT', '/client-groups/g1/clients/c1'],
+      ['PUT', '/client-groups/g0/clients/c1'],
+    ]);
   });
 });

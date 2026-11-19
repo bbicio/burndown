@@ -244,7 +244,11 @@ describe('master-clients.html (Clients & groups)', () => {
       expect(html.slice(from, from + 700), name).toContain('this.globalError = null');
     }
     const reload = html.slice(html.indexOf('async reloadGroups()'), html.indexOf('setView(v)'));
-    expect(reload).toContain('if (!this.globalError)');
+    expect(reload).not.toContain('this.globalError');
+    expect(reload).toContain('return true');
+    expect(reload).toContain('return false');
+    const move = html.slice(html.indexOf('async moveTo('), html.indexOf('// ── Groups ──'));
+    expect(move).toContain('if (!reloaded && !this.globalError)');
   });
   it('opens the new-client and new-group forms in the side drawer, not inside the table', () => {
     const drawer = html.slice(html.indexOf('<div v-if="cf.show || ng.show" class="cg-drawer-wrap">'), html.indexOf('</div><!-- #app -->'));
@@ -272,7 +276,7 @@ describe('master-clients.html (Clients & groups)', () => {
     expect(html).toMatch(/:disabled="[^"]*_moving/);
   });
   it('loads the pure module', () => {
-    expect(html).toContain('<script type="module" src="js/lib/master-clients.js?v=1"></script>');
+    expect(html).toContain('<script type="module" src="js/lib/master-clients.js?v=2"></script>');
   });
   describe('responsive layout', () => {
     const styles = [...html.matchAll(/<style[^>]*>([\s\S]*?)<\/style>/g)].map(m => m[1]).join('\n');

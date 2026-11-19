@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { apiSave } from './save.js';
+import { apiSave, saveAndReload, SAVED_NOT_RELOADED } from './save.js';
 
 const src = readFileSync(join(process.cwd(), 'js/api.js'), 'utf8');
 const UNKNOWN = "The server's answer was lost — the change may have been saved. Reload to check.";
@@ -84,6 +84,51 @@ describe('apiSave', () => {
     } finally { vi.useRealTimers(); }
   });
 
+});
+
+describe('saveAndReload', () => {
+  it('200 JSON + a reload that resolves true → ok, reloaded', async () => {
+    load(() => res('{"id":1}'));
+    const reload = vi.fn(async () => true);
+    expect(await saveAndReload('PATCH', '/roles/r1', { version: 1 }, reload)).toEqual({ kind: 'ok', data: { id: 1 }, reloaded: true });
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('200 + a reload that throws → ok, not reloaded', async () => {
+    load(() => res('{"id":1}'));
+    const reload = vi.fn(async () => { throw new Error('boom'); });
+    expect(await saveAndReload('PATCH', '/roles/r1', {}, reload)).toMatchObject({ kind: 'ok', reloaded: false });
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it('200 + a reload that resolves false → not reloaded', async () => {
+    load(() => res('{"id":1}'));
+    expect(await saveAndReload('PATCH', '/roles/r1', {}, async () => false)).toMatchObject({ kind: 'ok', reloaded: false });
+  });
+
+  it('502 HTML → unknown, the reload runs', async () => {
+    load(() => res('<html>bad gateway</html>', 502));
+    const reload = vi.fn(async () => true);
+    expect(await saveAndReload('PATCH', '/roles/r1', {}, reload)).toMatchObject({ kind: 'unknown', reloaded: true });
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  for (const [name, answer, kind] of [
+    ['409 STALE', () => res('{"error":"E","code":"STALE","version":4}', 409), 'conflict'],
+    ['400 MONEY_RULE', () => res('{"error":"M","code":"MONEY_RULE"}', 400), 'rule'],
+    ['404 JSON', () => res('{"error":"Role not found"}', 404), 'error'],
+  ]) {
+    it(`${name} → ${kind}, the reload never runs`, async () => {
+      load(answer);
+      const reload = vi.fn(async () => true);
+      expect(await saveAndReload('PATCH', '/roles/r1', {}, reload)).toMatchObject({ kind, reloaded: false });
+      expect(reload).not.toHaveBeenCalled();
+    });
+  }
+
+  it('SAVED_NOT_RELOADED is the shared text', () => {
+    expect(SAVED_NOT_RELOADED).toBe("Saved, but the list couldn't be reloaded. Reload the page to see the latest.");
+  });
 });
 
 describe('apiFetch', () => {

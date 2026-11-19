@@ -49,3 +49,9 @@ Every write route of roles and rate cards goes through `versionedWrite` ([servic
 A duplicate role code stays `409 'Role code already exists'` without `code: 'STALE'`; the refusals found inside the write (role used in cost grids or by a team resource, card used in cost grids) stay `400`.
 
 Deleting a role locks first the rate cards holding it (in id order), then the role — the order the entries `PATCH` takes through its FK — and after the `CASCADE` gives each of those cards a new version and a `role-deleted` row, in the same transaction. Tests: `test-api.js` `SC-01..SC-14`, `SV-33..SV-35`, `SV-49`.
+
+## Master data names and pipeline years (2026-11-19, save-contract cycle 6, migration `038`)
+
+Client and client-group names are unique without regard to case: the unique indexes on `lower(name)` of `clients` and `client_groups` are the rule, and `POST`/`PATCH` of `/clients` and `/client-groups` answer the index's refusal as `409 { error, code: 'NAME_TAKEN' }` with `A client named "<name>" already exists.` or `A group named "<name>" already exists.`. Names are stored trimmed; a successful answer is unchanged.
+
+`DELETE /api/pipeline-years/:id` runs in one transaction that locks the year row, then refuses with `409 { error, code }`: `YEAR_IN_USE` when a cost grid version carries the year, `YEAR_HAS_POTS` when a POT is set for it (`Pipeline <year> cannot be deleted because it has POT targets. Deactivate it instead.`). One window stays open: a `POST /api/pots` for the same year that runs concurrently with the delete can create a POT for the year just deleted, because `POST /pots` does not check the year.

@@ -75,13 +75,23 @@ window.__cfgApp = Vue.createApp({
   },
 
   methods: {
-    async loadAll() {
-      this.globalError = null;
+    // true when the list was read. A caller that just saved passes quiet: true and reports a failed reload itself.
+    async loadAll({ quiet } = {}) {
+      if (!quiet) this.globalError = null;
       try {
         this.currencies = await Api.currencies.list();
+        return true;
       } catch (e) {
-        this.globalError = e.message || 'Failed to load data.';
+        if (!quiet) this.globalError = e.message || 'Failed to load data.';
+        return false;
       }
+    },
+
+    // Puts a saved row (the server's answer) into the list, whether or not the reload that follows worked.
+    adoptRow(code, patch) {
+      const i = this.currencies.findIndex(c => c.code === code);
+      if (i >= 0) this.currencies[i] = { ...this.currencies[i], ...patch };
+      else if (patch.code) this.currencies.push({ ...patch });
     },
 
     // One history per active non-EUR currency, for the list's delta and user; a failed one only drops its own.
@@ -149,20 +159,28 @@ window.__cfgApp = Vue.createApp({
       if (this.confirm.saving) return;
       this.confirm.saving = true; this.confirm.error = null;
       const code = this.confirm.code;
-      try {
-        await Api.currencies.updateRate(code, this.confirm.rate);
+      const res = await window.saveAndReload('PATCH', '/currencies/' + encodeURIComponent(code) + '/rate',
+        { rate: this.confirm.rate }, () => this.loadAll({ quiet: true }));
+      if (res.kind === 'ok' || res.kind === 'unknown') {
         this.confirm.show = false;
         this.edit = { code: null, text: '', error: null };
         this.sheet = null;
-        await this.loadAll();
-        this.loadHistories([code]);
-      } catch (e) {
-        this.confirm.error = e.message || 'Failed to update rate';
-        // Confirm lost the focus while it was disabled: give it back so Enter retries.
+        if (res.kind === 'ok') {
+          // Re-found by code: the reload may have replaced the row objects; a failed reload keeps the old rows.
+          this.adoptRow(code, { current_rate: res.data.rate });
+          if (res.reloaded) this.globalError = null;
+          else this.globalError = window.SAVED_NOT_RELOADED;
+        } else {
+          this.globalError = res.message;
+        }
         this.confirm.saving = false;
-        this.$nextTick(() => this.$refs.confirmBtn?.focus());
+        this.loadHistories([code]);
+        return;
       }
+      this.confirm.error = res.message;
+      // Confirm lost the focus while it was disabled: give it back so Enter retries.
       this.confirm.saving = false;
+      this.$nextTick(() => this.$refs.confirmBtn?.focus());
     },
 
     closeConfirm() {
@@ -181,16 +199,23 @@ window.__cfgApp = Vue.createApp({
       if (!this.actValid || this.act.saving) return;
       this.act.saving = true; this.act.error = null;
       const code = this.act.code;
-      try {
-        await Api.currencies.activate(code, this.actRate);
+      const res = await window.saveAndReload('POST', '/currencies/' + encodeURIComponent(code) + '/activate',
+        { rate: this.actRate }, () => this.loadAll({ quiet: true }));
+      if (res.kind === 'ok' || res.kind === 'unknown') {
         this.act = freshAct();
         this.sheet = null;
-        await this.loadAll();
+        if (res.kind === 'ok') {
+          this.adoptRow(code, res.data);
+          if (res.reloaded) this.globalError = null;
+          else this.globalError = window.SAVED_NOT_RELOADED;
+        } else {
+          this.globalError = res.message;
+        }
         this.loadHistories([code]);
-      } catch (e) {
-        this.act.error = e.message || 'Failed to activate currency';
-        this.act.saving = false;
+        return;
       }
+      this.act.error = res.message;
+      this.act.saving = false;
     },
 
     cancelActivate() {

@@ -28,14 +28,15 @@ describe('master-currencies page', () => {
     expect(styles).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
   });
 
-  it('calls updateRate once, from the Confirm method, and keeps a server error in the dialog', () => {
-    expect(html.split('updateRate(').length - 1).toBe(1);
+  it('saves the rate once, from the Confirm method, and keeps a refusal in the dialog', () => {
+    expect(html.split("saveAndReload('PATCH'").length - 1).toBe(1);
+    expect(html).not.toContain('updateRate(');
     const confirm = between('async confirmRate()', 'closeConfirm()');
-    expect(confirm).toContain('updateRate(');
+    expect(confirm).toContain("saveAndReload('PATCH'");
+    expect(confirm).toContain('this.loadAll({ quiet: true })');
     expect(confirm).toContain('if (this.confirm.saving) return;');
-    const catchPart = confirm.slice(confirm.indexOf('catch'));
-    expect(catchPart).toContain('this.confirm.error');
-    expect(catchPart).not.toContain('globalError');
+    expect(confirm).toContain('this.confirm.error = res.message');
+    expect(confirm).not.toContain('Network error');
   });
 
   it('checks the typed rate with the shared parser before the dialog opens', () => {
@@ -61,15 +62,45 @@ describe('master-currencies page', () => {
   });
 });
 
+describe('rate save on the save contract', () => {
+  const confirm = () => between('async confirmRate()', 'closeConfirm()');
+  it('shows the new rate from the answer before the reload outcome is checked', () => {
+    const c = confirm();
+    const a = c.indexOf('current_rate: res.data.rate');
+    expect(a).toBeGreaterThan(-1);
+    expect(a).toBeLessThan(c.indexOf('res.reloaded'));
+  });
+  it('puts SAVED_NOT_RELOADED, not a load failure, in globalError when the reload fails', () => {
+    const c = confirm();
+    expect(c).toContain('globalError = window.SAVED_NOT_RELOADED');
+    expect(c).toContain('globalError = res.message');
+    expect(c).not.toContain('Failed to load');
+  });
+  it('loadAll answers true/false and sets globalError only when not quiet', () => {
+    const load = between('async loadAll(', 'async loadHistories(');
+    expect(load).toContain('quiet');
+    expect(load).toContain('return true');
+    expect(load).toContain('return false');
+  });
+  it('the activation adopts the answer row and refuses into act.error, never globalError', () => {
+    const act = between('async activateCurrency()', 'cancelActivate()');
+    expect(act).toContain('res.data');
+    expect(act).toContain('this.act.error = res.message');
+    expect(act).toContain('globalError = window.SAVED_NOT_RELOADED');
+  });
+});
+
 describe('master-currencies activation row', () => {
   it('disables Activate until currency and rate are valid, and guards a double click', () => {
     expect(html).toContain(':disabled="!actValid || act.saving"');
     const activate = between('async activateCurrency()', 'cancelActivate()');
     expect(activate).toContain('if (!this.actValid || this.act.saving) return;');
-    expect(activate).toContain('Api.currencies.activate(');
-    const catchPart = activate.slice(activate.indexOf('catch'));
-    expect(catchPart).toContain('this.act.error');
-    expect(catchPart).not.toContain('globalError');
+    expect(html).not.toContain('Api.currencies.activate(');
+    expect(activate).toContain("saveAndReload('POST', '/currencies/'");
+    expect(activate).toContain('this.loadAll({ quiet: true })');
+    expect(activate).toContain('this.act.error = res.message');
+    expect(activate).toContain('res.data');
+    expect(activate).not.toContain('Network error');
   });
   it('starts with an empty rate and offers the row only when something can be activated', () => {
     expect(html).toMatch(/const freshAct = \(\) => \(\{[^}]*text: ''/);
@@ -96,7 +127,7 @@ describe('master-currencies history drawer', () => {
 describe('master-currencies responsive layouts', () => {
   it('offers the phone edit sheet, saved through the same confirmed path', () => {
     for (const s of ['Edit rate · ', 'Save rate', 'applies to new proposal versions']) expect(html, s).toContain(s);
-    expect(html.split('updateRate(').length - 1).toBe(1);
+    expect(html.split("saveAndReload('PATCH'").length - 1).toBe(1);
     const sheet = between('class="mdc-sheet"', 'Save rate');
     expect(sheet).toContain('saveEdit');
   });
@@ -146,6 +177,6 @@ describe('master-currencies review round 3', () => {
   });
   it('gives the focus back to Confirm after a server error', () => {
     const confirm = between('async confirmRate()', 'closeConfirm()');
-    expect(confirm.slice(confirm.indexOf('catch'))).toContain('this.$refs.confirmBtn?.focus()');
+    expect(confirm.slice(confirm.indexOf('this.confirm.error = res.message'))).toContain('this.$refs.confirmBtn?.focus()');
   });
 });

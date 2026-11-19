@@ -144,20 +144,24 @@ window.__cfgApp = Vue.createApp({
         this.ratecards = ratecards;
         const groupOf = new Map(groups.flatMap(g => (g.clients || []).map(c => [c.id, g.id])));
         this.clients = clients.map(c => ({ id: c.id, name: c.name, groupId: groupOf.get(c.id) ?? null }));
+        return true;
       } catch (e) {
         this.globalError = e.message || 'Failed to load data.';
+        return false;
       }
     },
 
-    // Re-reads the groups (and each client's group) after a change; a failure leaves the page as it is.
+    // Re-reads the groups (and each client's group) after a change; answers true when it worked, false
+    // when it failed (the page stays as it is). The caller decides what to say.
     async reloadGroups() {
       try {
         const groups = await Api.clientGroups.list();
         const groupOf = new Map(groups.flatMap(g => (g.clients || []).map(c => [c.id, g.id])));
         this.groups = groups;
         this.clients.forEach(c => { c.groupId = groupOf.get(c.id) ?? null; });
+        return true;
       } catch (e) {
-        if (!this.globalError) this.globalError = e.message || 'Failed to reload groups.';
+        return false;
       }
     },
 
@@ -208,13 +212,19 @@ window.__cfgApp = Vue.createApp({
 
       this.cf.loading = true;
       try {
-        const created = await Api.clients.create(name);
-        const client = { id: created.id, name: created.name || name, groupId: null };
+        const res = await window.apiSave('POST', '/clients', { name });
+        if (res.kind !== 'ok') {
+          this.cf.error = res.message || 'Save failed.';
+          // the write may have happened: show what the server has
+          if (res.kind === 'unknown') await this.loadAll();
+          return;
+        }
+        const client = { id: res.data.id, name: res.data.name || name, groupId: null };
         this.clients.push(client);
         const toGroupId = this.cf.groupId;
         if (toGroupId) {
           try {
-            await Api.clientGroups.assignClient(toGroupId, client.id);
+            await window.clientGroupWrites(window.apiSave).assignClient(toGroupId, client.id);
             client.groupId = toGroupId;
           } catch (e) {
             // the client exists, without a group: the form closes, so a retry cannot hit the duplicate-name check
@@ -223,11 +233,9 @@ window.__cfgApp = Vue.createApp({
             await this.reloadGroups();
             return;
           }
-          await this.reloadGroups();
+          if (!(await this.reloadGroups())) this.globalError = window.SAVED_NOT_RELOADED;
         }
         this.cf.show = false;
-      } catch (e) {
-        this.cf.error = e.message || 'Save failed.';
       } finally {
         this.cf.loading = false;
       }
@@ -247,28 +255,34 @@ window.__cfgApp = Vue.createApp({
       if (dup) { this.ce.error = `A client named "${dup.name}" already exists.`; return; }
 
       this.ce.loading = true;
-      try {
-        await Api.clients.update(this.ce.id, name);
-        const c = this.clients.find(c => c.id === this.ce.id);
-        if (c) c.name = name;
-        this.cancelClientEdit();
-      } catch (e) {
-        this.ce.error = e.message || 'Save failed.';
+      const res = await window.apiSave('PATCH', '/clients/' + this.ce.id, { name });
+      if (res.kind !== 'ok') {
+        this.ce.error = res.message || 'Save failed.';
         this.ce.loading = false;
+        if (res.kind === 'unknown') await this.loadAll();
+        return;
       }
+      const c = this.clients.find(c => c.id === this.ce.id);
+      if (c) c.name = res.data?.name || name;
+      this.cancelClientEdit();
     },
 
     deleteClient(client) {
       showConfirm(`Delete client "${client.name}"? This can't be undone.`, async () => {
         client._loading = true;
-        try {
-          await Api.clients.delete(client.id);
+        const res = await window.apiSave('DELETE', '/clients/' + client.id);
+        if (res.kind === 'ok') {
           this.clients = this.clients.filter(c => c.id !== client.id);
-          await this.reloadGroups();
-        } catch (e) {
-          this.globalError = e.message || 'Delete failed.';
+          if (!(await this.reloadGroups())) this.globalError = window.SAVED_NOT_RELOADED;
+          return;
+        }
+        // the write may have happened: show what the server has (loadAll clears the banner, so it runs first)
+        try {
+          if (res.kind === 'unknown') await this.loadAll();
+        } finally {
           client._loading = false;
         }
+        this.globalError = res.message || 'Delete failed.';
       }, null, 'Delete client');
     },
 
@@ -282,12 +296,13 @@ window.__cfgApp = Vue.createApp({
       client._moving = true;
       client.groupId = toGroupId || null;
       try {
-        await window.moveClient({ clientId: client.id, fromGroupId, toGroupId: toGroupId || null }, Api.clientGroups);
+        await window.moveClient({ clientId: client.id, fromGroupId, toGroupId: toGroupId || null }, window.clientGroupWrites(window.apiSave));
       } catch (e) {
         client.groupId = fromGroupId;
         this.globalError = e.message || 'Could not change the group.';
       } finally {
-        await this.reloadGroups();
+        const reloaded = await this.reloadGroups();
+        if (!reloaded && !this.globalError) this.globalError = window.SAVED_NOT_RELOADED;
         client._moving = false;
       }
     },
@@ -312,14 +327,21 @@ window.__cfgApp = Vue.createApp({
 
       this.ng.loading = true;
       try {
-        const created = await Api.clientGroups.create(name);
-        await this.reloadGroups();
+        const res = await window.saveAndReload('POST', '/client-groups', { name }, () => this.reloadGroups());
+        if (res.kind !== 'ok') {
+          this.ng.error = res.message || 'Save failed.';
+          return;
+        }
         const client = this.ng.forClientId && this.clients.find(c => c.id === this.ng.forClientId);
         this.ng.show = false;
         this.setView('group');
-        if (client) await this.moveTo(client, created.id);
-      } catch (e) {
-        this.ng.error = e.message || 'Save failed.';
+        if (!res.reloaded) {
+          // the list could not be re-read: adopt the new group from the answer so the move below still works
+          if (res.data && res.data.id && !this.groups.some(g => g.id === res.data.id)) this.groups.push({ clients: [], pots: [], ...res.data });
+        }
+        if (client) await this.moveTo(client, res.data.id);
+        // a move reloads the groups itself and reports its own failed reload
+        if (!res.reloaded && !client && !this.globalError) this.globalError = window.SAVED_NOT_RELOADED;
       } finally {
         this.ng.loading = false;
       }
@@ -336,25 +358,31 @@ window.__cfgApp = Vue.createApp({
       this.gr.error = window.groupNameError(this.gr.name, this.groups, this.gr.id);
       if (this.gr.error) return;
       this.gr.loading = true;
-      try {
-        await Api.clientGroups.rename(this.gr.id, this.gr.name.trim());
-        await this.reloadGroups();
-        this.cancelRename();
-      } catch (e) {
-        this.gr.error = e.message || 'Save failed.';
+      const res = await window.saveAndReload('PATCH', '/client-groups/' + this.gr.id, { name: this.gr.name.trim() }, () => this.reloadGroups());
+      if (res.kind !== 'ok') {
+        this.gr.error = res.message || 'Save failed.';
         this.gr.loading = false;
+        return;
       }
+      if (!res.reloaded) {
+        const g = this.groups.find(x => x.id === this.gr.id);
+        if (g && res.data && res.data.name) g.name = res.data.name;
+        this.globalError = window.SAVED_NOT_RELOADED;
+      }
+      this.cancelRename();
     },
 
     deleteGroup(g) {
       showConfirm(`Delete group "${g.name}"? Its clients become ungrouped.`, async () => {
-        try {
-          await Api.clientGroups.delete(g.id);
-        } catch (e) {
-          // e.g. 409: a POT was created for the group since the page loaded
-          this.globalError = e.message || 'Delete failed.';
+        // a refusal (e.g. 409: a POT was created for the group since the page loaded) leaves the page as it is
+        const res = await window.saveAndReload('DELETE', '/client-groups/' + g.id, undefined, () => this.reloadGroups());
+        if (res.kind === 'ok') {
+          if (!res.reloaded) this.globalError = window.SAVED_NOT_RELOADED;
+          return;
         }
-        await this.reloadGroups();
+        // an unknown outcome has reloaded already; any other outcome did not write, but the list is refreshed as before
+        if (res.kind !== 'unknown') await this.reloadGroups();
+        this.globalError = res.message || 'Delete failed.';
       }, null, 'Delete group');
     },
 

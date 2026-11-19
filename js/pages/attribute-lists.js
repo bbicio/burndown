@@ -129,21 +129,14 @@
         });
       },
       methods: {
-        // The one way this page talks to the API. Never throws; `data` is the parsed body (or null).
-        async request(method, url, body) {
+        // Reads: apiFetch inside try/catch. Never throws; `data` is the parsed body (or null).
+        async read(path) {
           try {
-            const res = await fetch(url, {
-              method, credentials: 'same-origin',
-              headers: body ? { 'Content-Type': 'application/json' } : undefined,
-              body: body ? JSON.stringify(body) : undefined,
-            });
-            const data = await res.json().catch(() => null);
-            return { ok: res.ok, status: res.status, data };
-          } catch {
-            return { ok: false, status: 0, data: { error: 'Network error. Please try again.' } };
+            return { ok: true, data: await apiFetch(path), message: null };
+          } catch (err) {
+            return { ok: false, data: null, message: (err && err.message) || 'Network error. Please try again.' };
           }
         },
-        errorText(r) { return (r.data && r.data.error) || 'Network error. Please try again.'; },
 
         // Lists and topics together; the first list is selected unless the current selection still exists.
         async loadAll() {
@@ -163,12 +156,12 @@
           this.retrying = false;
         },
         async loadLists() {
-          const r = await this.request('GET', '/api/attribute-lists');
+          const r = await this.read('/attribute-lists');
           if (r.ok) { this.lists = r.data; this.listsLoaded = true; }
           return r.ok;
         },
         async loadTopics() {
-          const r = await this.request('GET', '/api/topics');
+          const r = await this.read('/topics');
           if (r.ok) this.topics = r.data.map(t => ({ ...t, _busy: null }));
           return r.ok;
         },
@@ -178,13 +171,13 @@
           if (!this.currentList) return;
           const listId = this.currentList.id;
           this.itemsLoading = !this.items.length;
-          const r = await this.request('GET', `/api/attribute-lists/${listId}/items`);
+          const r = await this.read(`/attribute-lists/${listId}/items`);
           // The flag belongs to the list on screen: cleared for this list, or when no list is shown any more.
           if (this.selection.kind !== 'list' || this.selection.id === listId) this.itemsLoading = false;
           if (this.selection.kind !== 'list' || this.selection.id !== listId) return;
           this.itemsError = !r.ok;
           if (r.ok) this.items = r.data.map(it => ({ ...it, _loading: false }));
-          else this.setCardBanner({ kind: 'error', text: this.errorText(r) });
+          else this.setCardBanner({ kind: 'error', text: r.message });
           return r;
         },
 
@@ -250,14 +243,14 @@
           const label = it.label;
           const was = it.status;
           it._loading = true;
-          const r = await this.request('PATCH', '/api/attribute-lists/' + listId + '/items/' + itemId, { status });
+          const res = await apiSave('PATCH', '/attribute-lists/' + listId + '/items/' + itemId, { status });
           it._loading = false;
           const here = this.selection.kind === 'list' && this.selection.id === listId;
-          if (!r.ok) {
-            if (here) this.setCardBanner({ kind: 'error', text: this.errorText(r) });
+          if (res.kind !== 'ok') {
+            if (here) this.setCardBanner({ kind: 'error', text: res.message });
             return;
           }
-          this.applyItemStatus(listId, itemId, r.data.status, was);
+          this.applyItemStatus(listId, itemId, res.data.status, was);
           if (!here) return;
           this.setCardBanner(status === 'inactive'
             ? { kind: 'success', strong: 'Deactivated "' + label + '".', text: "It's no longer offered when tagging. Existing tags stay.", undo: { listId, itemId, status: 'active' } }
@@ -279,12 +272,12 @@
           const was = u.status === 'active' ? 'inactive' : 'active';
           this.undoing = true;
           if (row) row._loading = true;
-          const r = await this.request('PATCH', '/api/attribute-lists/' + u.listId + '/items/' + u.itemId, { status: u.status });
+          const res = await apiSave('PATCH', '/attribute-lists/' + u.listId + '/items/' + u.itemId, { status: u.status });
           if (row) row._loading = false;
           this.undoing = false;
           const here = this.selection.kind === 'list' && this.selection.id === u.listId;
-          if (!r.ok) { if (here) this.setCardBanner({ kind: 'error', text: this.errorText(r) }); return; }
-          this.applyItemStatus(u.listId, u.itemId, r.data.status, was);
+          if (res.kind !== 'ok') { if (here) this.setCardBanner({ kind: 'error', text: res.message }); return; }
+          this.applyItemStatus(u.listId, u.itemId, res.data.status, was);
           if (this.cardBanner && this.cardBanner.undo === u) this.clearCardBanner();
         },
 
@@ -311,18 +304,18 @@
           if (form.saving) return;
           form.saving = true;
           form.error = null;
-          const r = form.mode === 'rename'
-            ? await this.request('PATCH', '/api/attribute-lists/' + form.id, { name: form.name })
-            : await this.request('POST', '/api/attribute-lists', { name: form.name });
+          const res = form.mode === 'rename'
+            ? await apiSave('PATCH', '/attribute-lists/' + form.id, { name: form.name })
+            : await apiSave('POST', '/attribute-lists', { name: form.name });
           form.saving = false;
-          if (!r.ok) { form.error = this.errorText(r); return; }
+          if (res.kind !== 'ok') { form.error = res.message; return; }
           this._listDrawer.hide();
           // A list created on the server but missing from a failed reload cannot be selected: the page shows the
           // load error (with Try again) instead of an empty content area.
           const reloaded = await this.loadLists();
           if (!reloaded) this.loadError = true;
-          const name = r.data.name;
-          if (form.mode === 'new' && reloaded) this.select({ kind: 'list', id: r.data.id });
+          const name = res.data.name;
+          if (form.mode === 'new' && reloaded) this.select({ kind: 'list', id: res.data.id });
           if (reloaded) this.setCardBanner({ kind: 'success', strong: form.mode === 'new' ? 'Created "' + name + '".' : 'Renamed to "' + name + '".', text: '' });
         },
 
@@ -336,12 +329,12 @@
           if (form.saving) return;
           form.saving = true;
           form.error = null;
-          const base = '/api/attribute-lists/' + form.listId + '/items';
-          const r = form.mode === 'edit'
-            ? await this.request('PATCH', base + '/' + form.id, { label: form.label })
-            : await this.request('POST', base, { label: form.label });
+          const base = '/attribute-lists/' + form.listId + '/items';
+          const res = form.mode === 'edit'
+            ? await apiSave('PATCH', base + '/' + form.id, { label: form.label })
+            : await apiSave('POST', base, { label: form.label });
           form.saving = false;
-          if (!r.ok) { form.error = this.errorText(r); return; }
+          if (res.kind !== 'ok') { form.error = res.message; return; }
           this._itemDrawer.hide();
           const list = this.lists.find(l => l.id === form.listId);
           if (form.mode === 'new' && list) list.active_item_count = (list.active_item_count || 0) + 1;
@@ -349,7 +342,7 @@
           // A failed reload has already put its error in the card: no success banner over a stale table.
           const reloaded = await this.loadItems();
           if (!reloaded || !reloaded.ok) return;
-          this.setCardBanner({ kind: 'success', strong: (form.mode === 'new' ? 'Added "' : 'Saved "') + r.data.label + '".', text: '' });
+          this.setCardBanner({ kind: 'success', strong: (form.mode === 'new' ? 'Added "' : 'Saved "') + res.data.label + '".', text: '' });
         },
 
         onPrimary(ev) { if (this.isTopics) this.openTopicDrawer('new', null, ev); else this.openListDrawer('new', ev); },
@@ -370,7 +363,7 @@
           const name = t.name;
           const wasProposed = t.status === 'proposed';
           t._busy = action;
-          const r = await this.request('POST', '/api/topics/' + t.id + '/' + action);
+          const res = await apiSave('POST', '/topics/' + t.id + '/' + action);
           // A successful reload replaces the row objects (spinner gone); a failed one leaves this row, so clear it.
           const reloaded = await this.loadTopics();
           if (!reloaded) t._busy = null;
@@ -380,9 +373,9 @@
             const at = document.activeElement;
             if (!at || at === document.body) document.querySelector('.al-search--topics input')?.focus();
           });
-          if (!r.ok) {
+          if (res.kind !== 'ok') {
             const reloadText = reloaded ? 'The list was reloaded. Server: ' : "The list couldn't be reloaded. Server: ";
-            if (show) this.setCardBanner({ kind: 'error', strong: "Couldn't " + action + ' "' + name + '".', text: reloadText + this.errorText(r) });
+            if (show) this.setCardBanner({ kind: 'error', strong: "Couldn't " + action + ' "' + name + '".', text: reloadText + res.message });
             return false;
           }
           if (wasProposed && action !== 'restore') this.markReviewed();
@@ -401,14 +394,14 @@
           if (form.saving) return;
           form.saving = true;
           form.error = null;
-          const r = form.mode === 'rename'
-            ? await this.request('PATCH', '/api/topics/' + form.id, { name: form.name })
-            : await this.request('POST', '/api/topics', { name: form.name });
+          const res = form.mode === 'rename'
+            ? await apiSave('PATCH', '/topics/' + form.id, { name: form.name })
+            : await apiSave('POST', '/topics', { name: form.name });
           form.saving = false;
-          if (!r.ok) { form.error = this.errorText(r); return; }
+          if (res.kind !== 'ok') { form.error = res.message; return; }
           this._topicDrawer.hide();
           const reloaded = await this.loadTopics();
-          const name = r.data && r.data.name ? r.data.name : form.name.trim();
+          const name = res.data && res.data.name ? res.data.name : form.name.trim();
           if (!reloaded) {
             const done = form.mode === 'new' ? 'Created "' + name + '"' : 'Renamed to "' + name + '"';
             if (this.isTopics) this.setCardBanner({ kind: 'error', strong: done + ", but the topics couldn't be reloaded.", text: 'Reload the page to see the change.' });
@@ -453,9 +446,9 @@
           const wasProposed = source.status === 'proposed';
           form.saving = true;
           form.error = null;
-          const r = await this.request('POST', '/api/topics/' + source.id + '/merge', { targetId });
+          const res = await apiSave('POST', '/topics/' + source.id + '/merge', { targetId });
           form.saving = false;
-          if (!r.ok) { form.error = this.errorText(r); return; }
+          if (res.kind !== 'ok') { form.error = res.message; return; }
           // The source row (and its ⋯ opener) disappears with the reload: focus goes to the topics search instead.
           this._mergeDrawer.opener = document.querySelector('.al-search--topics input');
           this.closeMerge();

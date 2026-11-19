@@ -28,4 +28,20 @@ export async function apiSave(method, path, body, opts) {
   }
 }
 
+// saveAndReload(method, path, body, reload, opts) writes with apiSave, then runs reload() only after an
+// `ok` or an `unknown` outcome (the write may have happened). It answers { ...outcome, reloaded }:
+// reloaded is true when reload() did not throw and resolved a value !== false; with any other outcome
+// reload() is not called and reloaded is false. Pages show SAVED_NOT_RELOADED when ok but not reloaded.
+export const SAVED_NOT_RELOADED = "Saved, but the list couldn't be reloaded. Reload the page to see the latest.";
+
+export async function saveAndReload(method, path, body, reload, opts) {
+  const out = await apiSave(method, path, body, opts);
+  if (out.kind !== 'ok' && out.kind !== 'unknown') return { ...out, reloaded: false };
+  let reloaded = false;
+  try { reloaded = (await reload()) !== false; } catch (e) { reloaded = false; }
+  return { ...out, reloaded };
+}
+
 window.apiSave = apiSave;
+window.saveAndReload = saveAndReload;
+window.SAVED_NOT_RELOADED = SAVED_NOT_RELOADED;

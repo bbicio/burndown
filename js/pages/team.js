@@ -215,13 +215,11 @@
           this.profileLoading = true;
           this.profileError = null;
           try {
-            const res = await fetch(`/api/resources/${id}/profile`, { credentials: 'same-origin' });
-            const data = await res.json();
+            const data = await apiFetch(`/resources/${id}/profile`);
             if (id !== this.selectedId) return;            // the panel moved on while we waited
-            if (!res.ok) { this.profileError = data.error || 'The server returned an error.'; return; }
             this.profileData = data;
-          } catch {
-            if (id === this.selectedId) this.profileError = 'Network error.';
+          } catch (e) {
+            if (id === this.selectedId) this.profileError = e.message || 'The server returned an error.';
           } finally {
             if (id === this.selectedId) this.profileLoading = false;
           }
@@ -342,52 +340,41 @@
         // Loaders return an error message, or null on success.
         async loadResources() {
           try {
-            const res = await fetch('/api/resources', { credentials: 'same-origin' });
-            const data = await res.json();
-            if (!res.ok) return data.error || 'Failed to load resources.';
-            this.resources = data;
+            this.resources = await apiFetch('/resources');
             return null;
-          } catch {
-            return 'Network error.';
+          } catch (e) {
+            return e.message || 'Failed to load resources.';
           }
         },
         async loadRoles() {
           try {
-            const res = await fetch('/api/roles', { credentials: 'same-origin' });
-            const data = await res.json();
-            if (!res.ok) return data.error || 'Failed to load roles.';
-            this.roles = data;
+            this.roles = await apiFetch('/roles');
             return null;
-          } catch {
-            return 'Network error.';
+          } catch (e) {
+            return e.message || 'Failed to load roles.';
           }
         },
         async loadUsers() {
           try {
-            const res = await fetch('/api/users/active-list', { credentials: 'same-origin' });
-            const data = await res.json();
-            if (!res.ok) return data.error || 'Failed to load users.';
-            this.users = data;
+            this.users = await apiFetch('/users/active-list');
             return null;
-          } catch {
-            return 'Network error.';
+          } catch (e) {
+            return e.message || 'Failed to load users.';
           }
         },
 
         // Errors go to the drawer's own section banner, separate from the page one.
         async loadUnmatched() {
           try {
-            const [uRes, aRes] = await Promise.all([
-              fetch('/api/resources/unmatched', { credentials: 'same-origin' }),
-              fetch('/api/resources/aliases', { credentials: 'same-origin' }),
+            const [u, a] = await Promise.all([
+              apiFetch('/resources/unmatched'),
+              apiFetch('/resources/aliases'),
             ]);
-            const [u, a] = [await uRes.json(), await aRes.json()];
-            if (!uRes.ok || !aRes.ok) { this.setUnmatchedError((u && u.error) || (a && a.error) || 'Failed to load unmatched names.'); return false; }
             this.unmatched = u;
             this.aliases = a;
             return true;
-          } catch {
-            this.setUnmatchedError('Network error.');
+          } catch (e) {
+            this.setUnmatchedError(e.message || 'Failed to load unmatched names.');
             return false;
           }
         },
@@ -418,23 +405,23 @@
           this.unmatchedBanner = null;
           const resource = body.resourceId ? this.resources.find(r => r.id === body.resourceId) : null;
           try {
-            const res = await fetch('/api/resources/aliases', {
-              method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-              body: JSON.stringify({ name: u.display_name, ...body }),
-            });
-            const data = await res.json();
-            if (!res.ok) { this.setUnmatchedError(data.error || 'Save failed.'); return; }
+            const res = await apiSave('POST', '/resources/aliases', { name: u.display_name, ...body });
+            if (res.kind !== 'ok') {
+              this.setUnmatchedError(res.message);
+              // 409 ALREADY_RESOLVED: the name was resolved elsewhere, so the queue is stale.
+              // An unknown outcome may have written: the queue is stale then too.
+              if ((res.kind === 'error' && res.status === 409) || res.kind === 'unknown') await this.loadUnmatched();
+              return;
+            }
             delete this.assignChoice[u.name_normalized];
             this.resolvedThisSession++;
             const reloaded = await this.loadUnmatched();
-            if (!reloaded) return;
+            if (!reloaded) { this.setUnmatchedError(window.SAVED_NOT_RELOADED); return; }
             this.unmatchedBanner = action === 'ignore'
               ? { kind: 'success', strong: `"${u.display_name}" ignored.`, text: 'Stored as an ignored alias.' }
               : { kind: 'success',
                   strong: `"${u.display_name}" assigned to ${resource ? `${resource.first_name} ${resource.last_name} (${resource.role_code})` : 'the resource'}.`,
                   text: 'Removed from the queue. Their profile updates in the next background run.' };
-          } catch {
-            this.setUnmatchedError('Network error.');
           } finally {
             delete this.busyUnmatched[key];
           }
@@ -450,12 +437,11 @@
           this.busyAliasIds.add(a.id);
           this.unmatchedBanner = null;
           try {
-            const res = await fetch(`/api/resources/aliases/${a.id}`, { method: 'DELETE', credentials: 'same-origin' });
-            const data = await res.json();
-            if (!res.ok) { this.setUnmatchedError(data.error || 'Remove failed.'); return; }
-            await this.loadUnmatched();
-          } catch {
-            this.setUnmatchedError('Network error.');
+            const res = await apiSave('DELETE', `/resources/aliases/${a.id}`);
+            if (res.kind !== 'ok' && res.kind !== 'unknown') { this.setUnmatchedError(res.message); return; }
+            if (res.kind === 'unknown') this.setUnmatchedError(res.message);
+            const reloaded = await this.loadUnmatched();
+            if (res.kind === 'ok' && !reloaded) this.setUnmatchedError(window.SAVED_NOT_RELOADED);
           } finally {
             this.busyAliasIds.delete(a.id);
           }
@@ -464,12 +450,11 @@
           this.rescanning = true;
           this.unmatchedBanner = null;
           try {
-            const res = await fetch('/api/resources/unmatched/rescan', { method: 'POST', credentials: 'same-origin' });
-            const data = await res.json();
-            if (!res.ok) { this.setUnmatchedError(data.error || 'Rescan failed.'); return; }
-            await this.loadUnmatched();
-          } catch {
-            this.setUnmatchedError('Network error.');
+            const res = await apiSave('POST', '/resources/unmatched/rescan');
+            if (res.kind !== 'ok' && res.kind !== 'unknown') { this.setUnmatchedError(res.message); return; }
+            if (res.kind === 'unknown') this.setUnmatchedError(res.message);
+            const reloaded = await this.loadUnmatched();
+            if (res.kind === 'ok' && !reloaded) this.setUnmatchedError(window.SAVED_NOT_RELOADED);
           } finally {
             this.rescanning = false;
           }
@@ -487,6 +472,10 @@
             ...this.blankForm(),
             id: r.id, firstName: r.first_name, lastName: r.last_name, email: r.email,
             roleId: r.role_id, jobDescription: r.job_description || '', userId: r.user_id, status: r.status,
+          };
+          this.form.initial = {
+            firstName: this.form.firstName, lastName: this.form.lastName, email: this.form.email,
+            roleId: this.form.roleId, jobDescription: this.form.jobDescription, userId: this.form.userId,
           };
           this.created = null;
           drawerOpener = document.activeElement;
@@ -510,26 +499,45 @@
         },
         async submitForm() {
           if (!this.validateForm()) return;
-          this.form.loading = true;
           const payload = {
             firstName: this.form.firstName, lastName: this.form.lastName, email: this.form.email,
             roleId: this.form.roleId, jobDescription: this.form.jobDescription, userId: this.form.userId,
           };
           const editing = !!this.form.id;
+          // An edit sends only what changed; with nothing changed no request is made.
+          const changes = editing ? window.changedResourceFields(this.form.initial, this.form) : null;
+          if (editing && !Object.keys(changes).length) {
+            resourceDrawer.hide();
+            this.setBanner('success', 'No changes.');
+            return;
+          }
+          this.form.loading = true;
           try {
-            const url = editing ? `/api/resources/${this.form.id}` : '/api/resources';
-            const method = editing ? 'PATCH' : 'POST';
-            const res = await fetch(url, {
-              method, headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-              body: JSON.stringify(payload),
-            });
-            const data = await res.json();
-            if (!res.ok) { this.form.error = data.error || 'Save failed.'; return; }
+            const res = editing
+              ? await apiSave('PATCH', `/resources/${this.form.id}`, changes)
+              : await apiSave('POST', '/resources', payload);
+            if (res.kind === 'unknown') {
+              this.form.error = res.message;
+              await this.loadResources();
+              await this.loadUnmatched();
+              return;
+            }
+            if (res.kind !== 'ok') { this.form.error = res.message; return; }
+            const data = res.data;
+            if (editing) {
+              const row = this.resources.find(x => x.id === this.form.id);
+              if (row && data) {
+                Object.assign(row, data);
+                // the PATCH answers the base row: the role's label and code come from the roles list
+                const newRole = this.roles.find(x => x.id === data.role_id);
+                if (newRole) { row.role_label = newRole.label; row.role_code = newRole.code; }
+              }
+            }
             const err = await this.loadResources();
             await this.loadUnmatched();
             if (editing) {
               resourceDrawer.hide();
-              this.setBanner(err ? 'error' : 'success', err || 'Changes saved.');
+              this.setBanner(err ? 'error' : 'success', err ? window.SAVED_NOT_RELOADED : 'Changes saved.');
             } else {
               const role = this.roles.find(x => x.id === payload.roleId);
               this.created = {
@@ -537,10 +545,8 @@
                 name: `${data.first_name} ${data.last_name}`,
                 roleText: role ? `${role.label} (${role.code})` : '',
               };
-              if (err) this.setBanner('error', err);
+              if (err) this.setBanner('error', window.SAVED_NOT_RELOADED);
             }
-          } catch {
-            this.form.error = 'Network error. Please try again.';
           } finally {
             this.form.loading = false;
           }
@@ -602,19 +608,13 @@
           const name = `${r.first_name} ${r.last_name}`;
           try {
             const newStatus = r.status === 'active' ? 'inactive' : 'active';
-            const res = await fetch(`/api/resources/${r.id}`, {
-              method: 'PATCH', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
-              body: JSON.stringify({ status: newStatus }),
-            });
-            const data = await res.json();
-            if (!res.ok) { this.setBanner('error', data.error || 'Save failed.'); return; }
-            r.status = data.status;
-            this.setBanner('success', data.status === 'active'
+            const res = await apiSave('PATCH', `/resources/${r.id}`, { status: newStatus });
+            if (res.kind !== 'ok') { this.setBanner('error', res.message); return; }
+            r.status = res.data.status;
+            this.setBanner('success', res.data.status === 'active'
               ? `${name} was activated.`
               : `${name} was deactivated. Their hours and aliases stay attributed. Find them under Inactive.`);
             await this.loadUnmatched();
-          } catch {
-            this.setBanner('error', 'Network error.');
           } finally {
             r._loading = false;
           }
@@ -643,14 +643,17 @@
           this.clearBanner();
           const name = `${r.first_name} ${r.last_name}`;
           try {
-            const res = await fetch(`/api/resources/${r.id}`, { method: 'DELETE', credentials: 'same-origin' });
-            const data = await res.json();
-            if (!res.ok) { this.setBanner('error', data.error || 'Delete failed.'); return; }
+            const res = await apiSave('DELETE', `/resources/${r.id}`);
+            if (res.kind === 'unknown') {
+              this.setBanner('error', res.message);
+              await this.loadResources();
+              await this.loadUnmatched();
+              return;
+            }
+            if (res.kind !== 'ok') { this.setBanner('error', res.message); return; }
             this.setBanner('success', `${name} was deleted.`);
-            const err = await this.loadResources(); if (err) this.setBanner('error', err);
+            const err = await this.loadResources(); if (err) this.setBanner('error', window.SAVED_NOT_RELOADED);
             await this.loadUnmatched();
-          } catch {
-            this.setBanner('error', 'Network error.');
           } finally {
             r._loading = false;
           }
