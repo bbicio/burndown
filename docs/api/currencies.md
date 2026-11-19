@@ -14,6 +14,6 @@ The currencies admin surface, backing `master-currencies.html`. `CLAUDE.md`'s Fi
 
 ## Rate history invariant
 
-Every rate change — whether it comes from `activate` or from `rate` — both updates `currencies.current_rate` and inserts a `currency_rates` row. The history table is therefore complete by construction; nothing reconstructs it after the fact.
+Every rate change — whether it comes from `activate` or from `rate` — both updates `currencies.current_rate` and inserts a `currency_rates` row, in one transaction after reading the currency under `FOR UPDATE` (2026-11-19, save-c5): a failed history row leaves the rate and the active flag as they were. The history table is therefore complete by construction; nothing reconstructs it after the fact.
 
 Schema: `012_currencies.sql` (see [docs/db/migrations.md](../db/migrations.md)).

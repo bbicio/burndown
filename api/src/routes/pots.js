@@ -1,5 +1,6 @@
 const express = require('express');
-const { query } = require('../db/client');
+const { query, pool } = require('../db/client');
+const { withTransaction } = require('../db/transaction');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { potVersionsCte } = require('../lib/pot-fee-sql');
 const { amountError, MONEY_RULE_CODE, MAX_NUMERIC_14_2 } = require('../lib/money-rules');
@@ -266,16 +267,20 @@ router.post('/', requireAuth, requireAdmin, async (req, res, next) => {
       const labelErr = specialLabelError(specialLabel);
       if (labelErr) return res.status(400).json({ error: labelErr });
     }
-    const { rows } = await query(
-      `INSERT INTO pots (client_group_id, client_id, special_label, year, amount)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [clientGroupId || null, clientId || null, specialLabel || null, parseInt(year), amount]
-    );
-    await query(
-      'INSERT INTO pot_history (pot_id, old_value, new_value, changed_by) VALUES ($1, NULL, $2, $3)',
-      [rows[0].id, amount, req.user.id]
-    );
-    res.status(201).json(rows[0]);
+    // The POT and its first history row are written together, or neither is.
+    const pot = await withTransaction(pool, async (client) => {
+      const { rows } = await client.query(
+        `INSERT INTO pots (client_group_id, client_id, special_label, year, amount)
+         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+        [clientGroupId || null, clientId || null, specialLabel || null, parseInt(year), amount]
+      );
+      await client.query(
+        'INSERT INTO pot_history (pot_id, old_value, new_value, changed_by) VALUES ($1, NULL, $2, $3)',
+        [rows[0].id, amount, req.user.id]
+      );
+      return rows[0];
+    });
+    res.status(201).json(pot);
   } catch (err) {
     if (err.code === '23505') return res.status(409).json({ error: 'A POT already exists for this target and year' });
     next(err);
@@ -394,6 +399,7 @@ router.get('/:id/history', requireAuth, requireAdmin, async (req, res, next) => 
 });
 
 // PATCH /api/pots/:id (admin only)
+// The amount and its history row are written in one transaction; the old value is read under the row lock.
 router.patch('/:id', requireAuth, requireAdmin, async (req, res, next) => {
   try {
     if (!isUuid(req.params.id)) return res.status(400).json({ error: 'Invalid POT id' });
@@ -402,17 +408,21 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res, next) => {
     const moneyErr = amountError(amount, 'EUR', 'POT amount', { max: MAX_NUMERIC_14_2 });
     if (moneyErr) return res.status(400).json({ error: moneyErr, code: MONEY_RULE_CODE });
     if (!note || !note.trim()) return res.status(400).json({ error: 'note is required when updating a POT' });
-    const old = await query('SELECT amount FROM pots WHERE id = $1', [req.params.id]);
-    if (!old.rows[0]) return res.status(404).json({ error: 'POT not found' });
-    const { rows } = await query(
-      'UPDATE pots SET amount = $1 WHERE id = $2 RETURNING *',
-      [amount, req.params.id]
-    );
-    await query(
-      'INSERT INTO pot_history (pot_id, old_value, new_value, note, changed_by) VALUES ($1, $2, $3, $4, $5)',
-      [req.params.id, old.rows[0].amount, amount, note.trim(), req.user.id]
-    );
-    res.json(rows[0]);
+    const pot = await withTransaction(pool, async (client) => {
+      const old = await client.query('SELECT amount FROM pots WHERE id = $1 FOR UPDATE', [req.params.id]);
+      if (!old.rows[0]) return null;
+      const { rows } = await client.query(
+        'UPDATE pots SET amount = $1 WHERE id = $2 RETURNING *',
+        [amount, req.params.id]
+      );
+      await client.query(
+        'INSERT INTO pot_history (pot_id, old_value, new_value, note, changed_by) VALUES ($1, $2, $3, $4, $5)',
+        [req.params.id, old.rows[0].amount, amount, note.trim(), req.user.id]
+      );
+      return rows[0];
+    });
+    if (!pot) return res.status(404).json({ error: 'POT not found' });
+    res.json(pot);
   } catch (err) { next(err); }
 });
 
