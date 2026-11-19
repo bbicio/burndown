@@ -749,6 +749,7 @@ client_groups (
 )
 
 -- clients.group_id UUID REFERENCES client_groups(id) ON DELETE SET NULL  (added in migration 005)
+-- uq_clients_name_lower ON clients (lower(name)), uq_client_groups_name_lower ON client_groups (lower(name))  (migration 038)
 
 pots (
   id              UUID PRIMARY KEY,
@@ -934,8 +935,8 @@ flowchart LR
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET/POST | /api/clients | admin | List / create |
-| PATCH/DELETE | /api/clients/:id | admin | Update / delete |
+| GET/POST | /api/clients | admin | List / create; a name taken regardless of case → 409 `NAME_TAKEN` |
+| PATCH/DELETE | /api/clients/:id | admin | Update / delete; a rename to a taken name → 409 `NAME_TAKEN` |
 | GET | /api/programs | ✅ | List (all authenticated users) |
 | POST | /api/programs | ✅ | Create (2026-09: relaxed from admin — a non-admin proposal owner/editor can establish a program via costgrid.html's Generate Project flow) |
 | PATCH | /api/programs/:id | ✅ | Update name (2026-09: relaxed from admin, same reason; if the program already has ≥1 linked project, caller must be admin or owner/editor on at least one of them) |
@@ -1073,15 +1074,15 @@ No `DELETE` exists for lists or items — see `resources` vs `attribute_lists`/`
 | GET | /api/pipeline-years | ✅ | List years (admin: all; user: active only); (2026-11-11) admin and sysadmin also get `proposals` = cost grids with any version in that year, Drafts and Canceled included (`master-pipelines.html`'s Delete check); each row has `offers` (2026-10-06) = proposals the caller would see in that year's SIP…Committed board columns (board visibility, display version not Canceled); (2026-10-29) the display version is the shared reference-version rule (`referenceVersionsCte`, projects through either link) and each proposal counts only in its year |
 | POST | /api/pipeline-years | admin | Create year (2000–2100) |
 | PATCH | /api/pipeline-years/:id | admin | Toggle active/inactive |
-| DELETE | /api/pipeline-years/:id | admin | Delete (blocked if versions reference it) |
+| DELETE | /api/pipeline-years/:id | admin | Delete; refused with 409 `YEAR_IN_USE` when versions reference it, `YEAR_HAS_POTS` when POTs are set for it (one transaction, year row locked) |
 
 ### Client Groups
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
 | GET | /api/client-groups | ✅ | List all groups with member clients — `requireAuth` only, not admin (the POT/pipeline views read it); admin and sysadmin also get each group's `pots: [{ id, year }]`, newest year first |
-| POST | /api/client-groups | admin | Create group |
-| PATCH | /api/client-groups/:id | admin | Rename group |
+| POST | /api/client-groups | admin | Create group; a name taken regardless of case → 409 `NAME_TAKEN` |
+| PATCH | /api/client-groups/:id | admin | Rename group; a taken name → 409 `NAME_TAKEN` |
 | DELETE | /api/client-groups/:id | admin | Delete group; `409 GROUP_HAS_POT` when the group has a POT (checked under a row lock) |
 | PUT | /api/client-groups/:id/clients/:clientId | admin | Assign client to group (idempotent) |
 | DELETE | /api/client-groups/:id/clients/:clientId | admin | Remove client from group |

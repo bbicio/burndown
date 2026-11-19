@@ -548,7 +548,7 @@ Master Data is for administrators. The pages are reached from the entries under 
 
 ### Clients and groups
 
-A client is a name, used to group projects. The page has a **List** view and a **By group** view. **+ Add client** opens a drawer for the name and an optional group; clients can be renamed and deleted from their row, and a client that still has projects cannot be deleted. A group bundles clients that share a revenue target; a client belongs to at most one group, and a group that has a target cannot be deleted.
+A client is a name, used to group projects. The page has a **List** view and a **By group** view. **+ Add client** opens a drawer for the name and an optional group; clients can be renamed and deleted from their row, and a client that still has projects cannot be deleted. A group bundles clients that share a revenue target; a client belongs to at most one group, and a group that has a target cannot be deleted. Client names and group names must be unique, whatever the capitals: "acme" is refused when "Acme" exists.
 
 Each client's **Rate card** holds the rate for each role: the agency default, shown for reference, and a custom rate for this client, with an extra column for each active currency. A blank custom rate means the agency default applies. A new offer for the client takes its custom rates automatically.
 
