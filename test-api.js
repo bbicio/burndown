@@ -3450,6 +3450,11 @@ async function testTagLinking() {
     ok((await api('PUT', `/api/projects/${standaloneProjId}/tags/not-a-uuid`, null, adminCookie)).status === 400,
       'TAG-18 PUT project tag with a non-UUID itemId → 400');
   }
+  // TAG-18 (project id half): a non-UUID project id is a 404, not a 500
+  if (itemId) {
+    ok((await api('PUT', `/api/projects/not-a-uuid/tags/${itemId}`, null, adminCookie)).status === 404,
+      'TAG-18 PUT tag on a non-UUID project id → 404');
+  }
 
   // TAG-17: a :vId that belongs to a different cost grid is rejected with 404 (GET and PUT)
   if (cgId && vId) {
@@ -3536,6 +3541,13 @@ async function testTagLinking() {
       const url = `/api/cost-grids/${cgId}/versions/${vId}/tags/${itemId}`;
       ok((await api('PUT', url, null, viewerCookie)).status === 403, 'TAG-25 viewer PUT version tag → 403');
       ok((await api('DELETE', url, null, viewerCookie)).status === 403, 'TAG-25 viewer DELETE version tag → 403');
+      if (standaloneProjId) {
+        const rPShare = await api('POST', `/api/projects/${standaloneProjId}/shares`, { userId: viewer.id, permission: 'viewer' }, adminCookie);
+        ok(rPShare.status === 201, `TAG-25 setup: project shared with the viewer (got ${rPShare.status})`);
+        const purl = `/api/projects/${standaloneProjId}/tags/${itemId}`;
+        ok((await api('PUT', purl, null, viewerCookie)).status === 403, 'TAG-25 viewer PUT project tag → 403');
+        ok((await api('DELETE', purl, null, viewerCookie)).status === 403, 'TAG-25 viewer DELETE project tag → 403');
+      }
     } else {
       ok(false, 'TAG-25 skipped — viewer user unavailable');
     }

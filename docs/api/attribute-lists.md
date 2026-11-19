@@ -26,7 +26,7 @@ Tags are assigned one at a time; there is no replace-all route. The routes live 
 
 - `GET /api/projects/:id/tags` and `GET /api/cost-grids/:id/versions/:vId/tags` list the assigned items (`item_id, label, status, list_id, list_name, list_slug`, ordered by list name then label).
 - `PUT` and `DELETE` on `…/tags/:itemId` of the same two paths assign and remove one item. Both answer `200` with the list the `GET` returns; assigning an assigned item or removing an absent one changes nothing.
-- Errors in order: `403 Access denied` (no edit permission); `404 Project not found` / `Version not found`; `400 Version is locked` (versions); `400 itemId must be a valid UUID`; `400 Tag item does not exist`. A version of another grid answers `404 Version not found` before the permission check (`versionScope`).
+- Errors in order: `403 Access denied` (no edit permission); `404 Project not found` (also for a project id that is not a UUID) / `Version not found`; `400 Version is locked` (versions); `400 itemId must be a valid UUID`; `400 Tag item does not exist`. A version of another grid answers `404 Version not found` before the permission check (`versionScope`).
 - Any existing item is accepted, inactive ones included, so an inactive tag can always be removed.
 
 ## Unique item label

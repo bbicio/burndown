@@ -386,7 +386,7 @@
           <div v-if="tagsCollapsed" class="cg-tag-summary">
             <span v-if="tagsState === 'unknown'" class="text-muted">Unavailable</span>
             <span v-else-if="!tagsSummaryGroups.length" class="text-muted">None selected</span>
-            <span v-for="g in tagsSummaryGroups" :key="g.name" class="cg-tag-summary-pill">{{ g.name }} · {{ g.labels.join(', ') }}</span>
+            <template v-if="tagsState !== 'unknown'"><span v-for="g in tagsSummaryGroups" :key="g.name" class="cg-tag-summary-pill">{{ g.name }} · {{ g.labels.join(', ') }}</span></template>
           </div>
           <span class="cg-section-toggle-label">{{ tagsCollapsed ? 'Edit' : 'Collapse' }}</span>
         </div>

@@ -1032,11 +1032,7 @@ async function changeVersionTag(req, res, next, assign) {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const ver = isUuid(req.params.vId)
-      ? await query(
-          'SELECT locked FROM cost_grid_versions WHERE id = $1 AND cost_grid_id = $2',
-          [req.params.vId, req.params.id])
-      : { rows: [] };
+    const ver = await query('SELECT locked FROM cost_grid_versions WHERE id = $1', [req.params.vId]);
     if (!ver.rows[0]) return res.status(404).json({ error: 'Version not found' });
     if (ver.rows[0].locked) return res.status(400).json({ error: 'Version is locked' });
     if (!isUuid(req.params.itemId)) return res.status(400).json({ error: 'itemId must be a valid UUID' });

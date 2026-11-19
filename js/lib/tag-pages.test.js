@@ -6,6 +6,9 @@ import { join } from 'node:path';
 const pc = readFileSync(join(process.cwd(), 'project-config.html'), 'utf8');
 
 describe('project-config tags', () => {
+  it('hides the summary pills while the tags are unknown', () => {
+    expect(pc).toMatch(/<template v-if="tagsState !== 'unknown'"><span v-for="g in tagsSummaryGroups"/);
+  });
   it('writes one item through tagToggle', () => {
     expect(pc).toContain('window.tagToggle(');
     expect(pc).not.toContain('Api.projects.tags.replace');
@@ -30,6 +33,9 @@ describe('project-config tags', () => {
 const cg = readFileSync(join(process.cwd(), 'costgrid.html'), 'utf8');
 
 describe('costgrid tags', () => {
+  it('hides the summary pills while the tags are unknown', () => {
+    expect(cg).toMatch(/<template v-if="tagsState !== 'unknown'"><span v-for="g in tagsSummaryGroups"/);
+  });
   it('writes one item through tagToggle', () => {
     expect(cg).toContain('window.tagToggle(');
     expect(cg).not.toContain('versions.tags.replace');

@@ -435,6 +435,7 @@ router.get('/:id/tags', requireAuth, async (req, res, next) => {
 // copyVersionTagsToProject, then edited here.
 async function changeProjectTag(req, res, next, assign) {
   try {
+    if (!isUuid(req.params.id)) return res.status(404).json({ error: 'Project not found' });
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
