@@ -1,5 +1,6 @@
 const express = require('express');
-const { query } = require('../db/client');
+const { query, pool } = require('../db/client');
+const { withTransaction } = require('../db/transaction');
 const { requireAuth, requireSysAdmin } = require('../middleware/auth');
 
 const router = express.Router();
@@ -118,7 +119,8 @@ router.get('/terms/versions/:version', requireSysAdmin, async (req, res, next) =
 // terms.html's GET /terms). publishNewVersion=true additionally inserts an
 // immutable row into terms_versions -- the new source of truth for "what's
 // the latest published version" -- and syncs the draft to match, so the next
-// edit starts from what was just published.
+// edit starts from what was just published. All in one transaction: a publish that loses the race for
+// terms_versions.version (23505) rolls back and answers 409 STALE with the version that won.
 router.put('/terms', requireSysAdmin, async (req, res, next) => {
   try {
     const { content, publishNewVersion } = req.body;
@@ -126,25 +128,41 @@ router.put('/terms', requireSysAdmin, async (req, res, next) => {
       return res.status(400).json({ error: 'content must be a string of at most 100000 characters' });
     }
 
-    let newVersion = null;
-    if (publishNewVersion) {
-      const cur = await query('SELECT COALESCE(MAX(version), 0) AS max_version FROM terms_versions');
-      newVersion = cur.rows[0].max_version + 1;
-      await query(
-        'INSERT INTO terms_versions (version, content, published_at, published_by) VALUES ($1, $2, NOW(), $3)',
-        [newVersion, content, req.user.id]
-      );
-    }
+    let newVersion;
+    try {
+      newVersion = await withTransaction(pool, async (client) => {
+        let version = null;
+        if (publishNewVersion) {
+          const cur = await client.query('SELECT COALESCE(MAX(version), 0) AS max_version FROM terms_versions');
+          version = cur.rows[0].max_version + 1;
+          await client.query(
+            'INSERT INTO terms_versions (version, content, published_at, published_by) VALUES ($1, $2, NOW(), $3)',
+            [version, content, req.user.id]
+          );
+        }
 
-    await query(
-      "INSERT INTO app_settings (key, value, updated_at, updated_by) VALUES ('terms_content', $1, NOW(), $2) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW(), updated_by = $2",
-      [content, req.user.id]
-    );
-    if (publishNewVersion) {
-      await query(
-        "INSERT INTO app_settings (key, value, updated_at, updated_by) VALUES ('terms_version', $1, NOW(), $2) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW(), updated_by = $2",
-        [String(newVersion), req.user.id]
-      );
+        await client.query(
+          "INSERT INTO app_settings (key, value, updated_at, updated_by) VALUES ('terms_content', $1, NOW(), $2) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW(), updated_by = $2",
+          [content, req.user.id]
+        );
+        if (publishNewVersion) {
+          await client.query(
+            "INSERT INTO app_settings (key, value, updated_at, updated_by) VALUES ('terms_version', $1, NOW(), $2) ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW(), updated_by = $2",
+            [String(version), req.user.id]
+          );
+        }
+        return version;
+      });
+    } catch (err) {
+      if (err.code === '23505' && err.table === 'terms_versions') {
+        const cur = await query('SELECT COALESCE(MAX(version), 0) AS max_version FROM terms_versions');
+        return res.status(409).json({
+          error: 'Another version was published at the same time. Reload to see it.',
+          code: 'STALE',
+          version: cur.rows[0].max_version,
+        });
+      }
+      throw err;
     }
 
     res.json({ ok: true, newVersion });
