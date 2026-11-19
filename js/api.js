@@ -208,16 +208,10 @@ const Api = {
 
   pipelineYears: {
     list:   ()            => apiFetch('/pipeline-years'),
-    create: (year, active) => apiFetch('/pipeline-years', { method: 'POST', body: JSON.stringify(active !== undefined ? { year, active } : { year }) }),
-    toggle: (id, active)  => apiFetch(`/pipeline-years/${id}`, { method: 'PATCH', body: JSON.stringify({ active }) }),
-    delete: (id)          => apiFetch(`/pipeline-years/${id}`, { method: 'DELETE' }),
   },
 
   pots: {
     list:    (year)         => apiFetch('/pots' + (year ? `?year=${encodeURIComponent(year)}` : '')),
-    create:  (d)            => apiFetch('/pots', { method: 'POST', body: JSON.stringify(d) }),
-    update:  (id, amount, note) => apiFetch(`/pots/${id}`, { method: 'PATCH', body: JSON.stringify({ amount, note }) }),
-    delete:  (id)           => apiFetch(`/pots/${id}`, { method: 'DELETE' }),
     history:         (id)         => apiFetch(`/pots/${id}/history`),
     summary:         (params)     => apiFetch('/pots/summary?' + new URLSearchParams(params)),
     pipelineSummary: (year)       => apiFetch(`/pots/pipeline-summary?year=${encodeURIComponent(year)}`),
