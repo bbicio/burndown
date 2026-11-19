@@ -131,18 +131,10 @@ const Api = {
 
   clients: {
     list:   ()              => apiFetch('/clients'),
-    create: (name)          => apiFetch('/clients',     { method: 'POST',   body: JSON.stringify({ name }) }),
-    update: (id, name)      => apiFetch(`/clients/${id}`, { method: 'PATCH',  body: JSON.stringify({ name }) }),
-    delete: (id)            => apiFetch(`/clients/${id}`, { method: 'DELETE' }),
   },
 
   clientGroups: {
     list:           ()                    => apiFetch('/client-groups'),
-    create:         (name)                => apiFetch('/client-groups', { method: 'POST', body: JSON.stringify({ name }) }),
-    rename:         (id, name)            => apiFetch(`/client-groups/${id}`, { method: 'PATCH', body: JSON.stringify({ name }) }),
-    delete:         (id)                  => apiFetch(`/client-groups/${id}`, { method: 'DELETE' }),
-    assignClient:   (groupId, clientId)   => apiFetch(`/client-groups/${groupId}/clients/${clientId}`, { method: 'PUT' }),
-    removeClient:   (groupId, clientId)   => apiFetch(`/client-groups/${groupId}/clients/${clientId}`, { method: 'DELETE' }),
   },
 
   programs: {

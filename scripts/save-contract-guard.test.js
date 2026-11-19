@@ -42,9 +42,8 @@ const SERVER_EXEMPT = new Set([
 
 const CLIENT_EXEMPT = new Set([
   // Save contract cycles 2 and 3 moved the cost grid editor's Save and the project and program writes to apiSave;
-  // these writes stay (cycle 5: actuals; cycle 6: clients; cycle 7: single shares; the lifecycle
+  // these writes stay (cycle 5: actuals; cycle 7: single shares; the lifecycle
   // of a proposal is out of scope).
-  'js/clients.js',
   'js/costgrid.js: costGrids.create',
   'js/costgrid.js: costGrids.delete',
   'js/costgrid.js: costGrids.versions.create',
@@ -59,13 +58,11 @@ const CLIENT_EXEMPT = new Set([
   'js/pages/admin.js',
   'js/pages/costgrid.js: costGrids.reassignOwner',
   'js/pages/login.js',
-  'js/pages/master-clients.js',
   'js/pages/master-currencies.js',
   'js/pages/master-pipelines.js',
   'js/pages/pipeline.js',
   'js/pages/planning.js',
   'js/pages/profile.js',
-  'js/pages/project-config.js: clients.create',
   'js/pages/project-config.js: timesheets.delete',
   'js/pages/project-config.js: timesheets.upload',
   'js/pages/reset-password.js',
@@ -80,6 +77,9 @@ const CLIENT_EXEMPT = new Set([
 
 const RETIRED = [
   'js/pages/master-roles.js',
+  'js/clients.js',
+  'js/pages/master-clients.js',
+  'js/pages/project-config.js: clients.create',
   'api/src/routes/config.js: roles',
   'api/src/routes/config.js: ratecards',
   'api/src/routes/config.js: ratecard_entries',

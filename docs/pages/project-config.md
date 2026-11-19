@@ -9,6 +9,7 @@ This file holds the full implementation narrative for this page — cycle-by-cyc
 Single reactive project object, not an array; unknown `?projectId=` shows an explicit not-found state instead of falling back to a random project. No longer loads `js/config-form.js` or `js/roles.js`. Page-title-bar (matching `portfolio.html`/`pipeline.html`) shows the project's name (or "New Project" via `isNewProject` for the no-`?projectId=` creation flow). `resolveProject()` normalizes any task's `monthlyDistribution: null` (seen on real data) to `{}` — the Monthly % distribution grid's `v-model` indexes directly into it.
 
 `saveClientModal()`/`saveProgramModal()` (the nested "+ New client"/"+ New program" modals next to their respective dropdowns) guard against a fast repeat click via a `saving` flag on `clientModal`/`programModal` (2026-08, closing a finding from `docs/superpowers/audits/2026-08-04-double-submit-closing-audit.md`) — set as an explicit `if (this.X.saving) return;` first statement plus `:disabled`/text-swap on the Save button, matching this file's own `onSave()` pattern; previously these two had zero protection of any kind, unlike every other save/submit action in the app.
+`saveClientModal()` writes with `apiSave('POST', '/clients', { name })`; a refusal (including a taken name, `NAME_TAKEN`) shows in the modal, and on success the new client is selected.
 
 ## Actuals block (2026-09)
 

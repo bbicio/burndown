@@ -673,16 +673,12 @@
         const name = this.clientModal.name.trim();
         if (!name) { this.clientModal.error = 'Name is required.'; return; }
         this.clientModal.saving = true;
-        try {
-          const created = await Api.clients.create(name);
-          await loadClientsFromApi();
-          this.project.clientId = created.id;
-          bootstrap.Modal.getInstance(document.getElementById('clientEditModal'))?.hide();
-        } catch (e) {
-          this.clientModal.error = e.message || 'Save failed.';
-        } finally {
-          this.clientModal.saving = false;
-        }
+        const res = await window.apiSave('POST', '/clients', { name });
+        if (res.kind !== 'ok') { this.clientModal.saving = false; this.clientModal.error = res.message || 'Save failed.'; return; }
+        await loadClientsFromApi();
+        this.project.clientId = res.data.id;
+        bootstrap.Modal.getInstance(document.getElementById('clientEditModal'))?.hide();
+        this.clientModal.saving = false;
       },
       openProgramModal() {
         this.programModal = { name: '', id: '', error: '', saving: false };
