@@ -222,8 +222,6 @@ const Api = {
   currencies: {
     active:     ()           => apiFetch('/currencies/active'),
     list:       ()           => apiFetch('/currencies'),
-    activate:   (code, rate) => apiFetch(`/currencies/${encodeURIComponent(code)}/activate`, { method: 'POST',  body: JSON.stringify({ rate }) }),
-    updateRate: (code, rate) => apiFetch(`/currencies/${encodeURIComponent(code)}/rate`,     { method: 'PATCH', body: JSON.stringify({ rate }) }),
     history:    (code)       => apiFetch(`/currencies/${encodeURIComponent(code)}/history`),
   },
 
