@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sortResources, filterComboOptions, buildProfileTree, paginate, sortUnmatched, fold } from './team-ui.js';
+import { sortResources, filterComboOptions, buildProfileTree, paginate, sortUnmatched, fold, changedResourceFields } from './team-ui.js';
 
 describe('buildProfileTree', () => {
   const profile = {
@@ -445,5 +445,25 @@ describe('profileCalcText', () => {
   it('dash when missing or invalid', () => {
     expect(profileCalcText(null)).toBe('—');
     expect(profileCalcText('nope')).toBe('—');
+  });
+});
+
+describe('changedResourceFields', () => {
+  const initial = { firstName: 'Ada', lastName: 'L', email: 'a@x', roleId: 'r1', jobDescription: 'Dev', userId: 'u1' };
+  it('answers {} when nothing differs', () => {
+    expect(changedResourceFields(initial, { ...initial })).toEqual({});
+  });
+  it('answers only the changed field', () => {
+    expect(changedResourceFields(initial, { ...initial, email: 'new@x' })).toEqual({ email: 'new@x' });
+  });
+  it('treats null, undefined and empty string as equal', () => {
+    expect(changedResourceFields({ ...initial, jobDescription: null }, { ...initial, jobDescription: '' })).toEqual({});
+    expect(changedResourceFields({ ...initial, jobDescription: undefined }, { ...initial, jobDescription: null })).toEqual({});
+  });
+  it('sends a cleared userId as null', () => {
+    expect(changedResourceFields(initial, { ...initial, userId: null })).toEqual({ userId: null });
+  });
+  it('ignores fields other than the six', () => {
+    expect(changedResourceFields({ ...initial, status: 'active', errors: {} }, { ...initial, status: 'inactive', errors: { a: 1 } })).toEqual({});
   });
 });
