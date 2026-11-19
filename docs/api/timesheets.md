@@ -16,6 +16,12 @@ Additionally snapshots a `fee` onto every entry via `api/src/lib/rate-resolve.js
 
 Both `LEFT JOIN LATERAL` uses above and `visibleCodes()`'s own non-admin filter share one `projectVisibilityPredicate(alias, userIdParam, isAdminExpr)` helper (owner or `resource_shares`) so a duplicate `project_code` across two projects with different visibility never leaks the inaccessible one's name, currency, or task rates to a user who can't see it — including at upload time, where the uploader's own visibility scopes which project's rates get snapshotted (a duplicate code with no project visible to the uploader resolves to `fee: 0`, the same as any other unresolvable rate, rather than ever drawing from a project they can't see). This is a narrower, correctness-focused helper than the `DELETE /:projectCode` handler's own visibility check just below it, which is intentionally different (owner/editor *permission*, not read visibility) and was not folded in.
 
+**One transaction (2026-11-19, save-c5).** After the validations, the `DELETE`+`INSERT` of every code in the file run in one `withTransaction`: an error anywhere leaves every code's actuals as they were. Before any `DELETE` it takes `pg_advisory_xact_lock(hashtext('timesheets:' || code))` for each code, in sorted order, so two concurrent uploads of a code leave one row. `refreshUnmatched` and `enqueueProjectsQuiet` run after the COMMIT, best-effort. A refused upload opens no transaction.
+
+## DELETE /:projectCode
+
+After the access check, the code's lock, the `DELETE FROM timesheets` and the `DELETE FROM profile_unmatched` run in one `withTransaction` (2026-11-19, save-c5); `enqueueProjectsQuiet` runs after the COMMIT. The answer is unchanged, `{ ok: true, deleted }`.
+
 ## DELETE /:projectCode — non-admin column fix (2026-09)
 
 That handler's own non-admin check now correctly matches `WHERE p.code = $2` against `req.params.projectCode` — it had compared against `p.name` instead (a stale copy-paste from before this route existed on any non-admin-reachable UI path), which 403'd every non-admin owner/editor attempting to delete their own project's timesheet data. Found by a cold-review pass after `project-config.html` shipped the first non-admin-reachable caller of this endpoint (`timesheets.html`'s own "Delete all" is admin-only). See `docs/pages/project-config.md`.
