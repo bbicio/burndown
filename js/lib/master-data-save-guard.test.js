@@ -3,6 +3,7 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { rawReadFileSync } from '../../scripts/lib/page-source.setup.mjs';
 
 const read = f => readFileSync(join(process.cwd(), f), 'utf8');
 
@@ -34,5 +35,35 @@ describe('team.js', () => {
   }
   it('submitForm sends only the changed fields', () => {
     expect(methodBody(src, 'submitForm')).toContain('changedResourceFields(');
+  });
+});
+
+describe('attribute-lists.js', () => {
+  const src = read('js/pages/attribute-lists.js');
+  const html = rawReadFileSync(join(process.cwd(), 'attribute-lists.html'), 'utf8');
+  it('has no raw fetch, no request() and no errorText()', () => {
+    expect(src.replace(/apiFetch\(/g, '')).not.toMatch(/\bfetch\(/);
+    expect(src).not.toMatch(/\brequest\(/);
+    expect(src).not.toMatch(/errorText\(/);
+  });
+  it('every write goes through apiSave, with a path that has no /api prefix', () => {
+    const calls = src.match(/apiSave\(\s*'[A-Z]+',\s*[^,)]+/g) || [];
+    expect(calls.length).toBeGreaterThan(0);
+    for (const c of calls) expect(c).toMatch(/apiSave\(\s*'(POST|PATCH)',\s*('\/(attribute-lists|topics)|base\b)/);
+    expect(src).not.toMatch(/'\/api\//);
+    expect(src).not.toMatch(/`\/api\//);
+  });
+  it('reads go through read() on apiFetch', () => {
+    expect(methodBody(src, 'read')).toContain('apiFetch(');
+    for (const name of ['loadLists', 'loadTopics', 'loadItems']) expect(methodBody(src, name)).toContain('this.read(');
+  });
+  it('keeps the reload banners', () => {
+    expect(src).toContain("couldn't be reloaded");
+    expect(src).toContain("'The list was reloaded. Server: '");
+  });
+  it('loads save.js before the page script', () => {
+    const save = html.indexOf('js/lib/save.js?v=3');
+    expect(save).toBeGreaterThan(-1);
+    expect(save).toBeLessThan(html.indexOf('js/pages/attribute-lists.js?v=2'));
   });
 });

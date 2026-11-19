@@ -117,7 +117,7 @@ describe('attribute-lists.html — merge', () => {
   it('a failed merge stays in the confirmation and does not count as reviewed', () => {
     const at = html.indexOf('async submitMerge(');
     const body = html.slice(at, html.indexOf('\n        },', at));
-    const fail = body.indexOf('if (!r.ok)');
+    const fail = body.indexOf("if (res.kind !== 'ok')");
     expect(fail).toBeGreaterThan(-1);
     expect(body.indexOf('markReviewed()')).toBeGreaterThan(fail);
     expect(body.slice(fail, body.indexOf('\n', fail))).toMatch(/form\.error = .*return;/);
