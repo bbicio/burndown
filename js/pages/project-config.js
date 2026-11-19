@@ -25,6 +25,8 @@
         attributeLists: [],
         projectTags: [],
         tagSaving: false,
+        tagsState: 'loading',
+        tagError: '',
         saving: false,
         clientModal: { name: '', error: '', saving: false },
         programModal: { name: '', id: '', error: '', saving: false },
@@ -336,11 +338,13 @@
         this.openTaskIndex = null;
       },
       async loadTags() {
+        this.tagsState = 'loading';
         try {
           this.projectTags = await Api.projects.tags.list(this.project.id);
+          this.tagsState = 'ok';
         } catch (e) {
           console.warn('[project-config] loadTags:', e.message);
-          this.projectTags = [];
+          this.tagsState = 'unknown';
         }
       },
       isTagChecked(itemId) {
@@ -353,24 +357,23 @@
         return this.projectTags.filter(t => t.list_id === listId && t.status !== 'active');
       },
       async toggleTag(itemId, event) {
-        if (this.tagsReadOnly) return;
-        // In-flight guard: the checkbox is also :disabled while tagSaving is true, so this
-        // is a defense-in-depth fallback for the brief window before Vue re-renders that
-        // disabled state. The native checkbox has already visually flipped by the time
-        // @change fires — if we're bailing out, flip it back so it doesn't show a state
-        // that was never applied to projectTags or saved.
-        if (this.tagSaving) { if (event) event.target.checked = !event.target.checked; return; }
-        const newIds = this.isTagChecked(itemId)
-          ? this.projectTags.filter(t => t.item_id !== itemId).map(t => t.item_id)
-          : [...this.projectTags.map(t => t.item_id), itemId];
+        // The native checkbox has already flipped when @change fires: every exit puts it
+        // back on what projectTags says.
+        const realign = () => { if (event) event.target.checked = this.isTagChecked(itemId); };
+        if (this.tagsReadOnly || this.tagsState !== 'ok' || this.tagSaving) { realign(); return; }
         this.tagSaving = true;
         try {
-          await Api.projects.tags.replace(this.project.id, newIds, { background: true });
-          await this.loadTags();
-        } catch (e) {
-          console.warn('[project-config] toggleTag:', e.message);
+          const out = await window.tagToggle({ basePath: `/projects/${this.project.id}/tags`, rows: this.projectTags, itemId });
+          if (out.rows) {
+            this.projectTags = out.rows;
+            this.tagError = '';
+          } else {
+            this.tagError = out.message;
+            await this.loadTags();
+          }
         } finally {
           this.tagSaving = false;
+          realign();
         }
       },
       // Not persisted: Tags opens closed on every visit.

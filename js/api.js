@@ -164,7 +164,6 @@ const Api = {
     },
     tags: {
       list:    (id)          => apiFetch(`/projects/${id}/tags`),
-      replace: (id, itemIds, opts) => apiFetch(`/projects/${id}/tags`, { method: 'PUT', body: JSON.stringify({ itemIds }), background: opts?.background }),
     },
   },
 

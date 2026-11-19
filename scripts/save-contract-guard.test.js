@@ -67,7 +67,6 @@ const CLIENT_EXEMPT = new Set([
   'js/pages/planning.js',
   'js/pages/profile.js',
   'js/pages/project-config.js: clients.create',
-  'js/pages/project-config.js: projects.tags.replace',
   'js/pages/project-config.js: timesheets.delete',
   'js/pages/project-config.js: timesheets.upload',
   'js/pages/reset-password.js',
