@@ -1367,6 +1367,23 @@ Spec: `docs/superpowers/specs/2026-11-19-save-c5-server-atomicity-design.md`. A 
 
 ---
 
+## 34. Master data rules (2026-11-19)
+
+Spec: `docs/superpowers/specs/2026-11-19-save-c6-master-data-pages-design.md`. Client and group names are unique without regard to case; a pipeline year with a POT or a version cannot be deleted.
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| MDR-01 | Client name taken in another case | Create `Mdr Acme`; create `MDR ACME` | `409 NAME_TAKEN`, `A client named "MDR ACME" already exists.` | ✓ |
+| MDR-02 | Rename a client to a taken name | Rename `Mdr Beta` to `mdr acme` | `409 NAME_TAKEN`; Beta keeps its name | ✓ |
+| MDR-03 | Rename a client to its own name in another case | Rename `Mdr Acme` to `MDR ACME` | 200 with the new name | ✓ |
+| MDR-04 | Group name taken in another case | Create group `Mdr Group`; create `mdr group` | `409 NAME_TAKEN`, `A group named "mdr group" already exists.` | ✓ |
+| MDR-05 | Rename a group to a taken name | Rename `Mdr Other` to `MDR GROUP` | `409 NAME_TAKEN` | ✓ |
+| MDR-06 | Delete a year with a POT | Create an inactive year and a POT for it; delete the year | `409 YEAR_HAS_POTS`; the year is still listed | ✓ |
+| MDR-07 | Delete a year used by a version | Create a Draft version carrying the year; delete the year | `409 YEAR_IN_USE` | ✓ |
+| MDR-08 | Client names are trimmed | Create `  Mdr Trim  `; rename it to `  Mdr Trim2  ` | Both responses carry the trimmed name | ✓ |
+
+---
+
 ## 17. Regression — Cross-feature
 
 | ID | Scenario | Steps | Expected | Auto |

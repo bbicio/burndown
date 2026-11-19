@@ -40,7 +40,10 @@ router.post('/', requireAuth, requireAdmin, async (req, res, next) => {
       [name.trim()]
     );
     res.status(201).json({ ...rows[0], clients: [] });
-  } catch (err) { next(err); }
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: `A group named "${req.body.name.trim()}" already exists.`, code: 'NAME_TAKEN' });
+    next(err);
+  }
 });
 
 // PATCH /api/client-groups/:id (admin only)
@@ -54,7 +57,10 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res, next) => {
     );
     if (!rows[0]) return res.status(404).json({ error: 'Group not found' });
     res.json(rows[0]);
-  } catch (err) { next(err); }
+  } catch (err) {
+    if (err.code === '23505') return res.status(409).json({ error: `A group named "${req.body.name.trim()}" already exists.`, code: 'NAME_TAKEN' });
+    next(err);
+  }
 });
 
 // The group row is locked before the POTs are looked at: a POT inserted meanwhile waits on the lock

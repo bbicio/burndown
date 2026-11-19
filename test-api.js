@@ -1094,12 +1094,12 @@ async function testClientGroups() {
   section('Client Groups');
 
   // Supporting client
-  const rc = await api('POST', '/api/clients', { name: '__test_cg_client__' }, adminCookie);
+  const rc = await api('POST', '/api/clients', { name: `__test_cg_client_${Date.now()}__` }, adminCookie);
   const clientId = rc.data?.id;
   if (clientId) later('DELETE', `/api/clients/${clientId}`);
 
   // Create group
-  const r1 = await api('POST', '/api/client-groups', { name: '__test_group__' }, adminCookie);
+  const r1 = await api('POST', '/api/client-groups', { name: `__test_group_${Date.now()}__` }, adminCookie);
   ok(r1.status === 201, 'CG-G-01 POST create group → 201');
   const gid = r1.data?.id;
   ok(!!gid, 'CG-G-01 response has id');
@@ -1122,7 +1122,7 @@ async function testClientGroups() {
 
   // CG-POT — a group with a POT cannot be deleted; GET lists its POT years
   const potYear = 2098;
-  const rpg = await api('POST', '/api/client-groups', { name: '__test_cg_pot_group__' }, adminCookie);
+  const rpg = await api('POST', '/api/client-groups', { name: `__test_cg_pot_group_${Date.now()}__` }, adminCookie);
   const pgid = rpg.data?.id;
   if (pgid) later('DELETE', `/api/client-groups/${pgid}`);
   const rpp = pgid ? await api('POST', '/api/pots', { clientGroupId: pgid, year: potYear, amount: 1000 }, adminCookie) : null;
@@ -1150,7 +1150,7 @@ async function testClientGroups() {
       fail('CG-POT-04: no plain-user session — skipping');
     }
   }
-  const rng = await api('POST', '/api/client-groups', { name: '__test_cg_nopot_group__' }, adminCookie);
+  const rng = await api('POST', '/api/client-groups', { name: `__test_cg_nopot_group_${Date.now()}__` }, adminCookie);
   const ngid = rng.data?.id;
   if (ngid) {
     later('DELETE', `/api/client-groups/${ngid}`);
@@ -1951,7 +1951,8 @@ async function testPots() {
   const pyId = rpy.data?.id;
   if (pyId) later('DELETE', `/api/pipeline-years/${pyId}`);
 
-  const rc = await api('POST', '/api/clients', { name: '__test_pot_client__' }, adminCookie);
+  const potClientName = `__test_pot_client_${Date.now()}__`;
+  const rc = await api('POST', '/api/clients', { name: potClientName }, adminCookie);
   const clientId = rc.data?.id;
   if (clientId) later('DELETE', `/api/clients/${clientId}`);
 
@@ -2039,7 +2040,7 @@ async function testPots() {
 
 // POT-08..POT-11 — GET /api/pots/summary: expected/SIP totals + per-proposal value/client_name
 async function testPotSummaryExtended() {
-  const CLIENT_NAME = '__test_pot_summary_client__';
+  const CLIENT_NAME = `__test_pot_summary_client_${Date.now()}__`;
   const year = new Date().getFullYear();   // publish stamps the current calendar year
 
   const role = await makeTestRole(`PS${Date.now()}`);
@@ -2099,7 +2100,7 @@ async function testPotSummaryExtended() {
   ok(!rows.some(r => r.cg_id === draft.cgId), 'POT-11 Draft-only proposal absent from proposals');
 
   // POT-12 — client-group target: two clients, one published proposal each
-  const rg = await api('POST', '/api/client-groups', { name: '__test_pot_group__' }, adminCookie);
+  const rg = await api('POST', '/api/client-groups', { name: `__test_pot_group_${Date.now()}__` }, adminCookie);
   const gid = rg.data?.id;
   if (gid) later('DELETE', `/api/client-groups/${gid}`);
   const gClients = [];
@@ -2151,7 +2152,7 @@ async function testPotMasterDataFields() {
   const role = await makeTestRole(`PMD${Date.now()}`);
   const rpy = await api('POST', '/api/pipeline-years', { year }, adminCookie);
   if (rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
-  const rc = await api('POST', '/api/clients', { name: '__test_pot_md_client__' }, adminCookie);
+  const rc = await api('POST', '/api/clients', { name: `__test_pot_md_client_${Date.now()}__` }, adminCookie);
   const clientId = rc.data?.id;
   if (clientId) later('DELETE', `/api/clients/${clientId}`);
   if (!role.id || !clientId) { fail('POT-13..17: setup failed — skipping'); return; }
@@ -2210,7 +2211,7 @@ async function testPotMasterDataFields() {
      near(lp?.achieved_total, lp?.committed_total + lp?.anticipated_total),
     'POT-16 GET /api/pots: expected_total ≈ 200, sip_total ≈ 100, achieved_total = C+A');
   const rlB = await api('GET', `/api/pots?year=${TEST_YEAR_B}`, null, adminCookie);
-  const lpB = (rlB.data || []).find(p => p.client_name === '__test_pot_client__');
+  const lpB = (rlB.data || []).find(p => p.client_name === potClientName);
   ok(lpB?.expected_total === 0 && lpB?.sip_total === 0,
     'POT-16 a POT with no Expected/SIP proposals has expected_total === 0 and sip_total === 0');
 
@@ -2385,7 +2386,7 @@ async function testMoneyRules() {
 
   // MR-13 / MR-14 — POT amounts
   // (a client target is used)
-  const mrCl = await api('POST', '/api/clients', { name: '__test_mr_pot_client__' }, adminCookie);
+  const mrCl = await api('POST', '/api/clients', { name: `__test_mr_pot_client_${Date.now()}__` }, adminCookie);
   if (mrCl.data?.id) later('DELETE', `/api/clients/${mrCl.data.id}`);
   const rpot = await api('POST', '/api/pots', { clientId: mrCl.data?.id, year: 2099, amount: 1000 }, adminCookie);
   const mrPotId = rpot.data?.id;
@@ -2469,7 +2470,7 @@ async function testPotReferenceVersion() {
   const role = await makeTestRole(`PRV${Date.now()}`);
   const rpy = await api('POST', '/api/pipeline-years', { year }, adminCookie);
   if (rpy.data?.id) later('DELETE', `/api/pipeline-years/${rpy.data.id}`);
-  const rc = await api('POST', '/api/clients', { name: '__test_pot_ref_client__' }, adminCookie);
+  const rc = await api('POST', '/api/clients', { name: `__test_pot_ref_client_${Date.now()}__` }, adminCookie);
   const clientId = rc.data?.id;
   if (clientId) later('DELETE', `/api/clients/${clientId}`);
   if (!role.id || !clientId) { fail('POT-18..26: setup failed — skipping'); return; }
@@ -6664,6 +6665,76 @@ async function testServerAtomicity() {
   }
 }
 
+// ── Master data rules (MDR-01..MDR-08) ───────────────────────────────────────
+
+async function testMasterDataRules() {
+  section('Master data rules');
+  const ts = Date.now();
+
+  // Clients: unique name without regard to case; the 409 carries NAME_TAKEN
+  const acme = await api('POST', '/api/clients', { name: `Mdr Acme ${ts}` }, adminCookie);
+  if (acme.data?.id) later('DELETE', `/api/clients/${acme.data.id}`);
+  const dup = await api('POST', '/api/clients', { name: `MDR ACME ${ts}` }, adminCookie);
+  ok(dup.status === 409 && dup.data?.code === 'NAME_TAKEN' && dup.data?.error === `A client named "MDR ACME ${ts}" already exists.`,
+    `MDR-01 POST client with a name taken in another case → 409 NAME_TAKEN (got ${dup.status}, ${dup.data?.code})`);
+
+  const beta = await api('POST', '/api/clients', { name: `Mdr Beta ${ts}` }, adminCookie);
+  if (beta.data?.id) later('DELETE', `/api/clients/${beta.data.id}`);
+  const ren = await api('PATCH', `/api/clients/${beta.data?.id}`, { name: `mdr acme ${ts}` }, adminCookie);
+  const list = (await api('GET', '/api/clients', null, adminCookie)).data || [];
+  ok(ren.status === 409 && ren.data?.code === 'NAME_TAKEN' && list.find(c => c.id === beta.data?.id)?.name === `Mdr Beta ${ts}`,
+    `MDR-02 PATCH client to a taken name → 409 NAME_TAKEN, name unchanged (got ${ren.status}, ${ren.data?.code})`);
+
+  const self = await api('PATCH', `/api/clients/${acme.data?.id}`, { name: `MDR ACME ${ts}` }, adminCookie);
+  ok(self.status === 200 && self.data?.name === `MDR ACME ${ts}`,
+    `MDR-03 PATCH client to its own name in another case → 200 (got ${self.status})`);
+
+  // Groups
+  const grp = await api('POST', '/api/client-groups', { name: `Mdr Group ${ts}` }, adminCookie);
+  if (grp.data?.id) later('DELETE', `/api/client-groups/${grp.data.id}`);
+  const dupG = await api('POST', '/api/client-groups', { name: `mdr group ${ts}` }, adminCookie);
+  ok(dupG.status === 409 && dupG.data?.code === 'NAME_TAKEN' && dupG.data?.error === `A group named "mdr group ${ts}" already exists.`,
+    `MDR-04 POST group with a name taken in another case → 409 NAME_TAKEN (got ${dupG.status}, ${dupG.data?.code})`);
+
+  const other = await api('POST', '/api/client-groups', { name: `Mdr Other ${ts}` }, adminCookie);
+  if (other.data?.id) later('DELETE', `/api/client-groups/${other.data.id}`);
+  const renG = await api('PATCH', `/api/client-groups/${other.data?.id}`, { name: `MDR GROUP ${ts}` }, adminCookie);
+  ok(renG.status === 409 && renG.data?.code === 'NAME_TAKEN',
+    `MDR-05 PATCH group to a taken name → 409 NAME_TAKEN (got ${renG.status}, ${renG.data?.code})`);
+
+  // Pipeline year with a POT
+  const potYear = 2094;
+  const py = await api('POST', '/api/pipeline-years', { year: potYear, active: false }, adminCookie);
+  if (py.data?.id) later('DELETE', `/api/pipeline-years/${py.data.id}`);
+  const pot = await api('POST', '/api/pots', { specialLabel: 'New Biz', year: potYear, amount: 100 }, adminCookie);
+  if (pot.data?.id) later('DELETE', `/api/pots/${pot.data.id}`);
+  const delPy = await api('DELETE', `/api/pipeline-years/${py.data?.id}`, null, adminCookie);
+  const yrs = (await api('GET', '/api/pipeline-years', null, adminCookie)).data || [];
+  ok(delPy.status === 409 && delPy.data?.code === 'YEAR_HAS_POTS'
+      && delPy.data?.error === `Pipeline ${potYear} cannot be deleted because it has POT targets. Deactivate it instead.`
+      && yrs.some(y => y.year === potYear),
+    `MDR-06 DELETE a year with a POT → 409 YEAR_HAS_POTS, year kept (got ${delPy.status}, ${delPy.data?.code})`);
+
+  // Pipeline year used by a version
+  const useYear = 2090;
+  const uy = await api('POST', '/api/pipeline-years', { year: useYear }, adminCookie);
+  if (uy.data?.id) later('DELETE', `/api/pipeline-years/${uy.data.id}`);
+  const g = await api('POST', '/api/cost-grids', { name: `__test_mdr_${ts}__` }, adminCookie);
+  if (g.data?.id) later('POST', `/api/admin/reset/cost-grid/${g.data.id}`);
+  const v = await api('POST', `/api/cost-grids/${g.data?.id}/versions`,
+    { label: 'v1', currency: 'EUR', startDate: `${useYear}01`, endDate: `${useYear}12`, pipelineYear: useYear }, adminCookie);
+  const delUy = await api('DELETE', `/api/pipeline-years/${uy.data?.id}`, null, adminCookie);
+  ok(v.status === 201 && delUy.status === 409 && delUy.data?.code === 'YEAR_IN_USE',
+    `MDR-07 DELETE a year used by a version → 409 YEAR_IN_USE (got ${v.status}, ${delUy.status}, ${delUy.data?.code})`);
+
+  // Names are stored trimmed
+  const trim = await api('POST', '/api/clients', { name: `  Mdr Trim ${ts}  ` }, adminCookie);
+  if (trim.data?.id) later('DELETE', `/api/clients/${trim.data.id}`);
+  const trim2 = await api('PATCH', `/api/clients/${trim.data?.id}`, { name: `  Mdr Trim2 ${ts}  ` }, adminCookie);
+  ok(trim.data?.name === `Mdr Trim ${ts}` && trim2.data?.name === `Mdr Trim2 ${ts}`,
+    `MDR-08 client names are trimmed on create and rename (got "${trim.data?.name}", "${trim2.data?.name}")`);
+}
+
 async function main() {
   process.stdout.write(`\n${bold('PDash API Integration Tests')} — ${BASE}\n`);
   process.stdout.write(`Admin: ${EMAIL}\n`);
@@ -6685,6 +6756,7 @@ async function main() {
     await testPipelineYears();
     await testClients();
     await testClientGroups();
+    await testMasterDataRules();
     await testRoles();
     await testRatecards();
     await testSaveContract();

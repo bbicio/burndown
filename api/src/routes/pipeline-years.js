@@ -1,5 +1,6 @@
 const express = require('express');
-const { query } = require('../db/client');
+const { query, pool } = require('../db/client');
+const { withTransaction } = require('../db/transaction');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { isAdminRole } = require('../lib/is-admin');
 const { referenceVersionsCte } = require('../lib/pot-fee-sql');
@@ -93,21 +94,34 @@ router.patch('/:id', requireAuth, requireAdmin, async (req, res, next) => {
 // Blocked if any cost grid version has pipeline_year = this year.
 router.delete('/:id', requireAuth, requireAdmin, async (req, res, next) => {
   try {
-    const { rows: py } = await query('SELECT year FROM pipeline_years WHERE id = $1', [req.params.id]);
-    if (!py[0]) return res.status(404).json({ error: 'Pipeline year not found' });
+    // The year row is locked first; returns { status, body } for the route to send.
+    const { status, body } = await withTransaction(pool, async client => {
+      const { rows: py } = await client.query('SELECT year FROM pipeline_years WHERE id = $1 FOR UPDATE', [req.params.id]);
+      if (!py[0]) return { status: 404, body: { error: 'Pipeline year not found' } };
 
-    const { rows: inUse } = await query(
-      'SELECT 1 FROM cost_grid_versions WHERE pipeline_year = $1 LIMIT 1',
-      [py[0].year]
-    );
-    if (inUse.length) {
-      return res.status(409).json({
-        error: `Pipeline ${py[0].year} cannot be deleted because it has proposals. Deactivate it instead.`,
-      });
-    }
+      const { rows: inUse } = await client.query(
+        'SELECT 1 FROM cost_grid_versions WHERE pipeline_year = $1 LIMIT 1',
+        [py[0].year]
+      );
+      if (inUse.length) {
+        return { status: 409, body: {
+          error: `Pipeline ${py[0].year} cannot be deleted because it has proposals. Deactivate it instead.`,
+          code: 'YEAR_IN_USE',
+        } };
+      }
 
-    await query('DELETE FROM pipeline_years WHERE id = $1', [req.params.id]);
-    res.json({ ok: true });
+      const { rows: pots } = await client.query('SELECT 1 FROM pots WHERE year = $1 LIMIT 1', [py[0].year]);
+      if (pots.length) {
+        return { status: 409, body: {
+          error: `Pipeline ${py[0].year} cannot be deleted because it has POT targets. Deactivate it instead.`,
+          code: 'YEAR_HAS_POTS',
+        } };
+      }
+
+      await client.query('DELETE FROM pipeline_years WHERE id = $1', [req.params.id]);
+      return { status: 200, body: { ok: true } };
+    });
+    res.status(status).json(body);
   } catch (err) { next(err); }
 });
 
