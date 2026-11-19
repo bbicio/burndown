@@ -615,7 +615,7 @@ The page is one list. A bar above it filters by Active, Inactive or All, by role
 
 Timesheet files carry the owner's name as free text. When a name cannot be matched to a resource, an amber notice above the Team list gives the number of names waiting and the hours not yet attributed, and opens the **Unmatched names** drawer.
 
-For each name, which comes with its hours and the projects it appears in, you can **Assign** it to a resource or **Ignore** it when it is not a person, such as "TBD". An assigned or ignored name is remembered as an alias, listed under "Existing aliases", where it can be removed to send the name back to the queue. **Rescan** recomputes the list from all uploaded actuals.
+For each name, which comes with its hours and the projects it appears in, you can **Assign** it to a resource or **Ignore** it when it is not a person, such as "TBD". If another administrator has resolved the same name in the meantime, the drawer shows `"<name>" was already resolved by someone else. Reload the list.` and nothing changes. An assigned or ignored name is remembered as an alias, listed under "Existing aliases", where it can be removed to send the name back to the queue. **Rescan** recomputes the list from all uploaded actuals.
 
 <details>
 <summary>Details</summary>
