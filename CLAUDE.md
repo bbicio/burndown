@@ -416,6 +416,7 @@ Full detail: [docs/js/lib.md](docs/js/lib.md), [docs/api/lib.md](docs/api/lib.md
 
 Rules to keep (exempt files and writes: the lists of `scripts/save-contract-guard.test.js`):
 - **Every route that writes a registered entity goes through `versionedWrite`** (`api/src/services/versioned-write.js`): one transaction, the version the client started from, a `change_log` snapshot; a stale or missing version answers `409 { error, code: 'STALE', version }`.
+- **A server write of more than one statement runs in one `withTransaction`** (`api/src/db/transaction.js`); its best-effort follow-ups (rescan, enqueue, push, email) run after the COMMIT and never fail the response.
 - **No file under `js/` writes with `fetch`, `apiFetch` or a write method of `Api.*`**: it writes with `apiSave` (`js/lib/save.js`).
 - **An `Api.*` method left without a caller is deleted.**
 - **A `409 STALE` is shown with a Reload action**; after a success the page adopts the server's answer, not its own inputs.

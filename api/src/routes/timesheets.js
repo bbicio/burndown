@@ -1,7 +1,8 @@
 const express = require('express');
 const multer  = require('multer');
 const XLSX    = require('xlsx');
-const { query } = require('../db/client');
+const { query, pool } = require('../db/client');
+const { withTransaction } = require('../db/transaction');
 const { requireAuth } = require('../middleware/auth');
 const { parseFlexibleDate } = require('../lib/date-parse');
 const { toIso } = require('../lib/dates');
@@ -221,13 +222,18 @@ router.post('/upload', requireAuth, uploadFile, async (req, res, next) => {
       }
     }
 
-    for (const code of codes) {
-      await query('DELETE FROM timesheets WHERE project_code = $1', [code]);
-      await query(
-        `INSERT INTO timesheets (project_code, data, uploaded_by) VALUES ($1, $2, $3)`,
-        [code, JSON.stringify(codesToSave[code]), req.user.id]
-      );
-    }
+    // One transaction for the whole file: every code's actuals are replaced, or none is. The per-code locks,
+    // taken in sorted order before any DELETE, keep two concurrent uploads of a code from leaving two rows.
+    await withTransaction(pool, async (client) => {
+      for (const code of [...codes].sort()) await lockCode(client, code);
+      for (const code of codes) {
+        await client.query('DELETE FROM timesheets WHERE project_code = $1', [code]);
+        await client.query(
+          `INSERT INTO timesheets (project_code, data, uploaded_by) VALUES ($1, $2, $3)`,
+          [code, JSON.stringify(codesToSave[code]), req.user.id]
+        );
+      }
+    });
 
     // Best-effort: a matching-queue failure must never fail (or roll back) an upload that already succeeded.
     try { await refreshUnmatched(codes); }
@@ -241,6 +247,9 @@ router.post('/upload', requireAuth, uploadFile, async (req, res, next) => {
     });
   } catch (err) { next(err); }
 });
+
+// Serialises the writes of one project code's actuals until the transaction ends.
+const lockCode = (client, code) => client.query("SELECT pg_advisory_xact_lock(hashtext('timesheets:' || $1))", [code]);
 
 // DELETE /api/timesheets/:projectCode
 router.delete('/:projectCode', requireAuth, async (req, res, next) => {
@@ -257,11 +266,12 @@ router.delete('/:projectCode', requireAuth, async (req, res, next) => {
       if (!rows.length) return res.status(403).json({ error: 'Access denied' });
     }
 
-    const { rowCount } = await query(
-      'DELETE FROM timesheets WHERE project_code = $1',
-      [req.params.projectCode]
-    );
-    await query('DELETE FROM profile_unmatched WHERE project_code = $1', [req.params.projectCode]);
+    const rowCount = await withTransaction(pool, async (client) => {
+      await lockCode(client, req.params.projectCode);
+      const del = await client.query('DELETE FROM timesheets WHERE project_code = $1', [req.params.projectCode]);
+      await client.query('DELETE FROM profile_unmatched WHERE project_code = $1', [req.params.projectCode]);
+      return del.rowCount;
+    });
     await enqueueProjectsQuiet([req.params.projectCode]);
     res.json({ ok: true, deleted: rowCount });
   } catch (err) { next(err); }

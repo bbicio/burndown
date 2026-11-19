@@ -1341,6 +1341,32 @@ Spec: `docs/superpowers/specs/2026-11-11-handbook-viewer-design.md`. One page sh
 
 ---
 
+## 33. Server write atomicity (2026-11-19)
+
+Spec: `docs/superpowers/specs/2026-11-19-save-c5-server-atomicity-design.md`. A write of more than one statement succeeds whole or not at all; a temporary trigger makes the second statement fail and the test reads the database back.
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| AX-01 | Upload failing on the second code | Upload one row for each of two codes; upload them again with other hours while the `INSERT` of the second code fails | 500; each code keeps its one previous row | ✓ |
+| AX-02 | Two uploads of the same code at once | Two uploads of one code in parallel, each `INSERT` slowed by one second | 201 each; one `timesheets` row for the code | ✓ |
+| AX-03 | Delete failing on the queue | Upload a row with an unknown owner, then delete the code's actuals while the delete of its queue rows fails | 500; the actuals are still there | ✓ |
+| AX-04 | POT change failing on the history | Change a POT's amount while its history row fails | 500; amount unchanged; no history row | ✓ |
+| AX-05 | POT creation failing on the history | Create a POT while its history row fails | 500; no POT created | ✓ |
+| AX-06 | Rate change failing on the history | Change USD's rate while its `currency_rates` row fails | 500; `current_rate` unchanged | ✓ |
+| AX-07 | Activation failing on the history | Activate an inactive currency while its `currency_rates` row fails | 500; the currency is still inactive | ✓ |
+| AX-08 | Terms publish failing on the version setting | Publish the Terms while the `terms_version` setting fails | 500; no new version | ✓ |
+| AX-08b | Terms draft save | Save the Terms without publishing | 200, `newVersion` null; no new version | ✓ |
+| AX-09 | Two overlapping Terms publishes | Two publishes in parallel, each version insert slowed by one second | One 200 and one `409 STALE` carrying `version`; one new version | ✓ |
+| AX-10 | Broadcast failing on its second row | Broadcast a notification while the second row fails | 500; no notification with that title | ✓ |
+| AX-11 | Assign a name resolved elsewhere | Assign a name to resource A, then to resource B | `409 ALREADY_RESOLVED` with the current row; the alias still points at A | ✓ |
+| AX-12 | Ignore an assigned name | Ignore the name assigned to A | `409 ALREADY_RESOLVED`; alias unchanged | ✓ |
+| AX-13 | Same resolution again | Assign the name to A again | 200 | ✓ |
+| AX-16 | Resource id spelled another way | Assign the name to A again with A's id in braces and upper case; assign a new name with A's id without hyphens; send an invalid id for the existing name | 200; 201 on A; 400 `resourceId must be a valid UUID` | ✓ |
+| AX-14 | Rescan failing after an alias | Assign a new name while every write to the Unmatched queue fails | 201; the alias is saved | ✓ |
+| AX-15 | Rescan failing after a resource change | Deactivate a resource while every write to the Unmatched queue fails | 200 | ✓ |
+
+---
+
 ## 17. Regression — Cross-feature
 
 | ID | Scenario | Steps | Expected | Auto |

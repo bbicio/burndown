@@ -1,5 +1,6 @@
 const express = require('express');
-const { query } = require('../db/client');
+const { query, pool } = require('../db/client');
+const { withTransaction } = require('../db/transaction');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 const { decimalRangeError } = require('../lib/input-rules');
 
@@ -44,18 +45,22 @@ router.post('/:code/activate', requireAuth, requireAdmin, async (req, res, next)
     if (rateErr) return res.status(400).json({ error: rateErr });
     if (code === 'EUR') return res.status(400).json({ error: 'EUR is always active' });
 
-    const { rows } = await query('SELECT active FROM currencies WHERE code = $1', [code]);
-    if (!rows.length) return res.status(404).json({ error: 'Currency not found' });
-    if (rows[0].active) return res.status(409).json({ error: 'Currency already active' });
-
-    await query(
-      `UPDATE currencies SET active = true, current_rate = $1, updated_at = NOW() WHERE code = $2`,
-      [rate, code]
-    );
-    await query(
-      `INSERT INTO currency_rates (currency_code, rate, created_by) VALUES ($1, $2, $3)`,
-      [code, rate, req.user.id]
-    );
+    // Read under the row lock, then the currency and its rate history row together, or neither.
+    const refusal = await withTransaction(pool, async (client) => {
+      const { rows } = await client.query('SELECT active FROM currencies WHERE code = $1 FOR UPDATE', [code]);
+      if (!rows.length) return { status: 404, error: 'Currency not found' };
+      if (rows[0].active) return { status: 409, error: 'Currency already active' };
+      await client.query(
+        `UPDATE currencies SET active = true, current_rate = $1, updated_at = NOW() WHERE code = $2`,
+        [rate, code]
+      );
+      await client.query(
+        `INSERT INTO currency_rates (currency_code, rate, created_by) VALUES ($1, $2, $3)`,
+        [code, rate, req.user.id]
+      );
+      return null;
+    });
+    if (refusal) return res.status(refusal.status).json({ error: refusal.error });
 
     const { rows: updated } = await query(
       `SELECT code, symbol, name, locale, active, current_rate FROM currencies WHERE code = $1`, [code]
@@ -75,18 +80,21 @@ router.patch('/:code/rate', requireAuth, requireAdmin, async (req, res, next) =>
     if (rateErr) return res.status(400).json({ error: rateErr });
     if (code === 'EUR') return res.status(400).json({ error: 'EUR rate is fixed at 1:1' });
 
-    const { rows } = await query('SELECT active FROM currencies WHERE code = $1', [code]);
-    if (!rows.length) return res.status(404).json({ error: 'Currency not found' });
-    if (!rows[0].active) return res.status(400).json({ error: 'Currency is not active' });
-
-    await query(
-      `UPDATE currencies SET current_rate = $1, updated_at = NOW() WHERE code = $2`,
-      [rate, code]
-    );
-    await query(
-      `INSERT INTO currency_rates (currency_code, rate, created_by) VALUES ($1, $2, $3)`,
-      [code, rate, req.user.id]
-    );
+    const refusal = await withTransaction(pool, async (client) => {
+      const { rows } = await client.query('SELECT active FROM currencies WHERE code = $1 FOR UPDATE', [code]);
+      if (!rows.length) return { status: 404, error: 'Currency not found' };
+      if (!rows[0].active) return { status: 400, error: 'Currency is not active' };
+      await client.query(
+        `UPDATE currencies SET current_rate = $1, updated_at = NOW() WHERE code = $2`,
+        [rate, code]
+      );
+      await client.query(
+        `INSERT INTO currency_rates (currency_code, rate, created_by) VALUES ($1, $2, $3)`,
+        [code, rate, req.user.id]
+      );
+      return null;
+    });
+    if (refusal) return res.status(refusal.status).json({ error: refusal.error });
 
     res.json({ code, rate });
   } catch (err) { next(err); }

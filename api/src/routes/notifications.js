@@ -164,16 +164,16 @@ router.post('/', requireAuth, async (req, res, next) => {
       targets = rows;
     }
 
-    const created = [];
-    for (const u of targets) {
-      const { rows } = await query(
-        `INSERT INTO notifications (user_id, type, title, body, url, url_label)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING id, user_id, type, title, body, url, url_label, read_at, created_at`,
-        [u.id, type, title.trim(), body || null, url || null, urlLabel || null]
-      );
-      const notifRow = rows[0];
-      created.push(notifRow);
+    // One statement for every recipient: a failure leaves no notification behind and pushes none.
+    const { rows: created } = await query(
+      `INSERT INTO notifications (user_id, type, title, body, url, url_label)
+       SELECT u.id, $2, $3, $4, $5, $6 FROM unnest($1::uuid[]) AS u(id)
+       RETURNING id, user_id, type, title, body, url, url_label, read_at, created_at`,
+      [targets.map(u => u.id), type, title.trim(), body || null, url || null, urlLabel || null]
+    );
+    const byId = new Map(targets.map(u => [u.id, u]));
+    for (const notifRow of created) {
+      const u = byId.get(notifRow.user_id);
       if (wantPush) pushToUser(u.id, { event: 'notification', data: notifRow });
       if (wantEmail) {
         sendAdminNotificationEmail({
