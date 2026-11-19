@@ -87,6 +87,8 @@ describe('master-clients.js / master-pipelines.js / team.js — outcome handling
     const create = body(clients, 'async createGroup');
     expect(create).toContain('this.groups.push(');
     expect(create.indexOf('this.moveTo(')).toBeLessThan(create.indexOf('SAVED_NOT_RELOADED'));
+    // a move reloads by itself: the banner is only for a create without a move
+    expect(create).toContain('if (!res.reloaded && !client && !this.globalError) this.globalError = window.SAVED_NOT_RELOADED;');
     expect(body(clients, 'async saveRename')).toContain('g.name = res.data.name');
   });
   it('togglePipelineYear reads the year again after a reload', () => {

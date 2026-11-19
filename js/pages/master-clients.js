@@ -340,7 +340,8 @@ window.__cfgApp = Vue.createApp({
           if (res.data && res.data.id && !this.groups.some(g => g.id === res.data.id)) this.groups.push({ clients: [], pots: [], ...res.data });
         }
         if (client) await this.moveTo(client, res.data.id);
-        if (!res.reloaded && !this.globalError) this.globalError = window.SAVED_NOT_RELOADED;
+        // a move reloads the groups itself and reports its own failed reload
+        if (!res.reloaded && !client && !this.globalError) this.globalError = window.SAVED_NOT_RELOADED;
       } finally {
         this.ng.loading = false;
       }
