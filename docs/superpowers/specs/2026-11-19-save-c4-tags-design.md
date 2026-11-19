@@ -5,7 +5,7 @@
 **Brief:** `docs/superpowers/briefs/2026-11-17-save-c4-tags-brief.md`
 **Audit:** `docs/superpowers/audits/2026-11-17-save-sync-audit.md` (SY-11)
 **Scenario:** 3 (audit-fix)
-**Classe di rischio:** standard (route API e file condivisi `js/api.js`/`js/lib/save.js`; nessuna migrazione)
+**Classe di rischio:** high-risk (file condivisi caricati da più pagine: `js/api.js`, `js/lib/save.js`; nessuna migrazione) — il Brief diceva standard, §6.1b decide
 **Security surface:** no
 
 Spuntare o togliere un tag scrive solo quel tag. Una lettura fallita è "sconosciuto", mai "nessun tag". Una scrittura fallita si vede, e la checkbox torna allo stato del server. Dopo ogni scrittura la pagina adotta la lista che il server restituisce.
