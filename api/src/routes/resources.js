@@ -1,5 +1,7 @@
 const express = require('express');
-const { query } = require('../db/client');
+const { query, pool } = require('../db/client');
+const { withTransaction } = require('../db/transaction');
+const { isUuid } = require('../lib/input-rules');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const { normalizeName } = require('../lib/match-resource');
@@ -77,8 +79,14 @@ router.get('/aliases', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+const ALIAS_COLUMNS = 'id, alias_normalized, display_name, resource_id';
+// Whether an alias row already resolves the name the way the request asks (null = ignored).
+const sameTarget = (row, target) => (row.resource_id ?? null) === (target == null ? null : String(target).toLowerCase());
+
 // POST /api/resources/aliases — { name, resourceId } assigns a name to a resource;
-// { name, ignore: true } marks it as not-a-person. Upserts on the normalized name.
+// { name, ignore: true } marks it as not-a-person. A new name is created (201); the same resolution
+// again updates the display name and the audit columns (200); a name already resolved another way
+// is refused with 409 ALREADY_RESOLVED and the current row, without writing.
 router.post('/aliases', async (req, res, next) => {
   try {
     const { name, resourceId, ignore } = req.body;
@@ -88,20 +96,49 @@ router.post('/aliases', async (req, res, next) => {
     if (wantsIgnore === !!resourceId) {
       return res.status(400).json({ error: 'Provide either resourceId or ignore: true' });
     }
-    // Upsert on the normalized key: a re-assignment keeps created_by, records updated_by/updated_at,
-    // and is reported as 200 (only a genuine insert is 201; `xmax = 0` is true only for an insert).
-    const { rows } = await query(
-      `INSERT INTO resource_aliases (alias_normalized, display_name, resource_id, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $4)
-       ON CONFLICT (alias_normalized) DO UPDATE
-         SET resource_id = EXCLUDED.resource_id, display_name = EXCLUDED.display_name,
-             updated_by = EXCLUDED.updated_by, updated_at = now()
-       RETURNING id, alias_normalized, display_name, resource_id, (xmax = 0) AS created`,
-      [key, String(name).trim(), wantsIgnore ? null : resourceId, req.user.id]
-    );
-    await rescanAll();
-    const { created, ...alias } = rows[0];
-    res.status(created ? 201 : 200).json(alias);
+    if (!wantsIgnore && !isUuid(resourceId)) return res.status(400).json({ error: 'resourceId must be a valid UUID' });
+    const display = String(name).trim();
+    const target = wantsIgnore ? null : resourceId;
+
+    let outcome;
+    try {
+      outcome = await withTransaction(pool, async (client) => {
+        const cur = await client.query(`SELECT ${ALIAS_COLUMNS} FROM resource_aliases WHERE alias_normalized = $1 FOR UPDATE`, [key]);
+        const row = cur.rows[0];
+        if (!row) {
+          const { rows } = await client.query(
+            `INSERT INTO resource_aliases (alias_normalized, display_name, resource_id, created_by, updated_by)
+             VALUES ($1, $2, $3, $4, $4) RETURNING ${ALIAS_COLUMNS}`,
+            [key, display, target, req.user.id]
+          );
+          return { status: 201, alias: rows[0], wrote: true };
+        }
+        if (!sameTarget(row, target)) return { status: 409, alias: row };
+        // Same resolution: created_by is kept, updated_by/updated_at record who confirmed it.
+        const { rows } = await client.query(
+          `UPDATE resource_aliases SET display_name = $2, updated_by = $3, updated_at = now()
+           WHERE id = $1 RETURNING ${ALIAS_COLUMNS}`,
+          [row.id, display, req.user.id]
+        );
+        return { status: 200, alias: rows[0], wrote: true };
+      });
+    } catch (err) {
+      if (err.code !== '23505') throw err;
+      // A concurrent request created the same name first: the answer follows the row that won.
+      const { rows } = await query(`SELECT ${ALIAS_COLUMNS} FROM resource_aliases WHERE alias_normalized = $1`, [key]);
+      if (!rows[0]) throw err;
+      outcome = { status: sameTarget(rows[0], target) ? 200 : 409, alias: rows[0] };
+    }
+
+    if (outcome.status === 409) {
+      return res.status(409).json({
+        error: `"${display}" was already resolved by someone else. Reload the list.`,
+        code: 'ALREADY_RESOLVED',
+        alias: outcome.alias,
+      });
+    }
+    if (outcome.wrote) await rescanAll();
+    res.status(outcome.status).json(outcome.alias);
   } catch (err) {
     if (err.code === '23503') return res.status(400).json({ error: 'Resource not found' });
     if (err.code === '22P02') return res.status(400).json({ error: 'resourceId must be a valid UUID' });
