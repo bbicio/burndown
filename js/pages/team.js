@@ -526,7 +526,12 @@
             const data = res.data;
             if (editing) {
               const row = this.resources.find(x => x.id === this.form.id);
-              if (row && data) Object.assign(row, data);
+              if (row && data) {
+                Object.assign(row, data);
+                // the PATCH answers the base row: the role's label and code come from the roles list
+                const newRole = this.roles.find(x => x.id === data.role_id);
+                if (newRole) { row.role_label = newRole.label; row.role_code = newRole.code; }
+              }
             }
             const err = await this.loadResources();
             await this.loadUnmatched();

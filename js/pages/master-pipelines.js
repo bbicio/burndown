@@ -20,6 +20,7 @@ window.__cfgApp = Vue.createApp({
       loadOk:          true,   // false when loadAll failed: a deep link is then not reported as unknown
       potCounts:       {},     // { year: number of POTs }, from GET /pots without a year
       loadedPotsYear:  null,
+      potsLoadError:   '',
       phasing:         { proposal: null, project: null }, // { loading, error, data } per mode, loaded once while on the year
       phasingYearLoaded: null,
       phFilter:        { stages: [], clientId: '', potId: '' },
@@ -306,8 +307,10 @@ window.__cfgApp = Vue.createApp({
         if (this.loadedPotsYear != null && this.loadedPotsYear !== year) return true; // another year was opened meanwhile
         this.pots = pots;
         this.potHistory = {};
+        this.potsLoadError = '';
         return true;
       } catch (e) {
+        this.potsLoadError = e.message || '';
         if (this.loadedPotsYear === year) this.loadedPotsYear = null; // the next visit of this year loads again
         return false;
       }
@@ -356,7 +359,9 @@ window.__cfgApp = Vue.createApp({
         }
       } finally {
         py._toggling = false;
-        if (ev) ev.target.checked = py.active;
+        // loadAll (after an unknown outcome) replaced the list: read the year the server has now
+        const current = this.pipelineYears.find(p => p.id === py.id) || py;
+        if (ev) ev.target.checked = current.active;
       }
     },
 
@@ -382,8 +387,11 @@ window.__cfgApp = Vue.createApp({
             return;
           }
           // the write may have happened: show what the server has (loadAll clears the banner, so it runs first)
-          if (res.kind === 'unknown') await this.loadAll();
-          else py._loading = false;
+          try {
+            if (res.kind === 'unknown') await this.loadAll();
+          } finally {
+            py._loading = false;
+          }
           this.globalError = res.message || 'Failed to delete pipeline year.';
         },
         null,
@@ -495,8 +503,11 @@ window.__cfgApp = Vue.createApp({
             return;
           }
           // the write may have happened: show what the server has
-          if (res.kind === 'unknown') await this.loadPots();
-          else pot._loading = false;
+          try {
+            if (res.kind === 'unknown') await this.loadPots();
+          } finally {
+            pot._loading = false;
+          }
           this.globalError = res.message || 'Delete failed.';
         },
         null,
@@ -507,7 +518,7 @@ window.__cfgApp = Vue.createApp({
     loadYearData(year) {
       this.loadedPotsYear = year; this.potsYear = year;
       this.pots = []; this.pipelineSummary = []; this.potDetails = {}; // the drawer reads fresh totals with the table
-      this.loadPots().then(ok => { if (!ok) this.globalError = 'Failed to load POT targets.'; });
+      this.loadPots().then(ok => { if (!ok) this.globalError = this.potsLoadError || 'Failed to load POT targets.'; });
       this.loadPipelineSummary();
     },
 

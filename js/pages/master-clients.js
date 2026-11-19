@@ -277,8 +277,11 @@ window.__cfgApp = Vue.createApp({
           return;
         }
         // the write may have happened: show what the server has (loadAll clears the banner, so it runs first)
-        if (res.kind === 'unknown') await this.loadAll();
-        else client._loading = false;
+        try {
+          if (res.kind === 'unknown') await this.loadAll();
+        } finally {
+          client._loading = false;
+        }
         this.globalError = res.message || 'Delete failed.';
       }, null, 'Delete client');
     },
@@ -332,8 +335,12 @@ window.__cfgApp = Vue.createApp({
         const client = this.ng.forClientId && this.clients.find(c => c.id === this.ng.forClientId);
         this.ng.show = false;
         this.setView('group');
-        if (!res.reloaded) { this.globalError = window.SAVED_NOT_RELOADED; return; }
+        if (!res.reloaded) {
+          // the list could not be re-read: adopt the new group from the answer so the move below still works
+          if (res.data && res.data.id && !this.groups.some(g => g.id === res.data.id)) this.groups.push({ clients: [], pots: [], ...res.data });
+        }
         if (client) await this.moveTo(client, res.data.id);
+        if (!res.reloaded && !this.globalError) this.globalError = window.SAVED_NOT_RELOADED;
       } finally {
         this.ng.loading = false;
       }
@@ -356,7 +363,11 @@ window.__cfgApp = Vue.createApp({
         this.gr.loading = false;
         return;
       }
-      if (!res.reloaded) this.globalError = window.SAVED_NOT_RELOADED;
+      if (!res.reloaded) {
+        const g = this.groups.find(x => x.id === this.gr.id);
+        if (g && res.data && res.data.name) g.name = res.data.name;
+        this.globalError = window.SAVED_NOT_RELOADED;
+      }
       this.cancelRename();
     },
 

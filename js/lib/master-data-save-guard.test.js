@@ -67,3 +67,38 @@ describe('attribute-lists.js', () => {
     expect(save).toBeLessThan(html.indexOf('js/pages/attribute-lists.js?v=2'));
   });
 });
+
+// Gate 3 round 1 (cycle 6): outcome handling after an `unknown` write or a failed reload.
+describe('master-clients.js / master-pipelines.js / team.js — outcome handling', () => {
+  const clients = read('js/pages/master-clients.js');
+  const pipelines = read('js/pages/master-pipelines.js');
+  const team = read('js/pages/team.js');
+  const body = (src, name) => {
+    const at = src.indexOf(name + '(');
+    expect(at).toBeGreaterThan(-1);
+    return src.slice(at, at + 2200);
+  };
+  it('a delete resets the row loading flag in a finally, even when the reload fails', () => {
+    expect(body(clients, 'deleteClient')).toMatch(/finally\s*\{\s*client\._loading = false;/);
+    expect(body(pipelines, 'deletePipelineYear')).toMatch(/finally\s*\{\s*py\._loading = false;/);
+    expect(body(pipelines, 'async deletePot')).toMatch(/finally\s*\{\s*pot\._loading = false;/);
+  });
+  it('createGroup and saveRename adopt the answer when the reload failed', () => {
+    const create = body(clients, 'async createGroup');
+    expect(create).toContain('this.groups.push(');
+    expect(create.indexOf('this.moveTo(')).toBeLessThan(create.indexOf('SAVED_NOT_RELOADED'));
+    expect(body(clients, 'async saveRename')).toContain('g.name = res.data.name');
+  });
+  it('togglePipelineYear reads the year again after a reload', () => {
+    expect(body(pipelines, 'async togglePipelineYear')).toContain('this.pipelineYears.find(p => p.id === py.id)');
+  });
+  it('a failed POT load keeps its error text', () => {
+    expect(body(pipelines, 'async loadPots')).toContain('this.potsLoadError = e.message');
+    expect(pipelines).toContain("this.potsLoadError || 'Failed to load POT targets.'");
+  });
+  it('submitForm sets the role label and code from the roles list', () => {
+    const sf = body(team, 'async submitForm');
+    expect(sf).toContain('row.role_label = newRole.label');
+    expect(sf).toContain('row.role_code = newRole.code');
+  });
+});
