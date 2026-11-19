@@ -31,6 +31,7 @@ const TEST_YEAR   = 2099;
 const TEST_YEAR_B = 2098;   // used by POT tests (avoids clash with pipeline-years tests)
 const TEST_YEAR_D = 2093;   // pipeline year carried by Drafts (PYP-*), active
 const TEST_YEAR_E = 2092;   // PYP-*, created inactive
+let potClientName;        // the client testPots creates; testPotMasterDataFields looks its POT up by name
 
 let passed = 0, failed = 0;
 let adminCookie = '';
@@ -1951,7 +1952,7 @@ async function testPots() {
   const pyId = rpy.data?.id;
   if (pyId) later('DELETE', `/api/pipeline-years/${pyId}`);
 
-  const potClientName = `__test_pot_client_${Date.now()}__`;
+  potClientName = `__test_pot_client_${Date.now()}__`;
   const rc = await api('POST', '/api/clients', { name: potClientName }, adminCookie);
   const clientId = rc.data?.id;
   if (clientId) later('DELETE', `/api/clients/${clientId}`);
