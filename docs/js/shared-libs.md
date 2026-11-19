@@ -14,7 +14,7 @@ The `Api.*` namespace and the `apiFetch` wrapper. On a 401 it redirects to the l
 
 `Api.auth.rectificationRequest(message)` and `Api.appSettings.privacyContact()` (2026-11, My profile page) back `profile.html`; `Api.auth.updateProfile` was removed with `PATCH /api/auth/profile`.
 
-`Api.costGrids.versions.tags.{list,replace}` and `Api.projects.tags.{list,replace}` (2026-09, Cycle 2) are thin wrappers over the tag routes; `replace` sends `{ itemIds }` for a full replace-all.
+`Api.costGrids.versions.tags.list` and `Api.projects.tags.list` are thin wrappers over the tag read routes; a tag is written one item at a time by `window.tagToggle` (`js/lib/tag-toggle.js`).
 
 ## js/shares.js
 

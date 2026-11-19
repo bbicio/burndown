@@ -25,3 +25,35 @@ describe('project-config tags', () => {
     expect(retry[0]).toContain('tagSaving');
   });
 });
+
+// costgrid.html is read with its js/pages/ script inline.
+const cg = readFileSync(join(process.cwd(), 'costgrid.html'), 'utf8');
+
+describe('costgrid tags', () => {
+  it('writes one item through tagToggle', () => {
+    expect(cg).toContain('window.tagToggle(');
+    expect(cg).not.toContain('versions.tags.replace');
+    expect(cg).not.toContain('versionTagRows = []');
+    expect(cg).toContain('js/lib/tag-toggle.js?v=1');
+  });
+  it('disables every tag checkbox until the tags are loaded', () => {
+    const inputs = cg.match(/<input type="checkbox"[^>]*@change="toggleTag[^>]*>/g) || [];
+    expect(inputs.length).toBeGreaterThan(0);
+    for (const i of inputs) expect(i).toContain("tagsState !== 'ok'");
+  });
+  it('shows the load failure, Retry and the closed-summary state', () => {
+    expect(cg).toContain('Tags could not be loaded.');
+    expect(cg).toContain('Unavailable');
+    const retry = cg.match(/<button[^>]*@click="loadVersionTags\([^>]*>/);
+    expect(retry).not.toBeNull();
+    expect(retry[0]).toContain('tagSaving');
+  });
+  it('adopts a result only for the version it was requested for', () => {
+    const src = cg.slice(cg.indexOf('async toggleTag('));
+    const body = src.slice(0, src.indexOf('inactiveAssignedForList('));
+    expect(body).toContain('const savingForVerId = this.verId');
+    expect(body.indexOf('this.verId === savingForVerId')).toBeGreaterThan(body.indexOf('window.tagToggle('));
+    const load = cg.slice(cg.indexOf('async loadVersionTags('));
+    expect(load.slice(0, 900)).toContain('this.verId === verId');
+  });
+});
