@@ -363,7 +363,7 @@ A project as `project-config.html` edits it, against its base, bridged to `windo
 
 ## save.js (2026-11-17, save-contract cycle 1)
 
-`apiSave(method, path, body)`, bridged to `window`: writes through `window.apiFetch` (read at call time) and never rejects. It answers one outcome:
+`apiSave(method, path, body, opts)`, bridged to `window`: writes through `window.apiFetch` (read at call time) and never rejects. It answers one outcome:
 
 | `kind` | When | Fields |
 |---|---|---|
@@ -373,6 +373,10 @@ A project as `project-config.html` edits it, against its base, bridged to `windo
 | `error` | any other 4xx, JSON or not; a 401 (the redirect is already under way) | `status`, `message` |
 | `unknown` | timeout, network error, any 5xx (the write may have committed), a 2xx that is not JSON | `message`: "The server's answer was lost — the change may have been saved. Reload to check." |
 
-`message` is the server's `error`, else `HTTP <status>`. A `409` without `STALE` (a duplicate role code) is an `error`, not a `conflict`.
+The optional fourth argument `{ background: true }` keeps the write out of the save overlay (`apiFetch`'s `background`); the outcomes do not change. `message` is the server's `error`, else `HTTP <status>`. A `409` without `STALE` (a duplicate role code) is an `error`, not a `conflict`.
 
 `js/api.js`'s `apiFetch` tags what it throws: `status` and `data` on every HTTP error, `nonJson: true` (with `data: null` and `HTTP <status>`) for a body that is not JSON — a 2xx included, which is no longer handed back as data —, `timeout: true` on `Request timed out`, `network: true` on a rethrown fetch error. Overlay, 401 redirect and timeout are unchanged. Tests: `js/lib/save.test.js`, `js/lib/save-overlay-trigger.test.js`; the rule that `js/` writes only through `apiSave`: `scripts/save-contract-guard.test.js`.
+
+## tag-toggle.js (2026-11-19, save-contract cycle 4)
+
+`tagToggle({ basePath, rows, itemId })`, bridged to `window`: writes one tag through `window.apiSave` in the background — `DELETE <basePath>/<itemId>` when `rows` (the page's current tag rows, each with `item_id`) has the item, `PUT` otherwise. `basePath` is `/projects/<id>/tags` or `/cost-grids/<cgId>/versions/<vId>/tags`. It answers `{ rows }` (the server's full tag list) on success, `{ message }` on any other outcome. Tests: `js/lib/tag-toggle.test.js`.
