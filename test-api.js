@@ -6431,6 +6431,229 @@ async function testNotificationUrl() {
   }
 }
 
+// A temporary BEFORE trigger on `table` while fn runs: it makes the statement it fires on fail (or, with another
+// body, sleep), so a route's second statement can be made to fail and its first one checked for a rollback.
+// Answers false, without running fn, when direct SQL is not available.
+async function withTrigger(table, { events, when = null, level = 'ROW', body = "RAISE EXCEPTION 'AX injected failure';", ret = 'NEW' }, fn) {
+  if (await sql(`DROP TRIGGER IF EXISTS ax_trg ON ${table}`) === null) return false;
+  try {
+    await sql(`CREATE OR REPLACE FUNCTION ax_trg_fn() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN ${body} RETURN ${ret}; END $$`);
+    const made = await sql(`CREATE TRIGGER ax_trg BEFORE ${events} ON ${table} FOR EACH ${level}${when ? ` WHEN (${when})` : ''} EXECUTE FUNCTION ax_trg_fn()`);
+    if (made === null) return false;
+    await fn();
+    return true;
+  } finally {
+    await sql(`DROP TRIGGER IF EXISTS ax_trg ON ${table}`);
+    await sql('DROP FUNCTION IF EXISTS ax_trg_fn()');
+  }
+}
+
+// ── Server write atomicity (2026-11-19, save-c5) ────────────────────────────────
+
+async function testServerAtomicity() {
+  section('Server write atomicity');
+  const XLSX = require('/tmp/node_modules/xlsx');
+  const ts = Date.now();
+  const url = '/api/timesheets/upload';
+  const header = ['projectId', 'date', 'task', 'role', 'owner', 'hours'];
+  const sheet = (rows) => {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([header, ...rows]), 'Sheet1');
+    return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  };
+  const upload = rows => uploadRaw(url, sheet(rows), 'ts.xlsx', XLSX_MIME, adminCookie);
+  const makeProject = async (code) => {
+    const r = await api('POST', '/api/projects', { name: `__test_ax_proj_${code}__`, code }, sysadminCookie);
+    const id = r.data?.id;
+    if (id) {
+      later('DELETE', `/api/projects/${id}`);
+      await saveProjectLegacy('PUT', `/api/projects/${id}/tasks`,
+        [{ name: 'Analysis', resources: [{ role: 'Consultant', soldHours: 8 }] }], adminCookie);
+    }
+    later('DELETE', `/api/timesheets/${code}`);
+    return id;
+  };
+  const tsRows = async (codes) => (await sql('SELECT project_code, data FROM timesheets WHERE project_code = ANY($1)', [codes])) || [];
+  const hoursOf = row => (typeof row.data === 'string' ? JSON.parse(row.data) : row.data).map(e => Number(e.hours));
+
+  // AX-01: a failure on the second code leaves both codes' actuals as they were
+  const codeA = `AXA${ts}`, codeB = `AXB${ts}`;
+  if (await makeProject(codeA) && await makeProject(codeB)) {
+    const first = await upload([[codeA, '2026-01-15', 'Analysis', 'Consultant', '', 4], [codeB, '2026-01-15', 'Analysis', 'Consultant', '', 4]]);
+    ok(first.status === 201, `AX-01 setup upload → 201 (got ${first.status})`);
+    await withTrigger('timesheets', { events: 'INSERT', when: `NEW.project_code = '${codeB}'` }, async () => {
+      const r = await upload([[codeA, '2026-01-15', 'Analysis', 'Consultant', '', 9], [codeB, '2026-01-15', 'Analysis', 'Consultant', '', 9]]);
+      ok(r.status === 500, `AX-01 upload failing on the second code → 500 (got ${r.status})`);
+    });
+    const rows = await tsRows([codeA, codeB]);
+    ok(rows.length === 2 && [codeA, codeB].every(c => rows.filter(x => x.project_code === c).length === 1)
+        && rows.every(x => hoursOf(x).join() === '4'),
+      `AX-01 both codes keep their previous actuals (got ${JSON.stringify(rows.map(x => [x.project_code, hoursOf(x)]))})`);
+  } else ok(false, 'AX-01 skipped — project setup failed');
+
+  // AX-02: two concurrent uploads of the same code leave one row for it
+  const codeC = `AXC${ts}`;
+  if (await makeProject(codeC)) {
+    await withTrigger('timesheets', { events: 'INSERT', when: `NEW.project_code = '${codeC}'`, body: 'PERFORM pg_sleep(1);' }, async () => {
+      const both = await Promise.all([
+        upload([[codeC, '2026-01-15', 'Analysis', 'Consultant', '', 2]]),
+        upload([[codeC, '2026-01-16', 'Analysis', 'Consultant', '', 3]]),
+      ]);
+      ok(both.every(r => r.status === 201), `AX-02 two concurrent uploads → 201 each (got ${both.map(r => r.status)})`);
+    });
+    const rows = await tsRows([codeC]);
+    ok(rows.length === 1, `AX-02 one timesheets row for the code (got ${rows.length})`);
+  } else ok(false, 'AX-02 skipped — project setup failed');
+
+  // AX-03: a failure deleting the queue rows leaves the actuals in place
+  const codeD = `AXD${ts}`;
+  if (await makeProject(codeD)) {
+    const up = await upload([[codeD, '2026-01-15', 'Analysis', 'Consultant', `Axd Nobody${ts}`, 5]]);
+    const queued = await sql('SELECT count(*)::int AS n FROM profile_unmatched WHERE project_code = $1', [codeD]);
+    ok(up.status === 201 && queued?.[0]?.n >= 1, `AX-03 setup: upload → 201 and the owner is queued (got ${up.status}, ${queued?.[0]?.n})`);
+    await withTrigger('profile_unmatched', { events: 'DELETE', when: `OLD.project_code = '${codeD}'`, ret: 'OLD' }, async () => {
+      const r = await api('DELETE', `/api/timesheets/${codeD}`, null, adminCookie);
+      ok(r.status === 500, `AX-03 delete failing on the queue → 500 (got ${r.status})`);
+    });
+    ok((await tsRows([codeD])).length === 1, 'AX-03 the timesheets row is still there');
+  } else ok(false, 'AX-03 skipped — project setup failed');
+
+  // AX-04: a failure writing the history leaves the POT amount unchanged
+  const pot = await api('POST', '/api/pots', { specialLabel: 'New Biz', year: 2092, amount: 100 }, adminCookie);
+  if (pot.data?.id) later('DELETE', `/api/pots/${pot.data.id}`);
+  if (ok(pot.status === 201, `AX-04 setup POT → 201 (got ${pot.status})`)) {
+    const note = `AX-04 ${ts}`;
+    await withTrigger('pot_history', { events: 'INSERT', when: `NEW.note = '${note}'` }, async () => {
+      const r = await api('PATCH', `/api/pots/${pot.data.id}`, { amount: 200, note }, adminCookie);
+      ok(r.status === 500, `AX-04 PATCH failing on the history → 500 (got ${r.status})`);
+    });
+    const amount = await sql('SELECT amount FROM pots WHERE id = $1', [pot.data.id]);
+    ok(Number(amount?.[0]?.amount) === 100, `AX-04 the POT amount is unchanged (got ${amount?.[0]?.amount})`);
+    const hist = await sql('SELECT count(*)::int AS n FROM pot_history WHERE note = $1', [note]);
+    ok(hist?.[0]?.n === 0, 'AX-04 no history row with that note');
+  }
+
+  // AX-05: a failure writing the history creates no POT
+  await withTrigger('pot_history', { events: 'INSERT', when: 'NEW.new_value = 987654.32' }, async () => {
+    const r = await api('POST', '/api/pots', { specialLabel: 'New Biz', year: 2093, amount: 987654.32 }, adminCookie);
+    ok(r.status === 500, `AX-05 POST failing on the history → 500 (got ${r.status})`);
+  });
+  const leftPots = await sql("SELECT id FROM pots WHERE special_label = 'New Biz' AND year = 2093");
+  ok(leftPots?.length === 0, `AX-05 no New Biz POT for 2093 (got ${leftPots?.length})`);
+  for (const p of leftPots || []) await api('DELETE', `/api/pots/${p.id}`, null, adminCookie);
+
+  // AX-06: a failure writing the rate history leaves the current rate unchanged
+  const usdBefore = (await sql("SELECT current_rate FROM currencies WHERE code = 'USD'"))?.[0]?.current_rate;
+  await withTrigger('currency_rates', { events: 'INSERT', when: 'NEW.rate = 7.654321' }, async () => {
+    const r = await api('PATCH', '/api/currencies/USD/rate', { rate: 7.654321 }, adminCookie);
+    ok(r.status === 500, `AX-06 rate change failing on the history → 500 (got ${r.status})`);
+  });
+  const usdAfter = (await sql("SELECT current_rate FROM currencies WHERE code = 'USD'"))?.[0]?.current_rate;
+  ok(usdBefore != null && Number(usdAfter) === Number(usdBefore), `AX-06 USD current_rate unchanged (${usdBefore} → ${usdAfter})`);
+  if (usdBefore != null && Number(usdAfter) !== Number(usdBefore)) {
+    await sql("UPDATE currencies SET current_rate = $1 WHERE code = 'USD'", [usdBefore]);
+  }
+
+  // AX-07: a failure writing the rate history leaves the currency inactive
+  const inactive = (await sql("SELECT code FROM currencies WHERE active = false AND code NOT IN ('NOK','EUR') ORDER BY code LIMIT 1"))?.[0]?.code;
+  if (ok(!!inactive, `AX-07 setup: an inactive currency besides NOK (got ${inactive})`)) {
+    await withTrigger('currency_rates', { events: 'INSERT', when: 'NEW.rate = 6.543210' }, async () => {
+      const r = await api('POST', `/api/currencies/${inactive}/activate`, { rate: 6.54321 }, adminCookie);
+      ok(r.status === 500, `AX-07 activate failing on the history → 500 (got ${r.status})`);
+    });
+    const still = (await sql('SELECT active FROM currencies WHERE code = $1', [inactive]))?.[0]?.active;
+    ok(still === false, `AX-07 ${inactive} is still inactive (got ${still})`);
+    if (still === true) await sql('UPDATE currencies SET active = false WHERE code = $1', [inactive]);
+  }
+
+  // AX-10: a broadcast failing on its second row creates no notification
+  const title = `AX-10 ${ts}`;
+  try {
+    const active = await sql("SELECT count(*)::int AS n FROM users WHERE status = 'active'");
+    ok(active?.[0]?.n >= 2, `AX-10 setup: at least two active users (got ${active?.[0]?.n})`);
+    await withTrigger('notifications', {
+      events: 'INSERT', when: `NEW.title = '${title}'`,
+      body: "IF (SELECT count(*) FROM notifications WHERE title = NEW.title) >= 1 THEN RAISE EXCEPTION 'AX injected failure'; END IF;",
+    }, async () => {
+      const r = await api('POST', '/api/notifications', { title, channels: ['push'] }, adminCookie);
+      ok(r.status === 500, `AX-10 broadcast failing on the second row → 500 (got ${r.status})`);
+    });
+    const n = await sql('SELECT count(*)::int AS n FROM notifications WHERE title = $1', [title]);
+    ok(n?.[0]?.n === 0, `AX-10 no notification with that title (got ${n?.[0]?.n})`);
+  } finally {
+    await sql('DELETE FROM notifications WHERE title = $1', [title]);
+  }
+
+  // AX-11..AX-15: alias resolution and the best-effort rescan
+  const axRole = await makeTestRole(`AX${ts}`);
+  const mkRes = async (tag) => {
+    const r = await api('POST', '/api/resources',
+      { firstName: 'Ax', lastName: `${tag}${ts}`, email: `ax.${tag.toLowerCase()}.${ts}@test.local`, roleId: axRole.id }, adminCookie);
+    if (r.data?.id) later('DELETE', `/api/resources/${r.data.id}`);
+    return r.data?.id;
+  };
+  const resA = await mkRes('Resa');
+  const resB = await mkRes('Resb');
+  const aliasesNow = async () => (await api('GET', '/api/resources/aliases', null, adminCookie)).data || [];
+  const name = `Axe Name${ts}`;
+  const first = await api('POST', '/api/resources/aliases', { name, resourceId: resA }, adminCookie);
+  const aliasId = first.data?.id;
+  if (aliasId) later('DELETE', `/api/resources/aliases/${aliasId}`);
+  if (ok(!!resA && !!resB && first.status === 201, `AX-11 setup: two resources and an alias → 201 (got ${first.status})`)) {
+    const r11 = await api('POST', '/api/resources/aliases', { name, resourceId: resB }, adminCookie);
+    ok(r11.status === 409 && r11.data?.code === 'ALREADY_RESOLVED' && r11.data?.alias?.resource_id === resA,
+      `AX-11 assigning a name resolved elsewhere → 409 ALREADY_RESOLVED with the current row (got ${r11.status} ${r11.data?.code})`);
+    ok((await aliasesNow()).find(a => a.id === aliasId)?.resource_id === resA, 'AX-11 the alias still points at the first resource');
+
+    const r12 = await api('POST', '/api/resources/aliases', { name, ignore: true }, adminCookie);
+    ok(r12.status === 409 && r12.data?.code === 'ALREADY_RESOLVED', `AX-12 ignoring an assigned name → 409 ALREADY_RESOLVED (got ${r12.status})`);
+    ok((await aliasesNow()).find(a => a.id === aliasId)?.resource_id === resA, 'AX-12 the alias is unchanged');
+
+    const r13 = await api('POST', '/api/resources/aliases', { name, resourceId: resA }, adminCookie);
+    ok(r13.status === 200, `AX-13 the same resolution again → 200 (got ${r13.status})`);
+
+    await withTrigger('profile_unmatched', { events: 'INSERT OR DELETE', level: 'STATEMENT' }, async () => {
+      const r14 = await api('POST', '/api/resources/aliases', { name: `Axf Name${ts}`, resourceId: resA }, adminCookie);
+      if (r14.data?.id) later('DELETE', `/api/resources/aliases/${r14.data.id}`);
+      ok(r14.status === 201, `AX-14 a failing rescan does not fail the alias → 201 (got ${r14.status})`);
+      ok((await aliasesNow()).some(a => a.id === r14.data?.id), 'AX-14 the alias is saved');
+      const r15 = await api('PATCH', `/api/resources/${resA}`, { status: 'inactive' }, adminCookie);
+      ok(r15.status === 200, `AX-15 a failing rescan does not fail a resource change → 200 (got ${r15.status})`);
+    });
+    await api('PATCH', `/api/resources/${resA}`, { status: 'active' }, adminCookie);
+  }
+
+  // AX-08, AX-08b, AX-09: Terms publish (last: AX-09 publishes a real version)
+  const maxVersion = async () => (await sql('SELECT MAX(version) AS m FROM terms_versions'))?.[0]?.m;
+  const max = await maxVersion();
+  const content = (await api('GET', '/api/app-settings/terms', null, sysadminCookie)).data?.content;
+  if (ok(typeof content === 'string', 'AX-08 setup: current Terms content read')) {
+    await withTrigger('app_settings', { events: 'INSERT OR UPDATE', when: "NEW.key = 'terms_version'" }, async () => {
+      const r = await api('PUT', '/api/app-settings/terms', { content, publishNewVersion: true }, sysadminCookie);
+      ok(r.status === 500, `AX-08 publish failing on terms_version → 500 (got ${r.status})`);
+    });
+    ok(await maxVersion() === max, `AX-08 no new row in terms_versions (max ${max} → ${await maxVersion()})`);
+
+    const before8b = await maxVersion();
+    const r8b = await api('PUT', '/api/app-settings/terms', { content, publishNewVersion: false }, sysadminCookie);
+    ok(r8b.status === 200 && r8b.data?.newVersion === null, `AX-08b saving the draft only → 200, newVersion null (got ${r8b.status})`);
+    ok(await maxVersion() === before8b, 'AX-08b the draft save adds no version');
+
+    const base = await maxVersion();
+    await withTrigger('terms_versions', { events: 'INSERT', body: 'PERFORM pg_sleep(1);' }, async () => {
+      const both = await Promise.all([
+        api('PUT', '/api/app-settings/terms', { content, publishNewVersion: true }, sysadminCookie),
+        api('PUT', '/api/app-settings/terms', { content, publishNewVersion: true }, sysadminCookie),
+      ]);
+      const statuses = both.map(r => r.status).sort();
+      const stale = both.find(r => r.status === 409);
+      ok(statuses.join() === '200,409', `AX-09 two overlapping publishes → 200 and 409 (got ${statuses})`);
+      ok(stale?.data?.code === 'STALE' && Number.isInteger(stale?.data?.version), `AX-09 the 409 is STALE with the version (got ${JSON.stringify(stale?.data)})`);
+    });
+    ok(await maxVersion() === base + 1, `AX-09 one new version (max ${base} → ${await maxVersion()})`);
+  }
+}
+
 async function main() {
   process.stdout.write(`\n${bold('PDash API Integration Tests')} — ${BASE}\n`);
   process.stdout.write(`Admin: ${EMAIL}\n`);
@@ -6496,6 +6719,7 @@ async function main() {
     await testAuthTokens();
     await testPasswordPolicy();
     await testNotificationUrl();
+    await testServerAtomicity();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
     console.error(e.stack);
