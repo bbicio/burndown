@@ -407,60 +407,62 @@ router.delete('/:id/shares/:userId', requireAuth, async (req, res, next) => {
 
 // ── TAGS ──────────────────────────────────────────────────────────────────────
 
+async function listProjectTags(projectId) {
+  const { rows } = await query(
+    `SELECT ali.id AS item_id, ali.label, ali.status, al.id AS list_id, al.name AS list_name, al.slug AS list_slug
+     FROM project_tags pt
+     JOIN attribute_list_items ali ON ali.id = pt.item_id
+     JOIN attribute_lists al ON al.id = ali.list_id
+     WHERE pt.project_id = $1
+     ORDER BY al.name, ali.label`,
+    [projectId]
+  );
+  return rows;
+}
+
 // GET /api/projects/:id/tags
 router.get('/:id/tags', requireAuth, async (req, res, next) => {
   try {
     if (!await canAccess(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const { rows } = await query(
-      `SELECT ali.id AS item_id, ali.label, ali.status, al.id AS list_id, al.name AS list_name, al.slug AS list_slug
-       FROM project_tags pt
-       JOIN attribute_list_items ali ON ali.id = pt.item_id
-       JOIN attribute_lists al ON al.id = ali.list_id
-       WHERE pt.project_id = $1
-       ORDER BY al.name, ali.label`,
-      [req.params.id]
-    );
-    res.json(rows);
+    res.json(await listProjectTags(req.params.id));
   } catch (err) { next(err); }
 });
 
-// PUT /api/projects/:id/tags — replace-all. Project tags are autonomous from the linked
-// proposal (Cycle 3a): they are seeded once by copyVersionTagsToProject, then edited here.
-router.put('/:id/tags', requireAuth, async (req, res, next) => {
+// PUT / DELETE /api/projects/:id/tags/:itemId — assign / remove one tag; the answer is the list.
+// Project tags are autonomous from the linked proposal (Cycle 3a): they are seeded once by
+// copyVersionTagsToProject, then edited here.
+async function changeProjectTag(req, res, next, assign) {
   try {
+    if (!isUuid(req.params.id)) return res.status(404).json({ error: 'Project not found' });
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
     const { rows: projRows } = await query('SELECT 1 FROM projects WHERE id = $1', [req.params.id]);
     if (!projRows[0]) return res.status(404).json({ error: 'Project not found' });
+    if (!isUuid(req.params.itemId)) return res.status(400).json({ error: 'itemId must be a valid UUID' });
 
-    const { itemIds = [] } = req.body;
-    if (!Array.isArray(itemIds)) return res.status(400).json({ error: 'itemIds must be an array' });
-
-    const client = await pool.connect();
+    let touched;
     try {
-      await client.query('BEGIN');
-      await client.query('DELETE FROM project_tags WHERE project_id = $1', [req.params.id]);
-      await client.query(
-        `INSERT INTO project_tags (project_id, item_id)
-         SELECT $1::uuid, unnest($2::uuid[]) ON CONFLICT DO NOTHING`,
-        [req.params.id, itemIds]
-      );
-      await client.query('COMMIT');
-      await enqueueProjectCode(req.params.id);
-      res.json({ ok: true });
+      const r = assign
+        ? await query(
+            'INSERT INTO project_tags (project_id, item_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+            [req.params.id, req.params.itemId])
+        : await query(
+            'DELETE FROM project_tags WHERE project_id = $1 AND item_id = $2',
+            [req.params.id, req.params.itemId]);
+      touched = r.rowCount;
     } catch (err) {
-      await client.query('ROLLBACK').catch(() => {});
-      if (err.code === '23503') return res.status(400).json({ error: 'One or more tag items do not exist' });
-      if (err.code === '22P02') return res.status(400).json({ error: 'itemIds must be valid UUIDs' });
+      if (err.code === '23503') return res.status(400).json({ error: 'Tag item does not exist' });
       throw err;
-    } finally {
-      client.release();
     }
+    if (touched > 0) await enqueueProjectCode(req.params.id);
+    res.json(await listProjectTags(req.params.id));
   } catch (err) { next(err); }
-});
+}
+router.put('/:id/tags/:itemId', requireAuth, (req, res, next) => changeProjectTag(req, res, next, true));
+router.delete('/:id/tags/:itemId', requireAuth, (req, res, next) => changeProjectTag(req, res, next, false));
 
 module.exports = router;
 // The edit permission on a project, also checked by Add tasks (routes/cost-grids.js).

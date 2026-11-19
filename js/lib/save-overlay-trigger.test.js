@@ -195,39 +195,10 @@ describe('save overlay trigger', () => {
     expect(fetchMock.mock.calls[0][1].background).toBeUndefined();
     pending[0].resolve(okRes()); await p;
   });
-  it('Api.costGrids.versions.tags.replace(..., { background: true }) does not show the overlay', async () => {
-    const p = api.Api.costGrids.versions.tags.replace('c', 'v', [], { background: true });
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(win.PdOverlay.show).toHaveBeenCalledTimes(0);
-    expect(fetchMock.mock.calls[0][1].background).toBeUndefined();
-    pending[0].resolve(okRes()); await p;
-  });
-  it('the same wrapper without opts does show it', async () => {
-    const p = api.Api.costGrids.versions.tags.replace('c', 'v', []);
-    await vi.advanceTimersByTimeAsync(400);
-    expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
-    pending[0].resolve(okRes()); await p;
-  });
   it('the notifications mark-read PATCHes pass background: true', () => {
     const n = readFileSync(join(process.cwd(), 'js/notifications.js'), 'utf8');
     expect(n).toContain("/notifications/${id}/read`, { method: 'PATCH', background: true }");
     expect(n).toContain("'/notifications/read-all', { method: 'PATCH', background: true }");
-  });
-  it('projects.tags.replace forwards background, and the project-config tag toggle passes it', async () => {
-    const p = api.Api.projects.tags.replace('p', [], { background: true });
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(win.PdOverlay.show).toHaveBeenCalledTimes(0);
-    pending[0].resolve(okRes()); await p;
-    const html = readFileSync(join(process.cwd(), 'project-config.html'), 'utf8');
-    expect(html).toContain('Api.projects.tags.replace(this.project.id, newIds, { background: true })');
-  });
-  it('versions.tags.replace forwards background, and the costgrid tag toggle passes it', async () => {
-    const p = api.Api.costGrids.versions.tags.replace('c', 'v', [], { background: true });
-    await vi.advanceTimersByTimeAsync(1000);
-    expect(win.PdOverlay.show).toHaveBeenCalledTimes(0);
-    pending[0].resolve(okRes()); await p;
-    const html = readFileSync(join(process.cwd(), 'costgrid.html'), 'utf8');
-    expect(html).toContain('Api.costGrids.versions.tags.replace(this.cgId, this.verId, this.versionTagItemIds, { background: true })');
   });
   it('does nothing when window.PdOverlay is missing', async () => {
     delete win.PdOverlay;

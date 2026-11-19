@@ -63,6 +63,27 @@ describe('apiSave', () => {
     expect(opts.body).toBe('{"label":"A"}');
     expect(opts.headers['Content-Type']).toBe('application/json');
   });
+
+  it('background: true keeps the overlay off', async () => {
+    vi.useFakeTimers();
+    try {
+      load(() => new Promise(() => {}));
+      apiSave('PUT', '/x', null, { background: true });
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(win.PdOverlay.show).not.toHaveBeenCalled();
+    } finally { vi.useRealTimers(); }
+  });
+
+  it('without opts the overlay shows as before', async () => {
+    vi.useFakeTimers();
+    try {
+      load(() => new Promise(() => {}));
+      apiSave('PUT', '/x', null);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(win.PdOverlay.show).toHaveBeenCalledTimes(1);
+    } finally { vi.useRealTimers(); }
+  });
+
 });
 
 describe('apiFetch', () => {

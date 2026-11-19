@@ -39,7 +39,7 @@ Vue.createApp({
       rateFocusedRole: null, rateRaw: '', rateInvalid: false, rateEdited: false, rateSnapshot: null,
       ratecardMap: {}, ratecardOverrides: {}, isClientRatecard: false, allRatecards: [],
       offerDetailsCollapsed: false, summaryCollapsed: false, sharingCollapsed: false, tagsCollapsed: false,
-      attributeLists: [], versionTagItemIds: [], versionTagRows: [], tagSaving: false,
+      attributeLists: [], versionTagRows: [], tagSaving: false, tagsState: 'loading', tagError: '',
       compactHeader: localStorage.getItem('PDash_cgCompactHeader') === '1',
       selectionMode: false, selectedTaskIds: new Set(), addToProjectMode: 'new', // Task 4, 2026-10-07: 'new' | 'existing' segmented control
       phasingCollapsed: false, // Task 4, 2026-10-07: Monthly Phasing card collapse (not persisted)
@@ -157,6 +157,7 @@ Vue.createApp({
       if (!this.draft) return { period: '', stage: '', client: '', ratecard: '', currency: '', owner: '' };
       return window.cgOfferDetailsSummary(this.draft, { clientName: this.resolvedClientName, ratecardName: this.resolvedRatecardName });
     },
+    versionTagItemIds() { return this.versionTagRows.map(r => r.item_id); },
     tagsSummaryGroups() {
       return this.attributeLists.map(list => {
         const active = (list.items || []).filter(it => this.versionTagItemIds.includes(it.id)).map(it => it.label);
@@ -577,15 +578,8 @@ Vue.createApp({
       this.prevCurrency = this.draft.currency || 'EUR';
       this.selectionMode = false; this.selectedTaskIds = new Set(); this.addToProjectMode = 'new';
 
-      try {
-        const tagRows = await Api.costGrids.versions.tags.list(cgId, resolvedVerId);
-        this.versionTagItemIds = tagRows.map(r => r.item_id);
-        this.versionTagRows = tagRows;
-      } catch (e) {
-        console.warn('[costgrid] load version tags failed:', e.message);
-        this.versionTagItemIds = [];
-        this.versionTagRows = [];
-      }
+      this.tagError = '';
+      await this.loadVersionTags(cgId, resolvedVerId);
 
       await cgUpdateActiveRatecardMap(); // loads the ratecard maps only — saved rates are not re-priced
       // The base the Save compares to: the draft as opened, the never-saved role rates already priced, so
@@ -737,35 +731,38 @@ Vue.createApp({
       this.draft.currency = value;
       this.onCurrencyChange();
     },
-    async toggleTag(itemId, event) {
-      if (this.isLocked || this.cg?.myPermission === 'viewer') return;
-      // In-flight guard: the checkbox is also :disabled while tagSaving is true, so this
-      // is a defense-in-depth fallback for the brief window before Vue re-renders that
-      // disabled state. The native checkbox has already visually flipped by the time
-      // @change fires — if we're bailing out, flip it back so it doesn't show a state
-      // that was never applied to versionTagItemIds or saved.
-      if (this.tagSaving) { if (event) event.target.checked = !event.target.checked; return; }
-      const idx = this.versionTagItemIds.indexOf(itemId);
-      const prevItemIds = [...this.versionTagItemIds];
-      const prevRows = [...this.versionTagRows];
-      const savingForVerId = this.verId;   // the rollback below must not paint this version's tags on another one
-      if (idx === -1) {
-        this.versionTagItemIds.push(itemId);
-      } else {
-        this.versionTagItemIds.splice(idx, 1);
-        this.versionTagRows = this.versionTagRows.filter(r => r.item_id !== itemId);
+    // Reads the version's tags. A failed read sets `unknown` and keeps the rows as they were.
+    async loadVersionTags(cgId, verId) {
+      this.tagsState = 'loading';
+      try {
+        const rows = await Api.costGrids.versions.tags.list(cgId, verId);
+        if (this.verId === verId) { this.versionTagRows = rows; this.tagsState = 'ok'; }
+      } catch (e) {
+        console.warn('[costgrid] load version tags failed:', e.message);
+        if (this.verId === verId) this.tagsState = 'unknown';
       }
+    },
+    async toggleTag(itemId, event) {
+      // The native checkbox has already flipped when @change fires: every exit puts it
+      // back on what versionTagRows says.
+      const realign = () => { if (event) event.target.checked = this.versionTagItemIds.includes(itemId); };
+      if (this.isLocked || this.cg?.myPermission === 'viewer' || this.tagsState !== 'ok' || this.tagSaving) { realign(); return; }
+      const savingForVerId = this.verId;   // the result below must not be painted on another version
       this.tagSaving = true;
       try {
-        await Api.costGrids.versions.tags.replace(this.cgId, this.verId, this.versionTagItemIds, { background: true });
-      } catch (e) {
-        console.warn('[costgrid] saveTags:', e.message);
+        const out = await window.tagToggle({ basePath: `/cost-grids/${this.cgId}/versions/${savingForVerId}/tags`, rows: this.versionTagRows, itemId });
         if (this.verId === savingForVerId) {
-          this.versionTagItemIds = prevItemIds;
-          this.versionTagRows = prevRows;
+          if (out.rows) {
+            this.versionTagRows = out.rows;
+            this.tagError = '';
+          } else {
+            this.tagError = out.message;
+            await this.loadVersionTags(this.cgId, savingForVerId);
+          }
         }
       } finally {
         this.tagSaving = false;
+        realign();
       }
     },
     // An assigned tag whose item was later deactivated stays assigned (per spec) but

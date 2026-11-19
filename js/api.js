@@ -164,7 +164,6 @@ const Api = {
     },
     tags: {
       list:    (id)          => apiFetch(`/projects/${id}/tags`),
-      replace: (id, itemIds, opts) => apiFetch(`/projects/${id}/tags`, { method: 'PUT', body: JSON.stringify({ itemIds }), background: opts?.background }),
     },
   },
 
@@ -188,7 +187,6 @@ const Api = {
       },
       tags: {
         list:    (cgId, vId)           => apiFetch(`/cost-grids/${cgId}/versions/${vId}/tags`),
-        replace: (cgId, vId, itemIds, opts) => apiFetch(`/cost-grids/${cgId}/versions/${vId}/tags`, { method: 'PUT', body: JSON.stringify({ itemIds }), background: opts?.background }),
       },
     },
     shares: {

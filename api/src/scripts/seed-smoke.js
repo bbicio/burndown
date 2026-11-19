@@ -17,7 +17,7 @@
 // POST /api/resources {firstName, lastName, email, roleId} (+ PATCH status); POST /api/attribute-lists/:id/items {label};
 // POST /api/cost-grids {name} -> POST …/versions {label, startDate YYYYMM, endDate, currency, clientId, projectName, pipelineYear}
 // -> PUT …/:vId {version, structure:{phases:[{phaseName, tasks:[{taskName, taskStartDate, taskEndDate, hours:{code:n}}]}], roles:[{roleCode, rate}]}}
-// -> PUT …/tags {itemIds} -> POST …/publish -> PUT …/:vId {version, header:{pipeline}}; POST /api/programs {id, name};
+// -> PUT …/tags/:itemId -> POST …/publish -> PUT …/:vId {version, header:{pipeline}}; POST /api/programs {id, name};
 // POST /api/projects {name, code, programId, clientId, startDate, endDate, currency, pipeline, status, cgVersionId}
 // -> PUT /api/projects/:id/tasks [{name, startDate, endDate, resources:[{role, soldHours, hourlyRate}]}]
 // -> POST …/versions/:vId/linked-projects {projectId, taskIds, taskNames}; POST /api/timesheets/upload?projectCode= (CSV).
@@ -124,7 +124,7 @@ async function main() {
     }
     const roles = D.ROLES.map((r) => ({ roleCode: r.code, rate: o.currency === 'USD' ? r.usdRate : r.rate }));
     await must('PUT', base, { version: ver.version, structure: { phases, roles } });
-    if (o.tag) await must('PUT', `${base}/tags`, { itemIds: [tagId[o.tag]] });
+    if (o.tag) await must('PUT', `${base}/tags/${tagId[o.tag]}`);
     await must('POST', `${base}/publish`);
     if (o.stage !== 'SIP') {
       const current = (await must('GET', `/api/cost-grids/${grid.id}/versions`)).find((v) => v.id === ver.id);

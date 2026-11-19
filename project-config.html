@@ -384,12 +384,18 @@
           <svg class="cg-section-chevron" :class="{ 'cg-section-chevron--collapsed': tagsCollapsed }" viewBox="0 0 12 12" width="12" height="12" fill="none"><path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           <span class="cg-section-title">Tags</span>
           <div v-if="tagsCollapsed" class="cg-tag-summary">
-            <span v-if="!tagsSummaryGroups.length" class="text-muted">None selected</span>
-            <span v-for="g in tagsSummaryGroups" :key="g.name" class="cg-tag-summary-pill">{{ g.name }} · {{ g.labels.join(', ') }}</span>
+            <span v-if="tagsState === 'unknown'" class="text-muted">Unavailable</span>
+            <span v-else-if="!tagsSummaryGroups.length" class="text-muted">None selected</span>
+            <template v-if="tagsState !== 'unknown'"><span v-for="g in tagsSummaryGroups" :key="g.name" class="cg-tag-summary-pill">{{ g.name }} · {{ g.labels.join(', ') }}</span></template>
           </div>
           <span class="cg-section-toggle-label">{{ tagsCollapsed ? 'Edit' : 'Collapse' }}</span>
         </div>
         <div v-show="!tagsCollapsed" class="p-3" :class="{ 'tags-section--readonly': tagsReadOnly }">
+          <div v-if="tagsState === 'unknown'" class="alert alert-danger alert-sm d-flex align-items-center justify-content-between">
+            <span>Tags could not be loaded.</span>
+            <button type="button" class="btn btn-sm btn-outline-danger" @click="loadTags" :disabled="tagSaving">Retry</button>
+          </div>
+          <div v-if="tagError" class="alert alert-danger alert-sm">{{ tagError }}</div>
           <div v-if="!attributeLists.length" class="text-muted pc-text-sm">No tag lists configured yet.</div>
           <div class="cg-tag-groups">
             <div v-for="list in attributeLists" :key="list.id" class="tag-group">
@@ -397,12 +403,12 @@
               <div v-if="!list.items.length" class="text-muted pc-text-xs">No active items in this list.</div>
               <div class="tag-group__list">
                 <label v-for="item in list.items" :key="item.id" class="tag-pill">
-                  <input type="checkbox" :checked="isTagChecked(item.id)" :disabled="tagsReadOnly || tagSaving" @change="toggleTag(item.id, $event)">
+                  <input type="checkbox" :checked="isTagChecked(item.id)" :disabled="tagsReadOnly || tagSaving || tagsState !== 'ok'" @change="toggleTag(item.id, $event)">
                   <svg class="tag-pill__check" viewBox="0 0 12 12" fill="none"><path d="M2 6L4.8 8.8L10 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
                   <span>{{ item.label }}</span>
                 </label>
                 <label v-for="row in inactiveAssignedForList(list.id)" :key="row.item_id" class="tag-pill tag-pill--inactive">
-                  <input type="checkbox" checked :disabled="tagsReadOnly || tagSaving" @change="toggleTag(row.item_id, $event)">
+                  <input type="checkbox" checked :disabled="tagsReadOnly || tagSaving || tagsState !== 'ok'" @change="toggleTag(row.item_id, $event)">
                   <span>{{ row.label }}</span>
                   <span class="tag-pill__suffix">inactive</span>
                 </label>
@@ -503,7 +509,7 @@
 <script defer src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js" integrity="sha384-Pqp51FUN2/qzfxZxBCtF0stpc9ONI6MYZpVqmo8m20SoaQCzf+arZvACkLkirlPz" crossorigin="anonymous"></script>
 <script defer src="https://unpkg.com/vue@3.5.45/dist/vue.global.prod.js" integrity="sha384-K2FjvpG1y48yCE+7CBPhnKc16ShPmT3dlNwvoA3dhjV18+L5ugI0P8PWPvdjm/Fa" crossorigin="anonymous"></script>
-<script defer src="js/api.js?v=18"></script>
+<script defer src="js/api.js?v=20"></script>
 <script defer src="js/core.js?v=17"></script>
 <script type="module" src="js/lib/notif-browser.js?v=2"></script>
 <script type="module" src="js/lib/notification-url.js?v=1"></script>
@@ -518,12 +524,13 @@
 <script type="module" src="js/lib/dates.js?v=7"></script>
 <script type="module" src="js/lib/cg-controls-calc.js?v=2"></script>
 <script defer src="js/cg-controls.js?v=5"></script>
-<script type="module" src="js/lib/save.js?v=1"></script>
+<script type="module" src="js/lib/save.js?v=2"></script>
+<script type="module" src="js/lib/tag-toggle.js?v=1"></script>
 <script type="module" src="js/lib/project-draft.js?v=1"></script>
 <script defer src="js/api-sync.js?v=34"></script>
 <script defer src="js/tags.js?v=2"></script>
 <script type="module" src="js/lib/icons.js?v=7"></script>
 <script defer src="js/nav.js?v=24"></script>
-<script type="module" src="js/pages/project-config.js?v=2"></script>
+<script type="module" src="js/pages/project-config.js?v=3"></script>
 </body>
 </html>
