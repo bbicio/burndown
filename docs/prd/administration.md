@@ -112,6 +112,8 @@ A project's tags are its own, editable in the project's configuration page by an
 
 A tag whose underlying item is later deactivated (§16.8) stays assigned rather than silently disappearing — it renders distinguishably (dimmed, marked "inactive") so it stays visible and can still be explicitly removed, but is never dropped out from under whoever assigned it.
 
+Each click writes only the tag clicked (2026-11-19, save-contract cycle 4), so two people tagging the same proposal or project at once both keep their tags. If the tags cannot be loaded, the section says "Tags could not be loaded." with a **Retry** button, the pills cannot be clicked, and the closed card reads "Unavailable". If a click cannot be saved, the error appears inside the section and the pill goes back to the saved state.
+
 Filtering the pipeline board or portfolio reporting by these tags is not part of this cycle — deferred to a later one.
 
 ### 16.10 Profile Processing Console (2026-09-28, Cycle 3d)

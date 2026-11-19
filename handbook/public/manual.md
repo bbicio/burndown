@@ -636,6 +636,15 @@ Attribute Lists holds the lists used to tag offers and projects. Market, Brand, 
 
 Tags appear in the **Tags** section of the offer editor and of the project configuration form, as pills grouped by list: click to assign and click again to remove. Anyone who can edit the offer or the project can tag it. A project starts with a one-time copy of its offer's tags and is independent afterwards. A tag whose value was later deactivated stays assigned and is shown dimmed as "inactive".
 
+<details>
+<summary>Details</summary>
+
+- Each click saves only the tag you clicked, so two people tagging the same offer or project at the same time both keep their tags.
+- If the tags cannot be loaded, the section says "Tags could not be loaded." with a **Retry** button, the pills cannot be clicked, and the closed card reads "Unavailable".
+- If a click cannot be saved, the error appears inside the section and the pill goes back to its saved state.
+
+</details>
+
 ### Competence topics
 
 The same page reviews the competence topics that PDash suggests from the descriptions of projects and tasks, such as "Medical writing". The side menu lists them as **Proposed**, **Approved** and **Rejected**. A proposed topic does not appear in anyone's profile until you approve it.
