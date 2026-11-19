@@ -3507,15 +3507,23 @@ async function testTagLinking() {
     const again = await api('PUT', `${base}/${itemId}`, null, adminCookie);
     ok(again.status === 200 && (again.data || []).filter(t => t.item_id === itemId).length === 1,
       'TAG-22 a second PUT of the same item → 200, the item listed once');
-    const before = await api('GET', base, null, adminCookie);
-    const delAbsent = await api('DELETE', `${base}/00000000-0000-0000-0000-000000000001`, null, adminCookie);
-    ok(delAbsent.status === 400 || (delAbsent.status === 200 && JSON.stringify(delAbsent.data) === JSON.stringify(before.data)),
-      'TAG-22 DELETE of an item not assigned → 200 with the list unchanged');
-    const absent = await api('DELETE', `${base}/${itemId2}`, null, adminCookie);
+    // itemId2 is made absent first, so the DELETE below targets an existing, unassigned item
     await api('DELETE', `${base}/${itemId2}`, null, adminCookie);
-    const after = await api('GET', base, null, adminCookie);
-    ok(absent.status === 200 && JSON.stringify(absent.data) === JSON.stringify(after.data),
-      'TAG-23 the answer of a tag write equals the next GET');
+    const before = await api('GET', base, null, adminCookie);
+    ok(!(before.data || []).some(t => t.item_id === itemId2), 'TAG-22 setup: itemId2 is not assigned');
+    const delAbsent = await api('DELETE', `${base}/${itemId2}`, null, adminCookie);
+    ok(delAbsent.status === 200 && JSON.stringify(delAbsent.data) === JSON.stringify(before.data),
+      'TAG-22 DELETE of an item not assigned → 200 with the list unchanged');
+
+    // TAG-23: the answer of each write equals the GET that follows it
+    const put = await api('PUT', `${base}/${itemId2}`, null, adminCookie);
+    const afterPut = await api('GET', base, null, adminCookie);
+    ok(put.status === 200 && JSON.stringify(put.data) === JSON.stringify(afterPut.data),
+      'TAG-23 the answer of a tag PUT equals the next GET');
+    const del = await api('DELETE', `${base}/${itemId2}`, null, adminCookie);
+    const afterDel = await api('GET', base, null, adminCookie);
+    ok(del.status === 200 && JSON.stringify(del.data) === JSON.stringify(afterDel.data),
+      'TAG-23 the answer of a tag DELETE equals the next GET');
   }
 
   // TAG-25: a viewer cannot assign or remove a tag
@@ -3523,7 +3531,8 @@ async function testTagLinking() {
     const viewer = await makeTsUser('tagv');
     const viewerCookie = viewer ? await loginWithCode(viewer.email, TS_PASS) : '';
     if (viewer?.id && viewerCookie) {
-      await api('POST', `/api/cost-grids/${cgId}/shares`, { userId: viewer.id, permission: 'viewer' }, adminCookie);
+      const rShare = await api('POST', `/api/cost-grids/${cgId}/shares`, { userId: viewer.id, permission: 'viewer' }, adminCookie);
+      ok(rShare.status === 201, `TAG-25 setup: grid shared with the viewer → 201 (got ${rShare.status})`);
       const url = `/api/cost-grids/${cgId}/versions/${vId}/tags/${itemId}`;
       ok((await api('PUT', url, null, viewerCookie)).status === 403, 'TAG-25 viewer PUT version tag → 403');
       ok((await api('DELETE', url, null, viewerCookie)).status === 403, 'TAG-25 viewer DELETE version tag → 403');

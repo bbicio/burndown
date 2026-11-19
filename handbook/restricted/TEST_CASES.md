@@ -1013,12 +1013,12 @@ Second of four planned resource-allocation cycles (see `docs/superpowers/specs/2
 | TAG-17 | Version from another grid rejected on tag routes (Cycle 3a) | `GET`/`PUT`/`DELETE` on `/api/cost-grids/:id/versions/:vId/tags` (`…/:itemId` for the writes) with a `:vId` belonging to a different cost grid | 404 for all | ✓ |
 | TAG-18 | Malformed tag item id rejected (Cycle 3a) | `PUT …/tags/not-a-uuid` on either tags path | 400 — not a 500 | ✓ |
 | TAG-19 | Overlapping first-link saves seed tags once (Cycle 3a) | Two concurrent `PATCH` requests with the same `cgVersionId` on an untagged project | Both 200; exactly one copy of the version's tags (concurrency smoke test — not a deterministic race reproduction) | ✓ |
+| TAG-20 | Backfill migration `023` seeds already-linked projects (Cycle 3a) | Apply `023_backfill_project_tags.sql` where linked projects have no tags and their version has tags | Each such project gets the version's tags; re-running fills only projects that still have none. Not automatable in `test-api.js` (no DB access); on the 2026-09-25 rollout no version had tags, so it inserted 0 rows | |
 | TAG-21 | Two clients adding different tags both land | On a new version (and on a standalone project), `PUT …/tags/:itemId` with one item, then with a second item | `GET` returns both items | ✓ |
 | TAG-22 | Tag writes are idempotent | `PUT` the same item twice; `DELETE` an item that is not assigned | 200 both times; the item is listed once; the list is unchanged by the `DELETE` | ✓ |
 | TAG-23 | A tag write answers with the current list | `PUT`/`DELETE …/tags/:itemId`, then `GET` | The write's response body equals the `GET` body | ✓ |
 | TAG-25 | A viewer cannot change tags | As a user the grid is shared with as `viewer`, `PUT` and `DELETE …/versions/:vId/tags/:itemId` | 403 for both | ✓ |
 | TAG-26 | An inactive tag can be removed | Assign an item, deactivate it in `attribute-lists.html` (or `PATCH` its status), `DELETE …/tags/:itemId` | 200; the list no longer contains it | ✓ |
-| TAG-20 | Backfill migration `023` seeds already-linked projects (Cycle 3a) | Apply `023_backfill_project_tags.sql` where linked projects have no tags and their version has tags | Each such project gets the version's tags; re-running fills only projects that still have none. Not automatable in `test-api.js` (no DB access); on the 2026-09-25 rollout no version had tags, so it inserted 0 rows | |
 
 ---
 
