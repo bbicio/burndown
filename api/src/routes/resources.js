@@ -1,7 +1,6 @@
 const express = require('express');
 const { query, pool } = require('../db/client');
 const { withTransaction } = require('../db/transaction');
-const { isUuid } = require('../lib/input-rules');
 const { requireAuth, requireAdmin } = require('../middleware/auth');
 
 const { normalizeName } = require('../lib/match-resource');
@@ -80,8 +79,10 @@ router.get('/aliases', async (req, res, next) => {
 });
 
 const ALIAS_COLUMNS = 'id, alias_normalized, display_name, resource_id';
-// Whether an alias row already resolves the name the way the request asks (null = ignored).
-const sameTarget = (row, target) => (row.resource_id ?? null) === (target == null ? null : String(target).toLowerCase());
+// The alias row of a name, with `same`: whether it already resolves the name the way the request asks ($2, null =
+// ignored). PostgreSQL compares the ids, so any spelling it accepts matches, and an invalid one is a 22P02.
+const SELECT_ALIAS = `SELECT ${ALIAS_COLUMNS}, resource_id IS NOT DISTINCT FROM $2::uuid AS same
+  FROM resource_aliases WHERE alias_normalized = $1`;
 
 // POST /api/resources/aliases — { name, resourceId } assigns a name to a resource;
 // { name, ignore: true } marks it as not-a-person. A new name is created (201); the same resolution
@@ -96,14 +97,13 @@ router.post('/aliases', async (req, res, next) => {
     if (wantsIgnore === !!resourceId) {
       return res.status(400).json({ error: 'Provide either resourceId or ignore: true' });
     }
-    if (!wantsIgnore && !isUuid(resourceId)) return res.status(400).json({ error: 'resourceId must be a valid UUID' });
     const display = String(name).trim();
     const target = wantsIgnore ? null : resourceId;
 
     let outcome;
     try {
       outcome = await withTransaction(pool, async (client) => {
-        const cur = await client.query(`SELECT ${ALIAS_COLUMNS} FROM resource_aliases WHERE alias_normalized = $1 FOR UPDATE`, [key]);
+        const cur = await client.query(`${SELECT_ALIAS} FOR UPDATE`, [key, target]);
         const row = cur.rows[0];
         if (!row) {
           const { rows } = await client.query(
@@ -113,7 +113,8 @@ router.post('/aliases', async (req, res, next) => {
           );
           return { status: 201, alias: rows[0], wrote: true };
         }
-        if (!sameTarget(row, target)) return { status: 409, alias: row };
+        const { same, ...current } = row;
+        if (!same) return { status: 409, alias: current };
         // Same resolution: created_by is kept, updated_by/updated_at record who confirmed it.
         const { rows } = await client.query(
           `UPDATE resource_aliases SET display_name = $2, updated_by = $3, updated_at = now()
@@ -125,9 +126,10 @@ router.post('/aliases', async (req, res, next) => {
     } catch (err) {
       if (err.code !== '23505') throw err;
       // A concurrent request created the same name first: the answer follows the row that won.
-      const { rows } = await query(`SELECT ${ALIAS_COLUMNS} FROM resource_aliases WHERE alias_normalized = $1`, [key]);
+      const { rows } = await query(SELECT_ALIAS, [key, target]);
       if (!rows[0]) throw err;
-      outcome = { status: sameTarget(rows[0], target) ? 200 : 409, alias: rows[0] };
+      const { same, ...current } = rows[0];
+      outcome = { status: same ? 200 : 409, alias: current };
     }
 
     if (outcome.status === 409) {
