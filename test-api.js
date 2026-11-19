@@ -6619,7 +6619,7 @@ async function testServerAtomicity() {
     // AX-16: a UUID spelling PostgreSQL accepts (braces, no hyphens) is the same resource
     const r16a = await api('POST', '/api/resources/aliases', { name, resourceId: `{${resA.toUpperCase()}}` }, adminCookie);
     ok(r16a.status === 200, `AX-16 the same resource in braces and upper case → 200 (got ${r16a.status})`);
-    const r16b = await api('POST', '/api/resources/aliases', { name: `Axg Name${ts}`, resourceId: resA.replace(/-/g, '') }, adminCookie);
+    const r16b = await api('POST', '/api/resources/aliases', { name: `Axg Name${ts}`, resourceId: resA.split('-').join('') }, adminCookie);
     if (r16b.data?.id) later('DELETE', `/api/resources/aliases/${r16b.data.id}`);
     ok(r16b.status === 201 && r16b.data?.resource_id === resA, `AX-16 a new name with a hyphenless id → 201 on that resource (got ${r16b.status})`);
     const r16c = await api('POST', '/api/resources/aliases', { name, resourceId: 'not-a-uuid' }, adminCookie);
