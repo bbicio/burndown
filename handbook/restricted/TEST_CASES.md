@@ -1361,6 +1361,7 @@ Spec: `docs/superpowers/specs/2026-11-19-save-c5-server-atomicity-design.md`. A 
 | AX-11 | Assign a name resolved elsewhere | Assign a name to resource A, then to resource B | `409 ALREADY_RESOLVED` with the current row; the alias still points at A | ✓ |
 | AX-12 | Ignore an assigned name | Ignore the name assigned to A | `409 ALREADY_RESOLVED`; alias unchanged | ✓ |
 | AX-13 | Same resolution again | Assign the name to A again | 200 | ✓ |
+| AX-16 | Resource id spelled another way | Assign the name to A again with A's id in braces and upper case; assign a new name with A's id without hyphens; send an invalid id for the existing name | 200; 201 on A; 400 `resourceId must be a valid UUID` | ✓ |
 | AX-14 | Rescan failing after an alias | Assign a new name while every write to the Unmatched queue fails | 201; the alias is saved | ✓ |
 | AX-15 | Rescan failing after a resource change | Deactivate a resource while every write to the Unmatched queue fails | 200 | ✓ |
 
