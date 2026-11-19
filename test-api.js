@@ -1122,7 +1122,9 @@ async function testClientGroups() {
   }
 
   // CG-POT — a group with a POT cannot be deleted; GET lists its POT years
-  const potYear = 2098;
+  const potYear = 2089;   // its own year: deleting a year with a POT is refused, so the year is queued for cleanup before the POT
+  const rpgy = await api('POST', '/api/pipeline-years', { year: potYear }, adminCookie);
+  if (rpgy.data?.id) later('DELETE', `/api/pipeline-years/${rpgy.data.id}`);
   const rpg = await api('POST', '/api/client-groups', { name: `__test_cg_pot_group_${Date.now()}__` }, adminCookie);
   const pgid = rpg.data?.id;
   if (pgid) later('DELETE', `/api/client-groups/${pgid}`);
