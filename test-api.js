@@ -3303,15 +3303,15 @@ async function testTagLinking() {
 
   // TAG-01/02: assign, then remove, a tag on the proposal
   if (cgId && vId && itemId) {
-    const rSet = await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags`, { itemIds: [itemId] }, adminCookie);
-    ok(rSet.status === 200 && rSet.data?.ok === true, 'TAG-01 PUT version tags → 200');
+    const rSet = await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags/${itemId}`, null, adminCookie);
+    ok(rSet.status === 200 && Array.isArray(rSet.data) && rSet.data.some(t => t.item_id === itemId), 'TAG-01 PUT version tag → 200 with the list');
 
     const rGet = await api('GET', `/api/cost-grids/${cgId}/versions/${vId}/tags`, null, adminCookie);
     ok(rGet.status === 200 && (rGet.data || []).some(t => t.item_id === itemId),
       'TAG-01 GET version tags includes the assigned item');
 
-    const rClear = await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags`, { itemIds: [] }, adminCookie);
-    ok(rClear.status === 200, 'TAG-02 PUT version tags with empty array → 200');
+    const rClear = await api('DELETE', `/api/cost-grids/${cgId}/versions/${vId}/tags/${itemId}`, null, adminCookie);
+    ok(rClear.status === 200 && Array.isArray(rClear.data) && !rClear.data.some(t => t.item_id === itemId), 'TAG-02 DELETE version tag → 200 without it');
 
     const rGet2 = await api('GET', `/api/cost-grids/${cgId}/versions/${vId}/tags`, null, adminCookie);
     ok(rGet2.status === 200 && (rGet2.data || []).length === 0, 'TAG-02 GET version tags is empty after clearing');
@@ -3322,13 +3322,13 @@ async function testTagLinking() {
   // TAG-07: unknown item id rejected with 400, not 500
   if (cgId && vId) {
     const FAKE_UUID = '00000000-0000-0000-0000-000000000000';
-    ok((await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags`, { itemIds: [FAKE_UUID] }, adminCookie)).status === 400,
-      'TAG-07 PUT version tags with an unknown itemId → 400');
+    ok((await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags/${FAKE_UUID}`, null, adminCookie)).status === 400,
+      'TAG-07 PUT version tag with an unknown itemId → 400');
   }
 
   // TAG-10: duplicating a version copies its tags
   if (cgId && vId && itemId) {
-    await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags`, { itemIds: [itemId] }, adminCookie);
+    await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags/${itemId}`, null, adminCookie);
     const rDup = await api('POST', `/api/cost-grids/${cgId}/versions/${vId}/duplicate`, { label: 'tag copy' }, adminCookie);
     const newVId = rDup.data?.id;
     if (newVId) {
@@ -3354,8 +3354,8 @@ async function testTagLinking() {
   if (standaloneProjId) later('DELETE', `/api/projects/${standaloneProjId}`);
 
   if (standaloneProjId && itemId2) {
-    const rSetP = await api('PUT', `/api/projects/${standaloneProjId}/tags`, { itemIds: [itemId2] }, adminCookie);
-    ok(rSetP.status === 200 && rSetP.data?.ok === true, 'TAG-05 PUT standalone project tags → 200');
+    const rSetP = await api('PUT', `/api/projects/${standaloneProjId}/tags/${itemId2}`, null, adminCookie);
+    ok(rSetP.status === 200 && Array.isArray(rSetP.data) && rSetP.data.some(t => t.item_id === itemId2), 'TAG-05 PUT standalone project tag → 200 with the list');
 
     const rGetP = await api('GET', `/api/projects/${standaloneProjId}/tags`, null, adminCookie);
     ok(rGetP.status === 200 && (rGetP.data || []).some(t => t.item_id === itemId2),
@@ -3367,7 +3367,7 @@ async function testTagLinking() {
   // TAG-13: creating a project already linked to a proposal copies the version's tags
   let linkedProjId = null;
   if (cgId && vId && itemId) {
-    await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags`, { itemIds: [itemId] }, adminCookie);
+    await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags/${itemId}`, null, adminCookie);
     const rLinked = await api('POST', '/api/projects',
       { name: '__test_tag_linked_proj__', cgVersionId: vId }, adminCookie);
     linkedProjId = rLinked.data?.id;
@@ -3382,8 +3382,8 @@ async function testTagLinking() {
 
   // TAG-06 (revised, Cycle 3a): a linked project's tags are directly editable — no more 409
   if (linkedProjId) {
-    const rClearLinked = await api('PUT', `/api/projects/${linkedProjId}/tags`, { itemIds: [] }, adminCookie);
-    ok(rClearLinked.status === 200, 'TAG-06 PUT tags on a linked project → 200 (no longer 409)');
+    const rClearLinked = await api('DELETE', `/api/projects/${linkedProjId}/tags/${itemId}`, null, adminCookie);
+    ok(rClearLinked.status === 200, 'TAG-06 DELETE tag on a linked project → 200 (no longer 409)');
     const rEmpty = await api('GET', `/api/projects/${linkedProjId}/tags`, null, adminCookie);
     ok(rEmpty.status === 200 && (rEmpty.data || []).length === 0,
       'TAG-06 linked project tags can be cleared independently of the proposal');
@@ -3447,8 +3447,8 @@ async function testTagLinking() {
 
   // TAG-18 (project half): a non-UUID itemId is a 400, not a 500
   if (standaloneProjId) {
-    ok((await api('PUT', `/api/projects/${standaloneProjId}/tags`, { itemIds: ['not-a-uuid'] }, adminCookie)).status === 400,
-      'TAG-18 PUT project tags with a non-UUID itemId → 400');
+    ok((await api('PUT', `/api/projects/${standaloneProjId}/tags/not-a-uuid`, null, adminCookie)).status === 400,
+      'TAG-18 PUT project tag with a non-UUID itemId → 400');
   }
 
   // TAG-17: a :vId that belongs to a different cost grid is rejected with 404 (GET and PUT)
@@ -3460,15 +3460,87 @@ async function testTagLinking() {
     if (cgId2) {
       ok((await api('GET', `/api/cost-grids/${cgId2}/versions/${vId}/tags`, null, adminCookie)).status === 404,
         'TAG-17 GET tags with a version from another grid → 404');
-      ok((await api('PUT', `/api/cost-grids/${cgId2}/versions/${vId}/tags`, { itemIds: [] }, adminCookie)).status === 404,
-        'TAG-17 PUT tags with a version from another grid → 404');
+      ok((await api('PUT', `/api/cost-grids/${cgId2}/versions/${vId}/tags/${itemId}`, null, adminCookie)).status === 404,
+        'TAG-17 PUT tag with a version from another grid → 404');
     } else {
       ok(false, 'TAG-17 skipped — second cost grid could not be created');
     }
 
     // TAG-18 (version half): a non-UUID itemId is a 400, not a 500
-    ok((await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags`, { itemIds: ['not-a-uuid'] }, adminCookie)).status === 400,
-      'TAG-18 PUT version tags with a non-UUID itemId → 400');
+    ok((await api('PUT', `/api/cost-grids/${cgId}/versions/${vId}/tags/not-a-uuid`, null, adminCookie)).status === 400,
+      'TAG-18 PUT version tag with a non-UUID itemId → 400');
+  }
+
+  // TAG-21: two clients adding different tags both land (each write touches one row)
+  if (cgId && itemId && itemId2) {
+    const rv = await api('POST', `/api/cost-grids/${cgId}/versions`, { label: 'tag two clients' }, adminCookie);
+    const v2 = rv.data?.id;
+    if (v2) {
+      await api('PUT', `/api/cost-grids/${cgId}/versions/${v2}/tags/${itemId}`, null, adminCookie);
+      await api('PUT', `/api/cost-grids/${cgId}/versions/${v2}/tags/${itemId2}`, null, adminCookie);
+      const g = await api('GET', `/api/cost-grids/${cgId}/versions/${v2}/tags`, null, adminCookie);
+      const ids = (g.data || []).map(t => t.item_id);
+      ok(g.status === 200 && ids.includes(itemId) && ids.includes(itemId2),
+        'TAG-21 two clients adding different tags to a version: the list holds both');
+    } else {
+      ok(false, 'TAG-21 skipped — new version unavailable');
+    }
+    const rp = await api('POST', '/api/projects', { name: '__test_tag_two_clients_proj__' }, sysadminCookie);
+    const pId = rp.data?.id;
+    if (pId) {
+      later('DELETE', `/api/projects/${pId}`);
+      await api('PUT', `/api/projects/${pId}/tags/${itemId}`, null, adminCookie);
+      await api('PUT', `/api/projects/${pId}/tags/${itemId2}`, null, adminCookie);
+      const g = await api('GET', `/api/projects/${pId}/tags`, null, adminCookie);
+      const ids = (g.data || []).map(t => t.item_id);
+      ok(g.status === 200 && ids.includes(itemId) && ids.includes(itemId2),
+        'TAG-21 two clients adding different tags to a project: the list holds both');
+    } else {
+      ok(false, 'TAG-21 skipped — project could not be created');
+    }
+  }
+
+  // TAG-22 / TAG-23: idempotent PUT and DELETE; the answer of a write equals the next GET
+  if (cgId && vId && itemId && itemId2) {
+    const base = `/api/cost-grids/${cgId}/versions/${vId}/tags`;
+    await api('PUT', `${base}/${itemId}`, null, adminCookie);
+    const again = await api('PUT', `${base}/${itemId}`, null, adminCookie);
+    ok(again.status === 200 && (again.data || []).filter(t => t.item_id === itemId).length === 1,
+      'TAG-22 a second PUT of the same item → 200, the item listed once');
+    const before = await api('GET', base, null, adminCookie);
+    const delAbsent = await api('DELETE', `${base}/00000000-0000-0000-0000-000000000001`, null, adminCookie);
+    ok(delAbsent.status === 400 || (delAbsent.status === 200 && JSON.stringify(delAbsent.data) === JSON.stringify(before.data)),
+      'TAG-22 DELETE of an item not assigned → 200 with the list unchanged');
+    const absent = await api('DELETE', `${base}/${itemId2}`, null, adminCookie);
+    await api('DELETE', `${base}/${itemId2}`, null, adminCookie);
+    const after = await api('GET', base, null, adminCookie);
+    ok(absent.status === 200 && JSON.stringify(absent.data) === JSON.stringify(after.data),
+      'TAG-23 the answer of a tag write equals the next GET');
+  }
+
+  // TAG-25: a viewer cannot assign or remove a tag
+  if (cgId && vId && itemId) {
+    const viewer = await makeTsUser('tagv');
+    const viewerCookie = viewer ? await loginWithCode(viewer.email, TS_PASS) : '';
+    if (viewer?.id && viewerCookie) {
+      await api('POST', `/api/cost-grids/${cgId}/shares`, { userId: viewer.id, permission: 'viewer' }, adminCookie);
+      const url = `/api/cost-grids/${cgId}/versions/${vId}/tags/${itemId}`;
+      ok((await api('PUT', url, null, viewerCookie)).status === 403, 'TAG-25 viewer PUT version tag → 403');
+      ok((await api('DELETE', url, null, viewerCookie)).status === 403, 'TAG-25 viewer DELETE version tag → 403');
+    } else {
+      ok(false, 'TAG-25 skipped — viewer user unavailable');
+    }
+  }
+
+  // TAG-26: an inactive tag can still be removed
+  if (cgId && vId && itemId2 && marketList) {
+    const url = `/api/cost-grids/${cgId}/versions/${vId}/tags/${itemId2}`;
+    await api('PUT', url, null, adminCookie);
+    await api('PATCH', `/api/attribute-lists/${marketList.id}/items/${itemId2}`, { status: 'inactive' }, adminCookie);
+    const r = await api('DELETE', url, null, adminCookie);
+    ok(r.status === 200 && Array.isArray(r.data) && !r.data.some(t => t.item_id === itemId2),
+      'TAG-26 DELETE of an inactive tag → 200, the row is gone');
+    await api('PATCH', `/api/attribute-lists/${marketList.id}/items/${itemId2}`, { status: 'active' }, adminCookie);
   }
 }
 
@@ -3756,7 +3828,7 @@ async function testProfileEngine() {
   ok(f.ok, 'PE-setup resource, two projects and a Market value created');
   if (!f.ok) return;
   const { ts, code1, code2, person, resId, p1, itemId, itemLabel } = f;
-  await api('PUT', `/api/projects/${p1}/tags`, { itemIds: [itemId] }, adminCookie);   // a tag on P1 only
+  await api('PUT', `/api/projects/${p1}/tags/${itemId}`, null, adminCookie);   // a tag on P1 only
 
   // PE-03: upload → run → profile
   const rUp = await uploadCsv('/api/timesheets/upload', profileCsv([
@@ -3814,7 +3886,7 @@ async function testProfileEngineHooks() {
   ok(f.ok, 'PE-setup (hooks) resource, two projects and a Market value created');
   if (!f.ok) return;
   const { ts, code1, code2, person, resId, p1, p2, itemId, itemLabel } = f;
-  await api('PUT', `/api/projects/${p1}/tags`, { itemIds: [itemId] }, adminCookie);
+  await api('PUT', `/api/projects/${p1}/tags/${itemId}`, null, adminCookie);
 
   const aliasName = `Alias Person${ts}`;
   await uploadCsv('/api/timesheets/upload', profileCsv([
@@ -3827,7 +3899,7 @@ async function testProfileEngineHooks() {
     'PE-07 baseline: 7 h; Market covers P1 (4 h), P2 (3 h) is untagged');
 
   // PE-07: tagging P2 as well re-queues its code
-  await api('PUT', `/api/projects/${p2}/tags`, { itemIds: [itemId] }, adminCookie);
+  await api('PUT', `/api/projects/${p2}/tags/${itemId}`, null, adminCookie);
   await runProfileJobs();
   prof = await getProfile(resId);
   ok(prof?.profile?.dimensions?.market?.values?.[0]?.hours === 7 && prof.profile.dimensions.market.untaggedHours === 0,
@@ -4680,7 +4752,8 @@ async function testVersionScope() {
     ['VS-09 POST refresh-rate',        'POST',   `${cross}/refresh-rate`,            null],
     ['VS-14 POST publish',             'POST',   `${cross}/publish`,                 null],
     ['VS-15 GET tags',                 'GET',    `${cross}/tags`,                    null],
-    ['VS-16 PUT tags',                 'PUT',    `${cross}/tags`,                    { itemIds: [] }],
+    ['VS-16 PUT tag',                  'PUT',    `${cross}/tags/${FAKE}`,            null],
+    ['VS-16 DELETE tag',               'DELETE', `${cross}/tags/${FAKE}`,            null],
   ];
   for (const [label, method, path, body] of cases) {
     const r = await api(method, path, body, adminCookie);
@@ -5279,7 +5352,7 @@ async function testGenerateAndAddTasks() {
   const rLists = await api('GET', '/api/attribute-lists', null, adminCookie);
   const market = (rLists.data || []).find(l => l.slug === 'market');
   const itemId = market ? (await api('POST', `/api/attribute-lists/${market.id}/items`, { label: `__test_gp_item_${tag}__` }, adminCookie)).data?.id : null;
-  if (itemId) await api('PUT', `${vBase}/tags`, { itemIds: [itemId] }, adminCookie);
+  if (itemId) await api('PUT', `${vBase}/tags/${itemId}`, null, adminCookie);
   const list = async () => (await api('GET', '/api/projects', null, adminCookie)).data || [];
   const read = async id => (await list()).find(p => p.id === id);
   const links = async () => (await api('GET', `${vBase}/linked-projects`, null, adminCookie)).data || [];
@@ -5797,7 +5870,7 @@ async function testVersionDuplicate() {
     const ri = await api('POST', `/api/attribute-lists/${marketList.id}/items`, { label: `__test_nd_item_${Date.now()}__` }, adminCookie);
     itemId = ri.data?.id;
   }
-  if (itemId) await api('PUT', `/api/cost-grids/${cgId}/versions/${srcId}/tags`, { itemIds: [itemId] }, adminCookie);
+  if (itemId) await api('PUT', `/api/cost-grids/${cgId}/versions/${srcId}/tags/${itemId}`, null, adminCookie);
 
   // Give the source a non-EUR currency, so its rate snapshot is not 1
   await patchVersion(`/api/cost-grids/${cgId}/versions/${srcId}`, { currency: 'USD' }, adminCookie);

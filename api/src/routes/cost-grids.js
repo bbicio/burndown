@@ -1000,6 +1000,19 @@ async function versionInGrid(cgId, vId) {
   return rows.length > 0;
 }
 
+async function listVersionTags(versionId) {
+  const { rows } = await query(
+    `SELECT ali.id AS item_id, ali.label, ali.status, al.id AS list_id, al.name AS list_name, al.slug AS list_slug
+     FROM cost_grid_version_tags cvt
+     JOIN attribute_list_items ali ON ali.id = cvt.item_id
+     JOIN attribute_lists al ON al.id = ali.list_id
+     WHERE cvt.version_id = $1
+     ORDER BY al.name, ali.label`,
+    [versionId]
+  );
+  return rows;
+}
+
 // GET /api/cost-grids/:id/versions/:vId/tags
 router.get('/:id/versions/:vId/tags', requireAuth, async (req, res, next) => {
   try {
@@ -1009,55 +1022,43 @@ router.get('/:id/versions/:vId/tags', requireAuth, async (req, res, next) => {
     if (!await versionInGrid(req.params.id, req.params.vId)) {
       return res.status(404).json({ error: 'Version not found' });
     }
-    const { rows } = await query(
-      `SELECT ali.id AS item_id, ali.label, ali.status, al.id AS list_id, al.name AS list_name, al.slug AS list_slug
-       FROM cost_grid_version_tags cvt
-       JOIN attribute_list_items ali ON ali.id = cvt.item_id
-       JOIN attribute_lists al ON al.id = ali.list_id
-       WHERE cvt.version_id = $1
-       ORDER BY al.name, ali.label`,
-      [req.params.vId]
-    );
-    res.json(rows);
+    res.json(await listVersionTags(req.params.vId));
   } catch (err) { next(err); }
 });
 
-// PUT /api/cost-grids/:id/versions/:vId/tags — replace-all
-router.put('/:id/versions/:vId/tags', requireAuth, async (req, res, next) => {
+// PUT / DELETE /api/cost-grids/:id/versions/:vId/tags/:itemId — assign / remove one tag; the answer is the list.
+async function changeVersionTag(req, res, next, assign) {
   try {
     if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
-    const ver = await query(
-      'SELECT locked FROM cost_grid_versions WHERE id = $1 AND cost_grid_id = $2',
-      [req.params.vId, req.params.id]
-    );
+    const ver = isUuid(req.params.vId)
+      ? await query(
+          'SELECT locked FROM cost_grid_versions WHERE id = $1 AND cost_grid_id = $2',
+          [req.params.vId, req.params.id])
+      : { rows: [] };
     if (!ver.rows[0]) return res.status(404).json({ error: 'Version not found' });
     if (ver.rows[0].locked) return res.status(400).json({ error: 'Version is locked' });
+    if (!isUuid(req.params.itemId)) return res.status(400).json({ error: 'itemId must be a valid UUID' });
 
-    const { itemIds = [] } = req.body;
-    if (!Array.isArray(itemIds)) return res.status(400).json({ error: 'itemIds must be an array' });
-
-    const client = await pool.connect();
     try {
-      await client.query('BEGIN');
-      await client.query('DELETE FROM cost_grid_version_tags WHERE version_id = $1', [req.params.vId]);
-      await client.query(
-        `INSERT INTO cost_grid_version_tags (version_id, item_id)
-         SELECT $1::uuid, unnest($2::uuid[]) ON CONFLICT DO NOTHING`,
-        [req.params.vId, itemIds]
-      );
-      await client.query('COMMIT');
-      res.json({ ok: true });
+      if (assign) {
+        await query(
+          'INSERT INTO cost_grid_version_tags (version_id, item_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+          [req.params.vId, req.params.itemId]);
+      } else {
+        await query(
+          'DELETE FROM cost_grid_version_tags WHERE version_id = $1 AND item_id = $2',
+          [req.params.vId, req.params.itemId]);
+      }
     } catch (err) {
-      await client.query('ROLLBACK').catch(() => {});
-      if (err.code === '23503') return res.status(400).json({ error: 'One or more tag items do not exist' });
-      if (err.code === '22P02') return res.status(400).json({ error: 'itemIds must be valid UUIDs' });
+      if (err.code === '23503') return res.status(400).json({ error: 'Tag item does not exist' });
       throw err;
-    } finally {
-      client.release();
     }
+    res.json(await listVersionTags(req.params.vId));
   } catch (err) { next(err); }
-});
+}
+router.put('/:id/versions/:vId/tags/:itemId', requireAuth, (req, res, next) => changeVersionTag(req, res, next, true));
+router.delete('/:id/versions/:vId/tags/:itemId', requireAuth, (req, res, next) => changeVersionTag(req, res, next, false));
 
 module.exports = router;
