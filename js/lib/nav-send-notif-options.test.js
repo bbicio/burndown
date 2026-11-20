@@ -55,9 +55,13 @@ describe('navFillRecipientOptions', () => {
 describe('nav.js writes through apiSave', () => {
   it('logout calls apiSave and then leaves for the login page whatever the outcome', () => {
     const i = src.indexOf("getElementById('nav-logout-btn').addEventListener");
-    const block = src.slice(i, src.indexOf('login.html', i));
+    const block = src.slice(i, src.indexOf('login.html', i) + 12);
     expect(block).toContain("apiSave('POST', '/auth/logout'");
-    expect(block.indexOf('apiSave')).toBeLessThan(block.length);
+    const save = block.indexOf("apiSave('POST', '/auth/logout'");
+    const leave = block.indexOf("window.location.href = '/login.html'");
+    expect(save).toBeGreaterThan(-1);
+    expect(leave).toBeGreaterThan(save);
+    expect(block.slice(save, leave).includes('if (')).toBe(false);
     expect(block).not.toMatch(/if \(.*kind/);
     expect(src).not.toContain('Api.auth.logout');
   });

@@ -102,4 +102,4 @@ The account-menu entry `#nav-settings-btn` ("Settings", `config` icon) is now `#
 
 ## Logout and Send Notification through apiSave (2026-11-20, save contract cycle 7)
 
-`#nav-logout-btn` calls `apiSave('POST', '/auth/logout')` and then sets `window.location.href = '/login.html'` whatever the outcome; `Api.auth.logout` is deleted. Send Notification posts with `apiSave('POST', '/notifications', …)`: `ok` shows "Sent!", any other outcome shows `res.message` in `#sendNotifError`. Tests: `js/lib/nav-send-notif-options.test.js`. `nav.js?v=25`.
+`#nav-logout-btn` calls `apiSave('POST', '/auth/logout', undefined, { background: true })` (no save overlay) and then sets `window.location.href = '/login.html'` whatever the outcome; `Api.auth.logout` is deleted. Send Notification posts with `apiSave('POST', '/notifications', …)`: `ok` shows "Sent!", any other outcome shows `res.message` in `#sendNotifError`. Tests: `js/lib/nav-send-notif-options.test.js`. `nav.js?v=25`.

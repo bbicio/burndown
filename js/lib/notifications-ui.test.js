@@ -177,10 +177,16 @@ describe('marking read follows the server', () => {
 
   it('markOneRead error keeps the row unread and rereads the count', async () => {
     outcome = { kind: 'error' };
-    count = 2;
+    count = 7;
     await m.markOneRead(rows()[1]);
     expect(rows()[1].classList.contains('unread')).toBe(true);
-    expect(badge().textContent).toBe('2');
+    expect(badge().textContent).toBe('7');
+  });
+
+  it('two concurrent markOneRead calls on one row write once and lower the badge once', async () => {
+    await Promise.all([m.markOneRead(rows()[1]), m.markOneRead(rows()[1])]);
+    expect(calls.length).toBe(1);
+    expect(badge().textContent).toBe('1');
   });
 
   it('a click on a notification with a url navigates even when the PATCH failed', async () => {

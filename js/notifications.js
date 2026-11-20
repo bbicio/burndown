@@ -147,9 +147,17 @@ async function markAllRead() {
   }
 }
 
+// Answers 'pending' (and does nothing) while a PATCH for this row is in flight: the first click alone writes and navigates.
 async function markOneRead(el) {
+  if (el.dataset.pending) return 'pending';
   if (!el.classList.contains('unread')) return;
-  const res = await window.apiSave('PATCH', `/notifications/${el.dataset.id}/read`, undefined, { background: true });
+  el.dataset.pending = '1';
+  let res;
+  try {
+    res = await window.apiSave('PATCH', `/notifications/${el.dataset.id}/read`, undefined, { background: true });
+  } finally {
+    delete el.dataset.pending;
+  }
   if (res.kind === 'ok') {
     el.classList.remove('unread');
     const badge = document.getElementById('nav-notif-badge');
@@ -173,7 +181,7 @@ async function renderNotifications() {
     list.querySelectorAll('.notif-item[data-id]').forEach(el => {
       el.addEventListener('click', async (e) => {
         if (e.target.closest('a')) return; // the link navigates by itself, without marking the item read
-        await markOneRead(el); // the link opens whatever the outcome
+        if (await markOneRead(el) === 'pending') return; // the first click navigates; the link opens whatever the outcome
         const url = safeNotifUrl(el.dataset.url);
         if (url) window.location.href = url;
       });
