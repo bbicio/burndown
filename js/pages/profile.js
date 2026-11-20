@@ -103,31 +103,30 @@
         if (this.devices.busy) return;
         this.devices.busy = d.id;
         this.devices.error = '';
-        try {
-          await apiFetch('/auth/trusted-devices/' + d.id, { method: 'DELETE' });
-          // Removing this browser's device also dropped its cookie, so its row goes with it.
+        const res = await apiSave('DELETE', '/auth/trusted-devices/' + d.id, null, { background: true });
+        // A device already gone (404) leaves the list like a removed one; removing this browser's device
+        // also dropped its cookie, so its row goes with it.
+        if (res.kind === 'ok' || (res.kind === 'error' && res.status === 404)) {
           this.devices.list = this.devices.list.filter(x => x.id !== d.id);
           this.applyChips();
-        } catch (e) {
-          this.devices.error = e.data?.error || (e.data ? e.message : 'Network error. Please try again.');
-        } finally {
-          this.devices.busy = '';
+        } else {
+          this.devices.error = res.message;
         }
+        this.devices.busy = '';
       },
       removeAll() {
         if (this.devices.busy) return;
         showConfirm('Every device will ask for a code at the next sign-in.', async () => {
           this.devices.busy = 'all';
           this.devices.error = '';
-          try {
-            await apiFetch('/auth/trusted-devices', { method: 'DELETE' });
+          const res = await apiSave('DELETE', '/auth/trusted-devices', null, { background: true });
+          if (res.kind === 'ok') {
             this.devices.list = [];
             this.applyChips();
-          } catch (e) {
-            this.devices.error = e.data?.error || (e.data ? e.message : 'Network error. Please try again.');
-          } finally {
-            this.devices.busy = '';
+          } else {
+            this.devices.error = res.message;
           }
+          this.devices.busy = '';
         }, null, 'Remove all trusted devices?');
       },
       openRequest() {
@@ -139,16 +138,15 @@
         if (!this.req.message.trim() || this.req.sending) return;
         this.req.sending = true;
         this.req.error = '';
-        try {
-          await Api.auth.rectificationRequest(this.req.message);
+        const res = await apiSave('POST', '/auth/rectification-request', { message: this.req.message });
+        if (res.kind === 'ok') {
           this.req.message = '';
           this.detailsBanner = 'Request sent to the admins.';
           bootstrap.Offcanvas.getInstance(document.getElementById('rectificationDrawer'))?.hide();
-        } catch (e) {
-          this.req.error = e.data?.error || (e.data ? e.message : 'Network error. Please try again.');
-        } finally {
-          this.req.sending = false;
+        } else {
+          this.req.error = res.message;
         }
+        this.req.sending = false;
       },
       async submitPassword() {
         if (!this.pwState.canSubmit || this.pw.saving) return;
@@ -156,19 +154,18 @@
         this.pw.error = '';
         this.pw.currentError = '';
         this.pw.done = false;
-        try {
-          await Api.auth.changePassword({ currentPassword: this.pw.current, newPassword: this.pw.next, newPasswordConfirm: this.pw.confirm });
+        const res = await apiSave('POST', '/auth/change-password', { currentPassword: this.pw.current, newPassword: this.pw.next, newPasswordConfirm: this.pw.confirm });
+        if (res.kind === 'ok') {
           this.pw.current = this.pw.next = this.pw.confirm = '';
           this.pw.done = true;
-          this.user.password_changed_at = new Date().toISOString();
+          this.user.password_changed_at = res.data?.password_changed_at;
           this.loadDevices();
-        } catch (e) {
-          const msg = e.data?.error || (e.data ? e.message : 'Network error. Please try again.');
-          if (e.data?.field === 'currentPassword') this.pw.currentError = msg;
-          else this.pw.error = msg;
-        } finally {
-          this.pw.saving = false;
+        } else if (res.kind === 'error' && res.data?.field === 'currentPassword') {
+          this.pw.currentError = res.message;
+        } else {
+          this.pw.error = res.message;
         }
+        this.pw.saving = false;
       },
     },
   }).component('ph-icon', window.PhIcon).component('mp-icon', MpIcon).mount('#app');
