@@ -485,7 +485,7 @@ async function initNav(activeTab, opts = {}) {
 
   // ── WIRE EVENTS ─────────────────────────────────────────────────────────────
   document.getElementById('nav-logout-btn').addEventListener('click', async () => {
-    try { await Api.auth.logout(); } catch (e) {}
+    await window.apiSave('POST', '/auth/logout', undefined, { background: true }); // never throws; leave whatever the outcome
     window.location.href = '/login.html';
   });
 
@@ -556,23 +556,20 @@ async function initNav(activeTab, opts = {}) {
       statusEl.textContent = 'Sending…';
       statusEl.style.display = '';
 
-      try {
-        await apiFetch('/notifications', {
-          method: 'POST',
-          body: JSON.stringify({ userId, title, body: body || undefined, url: url || undefined, urlLabel: urlLabel || undefined, channels }),
-        });
+      const res = await window.apiSave('POST', '/notifications',
+        { userId, title, body: body || undefined, url: url || undefined, urlLabel: urlLabel || undefined, channels });
+      if (res.kind === 'ok') {
         statusEl.textContent = 'Sent!';
         setTimeout(() => {
           bootstrap.Modal.getInstance(modalEl)?.hide();
           statusEl.style.display = 'none';
         }, 900);
-      } catch (err) {
-        errEl.textContent = err.message || 'Failed to send.';
+      } else {
+        errEl.textContent = res.message || 'Failed to send.';
         errEl.classList.remove('d-none');
         statusEl.style.display = 'none';
-      } finally {
-        sendBtn.disabled = false;
       }
+      sendBtn.disabled = false;
     });
 
     const marker = document.createElement('span');

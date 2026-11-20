@@ -50,8 +50,6 @@ const CLIENT_EXEMPT = new Set([
   'js/costgrid.js: costGrids.versions.delete',
   'js/costgrid.js: costGrids.versions.duplicate',
   'js/costgrid.js: costGrids.versions.publish',
-  'js/nav.js',
-  'js/notifications.js',
   'js/pages/_db-reset.js',
   'js/pages/_terms-editor.js',
   'js/pages/activate.js',
@@ -73,6 +71,8 @@ const CLIENT_EXEMPT = new Set([
 ]);
 
 const RETIRED = [
+  'js/nav.js',
+  'js/notifications.js',
   'js/pages/master-roles.js',
   'js/clients.js',
   'js/pages/master-clients.js',

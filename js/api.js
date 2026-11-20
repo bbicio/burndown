@@ -115,7 +115,6 @@ const Api = {
 
   auth: {
     me:             ()    => apiFetch('/auth/me'),
-    logout:         ()    => apiFetch('/auth/logout', { method: 'POST' }),
     changePassword: (d)   => apiFetch('/auth/change-password', { method: 'POST', body: JSON.stringify(d) }),
     rectificationRequest: (message) => apiFetch('/auth/rectification-request', { method: 'POST', body: JSON.stringify({ message }) }),
   },

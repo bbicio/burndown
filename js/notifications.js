@@ -89,7 +89,7 @@ function maybeShowBrowserNotification(n) {
 }
 
 function loadUnreadCount() {
-  apiFetch('/notifications/unread-count')
+  return apiFetch('/notifications/unread-count')
     .then(d => updateBadge(d.count))
     .catch(() => {});
 }
@@ -132,11 +132,32 @@ function wireNotifPanel() {
   });
 
   // Mark all read
-  document.getElementById('nav-notif-read-all')?.addEventListener('click', async () => {
-    await apiFetch('/notifications/read-all', { method: 'PATCH', background: true }).catch(() => {});
+  document.getElementById('nav-notif-read-all')?.addEventListener('click', () => markAllRead());
+}
+
+// Read state follows the server's answer: the rows and the badge change only after `ok`; with any other
+// outcome the count is read again from the server and the rows stay unread.
+async function markAllRead() {
+  const res = await window.apiSave('PATCH', '/notifications/read-all', undefined, { background: true });
+  if (res.kind === 'ok') {
     updateBadge(0);
     document.querySelectorAll('.notif-item.unread').forEach(el => el.classList.remove('unread'));
-  });
+  } else {
+    await loadUnreadCount();
+  }
+}
+
+async function markOneRead(el) {
+  if (!el.classList.contains('unread')) return;
+  const res = await window.apiSave('PATCH', `/notifications/${el.dataset.id}/read`, undefined, { background: true });
+  if (res.kind === 'ok') {
+    el.classList.remove('unread');
+    const badge = document.getElementById('nav-notif-badge');
+    const curr = parseInt(badge?.textContent || '0') - 1;
+    updateBadge(Math.max(0, curr));
+  } else {
+    await loadUnreadCount();
+  }
 }
 
 async function renderNotifications() {
@@ -152,14 +173,7 @@ async function renderNotifications() {
     list.querySelectorAll('.notif-item[data-id]').forEach(el => {
       el.addEventListener('click', async (e) => {
         if (e.target.closest('a')) return; // the link navigates by itself, without marking the item read
-        const id = el.dataset.id;
-        if (el.classList.contains('unread')) {
-          el.classList.remove('unread');
-          await apiFetch(`/notifications/${id}/read`, { method: 'PATCH', background: true }).catch(() => {});
-          const badge = document.getElementById('nav-notif-badge');
-          const curr = parseInt(badge?.textContent || '0') - 1;
-          updateBadge(Math.max(0, curr));
-        }
+        await markOneRead(el); // the link opens whatever the outcome
         const url = safeNotifUrl(el.dataset.url);
         if (url) window.location.href = url;
       });
