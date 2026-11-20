@@ -58,7 +58,7 @@ describe('admin.html — row menu, busy rows and confirmations', () => {
     expect(body, 'runItem exists').not.toBeNull();
     const close = body.indexOf('closeMenu(');
     expect(close).toBeGreaterThan(-1);
-    expect(body.indexOf('fetch(')).toBe(-1); // it delegates to the action methods…
+    expect(body.indexOf('apiSave(')).toBe(-1); // it delegates to the action methods…
     for (const m of ['toggleRole', 'toggleSysAdmin', 'resendInvite', 'setStatus', 'askDisable', 'askAnonymize']) {
       const at = body.indexOf(m + '(');
       expect(at, m).toBeGreaterThan(close); // …every one of them after closeMenu
@@ -103,7 +103,7 @@ describe('admin.html — review fixes', () => {
   it('writes the invite result to the form it was sent from, not to a form reset meanwhile', () => {
     const body = methodBody('submitInvite');
     expect(body, 'submitInvite exists').not.toBeNull();
-    const awaitAt = body.indexOf('await fetch(');
+    const awaitAt = body.indexOf('await apiSave(');
     expect(body.slice(awaitAt)).not.toMatch(/this\.invite\./);
   });
 

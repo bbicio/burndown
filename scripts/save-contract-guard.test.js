@@ -41,18 +41,18 @@ const SERVER_EXEMPT = new Set([
 ]);
 
 const CLIENT_EXEMPT = new Set([
-  // Save contract cycles 2 and 3 moved the cost grid editor's Save and the project and program writes to apiSave;
-  // these writes stay (cycle 5: actuals; cycle 7: single shares; the lifecycle
-  // of a proposal is out of scope).
+  // What stays, and why. PERMANENT: the public pages (login, activate, reset-password) -- a 401 there is an
+  // answer, not an expired session, so apiFetch's redirect to the login page must not wrap it; planning.js --
+  // its POSTs are reads. WAITING for the future brief that unifies the rest: the proposal lifecycle writes
+  // (costgrid.js, pages/costgrid.js reassignOwner, pages/pipeline.js) and the actuals upload and deletion
+  // (upload.js, pages/timesheets.js, pages/project-config.js timesheets.*).
   'js/costgrid.js: costGrids.create',
   'js/costgrid.js: costGrids.delete',
   'js/costgrid.js: costGrids.versions.create',
   'js/costgrid.js: costGrids.versions.delete',
   'js/costgrid.js: costGrids.versions.duplicate',
   'js/costgrid.js: costGrids.versions.publish',
-  'js/pages/_db-reset.js',
   'js/pages/activate.js',
-  'js/pages/admin.js',
   'js/pages/costgrid.js: costGrids.reassignOwner',
   'js/pages/login.js',
   'js/pages/pipeline.js',
@@ -66,6 +66,8 @@ const CLIENT_EXEMPT = new Set([
 
 const RETIRED = [
   'js/nav.js',
+  'js/pages/admin.js',
+  'js/pages/_db-reset.js',
   'js/notifications.js',
   'js/pages/terms.js',
   'js/pages/profile.js',

@@ -10,7 +10,7 @@ T&C editor removed (2026-09, moved to `_terms-editor.html`, sysadmin-exclusive).
 
 ## Resend invite (2026-09)
 
-A "✉️ Resend invite" button (`v-if="u.status === 'pending'"`) calls `resendInvite(user)` — a page-local `async` method, same shape as `setStatus()`/`anonymizeUser()` (raw `fetch()`, not `Api.*`, matching this page's own established convention of never routing through `js/api.js`), hitting the new `POST /api/auth/:id/resend-invite` (`auth.js`). A new `globalSuccess` reactive field (paired alert div, mirroring the pre-existing `globalError` one) shows "Invite resent to {email}"; every one of the page's 5 action methods (`toggleRole`, `toggleSysAdmin`, `setStatus`, `anonymizeUser`, `resendInvite`) now clears both `globalError` and `globalSuccess` at its own start, so a stale success banner from one action can't linger through a later, unrelated one.
+A "✉️ Resend invite" button (`v-if="u.status === 'pending'"`) calls `resendInvite(user)` — a page-local `async` method, same shape as `setStatus()`/`anonymizeUser()` (since save-c7 through `apiSave`, never `Api.*`), hitting the new `POST /api/auth/:id/resend-invite` (`auth.js`). A new `globalSuccess` reactive field (paired alert div, mirroring the pre-existing `globalError` one) shows "Invite resent to {email}"; every one of the page's 5 action methods (`toggleRole`, `toggleSysAdmin`, `setStatus`, `anonymizeUser`, `resendInvite`) now clears both `globalError` and `globalSuccess` at its own start, so a stale success banner from one action can't linger through a later, unrelated one.
 
 ## Header unification (2026-10-16)
 
@@ -42,3 +42,7 @@ Spec `docs/superpowers/specs/2026-11-06-user-admin-redesign-design.md`, plan `do
 ### Not covered by screenshots
 
 Loading (12o) and access denied (12q) were captured by forcing the Vue state, not through the real request path.
+
+## Writes through `apiSave` (save-c7)
+
+The five writes (details, invite, role/status, resend invite, anonymize) use `apiSave`. `patchUser` adopts the returned row (`Object.assign(user, data)`); any other outcome leaves the row unchanged and puts `res.message` in the banner. Details: `errorField` comes from `res.data.field`. Invite: an `error` with status 409 marks the email field. With `unknown` the message is shown and the list is reloaded. Tests: `js/lib/admin-page.test.js`.

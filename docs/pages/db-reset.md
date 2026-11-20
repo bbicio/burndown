@@ -19,3 +19,7 @@ Spec `docs/superpowers/specs/2026-10-18-header-unification-content-design.md`. `
 ## Header board deviations (2026-10-20)
 
 Plan `docs/superpowers/plans/2026-10-20-header-board-deviations.md`. The two single-proposal cards sit in a `#singleActions` grid with the same gap as `#resetCards`. "Change proposal owner" is an `.action-card` (ordinary card border, navy title), not a `.danger-card`. `--card-danger-border` is thicker again; `js/lib/content-surface-guard.test.js` pins its value and the `.action-card` tokens.
+
+## Writes through `apiSave` (save-c7)
+
+The three writes (scope delete, cost grid delete, owner change) use `apiSave`. The typed `DELETE` confirmation and the sysadmin check are unchanged. With `unknown` the deletions show "The server's answer was lost — the deletion may have happened. Check before retrying."; `error` shows `Error: {message}`. Tests: `js/lib/db-reset-page.test.js`.

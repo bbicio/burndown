@@ -87,16 +87,11 @@
 
       // fetch wrapper: { ok, status, data, network }. network = true when the request failed or the
       // response was not JSON (e.g. a proxy error page).
-      async request(method, url, body) {
-        const hasBody = body !== undefined && body !== null;
+      // GET only: every write goes through apiSave in runAction.
+      async request(url) {
         let res;
         try {
-          res = await fetch(url, {
-            method,
-            credentials: 'same-origin',
-            headers: hasBody ? { 'Content-Type': 'application/json' } : undefined,
-            body: hasBody ? JSON.stringify(body) : undefined,
-          });
+          res = await fetch(url, { credentials: 'same-origin' });
         } catch {
           return { ok: false, status: 0, data: null, network: true };
         }
@@ -108,8 +103,8 @@
       async refresh() {
         const seq = ++refreshSeq;
         const [state, runs] = await Promise.all([
-          this.request('GET', '/api/profile-jobs'),
-          this.request('GET', '/api/profile-jobs/runs'),
+          this.request('/api/profile-jobs'),
+          this.request('/api/profile-jobs/runs'),
         ]);
         if (seq !== refreshSeq) return;            // a newer refresh superseded this one
         if (state.network || runs.network) { this.loadError = NETWORK_TEXT; setSubnavBadge('profileJobs', 0); return; }
@@ -154,17 +149,18 @@
         this.actionError = null;
         this.actionInfo = null;
         try {
-          const r = await this.request(method, url, body);
+          // background: the page has its own busy state and auto-refresh, so no save overlay.
+          const r = await apiSave(method, url, body, { background: true });
           // actionError (not loadError): the follow-up refresh() below runs regardless and, on
-          // success, clears loadError — a network/non-JSON failure on the action itself would
-          // otherwise vanish silently the moment that refresh succeeds (e.g. Rebuild all behind a
-          // proxy timeout: the server keeps working after the response is lost).
-          if (r.network) {
+          // success, clears loadError — a lost answer on the action itself would otherwise vanish
+          // silently the moment that refresh succeeds (e.g. Rebuild all behind a proxy timeout:
+          // the server keeps working after the response is lost).
+          if (r.kind === 'unknown') {
             this.actionError = 'No response from the server — the action may still be running; the list refreshes automatically.';
             return;
           }
-          if (r.status === 409) { this.actionError = busyNote ? `${BUSY_TEXT} ${busyNote}` : BUSY_TEXT; return; }
-          if (!r.ok) { this.actionError = (r.data && r.data.error) || 'The action failed.'; return; }
+          if (r.kind === 'error' && r.status === 409) { this.actionError = busyNote ? `${BUSY_TEXT} ${busyNote}` : BUSY_TEXT; return; }
+          if (r.kind !== 'ok') { this.actionError = r.message || 'The action failed.'; return; }
           if (onSuccess) onSuccess(r.data);
         } finally {
           this.busyAction = null;
@@ -208,14 +204,14 @@
       },
 
       async toggleTopicExtraction(event) {
-        await this.runAction('topics', 'PUT', '/api/profile-jobs/topic-settings', { enabled: !this.topicSettings.enabled });
+        await this.runAction('topics', 'PUT', '/profile-jobs/topic-settings', { enabled: !this.topicSettings.enabled });
         // Vue does not repatch :checked when the bound value is unchanged (failed PUT) - resync the DOM
         if (event && event.target) event.target.checked = this.topicSettings.enabled;
       },
 
       saveSettings() {
         if (!this.formState.canSave) return;
-        return this.runAction('save', 'PUT', '/api/profile-jobs/settings',
+        return this.runAction('save', 'PUT', '/profile-jobs/settings',
           { enabled: this.form.enabled, intervalMin: this.form.intervalMin },
           {
             onSuccess: (data) => {
@@ -227,7 +223,7 @@
       },
 
       recalculateNow() {
-        return this.runAction('run', 'POST', '/api/profile-jobs/run', null, {
+        return this.runAction('run', 'POST', '/profile-jobs/run', null, {
           onSuccess: (d) => { this.actionInfo = this.runSummary('Recalculation finished', d); },
         });
       },
@@ -239,7 +235,7 @@
           () => this.rebuildAll(), null, 'Rebuild all');
       },
       rebuildAll() {
-        return this.runAction('rebuild', 'POST', '/api/profile-jobs/rebuild', null, {
+        return this.runAction('rebuild', 'POST', '/profile-jobs/rebuild', null, {
           busyNote: 'All project codes have been queued and will be processed by the running job or the next one.',
           onSuccess: (d) => { this.actionInfo = this.runSummary('Rebuild finished', d); },
         });
@@ -248,7 +244,7 @@
       processProject(p) {
         const code = p.project_code;
         return this.runAction('process:' + code, 'POST',
-          `/api/profile-jobs/projects/${encodeURIComponent(code)}/process`, null, {
+          `/profile-jobs/projects/${encodeURIComponent(code)}/process`, null, {
             busyNote: 'This project code has been queued and will be processed by the running job or the next one.',
             onSuccess: (d) => { this.actionInfo = this.runSummary(`${code} processed`, d); },
           });
@@ -263,7 +259,7 @@
       },
       removeFromQueue(code) {
         return this.runAction('remove:' + code, 'DELETE',
-          `/api/profile-jobs/projects/${encodeURIComponent(code)}/queue`, null, {
+          `/profile-jobs/projects/${encodeURIComponent(code)}/queue`, null, {
             onSuccess: () => { this.actionInfo = `${code} removed from the queue.`; },
           });
       },
