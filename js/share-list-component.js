@@ -2,7 +2,7 @@
 // Reusable Vue component: inline "who has access" list with a remove-share
 // action, shared between pipeline.html (#pbDetailPanel) and costgrid.html.
 // Adding a new share is deliberately out of scope here — that stays in the
-// existing #shareModal (js/shares.js). This component only lists + removes.
+// existing #shareModal (js/shares.js). This component only lists + removes (removal goes through apiSave).
 
 window.ShareListComponent = {
   props: {
@@ -55,21 +55,22 @@ window.ShareListComponent = {
       }
     },
     async removeShare(userId) {
-      try {
-        await this.api.remove(this.resourceId, userId);
-        await this.load();
-      } catch (e) {
-        alert('Remove failed: ' + (e.message || 'Unknown error'));
+      const base = (this.resourceType === 'project' ? '/projects/' : '/cost-grids/') + encodeURIComponent(this.resourceId);
+      const res = await window.apiSave('DELETE', `${base}/shares/${encodeURIComponent(userId)}`);
+      if (res.kind !== 'ok') {
+        this.error = res.message || 'Remove failed.';
+        return;
       }
+      await this.load();
     },
   },
   template: `
     <div class="share-list">
       <div class="fw-semibold mb-1" style="font-size:var(--text-xs);color:var(--text-muted)">👥 Shared with</div>
       <div v-if="loading" class="text-muted" style="font-size:var(--text-xs)">Loading…</div>
-      <div v-else-if="error" class="text-danger" style="font-size:var(--text-xs)">{{ error }}</div>
-      <div v-else-if="!shares.length" class="text-muted" style="font-size:var(--text-xs)">Not shared with anyone yet.</div>
-      <div v-else>
+      <div v-if="error" class="text-danger" style="font-size:var(--text-xs)">{{ error }}</div>
+      <div v-if="!loading && !error && !shares.length" class="text-muted" style="font-size:var(--text-xs)">Not shared with anyone yet.</div>
+      <div v-if="!loading && shares.length">
         <div v-for="s in shares" :key="s.user_id" class="d-flex align-items-center gap-2 py-1" style="font-size:var(--text-xs)">
           <div style="flex:1;min-width:0">
             <div class="fw-semibold text-truncate">{{ displayName(s) }}</div>

@@ -385,7 +385,7 @@ A rule is restated here only when **no guard test pins it**; where a test does, 
 
 ### Sharing
 
-`js/shares.js` provides a generic share modal. Call `openShareModal(type, id, name)` where `type` is `'cost_grid'` or `'project'`. The modal handles user search by email, permission selection, and removal. Sharing triggers an email notification from the API.
+`js/shares.js` provides a generic share modal. Call `openShareModal(type, id, name)` where `type` is `'cost_grid'` or `'project'`. The modal handles user search by email, permission selection, and removal, all through `apiSave`: `POST …/shares` only adds (409 `ALREADY_SHARED` if the user already has access), a permission change is `PATCH …/shares/:userId`. Sharing triggers an email notification from the API.
 
 **Inline share list**: `js/share-list-component.js` (`window.ShareListComponent`) is a reusable Vue component showing a read-only-at-a-glance "👥 Shared with" list (name/email, permission badge, ✕ remove button hidden for the owner row and whenever `can-manage` is `false`) via `GET /api/cost-grids/:id/shares` and `DELETE /api/cost-grids/:id/shares/:userId`. It is registered as `app.component('share-list', window.ShareListComponent)` on both `pipeline.html`'s and `costgrid.html`'s Vue apps (props: `resource-type`, `resource-id`, `can-manage`) and does **not** add the ability to add a new share — that stays exclusive to `#shareModal`. Both pages listen for `#shareModal`'s `hidden.bs.modal` event at the `document` level to bump a `shareListRefreshTick` counter, forcing the `<share-list>` instance to remount (via a `:key` binding incorporating that tick) and refetch, so the inline list stays in sync after an add/remove/permission-change made through the modal.
 

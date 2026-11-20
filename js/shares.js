@@ -28,9 +28,10 @@ function _injectShareModal() {
             <div class="fw-semibold mb-2" style="font-size:.82rem;color:var(--text-muted,#6b7280)">
               WHO HAS ACCESS
             </div>
-            <div id="sharesList" class="mb-4">
+            <div id="sharesList" class="mb-2">
               <div class="text-muted" style="font-size:.82rem">Loading…</div>
             </div>
+            <div id="shareListMsg" class="small d-none mb-3"></div>
 
             <!-- Add person -->
             <div style="border-top:1px solid #e5e7eb;padding-top:14px">
@@ -175,6 +176,22 @@ function _selectShareUser(user) {
   document.getElementById('shareAddMsg').className = 'small d-none';
 }
 
+// ── MESSAGES ──────────────────────────────────────────────────────────────────
+
+// The share list's own message line (a failed remove or permission change); kind: 'error' | 'success'.
+function _shareMsg(text, kind) {
+  const el = document.getElementById('shareListMsg');
+  if (!el) return;
+  if (!text) { el.textContent = ''; el.className = 'small d-none mb-3'; return; }
+  el.textContent = text;
+  el.className = 'small mb-3 ' + (kind === 'success' ? 'text-success' : 'text-danger');
+}
+
+// …/shares path of the open proposal or project (apiSave paths carry no /api prefix).
+function _sharesPath() {
+  return (_shareType === 'cost_grid' ? '/cost-grids/' : '/projects/') + encodeURIComponent(_shareId) + '/shares';
+}
+
 // ── PERMISSION BADGE ──────────────────────────────────────────────────────────
 
 function _permBadge(perm) {
@@ -285,11 +302,17 @@ async function _shareAddUser() {
       msgEl.textContent = _programShareMessage(res.data);
       msgEl.className = 'small text-success';
     } else {
-      const api = _shareType === 'cost_grid' ? Api.costGrids.shares : Api.projects.shares;
-      const result = await api.add(_shareId, _shareSelected.id, perm);
+      const res = await window.apiSave('POST', _sharesPath(), { userId: _shareSelected.id, permission: perm });
+      if (res.kind !== 'ok') {
+        msgEl.textContent = res.message || 'Failed to share.';
+        msgEl.className = 'small text-danger';
+        // Someone else shared it first (409): show the list as it now is.
+        if (res.kind === 'error' && res.status === 409) await _renderShareList();
+        return;
+      }
       const name = [_shareSelected.first_name, _shareSelected.last_name].filter(Boolean).join(' ') || _shareSelected.email;
       _clearShareSelection();
-      msgEl.textContent = result?.emailSent === false
+      msgEl.textContent = res.data?.emailSent === false
         ? `Shared with ${name}, but the email could not be sent.`
         : `Shared with ${name}.`;
       msgEl.className = 'small text-success';
@@ -323,14 +346,14 @@ function _clearShareSelection() {
 // ── REMOVE USER ───────────────────────────────────────────────────────────────
 
 async function _shareRemoveUser(userId) {
-  try {
-    const api = _shareType === 'cost_grid' ? Api.costGrids.shares : Api.projects.shares;
-    if (_shareType === 'program') return;
-    await api.remove(_shareId, userId);
-    await _renderShareList();
-  } catch (e) {
-    alert('Remove failed: ' + (e.message || 'Unknown error'));
+  if (_shareType === 'program') return;
+  _shareMsg('');
+  const res = await window.apiSave('DELETE', `${_sharesPath()}/${encodeURIComponent(userId)}`);
+  if (res.kind !== 'ok') {
+    _shareMsg(res.message || 'Remove failed.', 'error');
+    return;
   }
+  await _renderShareList();
 }
 
 // ── UPDATE PERMISSION ─────────────────────────────────────────────────────────
@@ -338,15 +361,21 @@ async function _shareRemoveUser(userId) {
 async function _shareUpdatePerm(userId, newPerm, selectEl) {
   const prev = newPerm === 'editor' ? 'viewer' : 'editor';
   selectEl.disabled = true;
+  _shareMsg('');
   try {
-    const api = _shareType === 'cost_grid' ? Api.costGrids.shares : Api.projects.shares;
-    await api.add(_shareId, userId, newPerm); // POST uses ON CONFLICT DO UPDATE
-    // Brief visual confirmation
-    selectEl.style.outline = '2px solid #16a34a';
-    setTimeout(() => { selectEl.style.outline = ''; }, 800);
-  } catch (e) {
-    alert('Permission update failed: ' + (e.message || 'Unknown error'));
-    selectEl.value = prev; // revert on error
+    const res = await window.apiSave('PATCH', `${_sharesPath()}/${encodeURIComponent(userId)}`, { permission: newPerm });
+    if (res.kind === 'ok') {
+      selectEl.value = res.data?.permission || newPerm;
+      // Brief visual confirmation
+      selectEl.style.outline = '2px solid #16a34a';
+      setTimeout(() => { selectEl.style.outline = ''; }, 800);
+    } else if (res.kind === 'error' && res.status === 404) {
+      await _renderShareList(); // the share is gone: show the list as it is
+      _shareMsg('This person no longer has access.', 'error');
+    } else {
+      selectEl.value = prev; // revert on error
+      _shareMsg(res.message || 'Permission update failed.', 'error');
+    }
   } finally {
     selectEl.disabled = false;
   }
@@ -363,6 +392,7 @@ async function openShareModal(resourceType, resourceId, resourceName) {
 
   document.getElementById('shareModalTitle').textContent = 'Share — ' + resourceName;
   document.getElementById('shareAddMsg').className       = 'small d-none';
+  _shareMsg('');
   document.getElementById('shareSearchInput').value      = '';
   document.getElementById('shareDropdown').style.display = 'none';
   document.getElementById('shareSelectedChip').classList.add('d-none');

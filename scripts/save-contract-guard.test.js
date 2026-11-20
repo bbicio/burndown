@@ -62,9 +62,6 @@ const CLIENT_EXEMPT = new Set([
   'js/pages/project-config.js: timesheets.upload',
   'js/pages/reset-password.js',
   'js/pages/timesheets.js',
-  'js/share-list-component.js',
-  'js/shares.js: costGrids.shares',
-  'js/shares.js: projects.shares',
   'js/upload.js',
 ]);
 
@@ -102,6 +99,9 @@ const RETIRED = [
   'js/costgrid.js: costGrids.versions.linkedProjects.add',
   'js/pages/costgrid.js: programs.create',
   'js/pages/project-config.js: programs.create',
+  'js/shares.js: costGrids.shares',
+  'js/shares.js: projects.shares',
+  'js/share-list-component.js',
   'js/shares.js: programs.share',
 ];
 

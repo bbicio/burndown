@@ -18,7 +18,7 @@ The write methods of `Api.clients`, `Api.clientGroups`, `Api.pipelineYears`, `Ap
 
 ## js/shares.js
 
-The share modal, for `cost_grid`, `project` and `program`. Loads active users that are **neither admin nor sysadmin** from `GET /api/users/active-list` into a searchable in-memory dropdown (2026-09: the exclusion was widened from `role !== 'admin'` to `!['admin','sysadmin'].includes(role)`). It supports both adding new shares and editing the permission (editor/viewer) of existing ones through the same upsert API.
+The share modal, for `cost_grid`, `project` and `program`. Loads active users that are **neither admin nor sysadmin** from `GET /api/users/active-list` into a searchable in-memory dropdown (2026-09: the exclusion was widened from `role !== 'admin'` to `!['admin','sysadmin'].includes(role)`). A proposal's or project's share is written with `apiSave` (save-contract cycle 7): adding is `POST …/shares` (add-only; a 409 `ALREADY_SHARED` shows its message in `#shareAddMsg` and reloads the list), a permission change is `PATCH …/shares/:userId` (the select takes the server's `permission`; a 404 reloads the list with "This person no longer has access.", any other refusal puts the select back), removal is `DELETE …/shares/:userId`. A failed permission change or removal shows its message in `#shareListMsg` (`_shareMsg(text, kind)`); `alert()` is never used. Tests: `js/lib/shares-modal.test.js`.
 
 Module state: `_shareAllUsers` is the immutable source list; `_shareUserList` is that list minus the already-shared users.
 
@@ -30,7 +30,7 @@ A program share (2026-11-18, save-contract cycle 3) goes through `apiSave('POST'
 
 `window.ShareListComponent` (2026-09), a reusable Vue component (props `resource-type`, `resource-id`, `can-manage`) showing a "👥 Shared with" list with a per-row ✕ remove button — hidden for the owner row and whenever `can-manage` is false.
 
-Reads `GET /api/{cost-grids|projects}/:id/shares`, removes via `DELETE .../:id/shares/:userId`: the same endpoints `js/shares.js` already used, so no new API surface. It deliberately does **not** add the ability to create a new share — that stays exclusive to `js/shares.js`'s `#shareModal`.
+Reads `GET /api/{cost-grids|projects}/:id/shares`, removes via `apiSave('DELETE', …/shares/:userId)`: the same endpoints `js/shares.js` uses. A refusal is shown in the component's `error` line (the list stays visible), never with `alert()`; test `js/lib/share-list-component.test.js`. It deliberately does **not** add the ability to create a new share — that stays exclusive to `js/shares.js`'s `#shareModal`.
 
 Registered via `app.component('share-list', window.ShareListComponent)` on both `pipeline.html`'s and `costgrid.html`'s Vue apps.
 
