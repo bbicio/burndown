@@ -182,9 +182,9 @@ function _selectShareUser(user) {
 function _shareMsg(text, kind) {
   const el = document.getElementById('shareListMsg');
   if (!el) return;
-  if (!text) { el.textContent = ''; el.className = 'small d-none mb-3'; return; }
+  if (!text) { el.textContent = ''; el.className = 'small d-none mb-2'; return; }
   el.textContent = text;
-  el.className = 'small mb-3 ' + (kind === 'success' ? 'text-success' : 'text-danger');
+  el.className = 'small mb-2 ' +(kind === 'success' ? 'text-success' : 'text-danger');
 }
 
 // …/shares path of the open proposal or project (apiSave paths carry no /api prefix).
