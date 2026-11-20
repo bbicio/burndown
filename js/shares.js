@@ -28,10 +28,10 @@ function _injectShareModal() {
             <div class="fw-semibold mb-2" style="font-size:.82rem;color:var(--text-muted,#6b7280)">
               WHO HAS ACCESS
             </div>
-            <div id="sharesList" class="mb-2">
+            <div id="shareListMsg" class="small d-none mb-2"></div>
+            <div id="sharesList" class="mb-3">
               <div class="text-muted" style="font-size:.82rem">Loading…</div>
             </div>
-            <div id="shareListMsg" class="small d-none mb-3"></div>
 
             <!-- Add person -->
             <div style="border-top:1px solid #e5e7eb;padding-top:14px">

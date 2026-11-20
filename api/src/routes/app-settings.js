@@ -153,10 +153,9 @@ router.put('/terms', requireSysAdmin, async (req, res, next) => {
         }
         // The draft as GET /terms/draft reads it, inside the transaction: nothing after the COMMIT can
         // turn a saved write into a 500.
-        const [versionRow, metaRow] = await Promise.all([
-          client.query("SELECT value FROM app_settings WHERE key = 'terms_version'"),
-          client.query("SELECT updated_at, u.first_name, u.last_name FROM app_settings s LEFT JOIN users u ON u.id = s.updated_by WHERE s.key = 'terms_content'"),
-        ]);
+        // Sequential: one client runs one query at a time.
+        const versionRow = await client.query("SELECT value FROM app_settings WHERE key = 'terms_version'");
+        const metaRow = await client.query("SELECT updated_at, u.first_name, u.last_name FROM app_settings s LEFT JOIN users u ON u.id = s.updated_by WHERE s.key = 'terms_content'");
         return { newVersion: version, draft: { versionRow, metaRow } };
       }));
     } catch (err) {
