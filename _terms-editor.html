@@ -55,7 +55,7 @@
               </button>
             </div>
           </div>
-          <div v-if="terms.msg" class="alert alert-sm mb-3" :class="terms.msgOk ? 'alert-success' : 'alert-danger'" style="font-size:.85rem">{{ terms.msg }}</div>
+          <div v-if="terms.msg" class="alert alert-sm mb-3" :class="terms.msgOk ? 'alert-success' : 'alert-danger'" style="font-size:.85rem">{{ terms.msg }}<button v-if="terms.reloadable" type="button" class="btn btn-sm btn-outline-secondary ms-2" @click="reloadTerms()">Reload</button></div>
           <div class="text-muted mb-2" style="font-size:.78rem">Edit HTML content below. "Save draft" saves without bumping the version. "Publish new version" increments the version — all users will be asked to re-accept at next login.</div>
           <textarea v-model="terms.content" class="form-control font-monospace" rows="18" style="font-size:.78rem;resize:vertical"></textarea>
         </div>
@@ -124,6 +124,6 @@
 <script type="module" src="js/lib/icons.js?v=7"></script>
 <script type="module" src="js/lib/save.js?v=3"></script>
 <script defer src="js/nav.js?v=25"></script>
-<script type="module" src="js/pages/_terms-editor.js?v=1"></script>
+<script type="module" src="js/pages/_terms-editor.js?v=2"></script>
 </body>
 </html>

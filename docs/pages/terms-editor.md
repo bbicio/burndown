@@ -19,3 +19,7 @@ New state: `versions`/`versionsLoading`/`versionsError` (list) and `viewingVersi
 ## Header unification (2026-10-16)
 
 Spec `docs/superpowers/specs/2026-10-16-header-unification-design.md`, report `docs/superpowers/reports/2026-10-16-header-unification-finish-cycle.md`. The former `.page-header` is now the shared page head (`.ph-*`, [docs/css/stylesheets.md](../css/stylesheets.md) → `css/style.css`), placed outside the `.page` wrapper so the breadcrumb and the band read as one block; `.page` keeps its own 2rem top margin. The title lost its "📄"; the card heading below still reads "📄 Terms & Conditions" (a known follow-up).
+
+## Save contract (cycle 7)
+
+`saveTerms()` writes with `apiSave('PUT', '/app-settings/terms', …)`. On `ok` the page adopts `version`, `updatedAt` and `updatedBy` from the response (the saved draft's date and author, not the browser's guess), then calls `loadVersions()`. On `conflict` (a concurrent publish took the version number) the banner shows the server's message with a "Reload" button (`terms.reloadable`, `reloadTerms()`), which re-reads the draft and the version list. Any other failure shows the outcome's message without Reload.
