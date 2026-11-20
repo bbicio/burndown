@@ -22,7 +22,7 @@ Enter your email and password on the sign-in page. PDash then emails you a six-d
 
 ### Accepting the terms
 
-The first time you sign in, and again each time an administrator publishes a new version, you are taken to an acceptance page. Tick the box to enable the continue button; you then go on to the page you were heading to.
+The first time you sign in, and again each time an administrator publishes a new version, you are taken to an acceptance page. Tick the box to enable the continue button; you then go on to the page you were heading to. If a newer version is published while the page is open, accepting shows you the newer text with the box cleared: read it and accept again.
 
 ### Activating your account and resetting a password
 
@@ -684,7 +684,7 @@ Each row has at most one visible button, **Resend invite** for a pending user or
 
 ### Sysadmin tools
 
-System administrators have two more pages under the Sysadmin heading. **Terms & Conditions** edits the text people accept: **Save draft** keeps it private, **Publish new version** records it permanently and asks everyone to accept it again at their next sign-in, and a preview shows how it looks. Every published version is kept and can be read from the version history. **DB Reset** deletes data in bulk, by scope: proposals, projects and programs, clients and groups, client rate cards, actuals, pipeline years and POTs, and notifications. Every action there is irreversible and asks you to type the word DELETE.
+System administrators have two more pages under the Sysadmin heading. **Terms & Conditions** edits the text people accept: **Save draft** keeps it private, **Publish new version** records it permanently and asks everyone to accept it again at their next sign-in, and a preview shows how it looks. Every published version is kept and can be read from the version history. If another administrator published a version at the same moment, the message offers **Reload** to fetch the current draft and history. **DB Reset** deletes data in bulk, by scope: proposals, projects and programs, clients and groups, client rate cards, actuals, pipeline years and POTs, and notifications. Every action there is irreversible and asks you to type the word DELETE.
 
 ## Account, privacy and sharing
 
@@ -729,6 +729,7 @@ Every offer and every project has an owner, normally whoever created it, and can
 - Viewers do not see the buttons that change things: Edit, Clone and Delete on the pipeline board, Configure and Load Actuals on the reports, and the project configuration form is read only.
 - An administrator can reassign an offer's owner from the offer editor. The new owner also gets Editor access to the projects already linked to it, and is notified by email.
 - When someone's access to a project is removed, they are notified.
+- Changing a permission sends no email or notification. If the person's access was removed meanwhile, the dialog says "This person no longer has access." and refreshes the list; adding someone who already has access says "This user already has access."
 
 </details>
 

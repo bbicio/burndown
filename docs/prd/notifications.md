@@ -36,7 +36,7 @@ Each notification shows:
 - Time ago (e.g. "3m ago")
 - Clickable deep-link if a URL was provided
 
-Clicking a notification marks it as read and navigates to the linked URL if present. "Mark all read" clears the badge in one action.
+Clicking a notification marks it as read and navigates to the linked URL if present. "Mark all read" clears the badge in one action. A notification shows as read only once the server has confirmed it (2026-11-20); if the request fails, it stays unread and the badge shows the server's count.
 
 ### 10.4 Notification Types
 
