@@ -223,18 +223,15 @@
           d.error = null;
           d.errorField = null;
           try {
-            const res = await fetch(`/api/users/${d.userId}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'same-origin',
-              body: JSON.stringify(body),
-            });
-            const data = await res.json();
-            if (!res.ok) {
-              d.error = data.error || 'Update failed';
-              d.errorField = ['firstName', 'lastName', 'email'].includes(data.field) ? data.field : null;
+            const res = await apiSave('PATCH', `/users/${d.userId}`, body);
+            if (res.kind !== 'ok') {
+              d.error = res.message || 'Update failed';
+              const field = res.kind === 'error' ? res.data?.field : null;
+              d.errorField = ['firstName', 'lastName', 'email'].includes(field) ? field : null;
+              if (res.kind === 'unknown') await this.loadUsers();
               return;
             }
+            const data = res.data;
             const user = this.users.find(u => u.id === d.userId);
             // The server voids the invite sent to the old address (PATCH /api/users/:id).
             const inviteVoided = body.email !== undefined && user?.status === 'pending';
@@ -242,8 +239,6 @@
             this.setBanner('success', `Details updated for ${data.first_name} ${data.last_name}.`,
               inviteVoided ? 'Their invite was cancelled: use Resend invite to send it to the new address.' : '');
             detailsDrawer.hide();
-          } catch {
-            d.error = 'Network error. Please try again.';
           } finally {
             d.loading = false;
           }
@@ -311,78 +306,65 @@
           inv.error = null;
           inv.errorField = null;
           try {
-            const res = await fetch('/api/auth/invite', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'same-origin',
-              body: JSON.stringify({
-                email: inv.email,
-                firstName: inv.firstName,
-                lastName: inv.lastName,
-                role: inv.role,
-              }),
+            const res = await apiSave('POST', '/auth/invite', {
+              email: inv.email,
+              firstName: inv.firstName,
+              lastName: inv.lastName,
+              role: inv.role,
             });
-            const data = await res.json();
-            if (!res.ok) {
-              inv.error = data.error || 'Invite failed';
-              if (res.status === 409) inv.errorField = 'email';
+            if (res.kind !== 'ok') {
+              inv.error = res.message || 'Invite failed';
+              if (res.kind === 'error' && res.status === 409) inv.errorField = 'email';
+              if (res.kind === 'unknown') await this.loadUsers();
               return;
             }
-            inv.emailSent = data.emailSent;
+            inv.emailSent = res.data.emailSent;
             inv.sentTo = inv.email;
             inv.sentName = `${inv.firstName} ${inv.lastName}`;
             await this.loadUsers();
-          } catch {
-            inv.error = 'Network error. Please try again.';
           } finally {
             inv.loading = false;
           }
         },
 
-        // PATCH one user (role or status); the three callers differ only in the body and the field read back.
-        async patchUser(user, body, field) {
+        // PATCH one user (role or status); the three callers differ only in the body.
+        async patchUser(user, body) {
           user._loading = true;
           this.clearBanner();
           try {
-            const res = await fetch(`/api/users/${user.id}`, {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              credentials: 'same-origin',
-              body: JSON.stringify(body),
-            });
-            const data = await res.json();
-            if (!res.ok) { this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, data.error); return; }
-            user[field] = data[field];
-          } catch {
-            this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, NETWORK_ERROR);
+            const res = await apiSave('PATCH', `/users/${user.id}`, body);
+            if (res.kind !== 'ok') {
+              this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, res.message);
+              if (res.kind === 'unknown') await this.loadUsers();
+              return;
+            }
+            Object.assign(user, res.data);
           } finally {
             user._loading = false;
           }
         },
 
         toggleRole(user) {
-          return this.patchUser(user, { role: user.role === 'admin' ? 'user' : 'admin' }, 'role');
+          return this.patchUser(user, { role: user.role === 'admin' ? 'user' : 'admin' });
         },
         toggleSysAdmin(user) {
-          return this.patchUser(user, { role: user.role === 'sysadmin' ? 'admin' : 'sysadmin' }, 'role');
+          return this.patchUser(user, { role: user.role === 'sysadmin' ? 'admin' : 'sysadmin' });
         },
         setStatus(user, status) {
-          return this.patchUser(user, { status }, 'status');
+          return this.patchUser(user, { status });
         },
 
         async resendInvite(user) {
           user._sending = true;
           this.clearBanner();
           try {
-            const res = await fetch(`/api/auth/${user.id}/resend-invite`, {
-              method: 'POST', credentials: 'same-origin',
-              headers: { 'Content-Type': 'application/json' },
-            });
-            const d = await res.json();
-            if (!res.ok) { this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, d.error || 'Resend failed'); return; }
+            const res = await apiSave('POST', `/auth/${user.id}/resend-invite`);
+            if (res.kind !== 'ok') {
+              this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, res.message || 'Resend failed');
+              if (res.kind === 'unknown') await this.loadUsers();
+              return;
+            }
             this.setBanner('success', 'Invite resent.', `A new activation link was sent to ${user.email}. It's valid for 48 hours.`);
-          } catch {
-            this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, NETWORK_ERROR);
           } finally {
             user._sending = false;
           }
@@ -392,15 +374,13 @@
           user._loading = true;
           this.clearBanner();
           try {
-            const res = await fetch(`/api/users/${user.id}/anonymize`, {
-              method: 'POST', credentials: 'same-origin',
-              headers: { 'Content-Type': 'application/json' },
-            });
-            const d = await res.json();
-            if (!res.ok) { this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, d.error || 'Anonymization failed'); return; }
+            const res = await apiSave('POST', `/users/${user.id}/anonymize`);
+            if (res.kind !== 'ok') {
+              this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, res.message || 'Anonymization failed');
+              if (res.kind === 'unknown') await this.loadUsers();
+              return;
+            }
             await this.loadUsers();
-          } catch {
-            this.setBanner('error', `Couldn't update ${R.displayName(user)}.`, NETWORK_ERROR);
           } finally {
             user._loading = false;
           }

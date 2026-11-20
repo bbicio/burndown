@@ -315,12 +315,17 @@ router.post('/:id/shares', requireAuth, async (req, res, next) => {
     const proj = await query('SELECT name FROM projects WHERE id = $1', [req.params.id]);
     const sharer = await query('SELECT first_name, last_name FROM users WHERE id = $1', [req.user.id]);
 
-    await query(
+    // Add only: an existing row (an owner's included) is changed by PATCH, never by a second POST.
+    const added = await query(
       `INSERT INTO resource_shares (resource_type, resource_id, user_id, permission, shared_by)
        VALUES ('project', $1, $2, $3, $4)
-       ON CONFLICT (resource_type, resource_id, user_id) DO UPDATE SET permission = $3`,
+       ON CONFLICT (resource_type, resource_id, user_id) DO NOTHING
+       RETURNING user_id`,
       [req.params.id, userId, permission, req.user.id]
     );
+    if (added.rows.length === 0) {
+      return res.status(409).json({ error: 'This user already has access.', code: 'ALREADY_SHARED' });
+    }
 
     const sharerName = `${sharer.rows[0].first_name} ${sharer.rows[0].last_name}`;
     const appUrl = process.env.APP_URL || 'http://localhost';
@@ -351,6 +356,35 @@ router.post('/:id/shares', requireAuth, async (req, res, next) => {
     });
 
     res.status(201).json({ ok: true, emailSent });
+  } catch (err) { next(err); }
+});
+
+router.patch('/:id/shares/:userId', requireAuth, async (req, res, next) => {
+  try {
+    if (!await canEdit(req.user.id, req.user.role, req.params.id)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const { permission } = req.body || {};
+    if (!['editor', 'viewer'].includes(permission)) {
+      return res.status(400).json({ error: 'permission must be editor or viewer' });
+    }
+    if (!isUuid(req.params.userId)) return res.status(400).json({ error: 'userId must be a valid UUID' });
+    const { rows } = await query(
+      `UPDATE resource_shares SET permission = $3
+       WHERE resource_type = 'project' AND resource_id = $1 AND user_id = $2 AND permission <> 'owner'
+       RETURNING user_id, permission`,
+      [req.params.id, req.params.userId, permission]
+    );
+    if (rows.length === 0) {
+      const owner = await query(
+        `SELECT 1 FROM resource_shares WHERE resource_type = 'project'
+         AND resource_id = $1 AND user_id = $2 AND permission = 'owner'`,
+        [req.params.id, req.params.userId]
+      );
+      if (owner.rows.length > 0) return res.status(400).json({ error: "Cannot change the owner's permission" });
+      return res.status(404).json({ error: 'Share not found' });
+    }
+    res.json(rows[0]);
   } catch (err) { next(err); }
 });
 

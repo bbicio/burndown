@@ -9,6 +9,8 @@
     { scope: 'notifications', title: 'Notifications', description: 'Deletes all in-app notifications for all users. Push/email history sent is not affected.', buttonText: 'Delete all notifications', label: 'all notifications for all users' },
   ];
 
+  const LOST_TEXT = "The server's answer was lost — the deletion may have happened. Check before retrying.";
+
   Vue.createApp({
     data() {
       return {
@@ -83,24 +85,17 @@
         const scope = this.pendingScope;
         this.confirmBusy = true;
         try {
-          const res = await fetch('/api/admin/reset/' + scope, {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-          });
-          const data = await res.json();
+          const res = await apiSave('POST', '/admin/reset/' + scope);
           bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
 
-          if (!res.ok) {
-            this.scopeErrorMsg = 'Error: ' + (data.error || 'Unknown error');
+          if (res.kind === 'unknown') { this.scopeErrorMsg = LOST_TEXT; return; }
+          if (res.kind !== 'ok') {
+            this.scopeErrorMsg = 'Error: ' + (res.message || 'Unknown error');
             return;
           }
 
           this.scopeDoneFlag = { scope };
           setTimeout(() => { this.scopeDoneFlag = null; }, 3000);
-        } catch (e) {
-          bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
-          this.scopeErrorMsg = 'Network error: ' + e.message;
         } finally {
           this.confirmBusy = false;
         }
@@ -109,24 +104,18 @@
         const cgId = this.pendingCgId;
         this.confirmBusy = true;
         try {
-          const res = await fetch('/api/admin/reset/cost-grid/' + encodeURIComponent(cgId), {
-            method: 'POST',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-          });
-          const data = await res.json();
+          const res = await apiSave('POST', '/admin/reset/cost-grid/' + encodeURIComponent(cgId));
           bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
 
-          if (!res.ok) {
-            this.cgDeleteMsg = { text: 'Error: ' + (data.error || 'Unknown error'), isError: true };
+          if (res.kind === 'unknown') { this.cgDeleteMsg = { text: LOST_TEXT, isError: true }; return; }
+          if (res.kind !== 'ok') {
+            this.cgDeleteMsg = { text: 'Error: ' + (res.message || 'Unknown error'), isError: true };
             return;
           }
 
+          const data = res.data;
           this.cgDeleteMsg = { text: `✓ Deleted "${data.cgName}" and ${data.projectsDeleted} linked project(s).`, isError: false };
           this.cgIdInput = '';
-        } catch (e) {
-          bootstrap.Modal.getInstance(document.getElementById('confirmModal'))?.hide();
-          this.cgDeleteMsg = { text: 'Network error: ' + e.message, isError: true };
         } finally {
           this.confirmBusy = false;
         }
@@ -155,23 +144,15 @@
 
         this.ownerChangeBusy = true;
         try {
-          const res = await fetch('/api/admin/reset/cost-grid/' + encodeURIComponent(cgId) + '/owner', {
-            method: 'PATCH',
-            credentials: 'include',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ownerId }),
-          });
-          const data = await res.json();
+          const res = await apiSave('PATCH', '/admin/reset/cost-grid/' + encodeURIComponent(cgId) + '/owner', { ownerId });
 
-          if (!res.ok) {
-            this.cgOwnerMsg = { text: 'Error: ' + (data.error || 'Unknown error'), isError: true };
+          if (res.kind !== 'ok') {
+            this.cgOwnerMsg = { text: res.kind === 'unknown' ? res.message : 'Error: ' + (res.message || 'Unknown error'), isError: true };
           } else {
-            this.cgOwnerMsg = { text: `✓ "${data.cgName}" is now owned by ${data.newOwner}.`, isError: false };
+            this.cgOwnerMsg = { text: `✓ "${res.data.cgName}" is now owned by ${res.data.newOwner}.`, isError: false };
             this.cgOwnerIdInput = '';
             this.ownerSelected = '';
           }
-        } catch (e) {
-          this.cgOwnerMsg = { text: 'Network error: ' + e.message, isError: true };
         } finally {
           this.ownerChangeBusy = false;
         }

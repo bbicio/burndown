@@ -370,14 +370,14 @@ A project as `project-config.html` edits it, against its base, bridged to `windo
 | `ok` | a 2xx JSON answer, or an empty body (`data: null`) | `data` |
 | `conflict` | `409` with `code: 'STALE'` | `message`, `version` |
 | `rule` | an HTTP error whose `code` ends in `_RULE` | `code`, `message` |
-| `error` | any other 4xx, JSON or not; a 401 (the redirect is already under way) | `status`, `message` |
+| `error` | any other 4xx, JSON or not; a 401 (the redirect is already under way) | `status`, `message`, `data` (the parsed body, `null` when there is none) |
 | `unknown` | timeout, network error, any 5xx (the write may have committed), a 2xx that is not JSON | `message`: "The server's answer was lost — the change may have been saved. Reload to check." |
 
 The optional fourth argument `{ background: true }` keeps the write out of the save overlay (`apiFetch`'s `background`); the outcomes do not change. `message` is the server's `error`, else `HTTP <status>`. A `409` without `STALE` (a duplicate role code) is an `error`, not a `conflict`.
 
 `saveAndReload(method, path, body, reload, opts)` and `SAVED_NOT_RELOADED`, both bridged to `window`: `saveAndReload` writes with `apiSave`, then runs `reload()` only after an `ok` or an `unknown` outcome. It answers the outcome plus `reloaded`: `true` when `reload()` does not throw and resolves a value other than `false`; with any other outcome `reload()` is not called and `reloaded` is `false`. A page shows `SAVED_NOT_RELOADED` ("Saved, but the list couldn't be reloaded. Reload the page to see the latest.") for an `ok` that is not `reloaded`, and `message` for an `unknown`.
 
-`js/api.js`'s `apiFetch` tags what it throws: `status` and `data` on every HTTP error, `nonJson: true` (with `data: null` and `HTTP <status>`) for a body that is not JSON — a 2xx included, which is no longer handed back as data —, `timeout: true` on `Request timed out`, `network: true` on a rethrown fetch error. Overlay, 401 redirect and timeout are unchanged. Tests: `js/lib/save.test.js`, `js/lib/save-overlay-trigger.test.js`; the rule that `js/` writes only through `apiSave`: `scripts/save-contract-guard.test.js`.
+`js/api.js`'s `apiFetch` tags what it throws: `status` and `data` on every HTTP error, `nonJson: true` (with `data: null` and `HTTP <status>`) for a body that is not JSON — a 2xx included, which is no longer handed back as data —, `timeout: true` on `Request timed out`, `network: true` on a rethrown fetch error. Overlay, 401 redirect and timeout are unchanged. `save.js` is loaded (module, before `js/nav.js`) by every page that calls `initNav` and by `terms.html`; `js/lib/nav-shell-guard.test.js` pins it. Tests: `js/lib/save.test.js`, `js/lib/save-overlay-trigger.test.js`; the rule that `js/` writes only through `apiSave`: `scripts/save-contract-guard.test.js`.
 
 ## tag-toggle.js (2026-11-19, save-contract cycle 4)
 

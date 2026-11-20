@@ -50,3 +50,24 @@ describe('navFillRecipientOptions', () => {
     expect([...sel.options].some(o => o.textContent === 'Loading…')).toBe(false);
   });
 });
+
+// Save contract cycle 7: logout and Send Notification write through apiSave.
+describe('nav.js writes through apiSave', () => {
+  it('logout calls apiSave and then leaves for the login page whatever the outcome', () => {
+    const i = src.indexOf("getElementById('nav-logout-btn').addEventListener");
+    const block = src.slice(i, src.indexOf('login.html', i) + 12);
+    expect(block).toContain("apiSave('POST', '/auth/logout'");
+    const save = block.indexOf("apiSave('POST', '/auth/logout'");
+    const leave = block.indexOf("window.location.href = '/login.html'");
+    expect(save).toBeGreaterThan(-1);
+    expect(leave).toBeGreaterThan(save);
+    expect(block.slice(save, leave).includes('if (')).toBe(false);
+    expect(block).not.toMatch(/if \(.*kind/);
+    expect(src).not.toContain('Api.auth.logout');
+  });
+  it('Send Notification posts with apiSave and shows res.message on a refusal', () => {
+    expect(src).toContain("apiSave('POST', '/notifications'");
+    expect(src).toContain('errEl.textContent = res.message');
+    expect(src).not.toMatch(/apiFetch\('\/notifications'/);
+  });
+});

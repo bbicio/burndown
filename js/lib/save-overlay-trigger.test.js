@@ -197,8 +197,8 @@ describe('save overlay trigger', () => {
   });
   it('the notifications mark-read PATCHes pass background: true', () => {
     const n = readFileSync(join(process.cwd(), 'js/notifications.js'), 'utf8');
-    expect(n).toContain("/notifications/${id}/read`, { method: 'PATCH', background: true }");
-    expect(n).toContain("'/notifications/read-all', { method: 'PATCH', background: true }");
+    expect(n).toContain("apiSave('PATCH', '/notifications/read-all', undefined, { background: true })");
+    expect(n).toContain("/read`, undefined, { background: true })");
   });
   it('does nothing when window.PdOverlay is missing', async () => {
     delete win.PdOverlay;

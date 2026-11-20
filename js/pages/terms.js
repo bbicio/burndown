@@ -15,7 +15,9 @@
       computed: {
         safeContent() { return window.safeTermsHtml(this.termsContent); },
       },
-      async mounted() {
+      async mounted() { await this.loadTerms(); },
+      methods: {
+        async loadTerms() {
         try {
           const r = await fetch('/api/app-settings/terms', { credentials: 'include' });
           if (r.status === 401) { window.location.href = '/login.html'; return; }
@@ -28,23 +30,18 @@
         } catch (e) {
           this.loadError = 'Unable to load terms. Please refresh or contact your administrator.';
         }
-      },
-      methods: {
+        },
         async accept() {
           this.saving = true;
           this.errorMsg = '';
-          try {
-            const r = await fetch('/api/auth/accept-terms', {
-              method: 'POST', credentials: 'include',
-              headers: { 'Content-Type': 'application/json' },
-            });
-            if (r.status === 401) { window.location.href = '/login.html'; return; }
-            if (!r.ok) throw new Error('Server error ' + r.status);
-            window.location.href = this.next;
-          } catch (e) {
-            this.saving = false;
-            this.errorMsg = 'Could not save. Please try again.';
+          const out = await window.apiSave('POST', '/auth/accept-terms', { version: this.version });
+          if (out.kind === 'ok') { window.location.href = this.next; return; }
+          this.saving = false;
+          if (out.kind === 'conflict') {
+            this.checked = false;
+            await this.loadTerms();
           }
+          this.errorMsg = out.message;
         },
       },
     }).mount('#app');

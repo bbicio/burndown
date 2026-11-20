@@ -99,3 +99,7 @@ The account-menu entry `#nav-settings-btn` ("Settings", `config` icon) is now `#
 ## Account menu: My Profile and Change password open profile.html (2026-11)
 
 `#nav-profile-btn` and `#nav-change-pwd-btn` are now `<a class="dropdown-item">` links to `/profile.html` and `/profile.html#password` (ids unchanged); the `#navProfileModal` and `#navChangePwdModal` modals and their handlers are gone. On `profile.html` itself the Change password link only changes the hash, which the page follows. `initNav('profile')` marks `#nav-account-btn` `active` with `aria-current="page"` (`.pd-account-btn.active` in `css/style.css`: `--nav-item-active-bg` and a 3 px inset magenta bar). `nav.js` is `?v=23`. Tests: `js/lib/nav-behavior.test.js`. Page: [docs/pages/profile.md](../pages/profile.md).
+
+## Logout and Send Notification through apiSave (2026-11-20, save contract cycle 7)
+
+`#nav-logout-btn` calls `apiSave('POST', '/auth/logout', undefined, { background: true })` (no save overlay) and then sets `window.location.href = '/login.html'` whatever the outcome; `Api.auth.logout` is deleted. Send Notification posts with `apiSave('POST', '/notifications', …)`: `ok` shows "Sent!", any other outcome shows `res.message` in `#sendNotifError`. Tests: `js/lib/nav-send-notif-options.test.js`. `nav.js?v=25`.

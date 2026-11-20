@@ -115,9 +115,6 @@ const Api = {
 
   auth: {
     me:             ()    => apiFetch('/auth/me'),
-    logout:         ()    => apiFetch('/auth/logout', { method: 'POST' }),
-    changePassword: (d)   => apiFetch('/auth/change-password', { method: 'POST', body: JSON.stringify(d) }),
-    rectificationRequest: (message) => apiFetch('/auth/rectification-request', { method: 'POST', body: JSON.stringify({ message }) }),
   },
 
   appSettings: {
@@ -151,8 +148,6 @@ const Api = {
     tasks:   (id)           => apiFetch(`/projects/${id}/tasks`),
     shares: {
       list:   (id)                    => apiFetch(`/projects/${id}/shares`),
-      add:    (id, userId, permission) => apiFetch(`/projects/${id}/shares`,           { method: 'POST',   body: JSON.stringify({ userId, permission }) }),
-      remove: (id, userId)            => apiFetch(`/projects/${id}/shares/${userId}`,  { method: 'DELETE' }),
     },
     tags: {
       list:    (id)          => apiFetch(`/projects/${id}/tags`),
@@ -183,8 +178,6 @@ const Api = {
     },
     shares: {
       list:   (id)                    => apiFetch(`/cost-grids/${id}/shares`),
-      add:    (id, userId, permission) => apiFetch(`/cost-grids/${id}/shares`,          { method: 'POST',   body: JSON.stringify({ userId, permission }) }),
-      remove: (id, userId)            => apiFetch(`/cost-grids/${id}/shares/${userId}`, { method: 'DELETE' }),
     },
   },
 

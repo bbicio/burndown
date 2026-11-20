@@ -28,3 +28,7 @@ A notification's `url` reaches a link or a navigation only through `safeNotifUrl
 ## The panel link under the CSP (2026-11-17, security cycle 8)
 
 `script-src` has no `'unsafe-inline'`, so the "Open →" link carries no `onclick`. The item's click listener returns at once when the click lands inside an `<a>`: the link navigates by itself and the item is not marked read, as the old `event.stopPropagation()` did. Items added live by `prependNotification` have no item listener. `js/lib/notifications-ui.test.js` pins both the markup and the click.
+
+## Read state follows the server (2026-11-20, save contract cycle 7)
+
+`markAllRead()` and `markOneRead(el)` write with `apiSave('PATCH', …, { background: true })`. The rows lose `unread` and the badge changes only after an `ok` outcome; with any other outcome the rows stay unread and `loadUnreadCount()` reads the count again from the server. A click on a notification with `data-url` navigates after the `PATCH` answers, whatever the outcome. Tests: `js/lib/notifications-ui.test.js`. `notifications.js?v=7`.

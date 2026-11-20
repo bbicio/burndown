@@ -40,6 +40,19 @@ describe('apiSave', () => {
     });
   }
 
+  it('an error outcome carries the response body as data', async () => {
+    load(() => res('{"error":"Current password is incorrect","field":"currentPassword"}', 400));
+    expect(await apiSave('POST', '/auth/change-password', {})).toEqual({
+      kind: 'error', status: 400, message: 'Current password is incorrect',
+      data: { error: 'Current password is incorrect', field: 'currentPassword' },
+    });
+  });
+
+  it('an error outcome without a JSON body has data null', async () => {
+    load(() => res('<html>nope</html>', 404));
+    expect(await apiSave('GET', '/x')).toMatchObject({ kind: 'error', status: 404, data: null });
+  });
+
   it('401 → error, with the redirect to the login page', async () => {
     load(() => res('', 401));
     const out = await apiSave('PATCH', '/roles/r1', { version: 1 });

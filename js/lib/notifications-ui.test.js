@@ -126,3 +126,78 @@ describe('the notification link under the CSP', () => {
     delete globalThis.apiFetch;
   });
 });
+
+// Save contract cycle 7: read state and the badge follow the server's answer.
+describe('marking read follows the server', () => {
+  let calls, outcome, count, fakeWin, m;
+  const rows = () => [...document.querySelectorAll('.notif-item')];
+  beforeEach(() => {
+    calls = [];
+    outcome = { kind: 'ok' };
+    count = 2;
+    fakeWin = {
+      apiSave: async (method, path, body, opts) => { calls.push([method, path, opts]); return outcome; },
+      location: { origin: 'http://localhost', href: '' },
+      notificationUrl,
+    };
+    globalThis.apiFetch = async path => (path === '/notifications/unread-count' ? { count } : []);
+    document.body.innerHTML =
+      '<button id="nav-notif-btn"><span id="nav-notif-badge">2</span></button><div id="nav-notif-list">' +
+      '<div class="notif-item unread" data-id="a" data-url="/pipeline.html"></div>' +
+      '<div class="notif-item unread" data-id="b"></div></div>';
+    m = new Function('window', src + '\nreturn { markAllRead, markOneRead, renderNotifications };')(fakeWin);
+  });
+
+  it('markAllRead ok hides the badge and clears every unread row', async () => {
+    await m.markAllRead();
+    expect(calls[0]).toEqual(['PATCH', '/notifications/read-all', { background: true }]);
+    expect(badge().style.display).toBe('none');
+    expect(rows().some(r => r.classList.contains('unread'))).toBe(false);
+  });
+
+  for (const kind of ['error', 'unknown']) {
+    it(`markAllRead ${kind} keeps the rows unread and rereads the count`, async () => {
+      outcome = { kind };
+      count = 2;
+      await m.markAllRead();
+      expect(rows().every(r => r.classList.contains('unread'))).toBe(true);
+      expect(badge().textContent).toBe('2');
+      count = 5;
+      await m.markAllRead();
+      expect(badge().textContent).toBe('5');
+    });
+  }
+
+  it('markOneRead ok clears the row and lowers the badge', async () => {
+    await m.markOneRead(rows()[1]);
+    expect(calls[0][1]).toBe('/notifications/b/read');
+    expect(rows()[1].classList.contains('unread')).toBe(false);
+    expect(badge().textContent).toBe('1');
+  });
+
+  it('markOneRead error keeps the row unread and rereads the count', async () => {
+    outcome = { kind: 'error' };
+    count = 7;
+    await m.markOneRead(rows()[1]);
+    expect(rows()[1].classList.contains('unread')).toBe(true);
+    expect(badge().textContent).toBe('7');
+  });
+
+  it('two concurrent markOneRead calls on one row write once and lower the badge once', async () => {
+    await Promise.all([m.markOneRead(rows()[1]), m.markOneRead(rows()[1])]);
+    expect(calls.length).toBe(1);
+    expect(badge().textContent).toBe('1');
+  });
+
+  it('a click on a notification with a url navigates even when the PATCH failed', async () => {
+    outcome = { kind: 'error' };
+    globalThis.apiFetch = async path => (path === '/notifications'
+      ? [{ id: 'a', title: 't', created_at: new Date().toISOString(), url: '/pipeline.html', read_at: null }]
+      : { count: 1 });
+    await m.renderNotifications();
+    document.querySelector('.notif-item').click();
+    await new Promise(ok => setTimeout(ok, 0));
+    expect(fakeWin.location.href).toBe('/pipeline.html');
+    expect(document.querySelector('.notif-item').classList.contains('unread')).toBe(true);
+  });
+});

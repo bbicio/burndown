@@ -16,3 +16,7 @@ The page continues to `next` after Accept only if `window.notificationUrl(next, 
 ## Sanitised content (2026-11-16, security cycle 7, U-01)
 
 The Terms HTML reaches the DOM only as `v-html="safeContent"`, a computed that returns `window.safeTermsHtml(this.termsContent)` (`js/lib/terms-html.js`, [docs/js/lib.md](../js/lib.md)). The page loads DOMPurify from jsdelivr (exact version, SRI, `crossorigin`, `defer`) and `js/lib/terms-html.js` before its own script; `privacy-notice.html` does the same. Markup outside the allowlist is removed when shown, not when saved, so every stored version, old ones included, is displayed sanitised. Without DOMPurify the content is shown as escaped text. Pinned by `js/lib/terms-html-guard.test.js`.
+
+## Accepting the version shown (save contract, cycle 7)
+
+`accept()` writes with `apiSave('POST', '/auth/accept-terms', { version })`, the version the page shows. `ok` goes to `next`. On `conflict` (409 STALE: newer terms were published meanwhile) the page reloads the text and version through `loadTerms()` (the former `mounted()` load, extracted unchanged), clears the checkbox and shows the server's message, so the user accepts what they then read. Any other outcome re-enables the button with the outcome's message.

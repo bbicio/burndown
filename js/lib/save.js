@@ -4,7 +4,7 @@
 //   ok       — 2xx JSON (or an empty body): { data }
 //   conflict — 409 STALE: { message, version }; the page offers Reload
 //   rule     — a *_RULE refusal: { code, message }
-//   error    — any other 4xx (JSON or not), a 401: { status, message }
+//   error    — any other 4xx (JSON or not), a 401: { status, message, data } (data: the parsed body, or null)
 //   unknown  — timeout, network, any 5xx, a 2xx that is not JSON: the write may have happened
 // opts.background: true keeps the write out of the save overlay (apiFetch's `background`).
 // Loaded as an ES module (<script type="module" src="js/lib/save.js?v=N">) and bridged onto `window`.
@@ -24,7 +24,7 @@ export async function apiSave(method, path, body, opts) {
     const message = data?.error || err?.message || (status ? `HTTP ${status}` : 'Unknown error');
     if (status === 409 && data?.code === 'STALE') return { kind: 'conflict', message, version: data.version };
     if (/_RULE$/.test(data?.code || '')) return { kind: 'rule', code: data.code, message };
-    return { kind: 'error', status, message };
+    return { kind: 'error', status, message, data: data ?? null };
   }
 }
 

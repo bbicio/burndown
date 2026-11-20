@@ -1,6 +1,7 @@
 ﻿import { describe, it, expect, afterEach, vi } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { rawReadFileSync } from '../../scripts/lib/page-source.setup.mjs';
 
 export const SNIPPET = '<script src="js/sidebar-state.js?v=1"></script>';
 const BODY =
@@ -98,8 +99,41 @@ describe('?v= references of the files edited in B1 and B2', () => {
     const p = readFileSync(join(process.cwd(), 'pipeline.html'), 'utf8');
     expect(p).toContain('css/style.css?v=38');
     expect(p).toContain('js/core.js?v=17');
-    expect(p).toContain('js/nav.js?v=24');
-    expect(p).toContain('js/notifications.js?v=6');
+    expect(p).toContain('js/nav.js?v=25');
+    expect(p).toContain('js/notifications.js?v=7');
     expect(p).toContain('css/tokens.css?v=14');
+  });
+});
+
+describe('save.js on every signed-in page', () => {
+  const root = process.cwd();
+  const pages = readdirSync(root).filter(f => f.endsWith('.html') && rawReadFileSync(join(root, f), 'utf8').includes('js/nav.js'));
+  const SAVE = /<script type="module" src="js\/lib\/save\.js\?v=(\d+)"><\/script>/;
+
+  it('finds the pages that call initNav', () => {
+    expect(pages.length).toBeGreaterThan(15);
+  });
+
+  it.each(pages)('%s loads save.js before nav.js', f => {
+    const html = rawReadFileSync(join(root, f), 'utf8');
+    const m = SAVE.exec(html);
+    expect(m, f + ' lacks save.js').not.toBeNull();
+    expect(html.split('js/lib/save.js').length - 1).toBe(1);
+    expect(m.index).toBeLessThan(html.indexOf('js/nav.js'));
+  });
+
+  it('all pages (and terms.html) agree on the save.js ?v=', () => {
+    const versions = new Set([...pages, 'terms.html'].map(f => SAVE.exec(rawReadFileSync(join(root, f), 'utf8'))?.[1]));
+    expect(versions.size).toBe(1);
+    expect(versions.has(undefined)).toBe(false);
+  });
+
+  it('terms.html loads api.js and save.js before its page script', () => {
+    const html = rawReadFileSync(join(root, 'terms.html'), 'utf8');
+    const page = html.indexOf('js/pages/terms.js');
+    expect(html.indexOf('js/api.js')).toBeGreaterThan(-1);
+    expect(html.indexOf('js/api.js')).toBeLessThan(page);
+    expect(html.indexOf('js/lib/save.js')).toBeGreaterThan(-1);
+    expect(html.indexOf('js/lib/save.js')).toBeLessThan(page);
   });
 });

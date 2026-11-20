@@ -62,7 +62,7 @@ describe('attribute-lists.js', () => {
     expect(src).toContain("'The list was reloaded. Server: '");
   });
   it('loads save.js before the page script', () => {
-    const save = html.indexOf('js/lib/save.js?v=3');
+    const save = html.indexOf('js/lib/save.js?v=4');
     expect(save).toBeGreaterThan(-1);
     expect(save).toBeLessThan(html.indexOf('js/pages/attribute-lists.js?v=2'));
   });

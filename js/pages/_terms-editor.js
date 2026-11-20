@@ -5,7 +5,7 @@
         ready: false,
         accessDenied: false,
         me: {},
-        terms: { version: 1, content: '', updatedAt: null, updatedBy: null, saving: false, msg: null, msgOk: true },
+        terms: { version: 1, content: '', updatedAt: null, updatedBy: null, saving: false, msg: null, msgOk: true, reloadable: false },
         versions: [],
         versionsLoading: false,
         versionsError: null,
@@ -41,28 +41,28 @@
       async saveTerms(publishNewVersion) {
         this.terms.saving = true;
         this.terms.msg    = null;
-        try {
-          const res = await fetch('/api/app-settings/terms', {
-            method: 'PUT',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content: this.terms.content, publishNewVersion }),
-          });
-          const d = await res.json();
-          if (!res.ok) { this.terms.msg = d.error || 'Save failed'; this.terms.msgOk = false; return; }
-          if (publishNewVersion && d.newVersion) this.terms.version = d.newVersion;
-          this.terms.updatedAt = new Date().toISOString();
-          this.terms.updatedBy = this.me.first_name + ' ' + this.me.last_name;
-          this.terms.msg   = publishNewVersion
-            ? `Published as v${this.terms.version} — all users will be asked to re-accept at next login.`
-            : 'Draft saved.';
-          this.terms.msgOk = true;
-          await this.loadVersions();
-        } catch {
-          this.terms.msg = 'Network error.'; this.terms.msgOk = false;
-        } finally {
-          this.terms.saving = false;
+        this.terms.reloadable = false;
+        const out = await window.apiSave('PUT', '/app-settings/terms', { content: this.terms.content, publishNewVersion });
+        this.terms.saving = false;
+        if (out.kind !== 'ok') {
+          this.terms.msg = out.message; this.terms.msgOk = false;
+          this.terms.reloadable = out.kind === 'conflict';
+          return;
         }
+        const d = out.data;
+        this.terms.version   = d.version;
+        this.terms.updatedAt = d.updatedAt;
+        this.terms.updatedBy = d.updatedBy;
+        this.terms.msg   = publishNewVersion
+          ? `Published as v${d.newVersion || d.version} — all users will be asked to re-accept at next login.`
+          : 'Draft saved.';
+        this.terms.msgOk = true;
+        await this.loadVersions();
+      },
+      async reloadTerms() {
+        this.terms.msg = null;
+        this.terms.reloadable = false;
+        await Promise.all([this.loadDraft(), this.loadVersions()]);
       },
       async loadVersions() {
         this.versionsLoading = true;
