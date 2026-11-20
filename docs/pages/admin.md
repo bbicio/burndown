@@ -10,7 +10,7 @@ T&C editor removed (2026-09, moved to `_terms-editor.html`, sysadmin-exclusive).
 
 ## Resend invite (2026-09)
 
-A "✉️ Resend invite" button (`v-if="u.status === 'pending'"`) calls `resendInvite(user)` — a page-local `async` method, same shape as `setStatus()`/`anonymizeUser()` (since save-c7 through `apiSave`, never `Api.*`), hitting the new `POST /api/auth/:id/resend-invite` (`auth.js`). A new `globalSuccess` reactive field (paired alert div, mirroring the pre-existing `globalError` one) shows "Invite resent to {email}"; every one of the page's 5 action methods (`toggleRole`, `toggleSysAdmin`, `setStatus`, `anonymizeUser`, `resendInvite`) now clears both `globalError` and `globalSuccess` at its own start, so a stale success banner from one action can't linger through a later, unrelated one.
+A "✉️ Resend invite" button (`v-if="u.status === 'pending'"`) calls `resendInvite(user)` — a page-local `async` method, same shape as `setStatus()`/`anonymizeUser()` (since save-c7 through `apiSave`, never `Api.*`), hitting the new `POST /api/auth/:id/resend-invite` (`auth.js`). Success shows the `Invite resent.` banner with the recipient's email; every row action (`patchUser` for role and status, `resendInvite`, `anonymizeUser`) clears the page's single `banner` at its own start (`clearBanner()`), so a stale banner from one action can't linger through a later, unrelated one.
 
 ## Header unification (2026-10-16)
 
