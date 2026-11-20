@@ -128,9 +128,9 @@ router.put('/terms', requireSysAdmin, async (req, res, next) => {
       return res.status(400).json({ error: 'content must be a string of at most 100000 characters' });
     }
 
-    let newVersion;
+    let newVersion, draft;
     try {
-      newVersion = await withTransaction(pool, async (client) => {
+      ({ newVersion, draft } = await withTransaction(pool, async (client) => {
         let version = null;
         if (publishNewVersion) {
           const cur = await client.query('SELECT COALESCE(MAX(version), 0) AS max_version FROM terms_versions');
@@ -151,8 +151,14 @@ router.put('/terms', requireSysAdmin, async (req, res, next) => {
             [String(version), req.user.id]
           );
         }
-        return version;
-      });
+        // The draft as GET /terms/draft reads it, inside the transaction: nothing after the COMMIT can
+        // turn a saved write into a 500.
+        const [versionRow, metaRow] = await Promise.all([
+          client.query("SELECT value FROM app_settings WHERE key = 'terms_version'"),
+          client.query("SELECT updated_at, u.first_name, u.last_name FROM app_settings s LEFT JOIN users u ON u.id = s.updated_by WHERE s.key = 'terms_content'"),
+        ]);
+        return { newVersion: version, draft: { versionRow, metaRow } };
+      }));
     } catch (err) {
       if (err.code === '23505' && err.table === 'terms_versions') {
         const cur = await query('SELECT COALESCE(MAX(version), 0) AS max_version FROM terms_versions');
@@ -165,7 +171,13 @@ router.put('/terms', requireSysAdmin, async (req, res, next) => {
       throw err;
     }
 
-    res.json({ ok: true, newVersion });
+    res.json({
+      ok: true,
+      newVersion,
+      version:   parseInt(draft.versionRow.rows[0]?.value || '1'),
+      updatedAt: draft.metaRow.rows[0]?.updated_at || null,
+      updatedBy: formatFullName(draft.metaRow.rows[0]),
+    });
   } catch (err) { next(err); }
 });
 

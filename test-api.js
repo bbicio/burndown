@@ -6386,6 +6386,105 @@ async function testPasswordPolicy() {
   ok(num.status === 400, `PP-04 change-password, numeric newPassword → 400 (got ${num.status})`);
 }
 
+// ── Account, terms and share writes (save-c7) ──────────────────────────────────
+
+async function testAccountWrites() {
+  section('Account, terms and share writes');
+  if (!sysadminCookie) { ok(false, 'ACW-setup sysadmin account unavailable'); return; }
+  const termsOf = async id => (await sql('SELECT terms_version FROM users WHERE id = $1', [id]))?.[0]?.terms_version;
+  const currentMax = async () => Number((await sql('SELECT COALESCE(MAX(version), 1) AS m FROM terms_versions'))?.[0]?.m);
+  const ACCEPT = '/api/auth/accept-terms';
+
+  // ACW-01..06: T&C acceptance carries the version the user read
+  const u = await makeTsUser('acw');
+  if (!u) { ok(false, 'ACW-setup user unavailable'); return; }
+  const session = await loginWithCode(u.email, TS_PASS);
+  if (!ok(!!session, 'ACW-setup user signed in')) return;
+  const M = await currentMax();
+
+  const a1 = await api('POST', ACCEPT, {}, session);
+  ok(a1.status === 400 && a1.data?.error === 'version is required', `ACW-01 no version → 400 version is required (got ${a1.status} ${JSON.stringify(a1.data)})`);
+  const a2s = await api('POST', ACCEPT, { version: 'abc' }, session);
+  const a2z = await api('POST', ACCEPT, { version: 0 }, session);
+  ok(a2s.status === 400 && a2z.status === 400, `ACW-02 non-integer and zero version → 400 (got ${a2s.status}, ${a2z.status})`);
+  const a3 = await api('POST', ACCEPT, { version: M }, session);
+  ok(a3.status === 200 && await termsOf(u.id) === M, `ACW-03 the current version is recorded (got ${a3.status}, terms_version ${await termsOf(u.id)})`);
+
+  const draft = await api('GET', '/api/app-settings/terms/draft', null, sysadminCookie);
+  const pub = await api('PUT', '/api/app-settings/terms', { content: draft.data?.content || '', publishNewVersion: true }, sysadminCookie);
+  ok(pub.status === 200 && pub.data?.newVersion === M + 1 && pub.data?.version !== undefined
+      && 'updatedAt' in pub.data && 'updatedBy' in pub.data,
+    `ACW-04 a publish answers newVersion, version, updatedAt, updatedBy (got ${pub.status} ${JSON.stringify(pub.data)})`);
+  const a5 = await api('POST', ACCEPT, { version: M }, session);
+  ok(a5.status === 409 && a5.data?.code === 'STALE' && a5.data?.version === M + 1 && await termsOf(u.id) === M,
+    `ACW-05 the version read before the publish → 409 STALE with the current one, nothing recorded (got ${a5.status} ${JSON.stringify(a5.data)})`);
+  const a6 = await api('POST', ACCEPT, { version: M + 1 }, session);
+  ok(a6.status === 200 && await termsOf(u.id) === M + 1, `ACW-06 the new version is recorded (got ${a6.status}, terms_version ${await termsOf(u.id)})`);
+
+  // ACW-07..11: share permission PATCH, POST add-only, on a cost grid and on a project
+  const cg = await api('POST', '/api/cost-grids', { name: '__test_acw_cg__' }, sysadminCookie);
+  const cgId = cg.data?.id;
+  if (cgId) later('POST', `/api/admin/reset/cost-grid/${cgId}`);
+  const proj = await api('POST', '/api/projects', { name: '__test_acw_proj__', code: `ACW${Date.now()}` }, sysadminCookie);
+  const pId = proj.data?.id;
+  if (pId) later('DELETE', `/api/projects/${pId}`);
+  if (!ok(!!(cgId && pId), 'ACW-setup cost grid and project created')) return;
+
+  const permOf = async (type, id, uid) =>
+    (await sql('SELECT permission FROM resource_shares WHERE resource_type = $1 AND resource_id = $2 AND user_id = $3', [type, id, uid]))?.[0]?.permission;
+  const notifCount = async uid => Number((await sql('SELECT count(*)::int AS n FROM notifications WHERE user_id = $1', [uid]))?.[0]?.n);
+
+  const runShares = async (ids, type, base, id) => {
+    const label = ids[0];
+    const t = await makeTsUser(`acw${label}`);
+    if (!t) { ok(false, `${label} setup user unavailable`); return; }
+    const owner = (await sql(`SELECT user_id FROM resource_shares WHERE resource_type = $1 AND resource_id = $2 AND permission = 'owner'`, [type, id]))?.[0]?.user_id;
+    const url = `${base}/${id}/shares`;
+
+    // share, delete, then PATCH → 404 and no row
+    const s0 = await api('POST', url, { userId: t.id, permission: 'viewer' }, sysadminCookie);
+    const d0 = await api('DELETE', `${url}/${t.id}`, null, sysadminCookie);
+    const p0 = await api('PATCH', `${url}/${t.id}`, { permission: 'editor' }, sysadminCookie);
+    ok(s0.status === 201 && d0.status === 200 && p0.status === 404 && p0.data?.error === 'Share not found' && await permOf(type, id, t.id) === undefined,
+      `${ids[0]} PATCH of a deleted share → 404 Share not found, no row (got ${s0.status}, ${d0.status}, ${p0.status} ${JSON.stringify(p0.data)})`);
+
+    // reshare, then PATCH to editor: no notification, no mail
+    if (process.env.MAILPIT_URL) await mailpit('DELETE', '/api/v1/messages');
+    const s1 = await api('POST', url, { userId: t.id, permission: 'viewer' }, sysadminCookie);
+    if (process.env.MAILPIT_URL) await mailpit('DELETE', '/api/v1/messages');
+    const n0 = await notifCount(t.id);
+    const p1 = await api('PATCH', `${url}/${t.id}`, { permission: 'editor' }, sysadminCookie);
+    const n1 = await notifCount(t.id);
+    const mails = process.env.MAILPIT_URL ? await mailsTo(t.email) : [];
+    ok(s1.status === 201 && p1.status === 200 && p1.data?.permission === 'editor' && p1.data?.user_id === t.id
+        && n1 === n0 && mails.length === 0 && await permOf(type, id, t.id) === 'editor',
+      `${ids[1]} PATCH to editor → 200, no notification, no mail (got ${p1.status} ${JSON.stringify(p1.data)}, notifications ${n0}→${n1}, ${mails.length} mail)`);
+
+    // owner's permission stays
+    const po = owner ? await api('PATCH', `${url}/${owner}`, { permission: 'viewer' }, sysadminCookie) : null;
+    ok(po?.status === 400 && await permOf(type, id, owner) === 'owner',
+      `${ids[2]} PATCH of the owner → 400, still owner (got ${po?.status} ${JSON.stringify(po?.data)})`);
+
+    // POST on an existing row, owner's included
+    const dup = await api('POST', url, { userId: t.id, permission: 'viewer' }, sysadminCookie);
+    const dupOwner = owner ? await api('POST', url, { userId: owner, permission: 'viewer' }, sysadminCookie) : null;
+    ok(dup.status === 409 && dup.data?.code === 'ALREADY_SHARED' && dup.data?.error === 'This user already has access.'
+        && dupOwner?.status === 409 && dupOwner.data?.code === 'ALREADY_SHARED'
+        && await permOf(type, id, t.id) === 'editor' && await permOf(type, id, owner) === 'owner',
+      `${ids[3]} POST on an existing share → 409 ALREADY_SHARED, permissions unchanged (got ${dup.status}, ${dupOwner?.status})`);
+  };
+  await runShares(['ACW-07', 'ACW-08', 'ACW-09', 'ACW-10'], 'cost_grid', '/api/cost-grids', cgId);
+  await runShares(['ACW-11', 'ACW-11', 'ACW-11', 'ACW-11'], 'project', '/api/projects', pId);
+
+  // ACW-12: change-password answers password_changed_at
+  const NEWPW = 'Amber-Harbor-Quill-91';
+  const cp = await api('POST', '/api/auth/change-password', { currentPassword: TS_PASS, newPassword: NEWPW, newPasswordConfirm: NEWPW }, session);
+  const row = (await sql('SELECT password_changed_at FROM users WHERE id = $1', [u.id]))?.[0];
+  ok(cp.status === 200 && cp.data?.ok === true && !!cp.data?.password_changed_at && row
+      && new Date(cp.data.password_changed_at).getTime() === new Date(row.password_changed_at).getTime(),
+    `ACW-12 change-password → 200 with the stored password_changed_at (got ${cp.status} ${JSON.stringify(cp.data)})`);
+}
+
 // ── Notification url rule (S-01) ────────────────────────────────────────────────
 
 async function testNotificationUrl() {
@@ -6805,6 +6904,7 @@ async function main() {
     await testPasswordPolicy();
     await testNotificationUrl();
     await testServerAtomicity();
+    await testAccountWrites();
   } catch (e) {
     process.stdout.write(red(`\nUnexpected error: ${e.message}\n`));
     console.error(e.stack);

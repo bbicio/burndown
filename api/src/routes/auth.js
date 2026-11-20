@@ -202,12 +202,24 @@ router.post('/rectification-request', requireAuth, async (req, res, next) => {
 // POST /api/auth/accept-terms
 router.post('/accept-terms', requireAuth, async (req, res, next) => {
   try {
-    const currentTermsVersion = await getCurrentTermsVersion();
-    await query(
-      'UPDATE users SET terms_version = $1, terms_accepted_at = NOW() WHERE id = $2',
-      [currentTermsVersion, req.user.id]
+    const version = req.body?.version;
+    if (!Number.isInteger(version) || version <= 0) {
+      return res.status(400).json({ error: 'version is required' });
+    }
+    // One statement: the acceptance is recorded only when the version read is still the current one.
+    const { rowCount } = await query(
+      `UPDATE users SET terms_version = $1, terms_accepted_at = NOW()
+       WHERE id = $2 AND $1 = (SELECT COALESCE(MAX(version), 1) FROM terms_versions)`,
+      [version, req.user.id]
     );
-    res.json({ ok: true, terms_version: currentTermsVersion });
+    if (rowCount === 0) {
+      return res.status(409).json({
+        error: 'A new version of the Terms & Conditions was published. Please read it and accept again.',
+        code: 'STALE',
+        version: await getCurrentTermsVersion(),
+      });
+    }
+    res.json({ ok: true, terms_version: version });
   } catch (err) { next(err); }
 });
 
@@ -613,7 +625,7 @@ router.post('/change-password', requireAuth, async (req, res, next) => {
     setAuthCookie(res, sessionClaims({
       id: req.user.id, role: req.user.role, email: changed.email, password_changed_at: changed.password_changed_at,
     }));
-    res.json({ ok: true });
+    res.json({ ok: true, password_changed_at: changed.password_changed_at });
   } catch (err) {
     if (!judged) refundSlot();
     next(err);

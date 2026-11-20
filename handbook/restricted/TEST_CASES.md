@@ -1382,6 +1382,25 @@ Spec: `docs/superpowers/specs/2026-11-19-save-c6-master-data-pages-design.md`. C
 | MDR-07 | Delete a year used by a version | Create a Draft version carrying the year; delete the year | `409 YEAR_IN_USE` | ✓ |
 | MDR-08 | Client names are trimmed | Create `  Mdr Trim  `; rename it to `  Mdr Trim2  ` | Both responses carry the trimmed name | ✓ |
 
+## 35. Account, terms and share writes (2026-11-20)
+
+Spec: `docs/superpowers/specs/2026-11-20-save-c7-account-admin-rest-design.md`. Accepting the Terms names the version read; a share's permission changes through its own `PATCH`; adding a share never overwrites one.
+
+| ID | Scenario | Steps | Expected | Auto |
+|---|---|---|---|---|
+| ACW-01 | Accept without a version | `POST /api/auth/accept-terms` with `{}` | `400`, `version is required` | ✓ |
+| ACW-02 | Accept with an invalid version | Send `{ version: 'abc' }`, then `{ version: 0 }` | `400` both | ✓ |
+| ACW-03 | Accept the current version | Send `{ version: M }`, `M` being the latest published | 200; `terms_version` is `M` | ✓ |
+| ACW-04 | Publish answers the draft | Publish the Terms as sysadmin | 200 with `newVersion` `M + 1`, `version`, `updatedAt`, `updatedBy` | ✓ |
+| ACW-05 | Accept the version read before a publish | Send `{ version: M }` after `M + 1` was published | `409 STALE` with `version` `M + 1`; `terms_version` still `M` | ✓ |
+| ACW-06 | Accept the new version | Send `{ version: M + 1 }` | 200; `terms_version` is `M + 1` | ✓ |
+| ACW-07 | Change the permission of a removed share | Share a cost grid, delete the share, `PATCH` it to editor | `404 Share not found`; no row | ✓ |
+| ACW-08 | Change a permission quietly | Share again as viewer, `PATCH` to editor | 200 `editor`; no notification and no mail for the user | ✓ |
+| ACW-09 | Change the owner's permission | `PATCH` the owner's row | 400; still `owner` | ✓ |
+| ACW-10 | Add a share that exists | `POST` the same user again, then the owner | `409 ALREADY_SHARED` both; permissions unchanged | ✓ |
+| ACW-11 | The same on a project | ACW-07 to ACW-10 on `/api/projects/:id/shares` | As above | ✓ |
+| ACW-12 | Change password answers its date | Change the password | 200 with `password_changed_at` equal to the stored one | ✓ |
+
 ---
 
 ## 17. Regression — Cross-feature

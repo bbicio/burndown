@@ -17,6 +17,8 @@ What lives in `api/src/services/`, and where each one is documented. `CLAUDE.md`
 
 Nodemailer wrappers: `sendInvite`, `sendPasswordReset`, `sendShareNotification`, `sendShareRevokedEmail`, `sendOwnerReassignedEmail`, `sendExportEmail`, `sendAdminNotificationEmail`. `renderAdminNotificationLink(url)` (exported, 2026-11-15) builds that mail's "Open in PDash" paragraph: a link only for a url `notificationLink()` accepts, escaped for the `href`; see `docs/api/lib.md` (`notification-url.js`).
 
+`PATCH /:id/shares/:userId` of `cost-grids.js` and `projects.js` changes a share's permission (`editor`|`viewer`) in one `UPDATE … AND permission <> 'owner' RETURNING`; `404 Share not found`, `400` for the owner's row, no email or notification. `POST /:id/shares` only adds: `ON CONFLICT DO NOTHING`, and an existing row (the owner's included) answers `409 { code: 'ALREADY_SHARED' }` before any email or notification (`test-api.js` `ACW-07`..`ACW-11`).
+
 `sendShareRevokedEmail` (2026-09) is the access-removed counterpart to `sendShareNotification`. It is consumed **only** by `projects.js`'s `DELETE /:id/shares/:userId` — cost-grid share removal does not call it, a deliberate scope decision rather than an omission.
 
 The module also exports an `APP_URL` constant (2026-09) used for building the links inside emails, and `appLink(path)` (`${APP_URL}${path}`, 2026-11-16, B-499), which builds every share and owner-reassignment link of `routes/cost-grids.js`. Tests: `api/src/services/email-app-link.test.js`.
