@@ -327,8 +327,8 @@
           }
         },
 
-        // PATCH one user (role or status); the three callers differ only in the body and the field read back.
-        async patchUser(user, body, field) {
+        // PATCH one user (role or status); the three callers differ only in the body.
+        async patchUser(user, body) {
           user._loading = true;
           this.clearBanner();
           try {
@@ -345,13 +345,13 @@
         },
 
         toggleRole(user) {
-          return this.patchUser(user, { role: user.role === 'admin' ? 'user' : 'admin' }, 'role');
+          return this.patchUser(user, { role: user.role === 'admin' ? 'user' : 'admin' });
         },
         toggleSysAdmin(user) {
-          return this.patchUser(user, { role: user.role === 'sysadmin' ? 'admin' : 'sysadmin' }, 'role');
+          return this.patchUser(user, { role: user.role === 'sysadmin' ? 'admin' : 'sysadmin' });
         },
         setStatus(user, status) {
-          return this.patchUser(user, { status }, 'status');
+          return this.patchUser(user, { status });
         },
 
         async resendInvite(user) {

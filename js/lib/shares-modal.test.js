@@ -26,9 +26,7 @@ function load() {
   const esc = s => String(s ?? '');
   window.apiSave = apiSave;
   window.alert = alertSpy;
-  // The modal focuses its search box 300 ms after opening; by then a later test may have emptied the body.
-  const setTimeoutSafe = (fn, ms) => setTimeout(() => { try { fn(); } catch { /* the DOM was reset */ } }, ms);
-  return new Function('Api', 'bootstrap', 'esc', 'setTimeout', `${js}; return { openShareModal };`)(Api, bootstrap, esc, setTimeoutSafe);
+  return new Function('Api', 'bootstrap', 'esc', `${js}; return { openShareModal };`)(Api, bootstrap, esc);
 }
 
 function search(q) {

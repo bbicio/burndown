@@ -28,7 +28,7 @@ describe('admin page writes through apiSave', () => {
     const user = row();
     const data = { id: 'u1', email: 'e', first_name: 'F', last_name: 'L', role: 'admin', status: 'active' };
     window.apiSave.mockResolvedValue({ kind: 'ok', data });
-    await vm.patchUser(user, { role: 'admin' }, 'role');
+    await vm.patchUser(user, { role: 'admin' });
     expect(window.apiSave).toHaveBeenCalledWith('PATCH', '/users/u1', { role: 'admin' });
     expect(user).toMatchObject(data);
     expect(user._loading).toBe(false);
@@ -39,7 +39,7 @@ describe('admin page writes through apiSave', () => {
     const { vm } = loadPage();
     const user = row();
     window.apiSave.mockResolvedValue({ kind: 'error', status: 403, message: 'Last sysadmin', data: null });
-    await vm.patchUser(user, { role: 'admin' }, 'role');
+    await vm.patchUser(user, { role: 'admin' });
     expect(user.role).toBe('user');
     expect(vm.banner.kind).toBe('error');
     expect(vm.banner.text).toBe('Last sysadmin');
@@ -50,7 +50,7 @@ describe('admin page writes through apiSave', () => {
     const { vm } = loadPage();
     const user = row();
     window.apiSave.mockResolvedValue({ kind: 'unknown', message: 'lost' });
-    await vm.patchUser(user, { status: 'disabled' }, 'status');
+    await vm.patchUser(user, { status: 'disabled' });
     expect(vm.banner.text).toBe('lost');
     expect(vm.loadUsers).toHaveBeenCalled();
     expect(user.status).toBe('active');

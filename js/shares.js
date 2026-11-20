@@ -406,5 +406,5 @@ async function openShareModal(resourceType, resourceId, resourceName) {
   await _renderShareList(); // internally calls _refreshEligibleList, which reads _shareAllUsers
 
   bootstrap.Modal.getOrCreateInstance(document.getElementById('shareModal')).show();
-  setTimeout(() => document.getElementById('shareSearchInput').focus(), 300);
+  setTimeout(() => document.getElementById('shareSearchInput')?.focus(), 300);
 }
